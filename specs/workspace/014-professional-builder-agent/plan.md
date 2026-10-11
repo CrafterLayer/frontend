@@ -198,6 +198,28 @@ Independent UI work may own only existing panel/composer/thread/header styling, 
 scrolling hook. The primary owns concurrency contracts, controller wiring, task UI, integration,
 browser evidence and continuity. Every new component needs its full five-artifact contract.
 
+## Baseline quality repair — 2026-10-10
+
+`builder-shell` owns the InspectorPartPanel MDX literal fix. `builder-custom-code` owns the existing
+ScriptParamsForm's local export, stylesheet, stories, MDX and behavioral tests. The existing
+Storybook globs already include both owners; retain the configuration and its a11y/indexing gates.
+No dependency or production composition change, public root export, data migration or deployment.
+
+Use the existing chrome tokens and logical CSS properties. Document the controlled stored-values
+contract and preview-only callbacks separately from undoable commits. Do not rewrite the dormant
+form or introduce additional UI components merely to complete its artifacts; fix runtime gaps only
+when focused checks demonstrate them. Run component/package tests, custom-code types/lint,
+changed-file formatting, repository component/boundary contracts and the complete static Storybook
+build, plus focused Chromium story interactions and a fresh read-only review. Full release and
+unrelated bundle budgets remain separate gates.
+
+Bounded existing-code exception: this artifact-only repair retains ScriptParamsForm's existing
+`renderControl`/`renderParam` helpers rather than changing its dormant implementation architecture.
+Owner: `builder-custom-code`. Rationale: expanding this build/documentation fix into a form rewrite
+would change unrequested behavior. Removal condition: extract substantive control/row components
+with full artifacts before new production wiring or substantial form behavior work. This exception
+does not permit new nested/sibling production components.
+
 ## Approved quality and Frontend increment — 2026-10-10
 
 Scope: `apps/evals` owns Node/Playwright axe evaluation and bounded reports; `builder-media-engines`

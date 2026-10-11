@@ -9,7 +9,6 @@ import {
   validateParamValues,
   type Bilingual,
   type CustomCodeJsParams,
-  type ScriptParamGroup,
   type ScriptParamSpec,
   type ScriptParamValue,
 } from '@craftkit/builder-schema';
@@ -157,9 +156,10 @@ export default function ScriptParamsForm({
   };
 
   const setDraftKey = (key: string, value: ScriptParamValue | undefined): void => {
-    const next = { ...draftRef.current };
-    if (value === undefined) delete next[key];
-    else next[key] = value;
+    const next = Object.fromEntries(
+      Object.entries(draftRef.current).filter(([entryKey]) => entryKey !== key),
+    );
+    if (value !== undefined) next[key] = value;
     draftRef.current = next;
     setDraft(next);
   };
@@ -279,7 +279,8 @@ export default function ScriptParamsForm({
 
       case 'color': {
         const colour = typeof value === 'string' ? value : String(param.default);
-        const text = typeof draft[`${key}#text`] === 'string' ? String(draft[`${key}#text`]) : colour;
+        const text =
+          typeof draft[`${key}#text`] === 'string' ? String(draft[`${key}#text`]) : colour;
         return (
           <div className="bldr-spf__colour">
             <input
@@ -373,7 +374,6 @@ export default function ScriptParamsForm({
               <ul className="bldr-spf__swatches">
                 {colours.map((swatch, index) => (
                   // The list is positional: index IS the identity of a swatch.
-                  // eslint-disable-next-line react/no-array-index-key
                   <li key={index} className="bldr-spf__swatch-item">
                     <input
                       type="color"
@@ -689,7 +689,10 @@ export default function ScriptParamsForm({
             </button>
           ) : null}
         </div>
-        {renderControl(param, helpId === undefined ? { control: controlId } : { control: controlId, help: helpId })}
+        {renderControl(
+          param,
+          helpId === undefined ? { control: controlId } : { control: controlId, help: helpId },
+        )}
         {param.help !== undefined && helpId !== undefined ? (
           <p className="bldr-spf__help" id={helpId}>
             {pick(param.help, arabic)}
@@ -710,7 +713,7 @@ export default function ScriptParamsForm({
       {groups.map(({ group, params }) => (
         <fieldset key={group} className="bldr-spf__group" disabled={disabled}>
           <legend className="bldr-spf__legend">
-            {pick(SCRIPT_PARAM_GROUP_LABELS[group as ScriptParamGroup], arabic)}
+            {pick(SCRIPT_PARAM_GROUP_LABELS[group], arabic)}
           </legend>
           {params.map(renderParam)}
         </fieldset>

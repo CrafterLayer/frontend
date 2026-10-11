@@ -5,7 +5,7 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-chat-increment-verified-release-open",
+    "phase": "professional-builder-agent-014-baseline-quality-repair-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -227,15 +227,15 @@
     ]
   },
   "currentWork": {
-    "status": "idle-chat-increment-locally-verified-feature-014-release-open",
-    "scope": "apps/playground/features/agent-live-panel-scrolling-build-worker-selection-and-task-summary; apps/evals-local-browser-regression",
+    "status": "idle-baseline-quality-repair-locally-verified-feature-014-release-open",
+    "scope": "builder-shell InspectorPartPanel MDX; builder-custom-code ScriptParamsForm component artifacts and stylesheet; existing shared Storybook catalog",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "T154-T159 checked with verification-agent-chat-2026-10-10.md; CHAT-001..005 locally verified. T148-T153 prior quality evidence and element/library evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
+    "completedTasks": "T160-T164 checked with verification-baseline-quality-2026-10-10.md; BQ-001..003 locally verified. Prior T154-T159 CHAT and T148-T153 QF evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
     "nextUncompletedTask": "T045",
     "blocked": {
       "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
     },
-    "nextAction": "No requested chat work remains. See verification-agent-chat-2026-10-10.md for 298 scoped tests, 90 Chromium story plays, nine browser variants, Playground/scoped Storybook builds, types/lint/format and 36-member workspace/boundary passes. Full Storybook is blocked by baseline InspectorPartPanel.docs.mdx:13; four baseline ScriptParamsForm artifacts remain missing. All-packs bundle debt is prior evidence, not rerun here. On a newly authorized feature continuation, inspect revision-bound inspect_preview adapters and the Source Agent apply path for T045/T122 before preview-feedback repair. New panel defaults3 and selects1/3/6; legacy auto8 and separate authored scheduler unchanged. Preserve staged baseline. Task-owned port5186 stopped; existing servers untouched. No staging, commit, push, deployment or paid provider calls."
+    "nextAction": "No requested baseline-repair task remains. Inspector MDX indexing and four ScriptParamsForm artifact blockers are resolved, including missing CSS and three source lint errors. Fresh evidence: custom-code 180 tests, selected Inspector 16 tests, original-config Chromium 16 story/a11y tests, full static Storybook rebuild, custom-code lint/types, component221/workspace36/boundary contracts, diff/format and independent read-only final review pass. See verification-baseline-quality-2026-10-10.md for failed/repaired story fixtures, sandbox listener retry, and an interrupted broad shell suite with two test timeouts; do not claim full pnpm verify or shell-suite success. Existing bundle warnings/budget debt and full feature 014 release remain separate. On a newly authorized continuation inspect T045/T122. Preserve prior staged features and unstaged chat; ScriptParamsForm remains dormant, local export only. No dependencies, staging, commits, deployment or paid provider calls."
   },
   "qualityGates": {
     "governanceConfigured": true,

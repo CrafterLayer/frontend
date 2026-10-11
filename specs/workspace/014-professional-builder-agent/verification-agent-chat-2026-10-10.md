@@ -1,5 +1,10 @@
 # Agent conversation and parallel-task verification — 2026-10-10
 
+Follow-up resolution: the baseline Inspector MDX and ScriptParamsForm artifact blockers recorded
+below were repaired in
+[verification-baseline-quality-2026-10-10.md](verification-baseline-quality-2026-10-10.md). This
+chat report's original results and remaining gates are retained as historical evidence.
+
 Scope: CHAT-001..005 / T154..159 in `apps/playground/src/features/agent`, plus the local
 `apps/evals` browser regression. Node 24.19.0 / pnpm 11.23.0. The existing staged work was the
 baseline, not part of this increment. No dependencies, provider calls, staging, commits, pushes or
@@ -102,8 +107,8 @@ pnpm --filter @craftkit/storybook exec storybook build -c .agent-chat-qa -o <uni
 ```
 
 The four temporary configuration files were removed after verification. Production Storybook
-configuration was not changed. Scoped generated output is disposable under `/private/tmp`.
-The task-owned Vite server on 127.0.0.1:5186 was stopped; existing developer servers were untouched.
+configuration was not changed. Scoped generated output is disposable under `/private/tmp`. The
+task-owned Vite server on 127.0.0.1:5186 was stopped; existing developer servers were untouched.
 
 A fresh independent read-only reviewer inspected the real increment and acceptance artifacts. Its
 Medium finding was the unnamed ShortViewport combobox query after adding the native worker select;

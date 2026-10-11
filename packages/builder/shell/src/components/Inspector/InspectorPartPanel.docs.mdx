@@ -10,7 +10,7 @@ The Inspector's panel for ONE part of a registered block (block-parts DESIGN §2
 clicked on the canvas — the hero's heading, a feature card's title, the CTA link — edited on its
 own, the way GrapesJS edits a component. `Inspector` renders it whenever the kernel's ephemeral
 `partFocus` names a declared part of the selected block; the header then reads
-"<part label> · <block name>" (localized) and its back button, **Back to block**, calls
+`<part label> · <block name>` (localized) and its back button, **Back to block**, calls
 `kernel.clearPartFocus()` so the block stays selected.
 
 <Canvas of={InspectorPartPanelStories.InTheInspector} />

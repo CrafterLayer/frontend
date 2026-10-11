@@ -301,3 +301,20 @@ bulk-checked from this increment's local evidence.
 
 Evidence: [verification-agent-chat-2026-10-10.md](verification-agent-chat-2026-10-10.md).
 CHAT-001..005 is locally verified; full feature 014 release and live model quality remain open.
+
+## Approved baseline quality repair — 2026-10-10
+
+- [x] T160 Reproduce and fix InspectorPartPanel's literal-tag MDX indexing failure without changing
+      Storybook's configured scope or weakening checks.
+- [x] T161 Complete existing ScriptParamsForm's local export, missing stylesheet, typed stories and
+      attached MDX, preserving its production composition and dependencies.
+- [x] T162 Add native-control/draft/commit/reset/disabled/empty/Arabic behavioral coverage and repair
+      only runtime gaps proven by scoped tests.
+- [x] T163 Run owning-package static/tests, component/workspace/boundary contracts, full Storybook
+      static build and focused Chromium stories; record exact outcomes and remaining gates.
+- [x] T164 Independently review the real repair diff, resolve accepted findings, rerun checks and
+      refresh the canonical handoff without claiming all of feature 014 complete.
+
+Evidence: [verification-baseline-quality-2026-10-10.md](verification-baseline-quality-2026-10-10.md).
+BQ-001..003 is locally verified; prior chat/catalog blockers are resolved, not the full feature
+014 release or live model quality gates.

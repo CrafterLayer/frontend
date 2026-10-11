@@ -1,6 +1,48 @@
 # Active Work Handoff
 
-## Current continuation — 2026-10-10
+## Current continuation — baseline repair, 2026-10-10
+
+Requested baseline repair: **idle / locally verified**. BQ-001..003 / T160..164 are complete.
+Overall feature 014 production release remains open. Preserve the staged user baseline and all
+unstaged chat/repair work; do not reset, bulk-stage, commit, push or deploy.
+
+### Delivered and verified
+
+- `builder-shell` InspectorPartPanel's MDX now formats the header placeholder as literal code;
+  the full configured Storybook catalog indexes/builds successfully, without configuration changes.
+- `builder-custom-code` ScriptParamsForm has its four missing artifacts (local export, typed
+  stories, attached MDX, behavior tests), missing stylesheet and local deterministic fixture.
+  Three old lint errors were repaired equivalently. No product wiring or root API expansion.
+- Source semantics remain stored overrides vs preview callbacks vs one gesture commit. The story
+  models committed host values with React state rather than unsupported portable `useArgs`
+  re-rendering; reset interaction remains repeatable. Existing render-helper exception is owned and
+  bounded in the plan: extract before production wiring/substantial new form behavior work.
+- Custom-code 14 files / 180 tests, selected Inspector 16 tests and original-config Chromium 16
+  story/a11y tests passed. Custom-code lint/types, changed-form format, diff whitespace, full static
+  Storybook rebuild (5172 modules / 2268 index entries), component221/workspace36/boundary contracts
+  passed. Fresh read-only review independently passed18 form tests and rechecked the story repair;
+  no actionable findings remain. Scoped BQ convergence found no additional unbuilt requirement.
+
+Evidence: `specs/workspace/014-professional-builder-agent/verification-baseline-quality-2026-10-10.md`.
+The earlier chat report now links this resolution while retaining its original evidence.
+
+### Remaining limits and next work
+
+There is no remaining requested repair task. Existing bundle warnings and previous renderer
+all-packs budget debt remain separate; no threshold was raised. Full verify/coverage/catalog browser
+matrix, Firefox/WebKit, real mobile pickers/manual screen readers and live model quality/cost were
+not run. A mistakenly broad shell test command timed out two DesignSystemPanel tests and was stopped
+(exit130), not passed; the corrected direct Inspector suite passed. Initial sandboxed browser runs
+could not bind IPv6; final browser run used approved local-listener permission with no source/config
+workaround. First interactive fixture failures were repaired and rerun successfully.
+
+ScriptParamsForm remains dormant, not integrated into Inspector/Studio. On a newly authorized
+feature continuation, inspect T045/T122 preview feedback and source-agent adapters; do not assume
+provider-call or external-write authorization. Preserve prior chat worker defaults and source-agent
+scope. No new persistent server was started, no unknown process was stopped, no dependencies,
+paid calls, staging, commits, pushes or deployment. Node24.19.0 / pnpm11.23.0.
+
+## Previous chat increment — 2026-10-10
 
 Current requested increment: **idle / locally verified**. CHAT-001..005 and T154..159 are
 complete for the live `apps/playground/src/features/agent` chat. Overall feature 014 production

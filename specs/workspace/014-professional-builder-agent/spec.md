@@ -357,6 +357,21 @@ verification, deployment, or rewriting existing staged features.
   geometry checks prove this increment. Whole-feature release and live-generation quality remain
   open.
 
+## Approved baseline quality repair — 2026-10-10
+
+The user authorizes repairing the old Inspector MDX build error and ScriptParamsForm's missing
+component artifacts identified in the chat verification. Scope is `builder-shell`,
+`builder-custom-code` and their existing shared Storybook catalog, not unfinished Agent features.
+
+- BQ-001: Literal Inspector header placeholders render as documentation text rather than MDX tags;
+  the complete configured Storybook catalog must index and build without weakening its gates.
+- BQ-002: The existing ScriptParamsForm has a local export, representative typed stories, attached
+  MDX, behavior tests and its previously missing stylesheet. Its default/draft/commit/reset,
+  disabled, empty, Arabic and native control behavior are verified without adding new dependencies
+  or wiring an unfinished form into the product.
+- BQ-003: Preserve all existing staged/unstaged work. Record fresh scoped checks and independent
+  review; successful catalog/component checks do not imply full feature 014 release acceptance.
+
 ## Approved quality and Frontend increment — 2026-10-10
 
 The user's `1+2` clarification adds interactive React websites and Frontend applications (including

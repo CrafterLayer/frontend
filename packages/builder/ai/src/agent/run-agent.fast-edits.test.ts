@@ -681,3 +681,92 @@ describe('runAiAgent — a direct edit resolves no skills', () => {
     expect(prepared()).toBe(1);
   });
 });
+
+/*
+  Context meter (2026-10-12): `context.ready` says what the model path is about to send —
+  its size against the budget, what of the conversation gave way to fit it, and which
+  sections the model sees whole — so a host's chip never says "Whole page" for a run that
+  saw one section.
+*/
+describe('runAiAgent — what context.ready reports', () => {
+  const REQUEST = 'اجعل قسم التعليم والشهادات أكثر احترافية';
+  const readyOf = (events: readonly AiAgentEvent[]) => {
+    const ready = events.find((event) => event.type === 'context.ready');
+    if (ready?.type !== 'context.ready') throw new Error('No context.ready was emitted.');
+    return ready;
+  };
+
+  it('reports the request against its budget and the one section it shows whole', async () => {
+    const kernel = kernelFor();
+    const { provider } = recording(retitleEducation, kernel);
+    const events: AiAgentEvent[] = [];
+    const result = await runAiAgent(
+      options(kernel, provider, { request: REQUEST, onEvent: (event) => events.push(event) }),
+    );
+    const ready = readyOf(events);
+
+    expect(ready.requestTokens).toBe(result.tokens);
+    expect(ready.maxTokens).toBe(64_000);
+    expect(ready.historyTrimmed).toBeUndefined();
+    expect(ready.focus).toEqual({
+      kind: 'edit',
+      whole: [{ id: 'education', type: 'customCode', name: 'التعليم والشهادات' }],
+      outlined: CV.length - 1,
+    });
+  });
+
+  it('reports no focus when the whole page is shown, and the host’s own budget', async () => {
+    const kernel = kernelFor();
+    const { provider } = recording(retitleEducation, kernel);
+    const events: AiAgentEvent[] = [];
+    await runAiAgent(
+      options(kernel, provider, {
+        request: REQUEST,
+        composition: { documentTreeMode: 'full' },
+        policy: { maxContextTokens: 50_000 },
+        onEvent: (event) => events.push(event),
+      }),
+    );
+    const ready = readyOf(events);
+
+    expect(ready.focus).toBeUndefined();
+    expect(ready.maxTokens).toBe(50_000);
+    expect(ready.requestTokens).toBeGreaterThan(0);
+  });
+
+  it('reports no request size for a direct edit, which sends nothing', async () => {
+    const events: AiAgentEvent[] = [];
+    await runAiAgent(options(kernelFor(), neverCalled, { onEvent: (event) => events.push(event) }));
+    const ready = readyOf(events);
+
+    expect(ready).toMatchObject({ source: 'direct', tokens: 0 });
+    expect(ready.requestTokens).toBeUndefined();
+    expect(ready.focus).toBeUndefined();
+  });
+
+  it('drops the oldest exchange to fit the budget, and says so', async () => {
+    const kernel = kernelFor();
+    const { provider, calls } = recording(retitleEducation, kernel);
+    const events: AiAgentEvent[] = [];
+    const history = [
+      { role: 'user' as const, text: `the old brief ${'x'.repeat(40_000)}` },
+      { role: 'assistant' as const, text: `the old answer ${'y'.repeat(40_000)}` },
+      { role: 'user' as const, text: 'make the hero shorter' },
+      { role: 'assistant' as const, text: 'Shortened the hero.' },
+    ];
+    const result = await runAiAgent(
+      options(kernel, provider, {
+        request: REQUEST,
+        history,
+        policy: { maxContextTokens: 10_000 },
+        onEvent: (event) => events.push(event),
+      }),
+    );
+    const ready = readyOf(events);
+
+    expect(result.source).toBe('model');
+    expect(calls[0]?.live?.history).toEqual(history.slice(2));
+    expect(ready.historyTrimmed).toEqual({ dropped: 2, capped: 0 });
+    expect(ready.requestTokens).toBeLessThanOrEqual(10_000);
+  });
+});

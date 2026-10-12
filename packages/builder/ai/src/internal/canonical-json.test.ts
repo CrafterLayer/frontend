@@ -27,6 +27,26 @@ describe('canonical JSON', () => {
     );
   });
 
+  it('counts an Arabic character as half a token, twice a Latin one', () => {
+    const latin = { text: 'abcdefgh' };
+    const arabic = { text: 'مرحبابكم' };
+    const latinJson = canonicalJsonStringify(latin);
+
+    // Same length on the wire; the 8 Arabic letters cost 4 tokens, not 2.
+    expect(canonicalJsonStringify(arabic)).toHaveLength(latinJson.length);
+    expect(estimateCanonicalJsonTokens(arabic)).toBe(Math.ceil((latinJson.length - 8) / 4 + 8 / 2));
+    expect(estimateCanonicalJsonTokens(arabic) - estimateCanonicalJsonTokens(latin)).toBe(2);
+  });
+
+  it('leaves characters outside the Arabic block at four per token', () => {
+    // U+05FF and U+0700 sit just outside U+0600–U+06FF.
+    const value = { edges: '\u05ff\u0700', emoji: '🙂' };
+
+    expect(estimateCanonicalJsonTokens(value)).toBe(
+      Math.ceil(canonicalJsonStringify(value).length / 4),
+    );
+  });
+
   it('refuses a top-level value that JSON cannot serialize', () => {
     expect(() => canonicalJsonStringify(undefined)).toThrow(/canonical JSON/i);
   });

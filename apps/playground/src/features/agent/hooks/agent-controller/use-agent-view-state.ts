@@ -9,6 +9,7 @@ import { useEffect, useMemo } from 'react';
 import type { UseAgentMoodResult } from '../../../preview/components/AgentFace';
 import { visibleStatus, type VisibleStatus } from '../../model/agent-status';
 import { blockName, blockTypeName } from '../../model/block-name';
+import { contextMeterView, withScopeFocus } from '../../model/context-meter';
 import { EMPTY_HISTORY, isNewest, isNextRedo } from '../../model/kernel-history';
 import { mentionCandidatesFor, mentionQuery } from '../../model/mentions';
 import { effortSelection } from '../../model/effort';
@@ -163,7 +164,7 @@ export function useAgentViewState(inputs: AgentViewInputs): AgentViewState {
     [uiState, selection, document],
   );
 
-  const chips = useMemo((): readonly ContextChipView[] => {
+  const blockChips = useMemo((): readonly ContextChipView[] => {
     const blocks: ContextChipView[] = [
       ...shownSelection.map((id) => ({
         kind: 'selection' as const,
@@ -182,6 +183,16 @@ export function useAgentViewState(inputs: AgentViewInputs): AgentViewState {
     ];
     return blocks.length === 0 ? [{ kind: 'page', id: 'page' }] : blocks;
   }, [shownSelection, uiState.mentions, document, kernel]);
+  // While the box is empty the scope chip speaks of the latest request: what it focused on.
+  const activeId = sessions.state.activeId;
+  const chips = useMemo(
+    () => withScopeFocus(blockChips, uiState.context, activeId, uiState.draft),
+    [blockChips, uiState.context, activeId, uiState.draft],
+  );
+  const contextMeter = useMemo(
+    () => contextMeterView(uiState.context, activeId),
+    [uiState.context, activeId],
+  );
 
   const query = mentionQuery(uiState.draft);
   const mention: MentionView | null =
@@ -300,6 +311,7 @@ export function useAgentViewState(inputs: AgentViewInputs): AgentViewState {
     turns: shownTurns,
     draft: uiState.draft,
     chips,
+    contextMeter,
     mention,
     mode: sessions.state.mode,
     model,

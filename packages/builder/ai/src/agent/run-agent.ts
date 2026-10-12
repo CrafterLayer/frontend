@@ -31,7 +31,6 @@ import {
   type GenerateAiPlanOptions,
 } from '../plan/generate-plan';
 import type { SalvagedAiPlan } from '../plan/salvage-plan';
-import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
 import { readProviderUsage } from '../provider/usage';
 import type {
   AiEffectiveCommandPolicy,
@@ -47,6 +46,7 @@ import type {
   AiRunModelChoice,
   RunAiAgentOptions,
 } from './types';
+import { contextReadyReport, type OnContextReady, wireRequestTokens } from './context-report';
 import { classifyAiRunFailure } from './errors';
 // script-wiring additions
 import { scriptCrossPage, scriptCrossPageFollowUp, scriptPagesTouched } from '../script/cross-page';
@@ -348,7 +348,7 @@ function instrumentProvider(
   inner: AiPlanProvider,
   options: Pick<RunAiAgentOptions, 'isCurrentRun' | 'runId' | 'signal'>,
   emit: Emit,
-  onContext: (context: AssembledAiContext) => void,
+  onContext: OnContextReady,
   model: AiRunModelChoice | undefined,
   onRequestTokens: (tokens: number) => void,
 ): AiPlanProvider {
@@ -376,26 +376,20 @@ function instrumentProvider(
   const provider: AiPlanProvider = {
     async propose(request, context, live): Promise<AiPlan> {
       assertRunActive(options);
+      const tokens = wireRequestTokens(request, context, live);
       if (!contextSeen) {
         contextSeen = true;
-        onContext(context);
         emit({
           type: 'context.ready',
           fragmentCount: context.fragments.length,
           totalTokens: estimateAssembledAiContextTokens(context),
+          ...onContext(context, live?.history, tokens),
         });
       }
       assertRunActive(options);
       emit({ type: 'plan.proposing' });
       assertRunActive(options);
-      onRequestTokens(
-        estimateAiPlanWireRequestTokens({
-          version: AI_PLAN_WIRE_VERSION,
-          request,
-          context,
-          ...(live?.history === undefined ? {} : { history: live.history }),
-        }),
-      );
+      onRequestTokens(tokens);
       const plan = await inner.propose(request, context, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 1 });
@@ -410,15 +404,7 @@ function instrumentProvider(
       assertRunActive(options);
       emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
       assertRunActive(options);
-      onRequestTokens(
-        estimateAiPlanWireRequestTokens({
-          version: AI_PLAN_WIRE_VERSION,
-          request,
-          context,
-          ...(live?.history === undefined ? {} : { history: live.history }),
-          attempt: { plan, issues },
-        }),
-      );
+      onRequestTokens(wireRequestTokens(request, context, live, { plan, issues }));
       const repaired = await repair(request, context, plan, issues, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 2 });
@@ -1038,8 +1024,9 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       options.provider,
       options,
       emit,
-      (context) => {
+      (context, sent, tokens) => {
         assembledContext = context;
+        return contextReadyReport(options, reading?.focus, tokens, sent);
       },
       model,
       (tokens) => {

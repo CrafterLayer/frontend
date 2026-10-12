@@ -11,8 +11,7 @@ import type {
 
 import type { BuildProgress } from './build-progress';
 import type { RunProgress } from './run-progress';
-import type { RunTelemetryState } from './run-telemetry';
-import { readRunTelemetry } from './run-telemetry';
+import { readRunTelemetry, type RunTelemetryState } from './run-telemetry';
 import type { SectionOutcome } from './run-view';
 import {
   TURN_KINDS,
@@ -434,15 +433,16 @@ export function answerFromPlan(input: {
   };
 }
 
-/** The newest 12 exchanges, for the next request's context. Empty lines are never sent. */
+/** The newest 12 messages, opening on a user turn (the Messages API's rule). Never an empty one. */
 export function historyOf(turns: readonly Turn[]): AiChatTurn[] {
-  return turns
-    .flatMap<AiChatTurn>((turn) => {
-      if (turn.kind === 'user') return [{ role: 'user', text: turn.text }];
-      const text = assistantWords(turn);
-      return text === null || text.trim() === '' ? [] : [{ role: 'assistant', text }];
-    })
-    .slice(-12);
+  const said = turns.flatMap<AiChatTurn>((turn) => {
+    if (turn.kind === 'user') return [{ role: 'user', text: turn.text }];
+    const text = assistantWords(turn);
+    return text === null || text.trim() === '' ? [] : [{ role: 'assistant', text }];
+  });
+  const recent = said.slice(-12);
+  const first = recent.findIndex(({ role }) => role === 'user');
+  return first === -1 ? [] : recent.slice(first);
 }
 
 /**

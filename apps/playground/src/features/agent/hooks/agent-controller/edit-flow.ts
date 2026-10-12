@@ -13,6 +13,7 @@ import {
 
 import { editEndAnnouncement, runStartAnnouncement } from '../../model/agent-status';
 import { blockName } from '../../model/block-name';
+import { noteContext } from '../../model/context-meter';
 import { initialRunProgress, reduceRunProgress } from '../../model/run-progress';
 import { reduceRunTelemetry } from '../../model/run-telemetry';
 import { answerFromPlan, type Salvage, type Turn } from '../../model/turns';
@@ -148,6 +149,12 @@ export async function runEdit(
           proposed = rehearse(flow, kernel, event.proposal);
         }
         if (event.type === 'plan.applying') beforeApply = kernel.getDocument();
+        if (event.type === 'context.ready') {
+          flow.ui.setState((ui) => ({
+            ...ui,
+            context: noteContext(ui.context, event, slot.sessionId),
+          }));
+        }
         patchTurn(flow, slot.sessionId, turnId, (turn) => {
           if ((turn.kind !== 'edit' && turn.kind !== 'proposal') || turn.run === undefined)
             return turn;

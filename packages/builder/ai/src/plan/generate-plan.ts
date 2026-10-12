@@ -23,7 +23,6 @@ import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
   boundAiPlanWireInvalidOutputMessage,
-  estimateAiPlanWireRequestTokens,
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
 } from '../provider/wire';
@@ -45,6 +44,7 @@ import type {
   AiValidationPorts,
   AssembledAiContext,
 } from '../types';
+import { withHistoryInBudget } from './history-budget';
 import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
 import { expandAgentTools } from '../tools/agent/expand';
 import type { AgentToolLane } from '../tools/agent/types';
@@ -87,7 +87,7 @@ export interface GenerateAiPlanOptions {
   allowUntrustedSkills?: boolean;
   maxActiveSkills?: number;
   maxSkillTokens?: number;
-  /** Hard bound over the complete serialized provider context. */
+  /** Hard bound over the whole wire request; history gives way first (history-budget.ts). */
   maxContextTokens?: number;
   /**
    * agent-tools: sample values from the plan's facts ledger. Tool steps are
@@ -145,18 +145,7 @@ export interface GenerateAiPlanOptions {
 
 export const DEFAULT_AI_CONTEXT_TOKEN_BUDGET = 64_000;
 
-export class AiContextBudgetError extends Error {
-  override readonly name = 'AiContextBudgetError';
-
-  constructor(
-    readonly estimatedTokens: number,
-    readonly maxTokens: number,
-  ) {
-    super(
-      `AI context budget exceeded: estimated ${String(estimatedTokens)} tokens, maximum ${String(maxTokens)}.`,
-    );
-  }
-}
+export { AiContextBudgetError } from './history-budget';
 
 /**
  * @internal Shared with `outlineAiPlan`, which needs the same live channel —
@@ -411,13 +400,6 @@ function wireRequest(
   };
 }
 
-function assertWireRequestBudget(request: AiPlanWireRequest, maxTokens: number): void {
-  const estimatedTokens = estimateAiPlanWireRequestTokens(request);
-  if (estimatedTokens > maxTokens) {
-    throw new AiContextBudgetError(estimatedTokens, maxTokens);
-  }
-}
-
 function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
   return {
     plan: { rationale: '', commands: [] },
@@ -618,8 +600,8 @@ async function repairAiPlanOnce(
   maxContextTokens: number,
 ): Promise<RepairOutcome> {
   throwIfAborted(options.signal);
-  assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
-  const raw = await repair(options.request, context, attempt.plan, attempt.issues, live);
+  const sent = withHistoryInBudget(live, wireRequest(options, context, attempt), maxContextTokens);
+  const raw = await repair(options.request, context, attempt.plan, attempt.issues, sent);
   throwIfAborted(options.signal);
   // script-wiring additions
   const { candidate, result: repaired } = planHasScriptStep(raw)
@@ -688,20 +670,22 @@ export async function generateAiPlan(options: GenerateAiPlanOptions): Promise<Ai
  * The runner uses this to emit resolution events without resolving twice.
  */
 export async function generateAiPlanWithPreparedSkills(
-  options: GenerateAiPlanOptions,
+  given: GenerateAiPlanOptions,
   skills: AiPreparedSkillContext | undefined,
   policy: AiEffectiveCommandPolicy,
 ): Promise<AiPlan> {
-  throwIfAborted(options.signal);
-  const context = assembleAiContext(
-    options.kernel.context,
-    contextOptions(options, skills, policy),
-  );
-  const maxContextTokens = options.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
+  throwIfAborted(given.signal);
+  const context = assembleAiContext(given.kernel.context, contextOptions(given, skills, policy));
+  const maxContextTokens = given.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
   if (!Number.isSafeInteger(maxContextTokens) || maxContextTokens <= 0) {
     throw new RangeError('maxContextTokens must be a positive safe integer.');
   }
-  assertWireRequestBudget(wireRequest(options, context), maxContextTokens);
+  /*
+    Over the budget the oldest of the conversation gives way first, never the page, the
+    selection, the skills or the request (history-budget.ts); every call below, repairs
+    included, carries what is left.
+  */
+  const options = withHistoryInBudget(given, wireRequest(given, context), maxContextTokens);
   const live = liveOptions(options);
   const repair = options.provider.repair?.bind(options.provider);
   let raw: unknown;

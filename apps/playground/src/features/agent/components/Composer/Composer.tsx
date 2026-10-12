@@ -23,6 +23,7 @@ import type {
 import { ClarifyPanel } from '../ClarifyPanel';
 import { ComposerToolbar } from '../ComposerToolbar';
 import { ContextChip } from '../ContextChip';
+import { ContextMeter } from '../ContextMeter';
 import { EnhanceNote } from '../EnhanceNote';
 import { MentionMenu } from '../MentionMenu';
 import { QueueHeader } from '../QueueHeader';
@@ -38,6 +39,7 @@ export type ComposerView = Pick<
   | 'locale'
   | 'draft'
   | 'chips'
+  | 'contextMeter'
   | 'mention'
   | 'mode'
   | 'workers'
@@ -147,22 +149,8 @@ export function Composer({
   inputRef,
   className,
 }: ComposerProps) {
-  const {
-    locale,
-    draft,
-    chips,
-    mention,
-    mode,
-    workers,
-    model,
-    effort,
-    freeCode,
-    send,
-    run,
-    queue,
-    enhancement,
-    clarify,
-  } = view;
+  const { locale, draft, chips, contextMeter, mention, mode, workers, model, effort } = view;
+  const { freeCode, send, run, queue, enhancement, clarify } = view;
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const listboxId = useId();
   const optionPrefix = useId();
@@ -470,6 +458,7 @@ export function Composer({
                   }}
                 />
               ))}
+              {contextMeter == null ? null : <ContextMeter locale={locale} meter={contextMeter} />}
             </div>
           )}
 

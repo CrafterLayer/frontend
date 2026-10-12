@@ -41,6 +41,44 @@ describe('ContextChip', () => {
     expect(screen.getByText('الصفحة كاملة')).toBeInTheDocument();
   });
 
+  it('names the sections a focused run saw whole, and says the rest went as an outline', () => {
+    const { container } = render(
+      <ContextChip
+        locale="en"
+        chip={{ kind: 'page', id: 'page', focus: { names: ['Pricing'], outlined: true } }}
+        onRemove={vi.fn()}
+      />,
+    );
+    const label = container.querySelector('.ck-agent-chip__label');
+    expect(label).toHaveTextContent('Focused: Pricing (+ outline)');
+    expect(label).toHaveAttribute('title', 'Focused: Pricing (+ outline)');
+    expect(container.querySelector('.ck-agent-chip__label bdi')).toHaveTextContent('Pricing');
+    expect(container.querySelector('.ck-agent-chip')).toHaveAttribute('data-focused');
+    expect(screen.queryByText(t('en', 'scope.page'))).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('joins two focused sections as a list, in Arabic too', () => {
+    const { container, rerender } = render(
+      <ContextChip
+        locale="en"
+        chip={{ kind: 'page', id: 'page', focus: { names: ['Pricing', 'FAQ'], outlined: false } }}
+      />,
+    );
+    expect(container.querySelector('.ck-agent-chip__label')).toHaveTextContent(
+      'Focused: Pricing and FAQ',
+    );
+    rerender(
+      <ContextChip
+        locale="ar"
+        chip={{ kind: 'page', id: 'page', focus: { names: ['الأسعار'], outlined: true } }}
+      />,
+    );
+    expect(container.querySelector('.ck-agent-chip__label')).toHaveTextContent(
+      'التركيز على: الأسعار (+ مخطط الباقي)',
+    );
+  });
+
   it('removes a block chip by its node id, from a × named for the block', async () => {
     const user = userEvent.setup();
     const onRemove = vi.fn();

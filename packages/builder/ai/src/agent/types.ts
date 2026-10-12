@@ -21,6 +21,7 @@ import type { AiPlanSite } from '../script/cross-page';
 import type { ScriptRunReport, ScriptSite } from '../script/expand-scripts';
 import type { ScriptRunner } from '../script/types';
 // end script-wiring additions
+import type { AiContextReadyDetails } from './context-report';
 import type { AiRunFailure } from './errors';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
@@ -137,11 +138,7 @@ export type AiAgentEvent =
       totalTokens: number;
     })
   | (AiAgentEventBase & { type: 'context.gathering' })
-  | (AiAgentEventBase & {
-      type: 'context.ready';
-      fragmentCount: number;
-      totalTokens: number;
-    })
+  | (AiAgentEventBase & AiContextReadyDetails & { type: 'context.ready' })
   | (AiAgentEventBase & { type: 'plan.proposing' })
   | (AiAgentEventBase & { type: 'plan.progress'; text: string })
   | (AiAgentEventBase & { type: 'provider.usage'; attemptId: string; usage: AiProviderUsage })

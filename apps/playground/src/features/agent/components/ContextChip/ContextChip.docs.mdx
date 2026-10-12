@@ -16,12 +16,18 @@ the whole page.
 The request's visible execution scope (FR-024). "Whole page" is a fact, not a choice: it has no `×`.
 A block chip carries its node id, so removing it is exact and a mention survives a reload.
 
+When the engine narrowed the latest request to named sections (fast-edits: the model saw those
+sections whole and the rest of the page as an outline), the page chip says so instead of claiming the
+whole page: "Focused: Pricing (+ outline)" / «التركيز على: الأسعار (+ مخطط الباقي)». The controller
+sets `focus` from that run's `context.ready` while the box is empty; once the person writes the next
+request the chip reads "Whole page" again, since the engine reads each request's own words.
+
 ## Props
 
 | prop        | type                    | default | notes                                                                |
 | ----------- | ----------------------- | ------- | -------------------------------------------------------------------- |
 | `locale`    | `Locale`                | none    |                                                                      |
-| `chip`      | `ContextChipView`       | none    | `{ kind: 'page' }`, or a `selection` / `mention` with `label`, `stale` |
+| `chip`      | `ContextChipView`       | none    | `{ kind: 'page', focus? }`, or a `selection` / `mention` with `label`, `stale` |
 | `onRemove`  | `(id: string) => void`  | none    | leave it out for a chip that only shows scope (a paused request)     |
 | `className` | `string`                | none    | appended to `ck-agent-chip`                                          |
 
@@ -34,6 +40,7 @@ A block chip carries its node id, so removing it is exact and a mention survives
 | `ReadOnly`                                   | a block chip with no `×`                               |
 | `Stale`                                      | struck through, with "No longer on the page" under it  |
 | `LongLabel`                                  | cut at 16 characters                                   |
+| `Focused`, `FocusedOnTwo`, `FocusedRightToLeft` | the page chip naming the sections a run focused on (cut at 32 characters) |
 | `ContextRow`, `ContextRowDark`, `ContextRowRightToLeft` | the composer's context row                  |
 
 ## Anatomy

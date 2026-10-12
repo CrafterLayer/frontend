@@ -253,6 +253,32 @@ describe('historyOf', () => {
     expect(history[0]?.text).toBe('request 9');
     expect(history.at(-1)?.text).toBe('request 20');
   });
+
+  it('opens on a user turn when the 12-message window starts on an answer', () => {
+    const turns: Turn[] = [];
+    for (let i = 1; i <= 6; i += 1) {
+      turns.push({ id: `u${String(i)}`, kind: 'user', text: `request ${String(i)}`, context: [] });
+      turns.push({ id: `a${String(i)}`, kind: 'answer', text: `answer ${String(i)}` });
+    }
+    turns.push({ id: 'u7', kind: 'user', text: 'request 7', context: [], notRun: true });
+    // 13 messages; the newest 12 would open on «answer 1», so the window starts after it.
+    const history = historyOf(turns);
+    expect(history).toHaveLength(11);
+    expect(history[0]).toEqual({ role: 'user', text: 'request 2' });
+    expect(history.at(-1)).toEqual({ role: 'user', text: 'request 7' });
+  });
+
+  it('sends nothing when the newest 12 messages hold no user turn at all', () => {
+    const turns: Turn[] = [
+      { id: 'u1', kind: 'user', text: 'request', context: [] },
+      ...Array.from({ length: 12 }, (_, i): Turn => ({
+        id: `a${String(i)}`,
+        kind: 'answer',
+        text: `answer ${String(i)}`,
+      })),
+    ];
+    expect(historyOf(turns)).toEqual([]);
+  });
 });
 
 describe('answerFromPlan: a plan with words and no command is an answer', () => {

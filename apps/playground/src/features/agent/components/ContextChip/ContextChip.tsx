@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import { t } from '../../copy';
+import { contextLabels, focusNames } from '../../copy/context-labels';
 import type { ContextChipView, Locale } from '../../model/view-types';
 import { AgentIcon } from '../AgentIcon';
 import { IconButton } from '../IconButton';
@@ -22,7 +23,9 @@ export interface ContextChipProps {
 
 /**
  * What a request is about (SPEC §4.17 ContextChip, §3.2): the canvas selection, an `@`
- * mention, or, with neither, the whole page.
+ * mention, or, with neither, the whole page. A page chip that carries `focus` names the
+ * sections the latest run saw whole instead ("Focused: Pricing (+ outline)"): the engine
+ * narrowed that request, and "Whole page" would claim what the model never saw.
  *
  * A 28px Tint chip with a block glyph and the block's name in Graphite, cut with an
  * ellipsis at 16 characters. A block chip carries a `×` whose 32px hit area (44 on a coarse
@@ -35,7 +38,16 @@ export interface ContextChipProps {
 export function ContextChip({ locale, chip, onRemove, className }: ContextChipProps) {
   const captionId = useId();
   const isPage = chip.kind === 'page';
-  const label = chip.kind === 'page' ? t(locale, 'scope.page') : chip.label;
+  const focus = chip.kind === 'page' ? chip.focus : undefined;
+  const words = contextLabels(locale);
+  const names = focus === undefined ? '' : focusNames(locale, focus.names);
+  const outline = focus?.outlined === true ? words.outlineSuffix : '';
+  const label =
+    chip.kind !== 'page'
+      ? chip.label
+      : focus === undefined
+        ? t(locale, 'scope.page')
+        : `${words.focusedPrefix}${names}${outline}`;
   const stale = chip.kind !== 'page' && chip.stale;
   const removable = chip.kind !== 'page' && onRemove !== undefined;
 
@@ -43,6 +55,7 @@ export function ContextChip({ locale, chip, onRemove, className }: ContextChipPr
     <span
       className={className === undefined ? 'ck-agent-chip' : `ck-agent-chip ${className}`}
       data-kind={chip.kind}
+      data-focused={focus === undefined ? undefined : ''}
       data-stale={stale ? '' : undefined}
       data-removable={removable ? '' : undefined}
     >
@@ -54,7 +67,17 @@ export function ContextChip({ locale, chip, onRemove, className }: ContextChipPr
           its own end ("Aurora Backg…"), not at its start.
         */}
         <span className="ck-agent-chip__label" title={label} dir={isPage ? undefined : 'auto'}>
-          {isPage ? label : <bdi>{label}</bdi>}
+          {!isPage ? (
+            <bdi>{label}</bdi>
+          ) : focus === undefined ? (
+            label
+          ) : (
+            <>
+              {words.focusedPrefix}
+              <bdi>{names}</bdi>
+              {outline}
+            </>
+          )}
         </span>
         {chip.kind !== 'page' && onRemove !== undefined ? (
           <IconButton

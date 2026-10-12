@@ -27,6 +27,7 @@ interface Ticked {
 function fakePixi() {
   const children: Ticked[] = [];
   const ticks: ((ticker: { deltaTime: number }) => void)[] = [];
+  const resizes: (() => void)[] = [];
   class Graphics implements Ticked {
     x = 0;
     y = 0;
@@ -42,6 +43,11 @@ function fakePixi() {
   }
   const app = {
     screen: { width: 800, height: 400 },
+    renderer: {
+      on(event: string, fn: () => void) {
+        if (event === 'resize') resizes.push(fn);
+      },
+    },
     stage: {
       addChild(child: Ticked) {
         children.push(child);
@@ -53,7 +59,7 @@ function fakePixi() {
       },
     },
   };
-  return { children, ticks, Graphics, app };
+  return { children, ticks, resizes, Graphics, app };
 }
 
 function fakeCk(overrides: Record<string, unknown> = {}) {
@@ -77,7 +83,7 @@ afterEach(() => {
 describe('FREE_CODE_CARD', () => {
   it('fits its budget', () => {
     expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(FREE_CODE_CARD_MAX_CHARS);
-    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2200);
+    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2450);
   });
 
   it('states the runtime API, where the code goes, and the rules', () => {
@@ -85,7 +91,11 @@ describe('FREE_CODE_CARD', () => {
       'FREE CODE MODE is ON',
       '"js" prop of a customCode block',
       '32000',
-      'min-height:70vh',
+      // preview-fix (2026-10-12): a stage sized by width, laid out again when its region resizes.
+      'never vh',
+      'aspect-ratio:16/9',
+      'position:relative;z-index:1',
+      "app.renderer.on('resize',fn)",
       'BODY of an async function',
       'ck.root',
       'ck.editor',
@@ -136,6 +146,11 @@ describe('FREE_CODE_CARD', () => {
     expect(moving.children).toHaveLength(5);
     expect(moving.ticks).toHaveLength(1);
     expect(moving.children[1]?.y).toBeCloseTo(280);
+    // The region grew (preview-fix 2026-10-12): the stage says so and the walkers follow.
+    expect(moving.resizes).toHaveLength(1);
+    moving.app.screen.height = 600;
+    moving.resizes[0]?.();
+    expect(moving.children[1]?.y).toBeCloseTo(420);
     const before = moving.children[0]?.x ?? 0;
     moving.ticks[0]?.({ deltaTime: 2 });
     expect(moving.children[0]?.x).toBeCloseTo(before + 3);

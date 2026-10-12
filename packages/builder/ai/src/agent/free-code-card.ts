@@ -17,12 +17,13 @@
  * the card at `FREE_CODE_CARD_MAX_CHARS` characters or fewer.
  */
 export const FREE_CODE_CARD = `FREE CODE MODE is ON: real page JavaScript and custom PixiJS scenes are allowed. It OVERRIDES any "needs a code page" or "cannot" answer above: write the code.
-WHERE: the "js" prop of a customCode block (max 32000 chars), beside "css": insertNode props.js, or setProp {id,key:"js",value}. Give the region a css height (e.g. min-height:70vh). No <script> tag.
+WHERE: the "js" prop of a customCode block (max 32000 chars), beside "css": insertNode props.js, or setProp {id,key:"js",value}. No <script> tag.
+LAYOUT: size a stage by its width, never vh (editor and screens differ): .ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}. Text over the canvas: position:relative;z-index:1, short, at an edge.
 RUNTIME: js is the BODY of an async function of one parameter ck, run once per mount in the page (window, document reachable); errors are logged.
 ck.root the region element: draw only inside it. ck.editor true on the editor canvas. ck.reducedMotion true when motion is unwanted. ck.onDispose(fn) cleanup: timers, listeners, observers, frames.
-await ck.pixi() the full pixi.js v8 namespace. await ck.stage({background?,pointer?,resolution?}) -> {PIXI,app,canvas}: a ready transparent PIXI.Application sized to ck.root, its canvas filling it (clicks only with pointer:true), destroyed on dispose.
+await ck.pixi() the full pixi.js v8 namespace. await ck.stage({background?,pointer?,resolution?}) -> {PIXI,app,canvas}: a ready transparent PIXI.Application filling ck.root as it resizes (clicks only with pointer:true), destroyed on dispose; re-lay out on app.renderer.on('resize',fn).
 RULES: no eval, document.write, host localStorage, or network calls the person did not ask for. Guard motion with ck.reducedMotion (one still frame). Hex colours are free. Arabic page: keep text in the tree, not in Pixi, unless asked.
-e.g. Pixi walkers: const {PIXI,app}=await ck.stage();const ws=Array.from({length:5},(_,i)=>{const g=new PIXI.Graphics().roundRect(-14,-8,28,34,10).fill(0xf59e0b).circle(0,-20,11).fill(0xfde68a);g.x=i*140;g.y=app.screen.height*.7;app.stage.addChild(g);return g});if(!ck.reducedMotion)app.ticker.add(t=>ws.forEach(g=>{g.x=(g.x+1.5*t.deltaTime)%(app.screen.width+60)}));
+e.g. Pixi walkers: const {PIXI,app}=await ck.stage();const ws=Array.from({length:5},(_,i)=>{const g=new PIXI.Graphics().roundRect(-14,-8,28,34,10).fill(0xf59e0b).circle(0,-20,11).fill(0xfde68a);g.x=i*140;app.stage.addChild(g);return g});const lay=()=>ws.forEach(g=>{g.y=app.screen.height*.7});lay();app.renderer.on('resize',lay);if(!ck.reducedMotion)app.ticker.add(t=>ws.forEach(g=>{g.x=(g.x+1.5*t.deltaTime)%(app.screen.width+60)}));
 e.g. DOM count-up on scroll (<b data-count="250"> in the tree): const el=ck.root.querySelector('[data-count]');if(el){const to=+el.dataset.count;let id=0;const io=new IntersectionObserver(([e])=>{if(!e.isIntersecting)return;io.disconnect();const t0=performance.now(),f=n=>{const k=ck.reducedMotion?1:Math.min(1,(n-t0)/1200);el.textContent=Math.round(to*k);if(k<1)id=requestAnimationFrame(f)};f(t0)});io.observe(el);ck.onDispose(()=>{io.disconnect();cancelAnimationFrame(id)})}
 e.g. cleanup: const h=()=>ck.root.classList.toggle('narrow',innerWidth<600);h();addEventListener('resize',h);ck.onDispose(()=>removeEventListener('resize',h))`;
 
@@ -35,7 +36,7 @@ export function freeCodeCardExamples(card: string = FREE_CODE_CARD): readonly st
 }
 
 /** The card's budget: a test pins it. */
-export const FREE_CODE_CARD_MAX_CHARS = 2_200;
+export const FREE_CODE_CARD_MAX_CHARS = 2_450;
 
 /**
  * The one line a request that ASKS for page code gets while the switch is off

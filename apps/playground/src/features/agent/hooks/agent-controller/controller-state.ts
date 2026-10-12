@@ -15,6 +15,7 @@ import {
 
 import type { UseAgentMoodResult } from '../../../preview/components/AgentFace';
 import type { AppliedChangeMemory } from '../../../preview/components/AssistantPanel/AssistantPanel.memory';
+import type { MeasuredContext } from '../../model/context-meter';
 import type { HistoryShadow } from '../../model/kernel-history';
 import type { QueuedRequest } from '../../model/queue';
 import type { ActiveRunLease } from '../../model/runs';
@@ -76,6 +77,8 @@ export interface UiState {
   readonly composerFocused: boolean;
   /** A clarify check is in flight for the request being sent. */
   readonly checking: boolean;
+  /** The latest request the engine measured (`context.ready`): the meter, the focused chip. */
+  readonly context: MeasuredContext | null;
 }
 
 export const INITIAL_UI: UiState = {
@@ -89,6 +92,7 @@ export const INITIAL_UI: UiState = {
   previewing: null,
   composerFocused: false,
   checking: false,
+  context: null,
 };
 
 /** What a finished build left behind in this session: the kernel it wrote, the result. */

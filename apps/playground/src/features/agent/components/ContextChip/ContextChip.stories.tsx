@@ -103,6 +103,35 @@ export const WholePage: Story = {
   },
 };
 
+/**
+ * The latest run focused its edit (fast-edits): the page chip names the sections the model
+ * saw whole, and says the rest of the page went as an outline. Still no `×`.
+ */
+export const Focused: Story = {
+  args: { chip: { kind: 'page', id: 'page', focus: { names: ['Pricing'], outlined: true } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Pricing')).toBeVisible();
+    await expect(within(canvasElement).queryByRole('button')).toBeNull();
+  },
+};
+
+/** Two sections named whole, joined the way the locale joins a list. */
+export const FocusedOnTwo: Story = {
+  args: {
+    chip: { kind: 'page', id: 'page', focus: { names: ['Pricing', 'FAQ'], outlined: true } },
+  },
+};
+
+/** Arabic: «التركيز على: الأسعار (+ مخطط الباقي)», the section's name in `<bdi>`. */
+export const FocusedRightToLeft: Story = {
+  args: {
+    locale: 'ar',
+    chip: { kind: 'page', id: 'page', focus: { names: ['الأسعار'], outlined: true } },
+  },
+  globals: { direction: 'rtl' },
+  parameters: { panel: { locale: 'ar' } },
+};
+
 /** The canvas selection, removable: the `×` is a 32px target overhanging a 28px chip. */
 export const Selection: Story = {
   args: { chip: blockChip('en', 'hero') },

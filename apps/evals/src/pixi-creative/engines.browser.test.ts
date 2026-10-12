@@ -22,6 +22,9 @@ import {
   instrumented to expose the scene; the taught bodies are unchanged.
 */
 
+/** T231 (2026-10-12): the dialogue example reads its lines from the tree (s.lib.dialogue.fromDom). */
+const DIALOGUE_TREE = taughtTree('craftkit.pixi-dialogue');
+
 const QA_STYLE = `html{--t-surface:#101525;--t-text:#f1f5f9;--t-accent:#67e8f9;--t-text-muted:#94a3b8;font-family:system-ui} .qa-controls{position:absolute;z-index:3;inset-inline:12px;top:12px;background:#172033e8;color:#f1f5f9;padding:12px;border-radius:12px} button{background:#f1f5f9;color:#172033;border:1px solid #94a3b8;border-radius:6px;padding:8px;margin:3px;touch-action:none}`;
 
 interface MountOptions {
@@ -120,7 +123,7 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
 
             // dialogue: an accessible box, numbered choices, variables and an ending. A press while
             // a line is still typing completes it first, so each press waits for the full line.
-            const talk = await mount(page, CREATIVE_DIALOGUE_EXAMPLE, '', { dir });
+            const talk = await mount(page, CREATIVE_DIALOGUE_EXAMPLE, DIALOGUE_TREE, { dir });
             const box = talk.getByRole('region', { name: 'Dialogue' });
             const shown = async (frame: Frame, text: string) => {
               await expect.poll(() => frame.locator('.ckd-text').textContent()).toBe(text);
@@ -130,8 +133,6 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
               'Layla: The lantern went out.',
             );
             await shown(talk, 'The lantern went out.');
-            await box.getByRole('button', { name: 'Continue' }).click();
-            await shown(talk, 'Then we follow the fireflies.');
             await box.getByRole('button', { name: 'Continue' }).click();
             await shown(talk, 'Cross the river tonight?');
             await box.getByRole('button', { name: /Cross now/u }).click();
@@ -213,7 +214,9 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
         ),
       ).toBe(0);
       expect(await fx.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(false);
-      const talk = await mount(page, CREATIVE_DIALOGUE_EXAMPLE, '', { reducedMotion: true });
+      const talk = await mount(page, CREATIVE_DIALOGUE_EXAMPLE, DIALOGUE_TREE, {
+        reducedMotion: true,
+      });
       // No typewriter under reduced motion: the whole line is visible at once.
       expect(await talk.locator('.ckd-text').textContent()).toBe('The lantern went out.');
     } finally {
@@ -228,6 +231,16 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
   reads them (the inlined `e.g.` line of each skill), with test-owned controls that follow each
   skill's "Example tree". Separate tests, so one library's failure never hides another's.
 */
+
+/** A skill's "Example tree:" line verbatim: the tree its example reads. */
+function taughtTree(id: string): string {
+  const skill = [...CREATIVE_ENGINE_SKILLS, ...PIXI_CREATIVE_SKILLS].find(
+    (candidate) => candidate.id === id,
+  );
+  const line = skill?.instructions.split('\n').find((text) => text.startsWith('Example tree: '));
+  if (line === undefined) throw new Error(`${id} teaches no example tree`);
+  return line.slice('Example tree: '.length);
+}
 
 function taught(id: string): string {
   const skill = [...CREATIVE_ENGINE_SKILLS, ...PIXI_CREATIVE_SKILLS].find(

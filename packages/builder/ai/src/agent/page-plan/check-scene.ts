@@ -344,6 +344,26 @@ function heightFindings(source: SceneSource, section: LandedSection): readonly S
   ];
 }
 
+// ── Dialogue read from the tree (T231, 2026-10-12): fromDom needs its list ──
+
+const FROM_DOM = /\.\s*fromDom\s*\(/u;
+
+function dialogueFindings(source: SceneSource, tree: JsonValue): readonly SectionCheckIssue[] {
+  const call = FROM_DOM.exec(source.bare);
+  if (call === null) return [];
+  const facts = treeFacts(tree);
+  const written = source.literals.some(({ text }) => text.includes('data-ck-dialogue'));
+  if (facts.opaque || written || facts.attributes.has('data-ck-dialogue')) return [];
+  return [
+    finding(
+      'scene-dom',
+      "Put the dialogue's lines in the section's tree — <ol data-ck-dialogue hidden> with one <li> per line (data-ck-speaker, data-ck-node, data-ck-next, data-ck-ending; buttons with data-ck-next are its choices): the code reads them with fromDom, and no element in the tree carries data-ck-dialogue, so it throws.",
+      source,
+      call.index,
+    ),
+  ];
+}
+
 // ── Params: the region's jsParams reach the code only through ck.params ──────
 
 const PARAMS_CALL = /\bck\s*\.\s*params\s*\(\s*/u;
@@ -403,6 +423,7 @@ export function checkScene(
       ...forbiddenFindings(source),
       ...libFindings(source),
       ...domFindings(source, section.tree, options),
+      ...dialogueFindings(source, section.tree),
       ...heightFindings(source, section),
       ...cleanupFindings(source),
       ...guardFindings(source),

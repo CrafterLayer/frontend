@@ -39,6 +39,7 @@ import {
   isHostedScene,
   SCENE_HOST_TAGS,
 } from './media-vocabulary';
+import { CUSTOM_CODE_DIALOGUE_ATTRIBUTES, CUSTOM_CODE_DIALOGUE_RULES } from './dialogue-vocabulary';
 // pixi-studio:sound-engine additions (2026-10-10)
 import { soundAttributeProblem } from '../sound/attribute';
 // end pixi-studio:sound-engine additions
@@ -263,8 +264,7 @@ export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
         forces the sandbox, lazy loading, the referrer policy and `allow`.
     audio, track — https or relative addresses only; audio never autoplays.
 
-  Still refused, deliberately: script, style (element and attribute), on*
-  handlers, object, embed, canvas, external @import and arbitrary data-*.
+  Still refused: script, style (tag, attribute), on*, object, embed, canvas, @import, open data-*.
 */
 
 /**
@@ -351,9 +351,8 @@ export const CUSTOM_CODE_SVG_ATTRIBUTES = [
 ] as const;
 
 /**
- * Attributes an element may carry: presentation, accessibility, link
- * targets, media, disclosure, popovers, and svg paint and geometry. WHICH tag
- * may carry each one, and what its value may be, is `customCodeAttributeProblem`.
+ * Attributes an element may carry (presentation, accessibility, links, media, disclosure, popovers,
+ * svg, dialogue markers); WHICH tag may carry each, with what value: `customCodeAttributeProblem`.
  */
 export const CUSTOM_CODE_ATTRIBUTES = [
   'alt',
@@ -455,6 +454,7 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   // (sound/attribute.ts); muted by default, played only by ck-sound.js after a gesture.
   'data-ck-sound',
   // end pixi-studio:sound-engine additions
+  ...CUSTOM_CODE_DIALOGUE_ATTRIBUTES, // creative engines (2026-10-12): dialogue-vocabulary.ts
 ] as const;
 
 /**
@@ -1254,6 +1254,7 @@ const FORM_SUBMISSION_ATTRIBUTES = new Set(['action', 'method', 'formaction', 'e
 const ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
   ...HTML_TAG_RULES,
   ...SVG_ATTRIBUTE_RULES,
+  ...CUSTOM_CODE_DIALOGUE_RULES,
 };
 
 function placeName(on: AttributePlace): string {
@@ -1299,8 +1300,7 @@ export function customCodeAttributeProblem(
       return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')}) or an animation with data-ck-motion / data-ck-hover`;
     }
     if (/^data-/iu.test(name)) {
-      // media-motion (2026-10-06): the list names the engine markers and media params too.
-      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), and the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}`;
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}, and the dialogue markers ${CUSTOM_CODE_DIALOGUE_ATTRIBUTES.join(', ')}`;
     }
     if (name === 'style') {
       return 'style is not an attribute the vocabulary admits: write utility classes in className';

@@ -2,6 +2,7 @@ import { bindPathOf, getAtPropPath, partInstances, setAtPropPath } from '@craftk
 
 import { partBlocks, type PartBlock } from '../style-tools/part-address';
 import { isSwitcher } from './language-pages';
+import { sceneNodeIds, translateSceneParams } from './scene-texts';
 import {
   declaresProp,
   isElement,
@@ -21,8 +22,9 @@ import type { AgentToolContext, AgentToolStep } from '../tools/agent/types';
  * Every text a page shows a visitor (2026-10-12), read and replaced for a translation: element
  * text and its alt, title, aria-label and placeholder; icon labels; the text, link, rich-text
  * and image-alt parts of registered blocks (the block-parts gate makes every visible word a
- * part); and the page's title, description and social texts. A text without letters (a price,
- * a phone, a year) is the same in every language and never counts.
+ * part); the text params of a scene's settings (scene-texts.ts — its code never); and the page's
+ * title, description and social texts. A text without letters (a price, a phone, a year) is the
+ * same in every language and never counts.
  */
 
 /** Attributes whose words a visitor reads or hears. */
@@ -236,9 +238,13 @@ export function translatePage(context: AgentToolContext, translation: Translatio
     const next = translateTree(tree, translation);
     if (next !== tree) trees.set(id, next);
   }
-  const steps: AgentToolStep[] = partBlocks(context.kernel, context.readProp).flatMap((block) =>
-    translateBlock(block, translation),
-  );
+  const steps: AgentToolStep[] = [
+    // T231 (2026-10-12): the words a scene shows from its settings, as one jsParams setProp each.
+    ...sceneNodeIds(context).flatMap((id) => translateSceneParams(context, id, translation) ?? []),
+    ...partBlocks(context.kernel, context.readProp).flatMap((block) =>
+      translateBlock(block, translation),
+    ),
+  ];
   const rootId = rootIdOf(context.kernel);
   for (const key of ROOT_TEXTS) {
     const value = context.readProp(rootId, key);

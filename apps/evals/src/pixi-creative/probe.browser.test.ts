@@ -64,8 +64,16 @@ const EXAMPLE_TREE = SCENE_SKILLS.flatMap(({ instructions }) =>
     .flatMap((line) => [...line.matchAll(/data-[\w-]+/gu)].map(([name]) => `<i ${name}></i>`)),
 ).join('');
 
+/** T231 (2026-10-12): the dialogue skill's example tree is its lines, which the example reads. */
+const DIALOGUE_TREE =
+  SCENE_SKILLS.find(({ id }) => id === 'craftkit.pixi-dialogue')
+    ?.instructions.split('\n')
+    .find((line) => line.startsWith('Example tree: '))
+    ?.slice('Example tree: '.length) ?? '';
+
 const CONTROLS: readonly (readonly [string, string])[] = [
   [PIXI_GAME_EXAMPLE, PIXI_GAME_CONTROLS],
+  [CREATIVE_DIALOGUE_EXAMPLE, DIALOGUE_TREE],
   [PIXI_STORY_EXAMPLE, PIXI_STORY_CONTROLS],
   [CREATIVE_ANIMATION_EXAMPLE, CREATIVE_ANIMATION_CONTROLS],
   [CREATIVE_EFFECTS_EXAMPLE, CREATIVE_EFFECTS_CONTROLS],

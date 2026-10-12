@@ -125,11 +125,14 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     key: 'dialogue',
     pixiBound: false,
     purpose: {
-      en: 'Branching dialogue with a cast, variables, eval-free conditions, endings and versioned saves, plus an accessible DOM dialogue box.',
-      ar: 'حوار متفرّع مع طاقم شخصيات ومتغيرات وشروط آمنة ونهايات وحفظ بإصدار، مع صندوق حوار DOM سهل الوصول.',
+      en: 'Branching dialogue with a cast, variables, eval-free conditions, endings and versioned saves, plus an accessible DOM dialogue box. Lines can live in the section tree (fromDom), where translation and editing reach them.',
+      ar: 'حوار متفرّع مع طاقم شخصيات ومتغيرات وشروط آمنة ونهايات وحفظ بإصدار، مع صندوق حوار DOM سهل الوصول. يمكن أن تبقى السطور في شجرة القسم (fromDom) حيث تصلها الترجمة والتحرير.',
     },
     api: [
       'const cast = s.lib.dialogue.cast([{ id, name, color, portrait? }])',
+      // creative engines (2026-10-12): words in the tree, only logic in code — <ol data-ck-dialogue
+      // hidden><li data-ck-speaker data-ck-node data-ck-next data-ck-ending>…<button data-ck-next>…
+      'const talk = s.lib.dialogue.create(s.lib.dialogue.fromDom(ck.root, { vars, nodes: { id: { if, set, cue, choices: [{ set }] } } }), { cast, rng: s.random })',
       'const talk = s.lib.dialogue.create({ start, vars, nodes }, { cast, rng: s.random })',
       'const box = s.lib.dialogue.view(talk, { root: ck.root, reducedMotion: s.reducedMotion, interactive: !s.editor })',
       "talk.on('line' | 'cue' | 'end' | 'change', fn)",

@@ -120,6 +120,11 @@ describe('checkScene on broken scenes: every rule fires', () => {
     ['s.lib of no library', `${CLEAN}\ns.lib.particles.go();`, 'scene-lib'],
     ['a [data-…] lookup the tree lacks', CLEAN.replace('[data-go]', '[data-start]'), 'scene-dom'],
     ['an id lookup the tree lacks', `${CLEAN}\ndocument.getElementById('score');`, 'scene-dom'],
+    [
+      'dialogue read from a tree with no dialogue list',
+      `${CLEAN.replace("libs:['fx']", "libs:['fx','dialogue']")}\nconst talk=s.lib.dialogue.create(s.lib.dialogue.fromDom(ck.root));s.dispose(()=>talk.dispose());`,
+      'scene-dom',
+    ],
     ['its own Pixi application', 'const app=new PIXI.Application();', 'scene-forbidden'],
     ['a dynamic import', "const P=await import('pixi.js');", 'scene-forbidden'],
     ['a static import', "import * as PIXI from 'pixi.js';", 'scene-forbidden'],

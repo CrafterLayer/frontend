@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { customCodeTreeProblems } from '@craftkit/builder-schema';
+
+import { parseTreeMarkup } from '../../plan/tree-markup';
 import { createCraftkitAiSkillRegistry } from '../index';
 import {
   CREATIVE_ANIMATION_EXAMPLE,
+  CREATIVE_DIALOGUE_CONTROLS,
   CREATIVE_DIALOGUE_EXAMPLE,
   CREATIVE_EFFECTS_EXAMPLE,
   CREATIVE_ENGINE_SKILLS,
@@ -146,5 +150,19 @@ describe('creative engine skills — examples are exact scene bodies', () => {
   it('keeps Ink source line breaks after inlining', () => {
     const inline = CREATIVE_INK_EXAMPLE.replace(/\n\s*/gu, ' ');
     expect(inline).toContain('\\n* [Count the stars]');
+  });
+});
+
+describe('creative engine skills — dialogue lines live in the tree (T231)', () => {
+  it('teaches the markup verbatim, and the tree door admits it', () => {
+    const skill = CREATIVE_ENGINE_SKILLS.find(({ id }) => id === DIALOGUE);
+    expect(skill?.instructions).toContain(`Example tree: ${CREATIVE_DIALOGUE_CONTROLS}`);
+    expect(customCodeTreeProblems(parseTreeMarkup(CREATIVE_DIALOGUE_CONTROLS))).toEqual([]);
+  });
+
+  it('keeps every line out of the code, which reads them with fromDom', () => {
+    for (const words of ['The lantern went out.', 'Cross now', 'Brave choice.', 'Wait for dawn'])
+      expect(CREATIVE_DIALOGUE_EXAMPLE).not.toContain(words);
+    expect(CREATIVE_DIALOGUE_EXAMPLE).toContain('D.fromDom(ck.root,');
   });
 });

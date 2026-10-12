@@ -9,6 +9,7 @@ import {
   type DialogueScript,
 } from './dialogue/engine';
 import { compileExpression, isTruthy } from './dialogue/expression';
+import { scriptFromDom, type DialogueLogic } from './dialogue/from-dom';
 import type { DialogueLike } from './dialogue/types';
 import { createDialogueView, type DialogueViewOptions } from './dialogue/view';
 
@@ -17,7 +18,8 @@ export const DIALOGUE_VERSION = '1.0.0';
 /**
  * `s.lib.dialogue` (creative engines, 2026-10-12): branching conversations with a cast,
  * variables, conditions, endings and versioned saves, plus one accessible dialogue box that also
- * renders `s.lib.ink` stories. Plain JavaScript; it never imports Pixi.
+ * renders `s.lib.ink` stories. Plain JavaScript; it never imports Pixi. `fromDom` reads a script
+ * whose words live in the section's tree, where translation and editing reach them.
  */
 export function createDialogueLibrary() {
   return Object.freeze({
@@ -27,6 +29,8 @@ export function createDialogueLibrary() {
     MAX_CAST,
     cast: (members: readonly CastMemberInput[]) => createCast(members),
     create: (script: DialogueScript, options?: DialogueOptions) => createDialogue(script, options),
+    /** The script an `<ol data-ck-dialogue>` in `root` holds; `logic` adds vars, if/set, cues by id. */
+    fromDom: (root: Element, logic?: DialogueLogic) => scriptFromDom(root, logic),
     /** Validate a script without starting it; throws a TypeError naming the problem. */
     check(script: DialogueScript): true {
       compileDialogue(script);

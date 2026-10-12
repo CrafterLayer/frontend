@@ -17,11 +17,13 @@ import { SUGGESTION_LIMITS } from '../../model/suggestions';
 import {
   isAwaitingDecision,
   type EmptyStateView,
+  type FreeCodeView,
   type Locale,
   type RunActivity,
   type SuggestionView,
   type TurnView,
 } from '../../model/view-types';
+import { CreativeStarters } from '../CreativeStarters';
 import { EmptyState } from '../EmptyState';
 import { JumpToLatest } from '../JumpToLatest';
 import { SuggestionList } from '../SuggestionList';
@@ -66,6 +68,14 @@ export interface AgentThreadProps {
   readonly onSuggestion: (suggestion: SuggestionView) => void;
   /** Whether content sits under the header, for AgentHeader's hairline (SPEC §2.5). */
   readonly onScrolledChange?: ((scrolled: boolean) => void) | undefined;
+  /**
+   * creative agent (2026-10-12): the free-code switch (`AgentViewState.freeCode`). Given,
+   * the empty thread offers the creative starters under the page starters; absent or `null`
+   * (the host keeps no switch, so no game can be written), it offers none.
+   */
+  readonly freeCode?: FreeCodeView | null | undefined;
+  /** Turn free code on from the creative starters' note (`AgentController.setFreeCode`). */
+  readonly onFreeCodeChange?: ((enabled: boolean) => void) | undefined;
   readonly ref?: Ref<AgentThreadHandle> | undefined;
 }
 
@@ -109,6 +119,8 @@ export function AgentThread({
   draft,
   onSuggestion,
   onScrolledChange,
+  freeCode,
+  onFreeCodeChange,
   ref,
 }: AgentThreadProps) {
   const { scrollRef, contentRef, scrollToBottom, isAtBottom, isScrolled } =
@@ -198,6 +210,15 @@ export function AgentThread({
     if (pill !== null && pill === document.activeElement) focusNewestHead(scrollerRef.current);
   }, [pillVisible]);
 
+  // The creative starters follow the page starters' rules, on an empty thread only, and
+  // not while a block is selected: that greeting asks about the block.
+  const creativeShown =
+    freeCode != null &&
+    turns.length === 0 &&
+    empty.kind !== 'selection' &&
+    activity === null &&
+    draft.trim() === '';
+
   // SPEC §4.16: at most 4 rows in the empty state, 3 after a run, whatever arrives.
   const rows = suggestions.slice(
     0,
@@ -254,6 +275,14 @@ export function AgentThread({
           )}
           {suggestionsShown ? (
             <SuggestionList locale={locale} suggestions={rows} onChoose={onSuggestion} />
+          ) : null}
+          {creativeShown ? (
+            <CreativeStarters
+              locale={locale}
+              freeCode={freeCode}
+              onChoose={onSuggestion}
+              onFreeCodeChange={onFreeCodeChange}
+            />
           ) : null}
         </div>
       </section>

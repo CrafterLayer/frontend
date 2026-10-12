@@ -36,6 +36,12 @@ never dead: one model means no ModelMenu, no rewriting means no ✨.
 | `onSend`          | `() => void`                    | none    |                                               |
 | `className`       | `string`                        | none    | appended to `ck-agent-toolbar`                |
 
+Free code (`freeCode`, `onFreeCodeChange`) is a labelled switch with the choices, not an icon
+(Studio Indigo redesign, 2026-10-12): `</>` Free code and a 26 × 16 track whose knob sits at the
+inline end when on, in the Accent wash. It is a toggle button (`aria-pressed`) described by what on
+and off mean (`freeCode.on` / `freeCode.off`); under a 320px panel the words are visually hidden and
+stay its accessible name.
+
 The folder also holds the pieces ModeMenu and ModelMenu share: `ChoiceMenu` (a ghost trigger over a
 Radix DropdownMenu radio group of two-line items) and `ComposerTooltip` (IconButton's tooltip for
 labelled triggers: Stop, Send, ✨ and the menu triggers).

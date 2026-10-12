@@ -602,6 +602,18 @@ today**; completed PX work and historical release tasks stay unchanged. Follow t
 Evidence:
 [verification-creative-engines-2026-10-12.md](verification-creative-engines-2026-10-12.md).
 
+### Studio Indigo chat redesign in code — 2026-10-12
+
+- [x] T184 AgentHeader word-status subtitle from `headerStatusKey`, inside the 44px header, never a
+      live region; copy `header.status.*` in both locales.
+- [x] T185 Free code as a labelled switch chip in ComposerToolbar's choices, described by on/off.
+- [x] T186 `CreativeStarters` in the empty thread with the free-code note and Turn on action;
+      `AgentIcon` glyphs `game`, `dialogue`, `moon`, `book`.
+- [x] T187 `CreativeBriefCard` in a creative build's lead (`BuildTurn.creative`,
+      `model/creative-brief.ts`), planner cast fix for «بطلها X اسمه Y», role ids as catalog words.
+- [x] T188 Fake controller free code and creative scenarios; AgentPanel stories; tests, component
+      contract and Storybook build.
+
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.

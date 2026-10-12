@@ -24,6 +24,8 @@
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { t } from '../copy';
+import { creativeBriefView } from '../model/creative-brief';
 import type {
   AgentCapabilities,
   AgentController,
@@ -60,6 +62,8 @@ export const FAKE_SCENARIOS = [
   // §3.1 empty
   'empty',
   'emptyHasContent',
+  // creative agent (2026-10-12): free code on, the creative starters' note says so.
+  'emptyCreative',
   'emptySelection',
   // §3.2 composing
   'composing',
@@ -67,6 +71,8 @@ export const FAKE_SCENARIOS = [
   // §3.3 to §3.5 page build
   'skeleton',
   'building',
+  // creative agent (2026-10-12): a platformer build, its record carrying the creative brief.
+  'buildingCreative',
   'blocked',
   'built',
   'builtPartial',
@@ -501,6 +507,7 @@ function base(locale: Locale, words: Words): AgentViewState {
     enhancement: { status: 'idle' },
     clarify: null,
     face: FACE_IDLE,
+    freeCode: { enabled: false },
   };
 }
 
@@ -681,6 +688,22 @@ export function fakeViewState(
         face: { mood: 'planning', typing: false },
         announcement: announce('build.started'),
       };
+    case 'emptyCreative':
+      return { ...start, freeCode: { enabled: true } };
+    case 'buildingCreative': {
+      const record = buildingRecord();
+      const request = t(locale, 'creative.game.prompt');
+      return {
+        ...running(
+          record.kind === 'build'
+            ? { kind: 'build', view: { ...record.view, brief: creativeBriefView(request) } }
+            : record,
+          runBar({ activity: 'build', statusKey: 'build.writing', params: { n: 4 } }, now, 42_000),
+          request,
+        ),
+        freeCode: { enabled: true },
+      };
+    }
     case 'building':
       return running(
         buildingRecord(),
@@ -1285,6 +1308,7 @@ const ACTIONS: readonly FakeAction[] = [
   'setMode',
   'setModel',
   'setWorkers',
+  'setFreeCode',
   'newConversation',
   'openConversation',
   'deleteConversation',
@@ -1528,6 +1552,13 @@ export function useFakeController(
       },
       setMode: (mode) => {
         setState((current) => ({ ...current, mode: mode as AgentViewState['mode'] }));
+      },
+      setFreeCode: (enabled) => {
+        setState((current) =>
+          current.freeCode == null
+            ? current
+            : { ...current, freeCode: { enabled: enabled === true } },
+        );
       },
       setWorkers: (value) => {
         if (value !== 1 && value !== 3 && value !== 6) return;

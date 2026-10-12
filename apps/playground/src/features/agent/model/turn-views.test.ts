@@ -68,6 +68,21 @@ describe('turnViewsOf', () => {
     expect(view.view.rows.map((row) => row.undo?.kind)).toEqual(['undo', undefined]);
   });
 
+  it('shows the creative brief on a game or story build only, planned from its request', () => {
+    const plain = turnViewsOf([builtWith({ tree: '' })], context())[0];
+    expect(plain?.kind === 'build' && plain.view.brief).toBe(undefined);
+    const game: BuildTurn = {
+      ...builtWith({ tree: '' }),
+      request: 'A forest platformer game starring a fox named Rumi',
+      creative: true,
+    };
+    const [view] = turnViewsOf([game], context());
+    expect(view?.kind).toBe('build');
+    if (view?.kind !== 'build') return;
+    expect(view.view.brief?.genre).toBe('platformer');
+    expect(view.view.brief?.libs).toEqual(expect.arrayContaining(['tilemap', 'anim', 'fx']));
+  });
+
   it('folds a build once a newer exchange starts, never for its own end note', () => {
     const turns: Turn[] = [
       { id: 'turn-1', kind: 'user', text: 'a page', context: [{ kind: 'page' }] },

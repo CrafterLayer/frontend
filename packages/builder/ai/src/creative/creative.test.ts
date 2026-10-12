@@ -209,6 +209,9 @@ describe('creative planner', () => {
     const arabic = planCreativeBrief('قصة تفاعلية بطلها سامي واسمها ليلى');
     expect(arabic.cast.map(({ name }) => name)).toEqual(['سامي', 'ليلى']);
     expect(arabic.language).toBe('ar');
+    // A descriptor followed by a naming verb is the character's kind: the fox is called Rumi.
+    const fox = planCreativeBrief('لعبة منصات في غابة، بطلها ثعلب اسمه رومي يجمع النجوم');
+    expect(fox.cast.map(({ name, role }) => [name, role])).toEqual([['رومي', 'hero']]);
   });
 
   it('adds Ink, viewport and filters only when asked', () => {

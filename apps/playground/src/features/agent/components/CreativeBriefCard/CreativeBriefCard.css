@@ -1,0 +1,137 @@
+/*
+  CreativeBriefCard (creative agent, 2026-10-12). The one boxed thing inside a build record:
+  a Hairline card on the Item fill with the large radius, a Meta-size head (the book glyph in
+  Accent, the title in semibold Ink, the caption in Slate at the inline end) over a Hairline,
+  then a two-column description list: terms in Slate, values in Ink, API ids as mono chips.
+  Everything is a builder token, so light/dark, RTL and forced colours come with them.
+*/
+
+.ck-agent-brief {
+  display: grid;
+  min-inline-size: 0;
+  margin-block: var(--bldr-space-xs);
+  overflow: hidden;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel-item);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-brief__head {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-brief__glyph {
+  flex: none;
+  color: var(--bldr-accent);
+}
+
+.ck-agent-brief__title {
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-brief__caption {
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  line-height: var(--bldr-line-height-figure);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-brief__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--bldr-space-xl);
+  row-gap: var(--bldr-space-md);
+  margin: 0;
+  padding-block: var(--bldr-space-lg);
+  padding-inline: var(--bldr-space-xl);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-brief__row {
+  display: contents;
+}
+
+.ck-agent-brief__facts dt {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-brief__facts dd {
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text);
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-brief__chips,
+.ck-agent-brief__cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-brief__cast {
+  column-gap: var(--bldr-space-xl);
+}
+
+.ck-agent-brief__chip {
+  display: inline-block;
+  padding-inline: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-figure);
+  line-height: var(--bldr-line-height-figure);
+}
+
+.ck-agent-brief__character {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+}
+
+/* The bible's colour, set inline from page data; Accent when the bible keeps none. */
+.ck-agent-brief__dot {
+  flex: none;
+  inline-size: var(--bldr-space-lg);
+  block-size: var(--bldr-space-lg);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent);
+}
+
+.ck-agent-brief__role {
+  color: var(--bldr-panel-muted);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-brief,
+  .ck-agent-brief__head,
+  .ck-agent-brief__chip {
+    border-color: CanvasText;
+  }
+
+  .ck-agent-brief__dot {
+    forced-color-adjust: none;
+  }
+}

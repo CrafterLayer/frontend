@@ -47,6 +47,10 @@ approval is a PagePlanCard; on Build the same turn becomes this record, so the l
 | `headingRef`     | `Ref<HTMLHeadingElement>`             | none    | the `h3`, for Build this page → the new record's head (SPEC §6.3) |
 | `className`      | `string`                              | none    | appended to `ck-agent-record ck-agent-build`                      |
 
+A game or story build (free code on, a request the Pixi playbooks match) carries `view.brief`: the
+record draws a CreativeBriefCard first in its lead, beside the spine's first stretch, until the
+record folds under a newer exchange (creative agent, 2026-10-12).
+
 `BuildRecordActions` is
 `Pick<AgentController, 'undoSection' | 'redoSection' | 'undoBuild' | 'redoBuild' | 'retrySections' | 'finishRest' | 'removeEmpty' | 'tryAgain' | 'reveal' | 'peek' | 'openPageHistory'>`.
 Every one is an action on the page or a successor run: none posts a sentence as the person's turn.

@@ -1,5 +1,30 @@
 # Active Work Handoff
 
+## Current continuation — Studio Indigo chat redesign in code, 2026-10-12
+
+Requested increment: **locally verified**. The user asked (Arabic) for the full chat design from the
+Claude design canvas (https://claude.ai/artifact/A2jFVe8nM5zcmi73YzhWqN) in the real panel, then
+the rest of the platform's screens in the canvas. Executed as T184..T188 (feature 014):
+
+- AgentHeader `status` subtitle (`model/header-status.ts`: building, editing, thinking, stopping,
+  waiting for your decision, ready / ready with free code), inside the same 44px, not live.
+- Free code is a labelled switch chip with a track in ComposerToolbar's choices (`aria-pressed`,
+  described by on/off copy).
+- `CreativeStarters` (game / story with choices / bedtime story) in the empty thread under the page
+  starters, with a free-code note that can turn it on; fills the composer, never sends.
+- `CreativeBriefCard` in a creative build's lead: `BuildTurn.creative` is set when free code is on
+  and `pixiSkillIdsFor` matches; `model/creative-brief.ts` re-derives the brief from the request
+  with the same deterministic planner the writers read (no brief stored).
+- Planner fix: «بطلها ثعلب اسمه رومي» casts رومي, not «ثعلب»; planner role ids are shown as catalog
+  words. New AgentIcon glyphs `game`, `dialogue`, `moon`, `book`; build progress track rounded.
+- Fake controller: `freeCode` in every fake state, `setFreeCode`, scenarios `emptyCreative` and
+  `buildingCreative`; AgentPanel stories `EmptyCreative*`, `BuildingCreative*`.
+
+Verification: playground agent 1960 tests (5 pre-existing failures unchanged: copy-rules ×3,
+runs.test ×2), builder-ai 5445 (+1 pre-existing plan-page), `pnpm check:components` 225,
+playground `tsc` clean, Storybook static build passed, screenshots checked in LTR/RTL, light/dark,
+320 and 420 widths.
+
 ## Current continuation — creative engines and creative agent, 2026-10-12
 
 Requested increment: **locally verified**. The user asked (Arabic) to complete PixiJS story

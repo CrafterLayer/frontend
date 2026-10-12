@@ -1,6 +1,7 @@
 import type { BuilderDocument } from '@craftkit/builder';
 
 import type { BuildTask } from './build-progress';
+import { creativeBriefView } from './creative-brief';
 import { draftFromEnginePagePlan, planDraftOf, planFields } from './page-plan-draft';
 import { initialRunProgress } from './run-progress';
 import {
@@ -169,9 +170,12 @@ export function buildTurnView(
   // Remove empty needs the placeholders the skeleton laid; a build that never recorded
   // them (v1 data) cannot tell an empty region from one written by hand, so it offers none.
   const canRemove = turn.placeholders !== undefined;
+  const removable = canRemove ? view : { ...view, actions: { ...view.actions, removeEmpty: 0 } };
   return {
     kind: 'build',
-    view: canRemove ? view : { ...view, actions: { ...view.actions, removeEmpty: 0 } },
+    // creative agent (2026-10-12): a game or story build shows the brief its writers read.
+    view:
+      turn.creative === true ? { ...removable, brief: creativeBriefView(turn.request) } : removable,
   };
 }
 

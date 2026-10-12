@@ -23,8 +23,13 @@ progress counts sit on the records.
 ## When to use / not
 
 Use it once, as the first row of AgentPanel, and as the top of the phone sheet (AgentSheet passes
-Close and Show the page). Do not add a status, a subtitle, a badge or a second name to it. Do not
-use it outside the agent panel.
+Close and Show the page). Do not add a badge, a count or a second name to it. Do not use it outside
+the agent panel.
+
+The Studio Indigo redesign (2026-10-12) adds one optional word-status under the name (`status`):
+what the Agent is doing in a word or three («يبني الصفحة», "Waiting for your decision"), from
+`headerStatusKey` in `model/header-status.ts`. It fits inside the same 44px (20 + 16), is drawn
+text, never a live region, and carries no count, clock or title: those stay the RunBar's.
 
 ## Props
 
@@ -42,6 +47,7 @@ use it outside the agent panel.
 | `headingId`             | `string`                 | generated | the `h2`'s id, so AgentPanel can name its region by it      |
 | `onClose`               | `() => void`             | none      | phone sheet only: adds Close at the inline start            |
 | `onShowPage`            | `() => void`             | none      | phone sheet only: adds Show the page after New conversation |
+| `status`                | `string`                 | none      | the word-status line under the name, Meta in Slate          |
 
 ## States
 

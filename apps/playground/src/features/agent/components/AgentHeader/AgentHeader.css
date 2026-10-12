@@ -44,9 +44,18 @@
   margin-inline-end: var(--bldr-space-xs);
 }
 
-/* One line. The name is short in both scripts; it never shares its line with a status. */
-.ck-agent-header__name {
+/*
+  The name and, when AgentPanel passes one, the status line under it: 20 + 16 = 36px inside
+  the 44px header, so the header never grows. Each keeps its own line and truncates.
+*/
+.ck-agent-header__titles {
+  display: grid;
   flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/* The name is short in both scripts; it never shares its line with the status. */
+.ck-agent-header__name {
   min-inline-size: 0;
   margin: 0;
   overflow: hidden;
@@ -54,6 +63,19 @@
   font-size: var(--bldr-font-size-name);
   font-weight: var(--bldr-font-weight-semibold);
   line-height: var(--bldr-line-height-name);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Meta in Slate: a word or three, glanced at, never read aloud (not a live region). */
+.ck-agent-header__status {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

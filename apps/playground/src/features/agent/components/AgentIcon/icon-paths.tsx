@@ -209,6 +209,46 @@ export const ICONS = {
     mirror: false,
   },
 
+  /* ── Creative starters and the creative brief (creative agent, 2026-10-12) ── */
+
+  /** A game: a controller's body, its cross pad and two buttons. Never mirrors. */
+  game: {
+    shapes: (
+      <>
+        <rect x="2" y="4.75" width="12" height="7" rx="3" />
+        <path d="M5.25 7v2.5M4 8.25h2.5" />
+        {[dot(10.25, 7.5), dot(11.75, 9.25)]}
+      </>
+    ),
+    mirror: false,
+  },
+  /** A story with dialogue: two speech balloons. Never mirrors (the tails are not a direction). */
+  dialogue: {
+    shapes: (
+      <>
+        <path d="M2.75 3.5h6.5a1 1 0 0 1 1 1v3.25a1 1 0 0 1-1 1H5.5L3.5 10.5V8.75h-.75a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" />
+        <path d="M12.25 6.5h.75a1 1 0 0 1 1 1v3.25a1 1 0 0 1-1 1h-.5v1.75l-2-1.75H8.25" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** A bedtime story: a crescent moon. */
+  moon: {
+    shapes: <path d="M12.75 9.75A5.25 5.25 0 1 1 6.25 3.25a4.25 4.25 0 0 0 6.5 6.5z" />,
+    mirror: false,
+  },
+  /** The creative brief: a bound book with a ribbon line. */
+  book: {
+    shapes: (
+      <>
+        <path d="M3.25 12.75V3.75a1 1 0 0 1 1-1h8.5v8.5h-8.5a1 1 0 0 0-1 1.5" />
+        <path d="M3.25 12.75a1 1 0 0 0 1 .5h8.5v-2" />
+        <path d="M6 5.75h4" />
+      </>
+    ),
+    mirror: false,
+  },
+
   /* ── Conversations and the phone sheet ──────────────────────────────────── */
 
   /** Search conversations. */

@@ -63,3 +63,128 @@
     --ck-agent-toolbar-gap: var(--bldr-space-md);
   }
 }
+
+/*
+  The free-code switch (Studio Indigo redesign, 2026-10-12): a chip on the toolbar's target
+  size, Meta 500 in Graphite; on, it takes the Accent wash and its text turns Accent strong.
+  The track is 26 x 16 with a 12px knob: Graphite on the progress track when off, Accent
+  text on Accent at the inline end when on. Logical alignment, so RTL moves the knob too.
+*/
+.ck-agent-freecode {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  box-sizing: border-box;
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-md);
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-freecode:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-freecode[aria-pressed='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-freecode[aria-pressed='true']:hover {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+.ck-agent-freecode:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-freecode__glyph {
+  flex: none;
+}
+
+.ck-agent-freecode__track {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  inline-size: calc(var(--bldr-space-3xl) + var(--bldr-space-lg));
+  block-size: var(--bldr-space-3xl);
+  padding: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-progress-track);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-freecode__knob {
+  inline-size: var(--bldr-space-xl);
+  block-size: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__track {
+  justify-content: flex-end;
+  background-color: var(--bldr-accent);
+}
+
+.ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__knob {
+  background-color: var(--bldr-accent-text);
+}
+
+/* A very narrow panel keeps the glyph and the track; the words stay the accessible name. */
+@container agent (inline-size < 320px) {
+  .ck-agent-freecode__label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: var(--bldr-border-hairline);
+    block-size: var(--bldr-border-hairline);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-freecode,
+  .ck-agent-freecode__track {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-freecode__track {
+    border: var(--bldr-border-hairline) solid CanvasText;
+    forced-color-adjust: none;
+    background-color: Canvas;
+  }
+
+  .ck-agent-freecode__knob {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  .ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__track {
+    background-color: Highlight;
+  }
+
+  .ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__knob {
+    background-color: HighlightText;
+  }
+}

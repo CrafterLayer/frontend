@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { t } from '../../copy';
 import type {
   AssistantMode,
@@ -10,6 +12,7 @@ import type {
   ModelSelectionView,
   SendState,
 } from '../../model/view-types';
+import { AgentIcon } from '../AgentIcon';
 import { EffortMenu } from '../EffortMenu';
 import { EnhanceButton } from '../EnhanceButton';
 import { IconButton } from '../IconButton';
@@ -50,7 +53,13 @@ export interface ComposerToolbarProps {
 /**
  * The composer's bottom row (SPEC §4.17 ComposerToolbar): Mode ▾, Model ▾ and, when the
  * provider takes a reasoning budget, Effort ▾ and the independent build-worker choice at
- * the inline start, then ✨ Improve, `[@]` and Send. Items are 32px with 4px gaps;
+ * the inline start, then the free-code switch when the host keeps one, then ✨ Improve,
+ * `[@]` and Send.
+ *
+ * Free code is a labelled switch, not an icon (Studio Indigo redesign, 2026-10-12): it
+ * changes what the next request may write (JavaScript, whole Pixi scenes), so its state is
+ * read at a glance: `</>` Free code and a track whose knob sits at the inline end when on.
+ * It is a toggle button (`aria-pressed`) described by what on and off mean. Items are 32px with 4px gaps;
  * 44px with 8px gaps on a coarse pointer. Choice and action rows may wrap independently.
  *
  * Read in the order a request is made: how it may touch the page, who writes it, then the
@@ -77,6 +86,7 @@ export function ComposerToolbar({
   onSend,
   className,
 }: ComposerToolbarProps) {
+  const freeCodeHintId = useId();
   return (
     <div className={className === undefined ? 'ck-agent-toolbar' : `ck-agent-toolbar ${className}`}>
       <div className="ck-agent-toolbar__choices">
@@ -95,20 +105,30 @@ export function ComposerToolbar({
             onChange={onWorkersChange}
           />
         )}
+        {freeCode == null || onFreeCodeChange === undefined ? null : (
+          <>
+            <button
+              type="button"
+              className="ck-agent-freecode"
+              aria-pressed={freeCode.enabled}
+              aria-describedby={freeCodeHintId}
+              onClick={() => {
+                onFreeCodeChange(!freeCode.enabled);
+              }}
+            >
+              <AgentIcon name="code" className="ck-agent-freecode__glyph" />
+              <span className="ck-agent-freecode__label">{t(locale, 'freeCode.button')}</span>
+              <span className="ck-agent-freecode__track" aria-hidden="true">
+                <span className="ck-agent-freecode__knob" />
+              </span>
+            </button>
+            <span id={freeCodeHintId} hidden>
+              {t(locale, freeCode.enabled ? 'freeCode.on' : 'freeCode.off')}
+            </span>
+          </>
+        )}
       </div>
       <div className="ck-agent-toolbar__actions">
-        {freeCode == null || onFreeCodeChange === undefined ? null : (
-          <IconButton
-            icon="code"
-            label={t(locale, 'freeCode.button')}
-            hint={t(locale, freeCode.enabled ? 'freeCode.on' : 'freeCode.off')}
-            pressed={freeCode.enabled}
-            tooltipSide="top"
-            onClick={() => {
-              onFreeCodeChange(!freeCode.enabled);
-            }}
-          />
-        )}
         <EnhanceButton
           locale={locale}
           enhancement={enhancement}

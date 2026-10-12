@@ -38,6 +38,7 @@ import {
   SECTION_TITLES,
   spineRows,
 } from '../../testing/wp-12-records-fixtures';
+import { CAST_BRIEFS } from '../../testing/creative-fixtures';
 
 import { BuildRecord } from './BuildRecord';
 
@@ -159,6 +160,21 @@ describe('BuildRecord: honest figures', () => {
     expect(screen.queryByRole('region', { name: t('en', 'tasks.label') })).not.toBeInTheDocument();
     rendered.rerender({ ...buildCollapsed('en'), writers: 3 });
     expect(screen.queryByRole('region', { name: t('en', 'tasks.label') })).not.toBeInTheDocument();
+  });
+
+  it('carries a game or story’s creative brief while open, and folds it with the record', () => {
+    const brief = CAST_BRIEFS.en;
+    const rendered = renderRecord({ ...buildBuilding('en'), brief });
+    const card = screen.getByRole('region', { name: t('en', 'brief.title') });
+    expect(card).toHaveTextContent(t('en', 'brief.genre.visual-novel'));
+    // Inside the lead, beside the spine's first stretch, above the live task board.
+    expect(card.closest('.ck-agent-lead')).not.toBeNull();
+    rendered.rerender({ ...buildDone('en'), brief });
+    expect(screen.getByRole('region', { name: t('en', 'brief.title') })).toBeInTheDocument();
+    rendered.rerender({ ...buildCollapsed('en'), brief });
+    expect(screen.queryByRole('region', { name: t('en', 'brief.title') })).toBeNull();
+    rendered.rerender(buildDone('en'));
+    expect(screen.queryByRole('region', { name: t('en', 'brief.title') })).toBeNull();
   });
 
   it('counts landed sections only while live, read as a sentence, with no clock', () => {

@@ -1,0 +1,67 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CreativeBriefCardStories from './CreativeBriefCard.stories';
+
+<Meta of={CreativeBriefCardStories} />
+
+# CreativeBriefCard
+
+The creative brief a game or story build was planned from (creative agent, 2026-10-12).
+
+<Canvas of={CreativeBriefCardStories.Platformer} />
+
+## Purpose
+
+Before any section writer starts a game or story scene, the creative planner reads the request and
+decides what the piece is (a platformer, a visual novel, a picture book), which Studio libraries
+serve it, the effects that fit its setting and the characters it names. The writers read that brief
+as context; this card shows the person the same plan, so a wrong genre is caught at a glance and a
+game that arrives with a tile world and dust on landing is never a surprise.
+
+## When to use / not
+
+Inside a BuildRecord whose view carries `brief`: a build that ran with free code on and a request
+the Pixi playbooks matched (`BuildTurn.creative`). Never for an ordinary page build, and never as a
+place to edit the plan: the brief is derived, deterministically, from the request.
+
+## Props
+
+| prop        | type                | default | notes                                  |
+| ----------- | ------------------- | ------- | -------------------------------------- |
+| `locale`    | `Locale`            | none    |                                        |
+| `brief`     | `CreativeBriefView` | none    | genre, libraries, effects and the cast |
+| `className` | `string`            | none    | appended to `ck-agent-brief`           |
+
+## States
+
+`Platformer`, `WithCast` (story bible colours), `Dark`, `RightToLeft`, `PictureBookArabic` and
+`Narrow` (chips wrap at phone width).
+
+## Anatomy
+
+```text
+┌───────────────────────────────────────────────┐
+│ 📖 Creative brief           Planned before writing │  head: Meta 600, caption Figure Slate
+├───────────────────────────────────────────────┤
+│ Kind        Platformer game                   │  dt Slate, dd Ink
+│ Libraries   [tilemap] [anim] [fx]             │  mono chips, dir=ltr
+│ Effects     [dust] [coin] [hit] [levelup]     │
+│ Characters  ● Rumi                            │  bible colour dot, name in <bdi>
+└───────────────────────────────────────────────┘
+```
+
+It is the one boxed element inside a build record: a document the build carries, not the build's
+history. Hairline border, Item fill, 12px radius; tokens throughout.
+
+## Accessibility
+
+- A `section` named by its `h4` (the record's title is the `h3`), so it is reachable as a region.
+- Facts are a description list; terms and values read as pairs.
+- Library and effect names are `code` with `dir="ltr"`: they are the API the scene calls.
+- The book glyph and the colour dots are `aria-hidden`; a character is always named in text.
+- Not a live region: the build record's head and the RunBar already speak.
+
+## RTL
+
+The grid flows from the inline start; character names and roles are isolated in `<bdi>`; code chips
+stay left-to-right inside the Arabic panel.

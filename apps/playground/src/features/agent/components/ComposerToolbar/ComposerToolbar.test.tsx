@@ -182,6 +182,32 @@ describe('ComposerToolbar', () => {
     expect(onFreeCodeChange).toHaveBeenLastCalledWith(false);
   });
 
+  it('draws free code as a labelled switch described by what on and off mean', () => {
+    const { container, rerender } = render(
+      <ComposerToolbar {...props({ freeCode: { enabled: false }, onFreeCodeChange: vi.fn() })} />,
+    );
+    const off = screen.getByRole('button', { name: t('en', 'freeCode.button') });
+    expect(off).toHaveClass('ck-agent-freecode');
+    expect(off).toHaveAttribute('type', 'button');
+    expect(off).toHaveAccessibleDescription(t('en', 'freeCode.off'));
+    expect(off.querySelector('.ck-agent-freecode__label')).toHaveTextContent(
+      t('en', 'freeCode.button'),
+    );
+    expect(off.querySelector('.ck-agent-freecode__track')).toHaveAttribute('aria-hidden', 'true');
+    // It sits with the choices (how a request may touch the page), not the word tools.
+    expect(container.querySelector('.ck-agent-toolbar__choices')).toContainElement(off);
+
+    rerender(
+      <ComposerToolbar {...props({ freeCode: { enabled: true }, onFreeCodeChange: vi.fn() })} />,
+    );
+    expect(
+      screen.getByRole('button', { name: t('en', 'freeCode.button') }),
+    ).toHaveAccessibleDescription(t('en', 'freeCode.on'));
+    expect(CSS).toMatch(
+      /\.ck-agent-freecode\[aria-pressed='true'\]\s*\{[^}]*background-color:\s*var\(--bldr-accent-soft\)/u,
+    );
+  });
+
   it('is never disabled for the mode while a run is live', () => {
     render(<ComposerToolbar {...props({ running: true, send: 'running-empty' })} />);
     const mode = screen.getByRole('button', { name: 'Mode: Auto' });

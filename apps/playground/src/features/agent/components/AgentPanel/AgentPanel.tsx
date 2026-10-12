@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 
 import { t } from '../../copy';
 import { TickerPausedContext } from '../../hooks/use-ticker';
+import { headerStatusKey } from '../../model/header-status';
 import {
   isAwaitingDecision,
   type AgentController,
@@ -282,6 +283,7 @@ export function AgentPanel({
           headingId={headingId}
           onClose={sheet?.close}
           onShowPage={sheet?.showPage}
+          status={t(locale, headerStatusKey(state))}
         />
       </div>
       <AgentThread
@@ -295,6 +297,8 @@ export function AgentPanel({
         draft={draft}
         onSuggestion={onSuggestion}
         onScrolledChange={setScrolled}
+        freeCode={controller.setFreeCode === undefined ? null : state.freeCode}
+        onFreeCodeChange={controller.setFreeCode}
       />
       <div className="ck-agent-panel__dock" aria-busy={checking ? true : undefined}>
         {checking ? (

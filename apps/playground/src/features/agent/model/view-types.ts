@@ -349,6 +349,44 @@ export interface BuildRecordView {
   readonly actions: BuildActionsView;
   readonly menu: readonly RecordMenuItem[];
   readonly error?: ErrorBodyView | undefined;
+  /**
+   * creative agent (2026-10-12): the planner's creative brief, present only on a build that
+   * writes a game or story scene (free code on, a creative request). CreativeBriefCard.
+   */
+  readonly brief?: CreativeBriefView | undefined;
+}
+
+/** The planner's genres (`CreativeGenre` in `@craftkit/builder`), each a `brief.genre.*` key. */
+export type CreativeBriefGenre =
+  | 'platformer'
+  | 'maze-adventure'
+  | 'arcade'
+  | 'puzzle'
+  | 'physics-toy'
+  | 'visual-novel'
+  | 'picture-book'
+  | 'chapter-story'
+  | 'mural';
+
+/** One character the brief casts: a name the person wrote, and the bible's colour if any. */
+export interface CreativeCastView {
+  readonly id: string;
+  readonly name: string;
+  readonly role?: string | undefined;
+  /** A CSS colour from the story bible; drawn as a dot, never as text. */
+  readonly color?: string | undefined;
+}
+
+/**
+ * creative agent (2026-10-12): the creative brief as CreativeBriefCard draws it. Library and
+ * effect names are API ids (`tilemap`, `dust`), shown as code because that is what the
+ * scene calls; the genre is catalog copy.
+ */
+export interface CreativeBriefView {
+  readonly genre: CreativeBriefGenre;
+  readonly libs: readonly string[];
+  readonly effects: readonly string[];
+  readonly cast: readonly CreativeCastView[];
 }
 
 /* ── Edits, answers, endings (SPEC §4.9, §4.10, §4.14) ───────────────────────── */

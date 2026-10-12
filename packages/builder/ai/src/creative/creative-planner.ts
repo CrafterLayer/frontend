@@ -403,9 +403,15 @@ const SETTINGS: readonly SettingRule[] = [
 const ARABIC = /[؀-ۿ]/u;
 
 /* Names the brief gives: "named Layla", "called Omar", "اسمه عمر", "اسمها ليلى", «ليلى». */
+/*
+  The Arabic pattern names a character after a naming verb (اسمه، يدعى) or a hero descriptor
+  (بطلها، البطل). A descriptor's word is the character's kind, not its name, when a naming verb
+  follows it: «بطلها ثعلب اسمه رومي» casts رومي, never «ثعلب». Group 1 is the named form,
+  group 2 the descriptor form; positions keep the brief's own order.
+*/
 const NAME_PATTERNS: readonly RegExp[] = [
   /\b(?:named|called)\s+([A-Z][\p{L}'-]{1,30})/gu,
-  /(?:اسمه|اسمها|يدعى|تدعى|يسمى|تسمى|بطلها|بطله|البطل|البطلة)\s+([ء-ي]{2,20})/gu,
+  /(?:(?:اسمه|اسمها|يدعى|تدعى|يسمى|تسمى)\s+([ء-ي]{2,20})|(?:بطلها|بطله|البطل|البطلة)\s+([ء-ي]{2,20})(?![ء-ي])(?!\s+(?:اسمه|اسمها|يدعى|تدعى|يسمى|تسمى)))/gu,
   /[«"]([\p{L}][\p{L} '-]{1,30})[»"]/gu,
 ];
 
@@ -421,7 +427,7 @@ function castFromRequest(request: string): CreativeCharacterV1[] {
   const names: string[] = [];
   for (const pattern of NAME_PATTERNS) {
     for (const match of request.matchAll(pattern)) {
-      const name = (match[1] ?? '').trim();
+      const name = (match[1] ?? match[2] ?? '').trim();
       if (name !== '' && !names.includes(name)) names.push(name);
     }
   }

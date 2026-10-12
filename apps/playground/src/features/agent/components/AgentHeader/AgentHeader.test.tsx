@@ -101,6 +101,22 @@ describe('AgentHeader', () => {
     }
   });
 
+  it('draws the panel’s word-status under the name when given: text, never a live region', () => {
+    for (const locale of LOCALES) {
+      const status = t(locale, 'header.status.building');
+      const { container, unmount } = render(<AgentHeader {...props({ locale, status })} />);
+      const header = headerOf(container);
+      const line = header.querySelector('.ck-agent-header__status');
+      expect(line?.tagName).toBe('P');
+      expect(line).toHaveTextContent(status);
+      // Two blocks, the name then the status: textContent joins them without a space.
+      expect(drawnText(header)).toBe(`${t(locale, 'header.name')}${status}`);
+      expect(within(header).getAllByRole('heading')).toHaveLength(1);
+      expect(header.querySelectorAll('[aria-live], [role=status]')).toHaveLength(0);
+      unmount();
+    }
+  });
+
   it('opens Conversations as a dialog trigger that says whether it is open', async () => {
     const user = userEvent.setup();
     const onConversations = vi.fn();
@@ -218,6 +234,10 @@ describe('AgentHeader.css', () => {
     expect(CSS).toMatch(/block-size:\s*var\(--bldr-agent-header-height\)/u);
     expect(CSS).toMatch(/padding-inline:\s*var\(--bldr-space-3xl\) var\(--bldr-space-md\)/u);
     expect(CSS).toMatch(/\.ck-agent-header__name\s*\{[^}]*white-space:\s*nowrap/u);
+    // The status line is Meta in Slate and keeps to one line, inside the same 44px.
+    expect(CSS).toMatch(
+      /\.ck-agent-header__status\s*\{[^}]*color:\s*var\(--bldr-panel-muted\)[^}]*font-size:\s*var\(--bldr-font-size-meta\)[^}]*white-space:\s*nowrap/u,
+    );
     expect(CSS).toMatch(/\.ck-agent-header__actions\s*\{[^}]*gap:\s*var\(--bldr-space-xs\)/u);
   });
 

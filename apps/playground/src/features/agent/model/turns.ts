@@ -137,6 +137,13 @@ export interface BuildTurn {
    * entries (SPEC §7.6 E3 fallback).
    */
   readonly transactionIds?: readonly string[] | undefined;
+  /**
+   * creative agent (2026-10-12): free code was on and the request named a game or story,
+   * so the writers planned a scene. The record shows the creative brief, re-derived from
+   * `request` by the same deterministic planner the writers read (plain data, survives a
+   * reload; no brief is stored).
+   */
+  readonly creative?: true | undefined;
 }
 
 /**

@@ -58,14 +58,22 @@ export interface AgentHeaderProps {
   readonly onClose?: (() => void) | undefined;
   /** The phone sheet's Show the page `[⤓]`, drawn after New conversation. */
   readonly onShowPage?: (() => void) | undefined;
+  /**
+   * (added, Studio Indigo redesign 2026-10-12) One short line under the name, in Meta:
+   * what the Agent is doing in a word or three («يبني الصفحة», "Waiting for your decision").
+   * AgentPanel passes `headerStatusOf(state)`. Drawn text, never a live region: the RunBar
+   * and LiveStatus still own progress and announcements. Left out, the header is one line.
+   */
+  readonly status?: string | undefined;
 }
 
 /**
- * The panel's header (SPEC §4.2): one 44px line. أبو غضب's 24px face, his name, and two
- * ghost icon buttons, Conversations and New conversation. Nothing else, ever: no status
- * (the RunBar owns it), no conversation title, no count, no second name. The owner's
- * screenshot of the v1 header ("Agent  Let m…", a truncated title and a badge) is the
- * list of what this replaces.
+ * The panel's header (SPEC §4.2): 44px. أبو غضب's 24px face, his name, and two ghost icon
+ * buttons, Conversations and New conversation. No conversation title, no count, no second
+ * name. The owner's screenshot of the v1 header ("Agent  Let m…", a truncated title and a
+ * badge) is the list of what this replaces. The Studio Indigo redesign (2026-10-12) adds
+ * one optional word-status under the name (`status`), in the same 44px; progress, counts
+ * and the clock stay the RunBar's.
  *
  * One name, in the UI locale: «أبو غضب» or "Abu Ghadab", never both, never "Agent". It is
  * the panel's `h2`. The face is decoration (`aria-hidden`); it is `live`, the one face in
@@ -88,6 +96,7 @@ export function AgentHeader({
   headingId,
   onClose,
   onShowPage,
+  status,
 }: AgentHeaderProps) {
   const generatedId = useId();
   const nameId = headingId ?? generatedId;
@@ -116,9 +125,12 @@ export function AgentHeader({
           typing={face.typing}
         />
       </span>
-      <h2 id={nameId} className="ck-agent-header__name">
-        {t(locale, 'header.name')}
-      </h2>
+      <div className="ck-agent-header__titles">
+        <h2 id={nameId} className="ck-agent-header__name">
+          {t(locale, 'header.name')}
+        </h2>
+        {status === undefined ? null : <p className="ck-agent-header__status">{status}</p>}
+      </div>
       <div className="ck-agent-header__actions">
         <IconButton
           ref={conversationsRef}

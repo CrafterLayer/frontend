@@ -1,0 +1,237 @@
+/*
+  CreativeStarters (creative agent, 2026-10-12). A Meta-size heading in Slate with a pill
+  badge in the Accent wash; three cards in one row (Hairline edge, Item fill, radius 12), each
+  a 32px tinted tile with its glyph, the name in Read 500 Ink and a Figure detail in Slate; a
+  note under them. Under a 360px panel the cards stack, icon beside the words.
+
+  Each card's tile has its own family: the game Warning (amber), the story Accent (indigo),
+  the bedtime story Success (green), so the three read apart before their words do. Every
+  colour is a builder token, so light/dark, RTL and forced colours come with them.
+*/
+
+.ck-agent-creative {
+  display: grid;
+  row-gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-creative__head {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.ck-agent-creative__title {
+  margin: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-creative__badge {
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+  font-size: var(--bldr-font-size-figure);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+}
+
+.ck-agent-creative__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--bldr-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-creative__item {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-creative__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  justify-items: start;
+  row-gap: var(--bldr-space-2xs);
+  box-sizing: border-box;
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel-item);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-creative__card:hover {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-creative__card:focus-visible,
+.ck-agent-creative__enable:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-creative__icon {
+  display: grid;
+  place-items: center;
+  inline-size: var(--bldr-control-md);
+  block-size: var(--bldr-control-md);
+  margin-block-end: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-creative__card[data-starter='game'] .ck-agent-creative__icon {
+  background-color: var(--bldr-warning-soft);
+  color: var(--bldr-warning);
+}
+
+.ck-agent-creative__card[data-starter='bedtime'] .ck-agent-creative__icon {
+  background-color: var(--bldr-success-soft);
+  color: var(--bldr-success);
+}
+
+.ck-agent-creative__name {
+  min-inline-size: 0;
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  overflow-wrap: break-word;
+}
+
+.ck-agent-creative__detail {
+  min-inline-size: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  line-height: var(--bldr-line-height-figure);
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+/* ── The free-code note ───────────────────────────────────────────────────── */
+
+/* The glyph, then the words; the Turn on button under the words, at their start. */
+.ck-agent-creative__note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-md);
+  margin: 0;
+  padding-block: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-warning-soft);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-creative__note[data-on] {
+  border-color: var(--bldr-success-border);
+  background-color: var(--bldr-success-soft);
+}
+
+.ck-agent-creative__note-glyph {
+  color: var(--bldr-warning);
+}
+
+.ck-agent-creative__note[data-on] .ck-agent-creative__note-glyph {
+  color: var(--bldr-success);
+}
+
+.ck-agent-creative__note-text,
+.ck-agent-creative__note > span {
+  min-inline-size: 0;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.ck-agent-creative__enable {
+  grid-column: 2;
+  justify-self: start;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-panel-item);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--bldr-font-weight-medium);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-creative__enable:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+/* Narrow panels stack the cards, the tile beside the words. */
+@container agent (inline-size < 360px) {
+  .ck-agent-creative__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ck-agent-creative__card {
+    grid-template-columns: var(--bldr-control-md) minmax(0, 1fr);
+    column-gap: var(--bldr-space-lg);
+    align-items: center;
+    padding-block: var(--bldr-space-md);
+  }
+
+  .ck-agent-creative__icon {
+    grid-row: span 2;
+    margin-block-end: 0;
+  }
+}
+
+/* A finger needs 44px (SPEC §6.4). */
+@media (pointer: coarse) {
+  .ck-agent-creative__card,
+  .ck-agent-creative__enable {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-creative__card,
+  .ck-agent-creative__enable {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-creative__card,
+  .ck-agent-creative__note,
+  .ck-agent-creative__enable {
+    border-color: CanvasText;
+  }
+
+  .ck-agent-creative__card:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

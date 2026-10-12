@@ -977,6 +977,17 @@ function engineRequest(outgoing: Outgoing): string {
   return outgoing.request ?? outgoing.text;
 }
 
+/**
+ * creative agent (2026-10-12): the build will write a game or story scene (free code is on
+ * and the request names one, the engine's own `needsSceneCode` test), so its record shows
+ * the planner's creative brief. Read once, when the build starts.
+ */
+function creativeMark(env: Env, request: string): { readonly creative?: true } {
+  return env.options.freeCode === true && pixiSkillIdsFor(env.registry, request).length > 0
+    ? { creative: true }
+    : {};
+}
+
 /** A new exchange, or an existing record re-run in place (Try again, Build, Run this plan). */
 interface Placement {
   readonly sessionId: string;
@@ -1623,6 +1634,7 @@ async function runBuild(
     progress: initialBuildProgress(slot.runId, flow.clock.now()),
     status: 'running',
     outcomes: {},
+    ...creativeMark(env, request),
   };
   const anchor = openExchange(flow, placement, outgoing, building);
   env.mood.beginRun(slot.runId, '');
@@ -2753,6 +2765,7 @@ function createActions(flow: Flow): Actions {
       progress,
       status: 'running',
       outcomes: {},
+      ...creativeMark(flow.env(), request),
     });
     if (held !== undefined) {
       const edited =

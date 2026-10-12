@@ -188,6 +188,9 @@ export const Empty: Story = story('empty');
 export const EmptyArabic: Story = story('empty', 'ar');
 export const EmptyArabicDark: Story = story('empty', 'ar', { parameters: DARK });
 export const EmptyHasContent: Story = story('emptyHasContent');
+/** creative agent (2026-10-12): the creative starters under the page starters, free code on. */
+export const EmptyCreative: Story = story('emptyCreative', 'en', { width: 420 });
+export const EmptyCreativeArabic: Story = story('emptyCreative', 'ar', { width: 420 });
 
 /* ── §3.2 Composing ────────────────────────────────────────────────────────── */
 
@@ -200,6 +203,13 @@ export const Skeleton: Story = story('skeleton');
 export const Building: Story = story('building');
 /** SPEC §3.15: the same build in Arabic, mirrored by logical properties. */
 export const BuildingArabic: Story = story('building', 'ar');
+/** creative agent (2026-10-12): a platformer build carries its creative brief. */
+export const BuildingCreative: Story = story('buildingCreative', 'en', { width: 420 });
+export const BuildingCreativeArabic: Story = story('buildingCreative', 'ar', { width: 420 });
+export const BuildingCreativeArabicDark: Story = story('buildingCreative', 'ar', {
+  width: 420,
+  parameters: DARK,
+});
 export const BuildingArabicDark: Story = story('building', 'ar', { parameters: DARK });
 /** SPEC §3.14: the panel at 420, where rows gain their state words. */
 export const BuildingAt420: Story = story('building', 'en', { width: 420 });

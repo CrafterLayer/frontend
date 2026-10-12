@@ -346,6 +346,50 @@ describe('AgentThread: empty state and suggestions', () => {
     expect(rows.map((row) => row.textContent)).toEqual(starters.map((row) => row.text));
   });
 
+  it('offers the creative starters under the page starters when the host keeps free code', async () => {
+    const user = userEvent.setup();
+    const onSuggestion = vi.fn();
+    const onFreeCodeChange = vi.fn();
+    const starters = frameSuggestions('en').starters;
+    const { rerender } = render(
+      <AgentThread
+        {...baseProps({ turns: [], activity: null, suggestions: starters, onSuggestion })}
+        freeCode={{ enabled: false }}
+        onFreeCodeChange={onFreeCodeChange}
+      />,
+    );
+    const creative = screen.getByRole('region', { name: t('en', 'creative.title') });
+    await user.click(within(creative).getByRole('button', { name: /Platformer game/u }));
+    expect(onSuggestion).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'creative:game', text: t('en', 'creative.game.prompt') }),
+    );
+    await user.click(screen.getByRole('button', { name: t('en', 'creative.enableFreeCode') }));
+    expect(onFreeCodeChange).toHaveBeenCalledWith(true);
+
+    // No switch kept, a selection greeting, or a draft in the box: none offered.
+    rerender(<AgentThread {...baseProps({ turns: [], activity: null, suggestions: starters })} />);
+    expect(screen.queryByRole('region', { name: t('en', 'creative.title') })).toBeNull();
+    rerender(
+      <AgentThread
+        {...baseProps({
+          turns: [],
+          activity: null,
+          suggestions: starters,
+          empty: { kind: 'selection', title: 'Hero' },
+        })}
+        freeCode={{ enabled: true }}
+      />,
+    );
+    expect(screen.queryByRole('region', { name: t('en', 'creative.title') })).toBeNull();
+    rerender(
+      <AgentThread
+        {...baseProps({ turns: [], activity: null, suggestions: starters, draft: 'A game' })}
+        freeCode={{ enabled: true }}
+      />,
+    );
+    expect(screen.queryByRole('region', { name: t('en', 'creative.title') })).toBeNull();
+  });
+
   it('greets a selection by the selected block’s title', () => {
     const { container } = render(
       <AgentThread

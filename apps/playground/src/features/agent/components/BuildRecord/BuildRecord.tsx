@@ -17,6 +17,7 @@ import type {
 } from '../../model/view-types';
 import { AgentIcon } from '../AgentIcon';
 import { BuildTaskBoard } from '../BuildTaskBoard';
+import { CreativeBriefCard } from '../CreativeBriefCard';
 import { DirectionLine } from '../DirectionLine';
 import { ErrorBody } from '../ErrorRecord';
 import { FactsDisclosure } from '../FactsDisclosure';
@@ -215,6 +216,10 @@ export function BuildRecord({
     );
   }
   if (!collapsedClosed) {
+    // creative agent (2026-10-12): the plan a game or story was written from, first.
+    if (view.brief !== undefined) {
+      lines.push(<CreativeBriefCard key="brief" locale={locale} brief={view.brief} />);
+    }
     if (rows.length > 0 && (phase === 'building' || phase === 'stopping')) {
       lines.push(
         <BuildTaskBoard

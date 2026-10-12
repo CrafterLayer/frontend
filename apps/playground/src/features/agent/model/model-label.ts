@@ -150,6 +150,16 @@ export function modelLabel(id: string): ModelLabel {
   }
 
   /*
+    `api:<model>`: the same Claude on the server's API key. "API" stays in the product so
+    a person can tell it from the `cli:` entry of the same model: one costs the key.
+  */
+  if (trimmed.startsWith('api:')) {
+    const family = trimmed.slice('api:'.length);
+    const named = productName(family);
+    return { tier: tierOf(family, false), product: named === '' ? 'API' : `${named} API` };
+  }
+
+  /*
     `vendor/model:variant`. The variant is a price or routing tag (`:free`, `:nitro`,
     `:beta`), never part of the name; only `:free` changes what the person pays.
   */

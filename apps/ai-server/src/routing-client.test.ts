@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CLI_MODEL_PREFIX, createRoutingClient, isCliModel } from './routing-client';
+import { CLI_MODEL_PREFIX, createRoutingClient, isApiModel, isCliModel } from './routing-client';
 
 /**
  * The hybrid: one picker, two backends. A `cli:` slug is the person's own
@@ -96,6 +96,35 @@ describe('routing', () => {
     await client.messages.stream({ ...PARAMS, model: 'cli:' } as never).finalMessage();
 
     expect(cliFactory).toHaveBeenCalledWith(undefined);
+  });
+
+  it('sends an api: model to the Messages API by its real id, and nothing to the CLI or OpenRouter', async () => {
+    const openrouter = backend({});
+    const api = backend({ text: '{"from":"api"}' });
+    const cliFactory = vi.fn((_model: string | undefined) => backend({}).client);
+    const client = createRoutingClient({
+      openrouter: openrouter.client,
+      cli: cliFactory,
+      api: api.client,
+    });
+
+    const message = (await client.messages
+      .stream({ ...PARAMS, model: 'api:claude-haiku-5-5' } as never)
+      .finalMessage()) as { content: { text: string }[] };
+
+    expect(isApiModel('api:claude-haiku-5-5')).toBe(true);
+    expect(api.calls[0]?.params['model']).toBe('claude-haiku-5-5');
+    expect(message.content[0]?.text).toBe('{"from":"api"}');
+    expect(cliFactory).not.toHaveBeenCalled();
+    expect(openrouter.calls).toHaveLength(0);
+  });
+
+  it('fails an api: model naming the missing key when no API client was built', async () => {
+    const client = createRoutingClient({ openrouter: backend({}).client, cli: vi.fn() });
+
+    await expect(
+      client.messages.stream({ ...PARAMS, model: 'api:claude-haiku-5-5' } as never).finalMessage(),
+    ).rejects.toThrow(/ANTHROPIC_API_KEY/u);
   });
 
   it('sends every other model to OpenRouter untouched, with the request options', async () => {

@@ -40,6 +40,7 @@ function modelLabel(slug: string): string {
     const cliModel = slug.slice('cli:'.length);
     return cliModel === '' ? 'Claude CLI' : `${cliModel} · Claude CLI`;
   }
+  if (slug.startsWith('api:')) return `${slug.slice('api:'.length)} · API key`;
   const name = slug.slice(slug.lastIndexOf('/') + 1);
   return name.endsWith(':free') ? `${name.slice(0, -':free'.length)} · free` : name;
 }
@@ -49,9 +50,11 @@ function groupedModels(
   models: readonly string[],
 ): readonly { label: string; slugs: readonly string[] }[] {
   const cli = models.filter((slug) => slug.startsWith('cli:'));
-  const openRouter = models.filter((slug) => !slug.startsWith('cli:'));
+  const api = models.filter((slug) => slug.startsWith('api:'));
+  const openRouter = models.filter((slug) => !slug.startsWith('cli:') && !slug.startsWith('api:'));
   return [
     ...(cli.length === 0 ? [] : [{ label: 'Claude CLI', slugs: cli }]),
+    ...(api.length === 0 ? [] : [{ label: 'Anthropic API', slugs: api }]),
     ...(openRouter.length === 0 ? [] : [{ label: 'OpenRouter', slugs: openRouter }]),
   ];
 }

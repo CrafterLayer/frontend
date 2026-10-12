@@ -260,9 +260,12 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     expect(calls[1]?.attempt?.issues.some(({ path }) => path.startsWith('tokens.onAccent'))).toBe(
       true,
     );
+    // Each call announces itself (`proposing`, attempt 1 then 2) around the repair.
     expect(events.map(({ type }) => type)).toEqual([
       'page-plan.started',
+      'page-plan.proposing',
       'page-plan.repairing',
+      'page-plan.proposing',
       'page-plan.ready',
     ]);
     expect(events.every(({ runId }) => runId === 'plan-1')).toBe(true);

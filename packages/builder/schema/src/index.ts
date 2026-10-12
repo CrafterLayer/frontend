@@ -101,8 +101,6 @@ export {
   type DataSourceDef,
   type ElementFocus,
   type EventBus,
-  type FieldProps,
-  type FieldTypeDef,
   type InlineEditableKind,
   type InlineEditorDef,
   type InlineEditorProps,
@@ -126,6 +124,7 @@ export {
   type StateFacade,
   defineContextFragment,
 } from './extensions/contribution-points';
+export type { FieldProps, FieldRowState, FieldSibling, FieldTypeDef } from './extensions/fields';
 
 export {
   type DeclarativeExtensionManifest,

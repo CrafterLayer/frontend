@@ -33,7 +33,6 @@ import type { EditingBucket } from '../../devices/buckets';
 import { utilityClassesKey } from '../../style-manager/block-source';
 import { STYLE_PANEL_LABELS_AR, STYLE_PANEL_LABELS_EN } from '../../style-manager/StylePanel';
 import { readTreeTarget, type TreeTarget, type TreeWriteOptions } from '../../style-manager/tree-writes';
-import { propsShapeOf } from '../../fields/resolve-field';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
 import { COLOR_ROLE_NAMES_AR } from '../DesignSystemPanel/DesignSystemPanel.labels';
@@ -58,6 +57,7 @@ import {
 import type { ErasedPropertyGroups, InspectorRowScope, InspectorTabModel } from './types';
 import { useCollapsedSections } from './use-collapsed-sections';
 import { useAnnouncer } from './use-inspector-announcer';
+import { useInspectorProperties } from './use-inspector-properties';
 import { useInspectorTabs } from './use-inspector-tabs';
 import { useStableCallback } from './use-stable-callback';
 // ── block-parts (2026-10-06) ──
@@ -206,10 +206,8 @@ export function Inspector({
     return selectedType === null ? undefined : kernel.context.registry.block(selectedType)?.schema;
   }, [kernel, selectedType, catalogVersion]);
 
-  const properties = useMemo(
-    () => (blockSchema === undefined ? [] : Object.entries(propsShapeOf(blockSchema.props))),
-    [blockSchema],
-  );
+  // Minus the props a field type leaves out (Studio-written data; controls with nothing to tune).
+  const properties = useInspectorProperties(kernel, blockSchema, selectedId, catalogVersion);
   const declarations = blockSchema?.propertyGroups as ErasedPropertyGroups | undefined;
   const palette = useMemo(() => paletteOf(theme), [theme]);
 

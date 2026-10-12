@@ -6,8 +6,13 @@ import * as Stories from './ScriptParamsForm.stories';
 # ScriptParamsForm
 
 Existing editor-owned controls for a script's declared parameters. This component renders controls,
-not script execution, kernel transactions, asset upload or sound playback. It is not yet wired into
-the product Inspector or Script Studio; this repair completes its local component contract only.
+not script execution, kernel transactions, asset upload or sound playback. The Inspector's Scene
+settings (`CustomCodeParamsField`) wrap it for a composed region's `jsParams`; the Script Studio
+does not use it yet.
+
+Controls follow the SPEC order — the author's order is the order a person reads. Consecutive params
+of one group (Look, Motion, Interaction, Sound; no group reads as Look) share a fieldset under the
+group's legend; a group that comes back later in the spec opens a new one.
 
 <Canvas of={Stories.Default} />
 

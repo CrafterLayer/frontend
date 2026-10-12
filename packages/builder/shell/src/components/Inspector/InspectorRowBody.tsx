@@ -1,7 +1,5 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
-import type { z } from 'zod';
-
 import {
   blockPartsOf,
   isRichTextSchema,
@@ -18,7 +16,7 @@ import { ReadOnlyField, type FieldControlProps } from '../../fields/controls';
 import type { FieldCommitResult } from '../../fields/field-commit';
 import { useFieldLabels, useFieldServices } from '../../fields/field-services-context';
 import { planPartStyleReset } from '../../fields/part-styles-reset';
-import { partBindingFor, propsShapeOf, unwrapSchema } from '../../fields/resolve-field';
+import { partBindingFor } from '../../fields/resolve-field';
 import { schemaName } from '../../i18n/schema-words';
 import { blockDisplayName } from '../../naming/block-display-name';
 import { FieldErrorBoundary } from './FieldErrorBoundary';
@@ -28,36 +26,17 @@ import { LabeledSlot } from './LabeledSlot';
 import { OverrideMarker } from './OverrideMarker';
 import { displayPropertyLabel, unitFor } from './property-label';
 import { RepeaterField } from './RepeaterField';
+import { declaredLinkKeys, placeholderOf, relativePropPath } from './row-body-helpers';
 import { schemaFacts } from './schema-facts';
 import { isSegmentOption } from './segment-icons';
 import { SegmentedControl } from './SegmentedControl';
 import type { InspectorRowBodyProps, Rendering } from './types';
 import { useFieldRendering } from './use-field-rendering';
+import { useFieldSiblings } from './use-field-siblings';
 import { useRowCommit } from './use-row-commit';
 import './InspectorRow.css';
 
 const NO_PARTS: BlockParts = {};
-
-/** The row's prop path relative to `props` (indices as numbers), for part bindings. */
-function relativePropPath(fieldPath: readonly (string | number)[]): (string | number)[] {
-  if (fieldPath[0] === 'props') return fieldPath.slice(1);
-  if (fieldPath[0] === 'responsive') return fieldPath.slice(2);
-  return [...fieldPath];
-}
-
-/** Which object keys a LinkField edits, for a row the block declares `kind: 'link'`. */
-function declaredLinkKeys(schema: z.ZodType): { textKey?: string; hrefKey: string } {
-  const keys = Object.keys(propsShapeOf(unwrapSchema(schema)));
-  const textKey = ['label', 'text', 'title'].find((key) => keys.includes(key));
-  const hrefKey = ['href', 'url', 'link'].find((key) => keys.includes(key)) ?? 'href';
-  return textKey === undefined ? { hrefKey } : { textKey, hrefKey };
-}
-
-function placeholderOf(baseValue: unknown): string | undefined {
-  if (typeof baseValue === 'string') return baseValue;
-  if (typeof baseValue === 'number' || typeof baseValue === 'boolean') return String(baseValue);
-  return undefined;
-}
 
 /**
  * One property row (007 contract §4): resolveField picks the renderer, every
@@ -77,7 +56,8 @@ function placeholderOf(baseValue: unknown): string | undefined {
  * which subscribes per property and renders this. Nested repeater rows render
  * it directly with fresh closures. Nothing in here reads the kernel's DOCUMENT
  * outside a commit except the node's TYPE (to find its block's declared parts),
- * which a node never changes — every value arrives by prop.
+ * which a node never changes — every value arrives by prop — and, for a field
+ * type that declared `siblings: true`, its node's other props (useFieldSiblings).
  */
 export function InspectorRowBody({
   kernel,
@@ -109,7 +89,8 @@ export function InspectorRowBody({
   const labelId = `${uid}-label`;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const fieldLabels = useFieldLabels();
-  const locale = useFieldServices().locale ?? 'en';
+  const services = useFieldServices();
+  const locale = services.locale ?? 'en';
 
   // The block's declared parts (block-parts DESIGN §2.10 step 2). A node's
   // type never changes, so this is read once per node and catalog generation.
@@ -132,6 +113,9 @@ export function InspectorRowBody({
     propPath,
   });
   const rendering = field.rendering;
+  // A field type that asked for its sibling props gets them (one opt-in subscription, top level).
+  const wantsSiblings = !nested && rendering.kind === 'contributed' && rendering.def.siblings === true;
+  const siblings = useFieldSiblings(kernel, nodeId, propKey, blockSchema, wantsSiblings);
   const door = useRowCommit({ kernel, nodeId, propKey, bucket, nested, commitValue, announce });
 
   // A deferred draft is keyed by the value it was typed OVER: the moment the
@@ -227,6 +211,9 @@ export function InspectorRowBody({
     labelledBy: labelId,
     describedBy,
     placeholder,
+    locale,
+    assetLibrary: services.assetLibrary,
+    siblings,
   };
 
   const boundaryKey =

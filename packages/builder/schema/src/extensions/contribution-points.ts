@@ -17,6 +17,7 @@ import type { JsonValue } from '../json/json-value';
 import type { DataSource } from '../ports';
 import type { Patch, Transaction } from '../transactions';
 import type { RegisteredCommand } from '../commands';
+import type { FieldTypeDef } from './fields';
 
 /** A direct slot child's renderer-safe, document-derived identity and props. */
 export interface BlockSlotChildMetadata {
@@ -200,22 +201,8 @@ export interface PanelContribution {
   load: () => Promise<{ default: ComponentType<PanelProps> }>;
 }
 
-export interface FieldProps {
-  schema: z.ZodType;
-  value: unknown;
-  /** Into props or responsive[breakpoint]. */
-  path: (string | number)[];
-  /** The host wraps this into setProp / setResponsive dispatches. */
-  onChange: (next: unknown) => void;
-  disabled?: boolean;
-}
-
-export interface FieldTypeDef {
-  id: string;
-  /** Priority score; 0 = no match; highest wins. */
-  match(schema: z.ZodType): number;
-  load: () => Promise<{ default: ComponentType<FieldProps> }>;
-}
+// The field-type contribution point lives in `./fields` (its own module since jsParams, 2026-10-12).
+export type { FieldProps, FieldRowState, FieldSibling, FieldTypeDef } from './fields';
 
 /** The kinds a block may declare through `inlineEditable` (B3c). */
 export type InlineEditableKind = 'text' | 'rich';

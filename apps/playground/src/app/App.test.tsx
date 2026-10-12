@@ -159,13 +159,13 @@ describe('the app frame must not reach into the page being edited', () => {
     have a rule, and that rule must give it a definite height.
   */
   it('gives every panel-column wrapper a definite height, or the panel inside collapses', () => {
-    const appTsx = readFileSync(join(process.cwd(), 'src', 'app', 'App.tsx'), 'utf8');
-    const wrappers = [...appTsx.matchAll(/className="(pg-[a-z-]*panel)"/g)].map(
-      (match) => match[1] ?? '',
-    );
+    const source = ['App.tsx', 'assistant-rail-panel.tsx', 'rail-section-panel.tsx']
+      .map((file) => readFileSync(join(process.cwd(), 'src', 'app', file), 'utf8'))
+      .join('\n');
+    const wrappers = [...source.matchAll(/className="(pg-[a-z-]*panel)"/g)].map((m) => m[1] ?? '');
 
-    // Non-vacuous: both wrappers exist today, and a rename that lost one would
-    // otherwise turn this gate into a no-op.
+    // Non-vacuous: both wrappers exist today (App.tsx, assistant-rail-panel.tsx), and a
+    // rename that lost one would otherwise turn this gate into a no-op.
     expect(wrappers).toContain('pg-rail-panel');
     expect(wrappers).toContain('pg-boot-panel');
     for (const wrapper of wrappers) {

@@ -42,7 +42,10 @@
 }
 
 .pg-history__name {
-  color: var(--bldr-label-text);
+  /* Graphite, not --bldr-label-text: that is the text ON a filled label, white in the light
+     theme, so the field's name was all but invisible (Studio Indigo audit, 2026-10-12). */
+  color: var(--bldr-panel-text-soft);
+  font-weight: var(--bldr-font-weight-medium);
   display: flex;
   flex-direction: column;
   font-size: var(--bldr-font-size-caption);

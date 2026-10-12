@@ -1,4 +1,5 @@
 import {
+  customCodeAttributeSpelling,
   scanLibKeys,
   scriptCodeIssues,
   STUDIO_LIB_KEYS,
@@ -297,10 +298,22 @@ function domFindings(
   const reported = new Set<string>();
   for (const { name, id, index } of lookups) {
     const key = `${id ? '#' : ''}${name}`;
-    if (reported.has(key)) continue;
-    const present = id ? facts.ids.has(name) : facts.attributes.has(name);
-    if (present || madeByCode(name, id)) continue;
+    if (reported.has(key) || madeByCode(name, id)) continue;
+    // The door drops a data attribute it does not know (2026-10-12): the tree can never hold it.
+    const kept = id || customCodeAttributeSpelling(name) === name;
+    if (kept && (id ? facts.ids.has(name) : facts.attributes.has(name))) continue;
     reported.add(key);
+    if (!kept) {
+      findings.push(
+        finding(
+          'scene-dom',
+          `Name the hook data-scene-action, data-scene-key, data-scene-status, data-scene-part or data-scene-value (or a playbook's own, like data-game-action): the code queries [${name}], and the page never keeps that attribute — the tree door drops data attributes it does not know.`,
+          source,
+          index,
+        ),
+      );
+      continue;
+    }
     findings.push(
       finding(
         'scene-dom',

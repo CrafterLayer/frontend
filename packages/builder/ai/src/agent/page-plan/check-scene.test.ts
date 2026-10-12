@@ -96,12 +96,12 @@ describe('checkScene on the scenes the agent is taught', () => {
 });
 
 const TREE = parseTreeMarkup(
-  "<section class='ck-scene'><p data-status role='status'></p><button type='button' data-go>Go</button></section>",
+  "<section class='ck-scene'><p data-anim-status role='status'></p><button type='button' data-fx-burst>Go</button></section>",
 ) as unknown as JsonValue;
 const CSS = '.ck-scene{position:relative;min-height:420px}';
 /** A scene that passes every rule; each broken case changes one thing. */
 const CLEAN =
-  "const s=await ck.scene({libs:['fx']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nconst go=ck.root.querySelector('[data-go]');\nconst burst=()=>{if(!s.editor)fx.emit('magic',s.width/2,s.height/2)};\nif(go){go.addEventListener('click',burst);s.dispose(()=>go.removeEventListener('click',burst))}\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
+  "const s=await ck.scene({libs:['fx']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nconst go=ck.root.querySelector('[data-fx-burst]');\nconst burst=()=>{if(!s.editor)fx.emit('magic',s.width/2,s.height/2)};\nif(go){go.addEventListener('click',burst);s.dispose(()=>go.removeEventListener('click',burst))}\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
 
 function codes(section: Partial<LandedSection> & { readonly js: string }): SectionCheckCode[] {
   return checkScene({ tree: TREE, css: CSS, ...section }).map(({ code }) => code);
@@ -118,7 +118,11 @@ describe('checkScene on broken scenes: every rule fires', () => {
     ['a computed library key', "const k='fx';const s=await ck.scene({libs:[k]});", 'scene-lib'],
     ['s.lib.X not listed in libs', CLEAN.replace("libs:['fx']", "libs:['anim']"), 'scene-lib'],
     ['s.lib of no library', `${CLEAN}\ns.lib.particles.go();`, 'scene-lib'],
-    ['a [data-…] lookup the tree lacks', CLEAN.replace('[data-go]', '[data-start]'), 'scene-dom'],
+    [
+      'a [data-…] lookup the tree lacks',
+      CLEAN.replace('[data-fx-burst]', '[data-chase-start]'),
+      'scene-dom',
+    ],
     ['an id lookup the tree lacks', `${CLEAN}\ndocument.getElementById('score');`, 'scene-dom'],
     [
       'dialogue read from a tree with no dialogue list',
@@ -199,14 +203,14 @@ describe('checkScene on broken scenes: every rule fires', () => {
     ).toEqual(['scene-height']);
     // A height in the tree, or any of the css forms, is a height.
     const sized = parseTreeMarkup(
-      "<section class='md:min-h-[420px]'><button data-go>Go</button></section>",
+      "<section class='md:min-h-[420px]'><button data-fx-burst>Go</button></section>",
     );
     expect(codes({ js: CLEAN, css: '', tree: sized as unknown as JsonValue })).toEqual([]);
     for (const css of ['.a{aspect-ratio:4/3}', '.a{height:60vh}', '.a{min-block-size:20rem}']) {
       expect(codes({ js: CLEAN, css })).toEqual([]);
     }
     // DOM-only code fills nothing.
-    expect(codes({ js: "ck.root.querySelector('[data-go]');", css: '' })).toEqual([]);
+    expect(codes({ js: "ck.root.querySelector('[data-fx-burst]');", css: '' })).toEqual([]);
   });
 
   it('asks for ck.params when the region carries settings the code never reads', () => {
@@ -241,10 +245,24 @@ describe('checkScene on broken scenes: every rule fires', () => {
     const [dom] = checkScene({
       tree: TREE,
       css: CSS,
-      js: CLEAN.replace('[data-go]', '[data-start]'),
+      js: CLEAN.replace('[data-fx-burst]', '[data-chase-start]'),
     });
     expect(dom).toMatchObject({ code: 'scene-dom', path: 'js line 3' });
-    expect(dom?.message).toContain('[data-start]');
+    expect(dom?.message).toContain('[data-chase-start]');
+  });
+
+  it('names the hooks the page keeps when the code queries one the door drops', () => {
+    const js = CLEAN.replace('[data-fx-burst]', '[data-level]');
+    const dropped = checkScene({ tree: TREE, css: CSS, js }).find(
+      ({ code }) => code === 'scene-dom',
+    );
+    expect(dropped?.message).toContain('[data-level]');
+    expect(dropped?.message).toContain('data-scene-action');
+    // Even when a tree written outside the door carries it: the page never will.
+    const tree = parseTreeMarkup(
+      "<section class='ck-scene'><button data-level>Go</button></section>",
+    ) as unknown as JsonValue;
+    expect(codes({ js, tree })).toContain('scene-dom');
   });
 });
 
@@ -273,7 +291,9 @@ ${CLEAN}`;
     const component = parseTreeMarkup(
       "<section class='ck-scene'><ck-component type='kit' props='{}'></ck-component></section>",
     ) as unknown as JsonValue;
-    expect(codes({ js: CLEAN.replace('[data-go]', '[data-start]'), tree: component })).toEqual([]);
+    expect(
+      codes({ js: CLEAN.replace('[data-fx-burst]', '[data-chase-start]'), tree: component }),
+    ).toEqual([]);
   });
 
   it("reads a page-level attribute as the page's, and an interval as a clock, not motion", () => {

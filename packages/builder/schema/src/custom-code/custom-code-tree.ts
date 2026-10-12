@@ -40,6 +40,7 @@ import {
   SCENE_HOST_TAGS,
 } from './media-vocabulary';
 import { CUSTOM_CODE_DIALOGUE_ATTRIBUTES, CUSTOM_CODE_DIALOGUE_RULES } from './dialogue-vocabulary';
+import { SCENE_HOOKS } from './creative-vocabulary';
 // pixi-studio:sound-engine additions (2026-10-10)
 import { soundAttributeProblem } from '../sound/attribute';
 // end pixi-studio:sound-engine additions
@@ -239,17 +240,14 @@ export type CustomCodeTag = (typeof CUSTOM_CODE_TAGS)[number];
         policy as `src`; a video that plays by itself is always muted.
     the svg shape family — see CUSTOM_CODE_SVG_TAGS.
 
-  Two were absent in the first version and are present now, each with a policy
-  the renderer enforces rather than a hope:
+  Two were absent in the first version; each now has a policy the renderer enforces:
 
     a — `href` passes `safeHref` (https, mailto, tel, relative; never
         javascript:), an external link gets `rel="noopener noreferrer"`, and
-        on the editing canvas a click is swallowed so the editor is not
-        navigated away from. A CV page without a link to anything was the
-        argument for admitting it.
-    button — always `type="button"`, never a submit, never a handler. It is
-        a styled affordance the assistant can place; a registered block or a
-        host wires behaviour to it later.
+        on the editing canvas a click is swallowed (the editor stays put). A CV
+        page without a link to anything was the argument for admitting it.
+    button — always `type="button"`, never a submit, never a handler: a styled
+        affordance; a registered block, a host or a scene wires behaviour to it.
 
   Admitted 2026-10-05 (style-manager DESIGN §D.1 — "build and edit anything",
   safely). Each absence above that is now lifted carries its guard:
@@ -455,6 +453,7 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   'data-ck-sound',
   // end pixi-studio:sound-engine additions
   ...CUSTOM_CODE_DIALOGUE_ATTRIBUTES, // creative engines (2026-10-12): dialogue-vocabulary.ts
+  ...SCENE_HOOKS.names, // the hooks scene code finds (2026-10-12): creative-vocabulary.ts
 ] as const;
 
 /**
@@ -1255,6 +1254,7 @@ const ATTRIBUTE_RULES: Readonly<Record<string, AttributeRule>> = {
   ...HTML_TAG_RULES,
   ...SVG_ATTRIBUTE_RULES,
   ...CUSTOM_CODE_DIALOGUE_RULES,
+  ...SCENE_HOOKS.rules,
 };
 
 function placeName(on: AttributePlace): string {
@@ -1300,7 +1300,7 @@ export function customCodeAttributeProblem(
       return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')}) or an animation with data-ck-motion / data-ck-hover`;
     }
     if (/^data-/iu.test(name)) {
-      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}, and the dialogue markers ${CUSTOM_CODE_DIALOGUE_ATTRIBUTES.join(', ')}`;
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}, the dialogue markers ${CUSTOM_CODE_DIALOGUE_ATTRIBUTES.join(', ')}, and the scene hooks the playbooks name; for any other hook a scene's code finds, use ${SCENE_HOOKS.general.join(', ')}`;
     }
     if (name === 'style') {
       return 'style is not an attribute the vocabulary admits: write utility classes in className';

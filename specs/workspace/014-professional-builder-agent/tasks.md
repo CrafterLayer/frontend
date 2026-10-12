@@ -614,6 +614,19 @@ Evidence:
 - [x] T188 Fake controller free code and creative scenarios; AgentPanel stories; tests, component
       contract and Storybook build.
 
+### Studio Indigo platform UX, command palette and feedback — 2026-10-12
+
+- [x] T189 Shell chrome: captioned dark rail, one primary Publish site, segmented workspace view,
+      icon-only pane toggles, shared rail measure for the phone overlay.
+- [x] T190 Arabic labels for the Pages workspace, site map, page menus, History and code panels.
+- [x] T191 `check:file-sizes` guard (source ≤ 500, tests ≤ 800, shrink-only baseline) in `verify`;
+      split App.css, App.tsx, the agent controller hook, the fake controller and large modules.
+- [x] T192 Add `cmdk` and `sonner` through the catalog (MIT, React 19 peers); Storybook pre-bundles.
+- [x] T193 `CommandPalette` (Ctrl/⌘ K, top-bar trigger, EN/AR, RTL) with the live editor command
+      list in `app/use-editor-commands.ts`.
+- [x] T194 `FeedbackToaster` + `notifyPublish`: publish narrated in one toast, Try again on failure.
+- [x] T195 Tests, stories, docs, component contract, file sizes, LTR/RTL screenshots.
+
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.

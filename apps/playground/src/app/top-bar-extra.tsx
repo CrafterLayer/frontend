@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { ChromeButton, type BuilderKernel } from '@craftkit/builder';
 
 import type { ChromeLabels } from './editor-labels';
@@ -29,10 +31,21 @@ export interface TopBarExtraProps {
   /** While the code showcase is open it renders its own sealed-store counter. */
   readonly showcaseOwnsLawSControls: boolean;
   readonly kernel: BuilderKernel | undefined;
+  /** The command palette's trigger (and its dialog), first in the band. */
+  readonly palette?: ReactNode;
 }
 
-/** The top bar's `extra` band: the workspace view switch, the pane toggles and the tx counter. */
-export function TopBarExtra({ labels, panes, showcaseOwnsLawSControls, kernel }: TopBarExtraProps) {
+/**
+ * The top bar's `extra` band: the command palette's trigger, the workspace view switch, the
+ * pane toggles and the tx counter.
+ */
+export function TopBarExtra({
+  labels,
+  panes,
+  showcaseOwnsLawSControls,
+  kernel,
+  palette,
+}: TopBarExtraProps) {
   const {
     workspaceView,
     setWorkspaceView,
@@ -49,6 +62,7 @@ export function TopBarExtra({ labels, panes, showcaseOwnsLawSControls, kernel }:
       every view for the law's assertions and has no business being seen.
     */
     <>
+      {palette}
       <div className="pg-workspace-view" role="group" aria-label={labels.workspaceView}>
         <ChromeButton
           size="sm"

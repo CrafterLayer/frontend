@@ -110,9 +110,11 @@ export function useCodeSession({
   };
   // Canvas (non-code) pages publish as a static site: SEO head, sitemap, robots, 404.
   const publishSite = usePublishStaticSite(siteKernel, EXPORT_SITE_ORIGIN, liveUtilities);
+  // Resolves with the files it downloaded, or `undefined` when publishing failed (the toast says which).
   const publishStaticSiteFiles = async () => {
     const files = await publishSite.publish();
     if (files !== undefined) downloadArtifactFiles(files);
+    return files;
   };
   return {
     codePage,

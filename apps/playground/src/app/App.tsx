@@ -50,6 +50,7 @@ import type { ThemeName } from '../features/preview/components/ThemePicker';
 import { useComponentSchemaResolver } from '../features/preview/use-component-schema-resolver';
 import { useLiveUtilities } from '../features/preview/use-live-utilities';
 import { readCurrentWorkspace } from '../features/preview/workspace-preferences';
+import { FeedbackToaster, feedbackLabels } from '../features/feedback';
 
 /**
  * Product composition. Kernel source, runtime sessions, and Vault persistence
@@ -102,17 +103,13 @@ export function App() {
     (style-manager DESIGN §A.7). It follows the device; a custom width chosen in
     the panel ("Edit at ≤ N px") overrides it until the device changes again.
   */
-  const [customBucket, setCustomBucket] = useState<{ readonly maxWidth: number } | undefined>(undefined);
+  const [customBucket, setCustomBucket] = useState<{ readonly maxWidth: number } | undefined>(
+    undefined,
+  );
   const styleBucket: StyleBucket = customBucket ?? device.bucket;
   // The editor's language: its labels, the document's lang/dir, the rail items.
-  const {
-    editorLocale,
-    setEditorLocale,
-    labels,
-    railDestinations,
-    railUtilities,
-    returnFocusToRailAgent,
-  } = useEditorLanguage();
+  const language = useEditorLanguage();
+  const { editorLocale, setEditorLocale, labels, railDestinations, railUtilities } = language;
   // The editor actions' polite channel: outcomes and refusals of shortcuts, Layers, templates.
   const [chromeMessage, setChromeMessage] = useState({ text: '', nonce: 0 });
   const announceChrome = useCallback((text: string) => {
@@ -250,107 +247,108 @@ export function App() {
     // into an actual theme, and it is the element a host re-points a token on.
     // The site design library (palette, named styles, symbols) around every page render.
     <SiteDesignHost siteKernel={siteKernel}>
-    {/* Radix menus, tabs and popovers read the chrome's direction from here. */}
-    <DirectionProvider dir={labels.dir}>
-    <BuilderTheme
-      className="pg-app"
-      theme={chromeThemeFor(chromeChoice)}
-      dir={labels.dir}
-    >
-      <EditorTopBar
-        labels={labels}
-        code={code}
-        device={device}
-        changeDevice={changeDevice}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        showcaseOwnsLawSControls={showcaseOwnsLawSControls}
-        kernel={kernel}
-        setPreview={setPreview}
-        panes={panes}
-      />
-      <output aria-live="polite" aria-label="Mode" className="bldr-visually-hidden">
-        {modeMessage.text}
-        {modeMessage.nonce % 2 === 1 ? '​' : ''}
-      </output>
-      <output aria-live="polite" aria-label="Editor actions" className="bldr-visually-hidden">
-        {chromeMessage.text}
-        {chromeMessage.nonce % 2 === 1 ? '​' : ''}
-      </output>
-      {/* The editor keymap (style-manager §E): undo/redo, copy/paste, duplicate, wrap, devices, `?`. */}
-      {session === undefined || codeSnapshot !== undefined || codeOpen ? null : (
-        <EditorShortcutsHost
-          kernel={session.kernel}
-          onAction={chrome.runShortcut}
-          enabled={!chrome.shortcutsOpen}
-        />
-      )}
-      <ShortcutsDialog
-        open={chrome.shortcutsOpen}
-        onClose={() => {
-          chrome.setShortcutsOpen(false);
-        }}
-        labels={labels.shortcuts}
-      />
-      {session === undefined ? null : (
-        <VaultNotices
-          session={session}
-          fixture={fixture}
-          noticeDismissedFor={noticeDismissedFor}
-          onDismissRestored={setNoticeDismissedFor}
-          labels={labels.chrome}
-        />
-      )}
-      <div style={{ flex: 1, minBlockSize: 0 }}>
-        {/*
+      {/* Radix menus, tabs and popovers read the chrome's direction from here. */}
+      <DirectionProvider dir={labels.dir}>
+        <BuilderTheme className="pg-app" theme={chromeThemeFor(chromeChoice)} dir={labels.dir}>
+          <EditorTopBar
+            labels={labels}
+            language={language}
+            code={code}
+            device={device}
+            changeDevice={changeDevice}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            showcaseOwnsLawSControls={showcaseOwnsLawSControls}
+            kernel={kernel}
+            siteKernel={siteKernel}
+            setPreview={setPreview}
+            panes={panes}
+            openShortcuts={chrome.setShortcutsOpen}
+          />
+          {/* The outcome of a person's own action (publish first), said once near the canvas. */}
+          <FeedbackToaster labels={feedbackLabels(editorLocale)} dir={labels.dir} />
+          <output aria-live="polite" aria-label="Mode" className="bldr-visually-hidden">
+            {modeMessage.text}
+            {modeMessage.nonce % 2 === 1 ? '​' : ''}
+          </output>
+          <output aria-live="polite" aria-label="Editor actions" className="bldr-visually-hidden">
+            {chromeMessage.text}
+            {chromeMessage.nonce % 2 === 1 ? '​' : ''}
+          </output>
+          {/* The editor keymap (style-manager §E): undo/redo, copy/paste, duplicate, wrap, devices, `?`. */}
+          {session === undefined || codeSnapshot !== undefined || codeOpen ? null : (
+            <EditorShortcutsHost
+              kernel={session.kernel}
+              onAction={chrome.runShortcut}
+              enabled={!chrome.shortcutsOpen}
+            />
+          )}
+          <ShortcutsDialog
+            open={chrome.shortcutsOpen}
+            onClose={() => {
+              chrome.setShortcutsOpen(false);
+            }}
+            labels={labels.shortcuts}
+          />
+          {session === undefined ? null : (
+            <VaultNotices
+              session={session}
+              fixture={fixture}
+              noticeDismissedFor={noticeDismissedFor}
+              onDismissRestored={setNoticeDismissedFor}
+              labels={labels.chrome}
+            />
+          )}
+          <div style={{ flex: 1, minBlockSize: 0 }}>
+            {/*
           The editor's layout is BuilderShell's job, not this file's. Before it
           the playground nested flexboxes with inline sizes here, which meant the
           shape of the editor was described in one place and approximated in
           every other — and a region could only be removed by editing this JSX.
           Now an absent region is simply an omitted prop.
         */}
-        <BuilderShell
-          label={labels.chrome.editor}
-          adaptive
-          panelOpen={panelOpen && !agentAsSheet}
-          /*
+            <BuilderShell
+              label={labels.chrome.editor}
+              adaptive
+              panelOpen={panelOpen && !agentAsSheet}
+              /*
             While the agent is the phone sheet, the inspector stays closed. Left open, it
             was an overlay 288px wide over a 342px canvas: the sheet's mini detent showed
             the rail, "No block selected" and a 40px sliver of the page (final test,
             2026-09-29). The canvas is what the mini detent is for (SPEC §3.16).
           */
-          asideOpen={asideOpen && panes.workspaceView === 'canvas' && !agentAsSheet}
-          activeSide={panes.activeSide}
-          panelWidth={panelWidth}
-          /*
+              asideOpen={asideOpen && panes.workspaceView === 'canvas' && !agentAsSheet}
+              activeSide={panes.activeSide}
+              panelWidth={panelWidth}
+              /*
             The v2 agent panel carries its own separator (SPEC §4.1: 16px steps,
             48 with Shift); two separators on one edge would fight, so the shell's
             steps aside while the agent holds the column.
           */
-          onPanelWidthChange={
-            AGENT_PANEL === 'v2' && railSection === 'assistant' && codeSnapshot === undefined
-              ? undefined
-              : setPanelWidth
-          }
-          onCanvasWidthChange={panes.setCanvasWidth}
-          onLayoutChange={panes.setVisiblePanes}
-          rail={
-            <EditorRail
-              items={railDestinations}
-              secondary={railUtilities}
-              label={labels.chrome.railLabel}
-              panes={panes}
-            />
-          }
-          /*
+              onPanelWidthChange={
+                AGENT_PANEL === 'v2' && railSection === 'assistant' && codeSnapshot === undefined
+                  ? undefined
+                  : setPanelWidth
+              }
+              onCanvasWidthChange={panes.setCanvasWidth}
+              onLayoutChange={panes.setVisiblePanes}
+              rail={
+                <EditorRail
+                  items={railDestinations}
+                  secondary={railUtilities}
+                  label={labels.chrome.railLabel}
+                  panes={panes}
+                />
+              }
+              /*
               The structure of the document is how a person navigates it, so
               when the panel is holding it the canvas narrows rather than the
               tree disappearing. The palette keeps the old behaviour: it is a
               source you dip into, and the canvas is the subject.
             */
-          panelPriority={railSection === 'layers' ? 'essential' : 'optional'}
-          panel={
-            /*
+              panelPriority={railSection === 'layers' ? 'essential' : 'optional'}
+              panel={
+                /*
                 The rail's content destinations are real panels; the rest say
                 what they are. Blocks and Layers share the left column the way
                 every builder of this kind does, which is also what frees the
@@ -361,10 +359,10 @@ export function App() {
                 whole column is one quiet placeholder rather than five separate
                 absences.
               */
-            session === undefined ? (
-              <div className="pg-boot-panel" />
-            ) : (
-              /*
+                session === undefined ? (
+                  <div className="pg-boot-panel" />
+                ) : (
+                  /*
                 THE ASSISTANT STAYS MOUNTED. It used to be one arm of the same
                 ternary as every other section, so opening Blocks unmounted it —
                 and its unmount cleanup aborts the run in flight. A person who
@@ -374,122 +372,122 @@ export function App() {
                 them. Every other section still mounts on demand, because none
                 of them owns work that outlives a glance.
               */
-              <>
-                <AssistantRailPanel
-                  bootId={session.bootId}
-                  kernel={session.kernel}
-                  panes={panes}
-                  host={agentHost}
-                  code={code}
-                  settings={agentSettings}
-                  returnFocusToRailAgent={returnFocusToRailAgent}
-                />
-                <RailSectionPanel
-                  railSection={railSection}
+                  <>
+                    <AssistantRailPanel
+                      bootId={session.bootId}
+                      kernel={session.kernel}
+                      panes={panes}
+                      host={agentHost}
+                      code={code}
+                      settings={agentSettings}
+                      returnFocusToRailAgent={language.returnFocusToRailAgent}
+                    />
+                    <RailSectionPanel
+                      railSection={railSection}
+                      session={session}
+                      labels={labels}
+                      editorLocale={editorLocale}
+                      chrome={chrome}
+                      styleBucket={styleBucket}
+                      harness={
+                        <HarnessSettingsPanel
+                          fixture={fixture}
+                          onFixtureChange={setFixture}
+                          chromeChoice={chromeChoice}
+                          onChromeChoiceChange={setChromeChoice}
+                          themeName={themeName}
+                          onThemeNameChange={setThemeName}
+                          languageLabel={labels.chrome.editorLanguage}
+                          editorLocale={editorLocale}
+                          onEditorLocaleChange={setEditorLocale}
+                          kernel={session.kernel}
+                          siteKernel={session.siteKernel}
+                          codeOpen={codeOpen}
+                          canvasWidth={device.width}
+                          onCanvasWidthChange={(width) => {
+                            setCustomBucket(undefined);
+                            setDevice({ width, bucket: bucketForWidth(width) });
+                          }}
+                        />
+                      }
+                      host={agentHost}
+                      theme={theme}
+                      docDir={docDir}
+                      announce={announceChrome}
+                      dragHandle={dragHandle}
+                      templates={siteLibrary?.templates}
+                      libraryKitSections={libraryKitSections}
+                      libraryPreviewCss={libraryPreviewCss}
+                      liveUtilities={liveUtilities}
+                    />
+                  </>
+                )
+              }
+              canvas={
+                <WorkspaceCanvas
+                  vault={vault}
                   session={session}
+                  siteKernel={siteKernel}
+                  workspaceView={panes.workspaceView}
                   labels={labels}
-                  editorLocale={editorLocale}
+                  code={code}
+                  codeOpen={codeOpen}
+                  fixture={fixture}
+                  agentPreview={agentHost.agentPreview}
+                  breakpoint={breakpoint}
+                  frameWidth={device.width}
+                  zoom={canvasZoom}
+                  design={design}
                   chrome={chrome}
                   styleBucket={styleBucket}
-                  harness={
-                    <HarnessSettingsPanel
-                      fixture={fixture}
-                      onFixtureChange={setFixture}
-                      chromeChoice={chromeChoice}
-                      onChromeChoiceChange={setChromeChoice}
-                      themeName={themeName}
-                      onThemeNameChange={setThemeName}
-                      languageLabel={labels.chrome.editorLanguage}
-                      editorLocale={editorLocale}
-                      onEditorLocaleChange={setEditorLocale}
-                      kernel={session.kernel}
-                      siteKernel={session.siteKernel}
-                      codeOpen={codeOpen}
-                      canvasWidth={device.width}
-                      onCanvasWidthChange={(width) => {
-                        setCustomBucket(undefined);
-                        setDevice({ width, bucket: bucketForWidth(width) });
-                      }}
-                    />
-                  }
-                  host={agentHost}
-                  theme={theme}
-                  docDir={docDir}
-                  announce={announceChrome}
-                  dragHandle={dragHandle}
-                  templates={siteLibrary?.templates}
-                  libraryKitSections={libraryKitSections}
-                  libraryPreviewCss={libraryPreviewCss}
-                  liveUtilities={liveUtilities}
+                  inspectorFocus={inspectorFocus}
+                  partWiring={partWiring}
+                  editWithAi={editWithAi}
+                  onDragHandle={setDragHandle}
+                  onReplaceMedia={openAssets}
                 />
-              </>
-            )
-          }
-          canvas={
-            <WorkspaceCanvas
-              vault={vault}
-              session={session}
-              siteKernel={siteKernel}
-              workspaceView={panes.workspaceView}
-              labels={labels}
-              code={code}
-              codeOpen={codeOpen}
-              fixture={fixture}
-              agentPreview={agentHost.agentPreview}
-              breakpoint={breakpoint}
-              frameWidth={device.width}
-              zoom={canvasZoom}
-              design={design}
-              chrome={chrome}
-              styleBucket={styleBucket}
-              inspectorFocus={inspectorFocus}
-              partWiring={partWiring}
-              editWithAi={editWithAi}
-              onDragHandle={setDragHandle}
-              onReplaceMedia={openAssets}
-            />
-          }
-          status={
-            <CanvasStatus
-              session={session}
-              deviceLabel={deviceLabel}
-              labels={labels}
-              editorLocale={editorLocale}
-              setAgentPillHost={agentHost.setAgentPillHost}
-              panes={panes}
-              canvasZoom={canvasZoom}
-            />
-          }
-          /*
+              }
+              status={
+                <CanvasStatus
+                  session={session}
+                  deviceLabel={deviceLabel}
+                  labels={labels}
+                  editorLocale={editorLocale}
+                  setAgentPillHost={agentHost.setAgentPillHost}
+                  panes={panes}
+                  canvasZoom={canvasZoom}
+                />
+              }
+              /*
               The PAGE theme, not the editor's: a colour swatch has to show the
               colour the page will actually paint, so a dark page's "Surface"
               swatch must read dark even while the editor chrome is light.
             */
-          aside={
-            session === undefined ? undefined : codeSnapshot !== undefined ? (
-              <CodeSourceSelection code={code} panes={panes} />
-            ) : (
-              <PageInspector
-                kernel={session.kernel}
-                device={device}
-                theme={theme}
-                onRetheme={retheme}
-                onDeviceChange={changeDevice}
-                onDeviceStateChange={setDevice}
-                onCustomBucketChange={setCustomBucket}
-                locale={editorLocale}
-                library={siteLibrary}
-                chrome={chrome}
-                frameDocument={frameDocument}
-                inspectorFocus={inspectorFocus}
-                assetLibrary={assetLibrary}
-              />
-            )
-          }
-        />
-      </div>
-    </BuilderTheme>
-    </DirectionProvider>
+              aside={
+                session === undefined ? undefined : codeSnapshot !== undefined ? (
+                  <CodeSourceSelection code={code} panes={panes} />
+                ) : (
+                  <PageInspector
+                    kernel={session.kernel}
+                    device={device}
+                    theme={theme}
+                    onRetheme={retheme}
+                    onDeviceChange={changeDevice}
+                    onDeviceStateChange={setDevice}
+                    onCustomBucketChange={setCustomBucket}
+                    locale={editorLocale}
+                    library={siteLibrary}
+                    chrome={chrome}
+                    frameDocument={frameDocument}
+                    inspectorFocus={inspectorFocus}
+                    assetLibrary={assetLibrary}
+                  />
+                )
+              }
+            />
+          </div>
+        </BuilderTheme>
+      </DirectionProvider>
     </SiteDesignHost>
   );
 }

@@ -1,11 +1,38 @@
-import { TopBar, type BuilderKernel, type DeviceState, type TopBarDevice } from '@craftkit/builder';
+import { useState } from 'react';
+
+import {
+  TopBar,
+  type BuilderKernel,
+  type BuilderSiteKernel,
+  type DeviceState,
+  type TopBarDevice,
+} from '@craftkit/builder';
+
+import {
+  COMMAND_PALETTE_LABELS_AR,
+  COMMAND_PALETTE_LABELS_EN,
+  CommandPalette,
+  paletteShortcutLabel,
+  platformModifier,
+  useCommandPaletteShortcut,
+} from '../features/command';
+import { feedbackLabels, notifyPublish } from '../features/feedback';
 
 import type { EditorLabels } from './editor-labels';
 import { TopBarExtra, type TopBarExtraProps } from './top-bar-extra';
 import type { CodeSession } from './use-code-session';
+import { useEditorCommands, type EditorCommandsOptions } from './use-editor-commands';
+import type { useEditorLanguage } from './use-editor-language';
+
+/** Read once: the platform decides `Ctrl` or `⌘` for the whole session. */
+const PLATFORM = typeof navigator === 'undefined' ? '' : navigator.userAgent;
 
 export interface EditorTopBarProps {
   readonly labels: EditorLabels;
+  readonly language: Pick<
+    ReturnType<typeof useEditorLanguage>,
+    'editorLocale' | 'setEditorLocale' | 'railDestinations' | 'railUtilities'
+  >;
   readonly code: Pick<
     CodeSession,
     'publishSite' | 'publishStaticSiteFiles' | 'codeSnapshot' | 'compileCodePage'
@@ -17,13 +44,19 @@ export interface EditorTopBarProps {
   readonly canRedo: boolean;
   readonly showcaseOwnsLawSControls: boolean;
   readonly kernel: BuilderKernel | undefined;
+  readonly siteKernel: BuilderSiteKernel | undefined;
   readonly setPreview: (preview: boolean) => void;
-  readonly panes: TopBarExtraProps['panes'];
+  readonly panes: TopBarExtraProps['panes'] & EditorCommandsOptions['panes'];
+  readonly openShortcuts: (open: boolean) => void;
 }
 
-/** The product's top bar: publish, devices, undo/redo, preview, and the `extra` band. */
+/**
+ * The product's top bar: publish, devices, undo/redo, preview, and the `extra` band —
+ * which opens with the command palette's trigger (Ctrl/⌘ K reaches it from anywhere).
+ */
 export function EditorTopBar({
   labels,
+  language,
   code,
   device,
   changeDevice,
@@ -31,10 +64,53 @@ export function EditorTopBar({
   canRedo,
   showcaseOwnsLawSControls,
   kernel,
+  siteKernel,
   setPreview,
   panes,
+  openShortcuts,
 }: EditorTopBarProps) {
   const { publishSite, publishStaticSiteFiles, codeSnapshot, compileCodePage } = code;
+  const { editorLocale } = language;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useCommandPaletteShortcut(() => {
+    setPaletteOpen((open) => !open);
+  });
+  const canPublish = publishSite.canPublish && !publishSite.publishing;
+  // Publishing is narrated in one toast: working, then the outcome, and Try again on failure.
+  const publish = () => {
+    void notifyPublish(publishStaticSiteFiles, feedbackLabels(editorLocale), publish);
+  };
+  // There is nothing to preview until the document is open.
+  const canPreview = codeSnapshot !== undefined || kernel !== undefined;
+  const preview = () => {
+    if (codeSnapshot !== undefined) {
+      void compileCodePage();
+    } else if (kernel !== undefined) {
+      setPreview(true);
+    }
+  };
+  const history = {
+    canUndo: !showcaseOwnsLawSControls && canUndo,
+    canRedo: !showcaseOwnsLawSControls && canRedo,
+  };
+  const commands = useEditorCommands({
+    ...language,
+    labels,
+    panes,
+    device,
+    changeDevice,
+    kernel,
+    siteKernel,
+    ...history,
+    canPublish,
+    publish,
+    canPreview,
+    preview,
+    openShortcuts: () => {
+      openShortcuts(true);
+    },
+    modifier: platformModifier(PLATFORM),
+  });
   return (
     /*
       The designed bar replaces what was a debug harness: a fieldset of radio
@@ -50,8 +126,8 @@ export function EditorTopBar({
         five others of the same weight.
       */
       labels={{ ...labels.topBar, publish: labels.chrome.publishSite }}
-      onPublish={() => void publishStaticSiteFiles()}
-      publishDisabled={!publishSite.canPublish || publishSite.publishing}
+      onPublish={publish}
+      publishDisabled={!canPublish}
       publishTitle={publishSite.error}
       showPublishOptions={false}
       dir={labels.dir}
@@ -59,28 +135,31 @@ export function EditorTopBar({
       logo={<span className="pg-mark">CK</span>}
       device={device.bucket === 'base' ? 'desktop' : device.bucket}
       onDeviceChange={changeDevice}
-      canUndo={!showcaseOwnsLawSControls && canUndo}
-      canRedo={!showcaseOwnsLawSControls && canRedo}
+      canUndo={history.canUndo}
+      canRedo={history.canRedo}
       onUndo={() => {
         kernel?.undo();
       }}
       onRedo={() => {
         kernel?.redo();
       }}
-      onPreview={() => {
-        // There is nothing to preview until the document is open.
-        if (codeSnapshot !== undefined) {
-          void compileCodePage();
-        } else if (kernel !== undefined) {
-          setPreview(true);
-        }
-      }}
+      onPreview={preview}
       extra={
         <TopBarExtra
           labels={labels.chrome}
           panes={panes}
           showcaseOwnsLawSControls={showcaseOwnsLawSControls}
           kernel={kernel}
+          palette={
+            <CommandPalette
+              open={paletteOpen}
+              onOpenChange={setPaletteOpen}
+              commands={commands}
+              labels={editorLocale === 'ar' ? COMMAND_PALETTE_LABELS_AR : COMMAND_PALETTE_LABELS_EN}
+              dir={labels.dir}
+              shortcut={paletteShortcutLabel(PLATFORM)}
+            />
+          }
         />
       }
     />

@@ -1,5 +1,38 @@
 # Active Work Handoff
 
+## Current continuation — Studio Indigo platform UX, command palette and feedback, 2026-10-12
+
+Requested increment: **locally verified**. The user asked (Arabic) for a complete, professional
+UX/UI across the whole CraftKit platform using the UI UX Pro Max guidance (no-code builder profile),
+applied in code, with the code properly split (no very large files), and allowed suitable packages.
+Executed as T189..T195 (feature 014):
+
+- Shell chrome: captioned dark icon rail (`IconRail captions`), one primary **Publish site** in the
+  TopBar's Publish slot (`publishDisabled`, `publishTitle`, `showPublishOptions={false}`), segmented
+  Canvas / Sitemap, icon-only pane toggles, rail measure shared with the phone overlay.
+- Arabic for the Pages workspace, site map, page menus, History and code panels (`*.labels.ts`,
+  `PANEL_LABELS`, `arabic-count.ts` agreement).
+- Splits under the new limit: `pnpm check:file-sizes` (source ≤ 500, tests/stories ≤ 800, shrink-only
+  baseline `packages/workspace-tools/file-size-baseline.json`) runs in `verify`; App.css, App.tsx,
+  the agent controller hook and fake controller and today's large modules are split.
+- Packages (catalog, MIT, React 19 peers): `cmdk 1.1.1`, `sonner 2.0.8` in `apps/playground`;
+  Storybook pre-bundles both (`apps/storybook/.storybook/main.ts`).
+- Command palette (`features/command`): Ctrl/⌘ K or the top bar's "Search and commands" field opens
+  one searchable list of every place and action — publish, preview, undo/redo, every rail section,
+  devices, Canvas/Sitemap, pane toggles, every page, the editor language, keyboard shortcuts —
+  built live in `app/use-editor-commands.ts` (current place marked, unavailable rows disabled,
+  cross-language keywords: «نشر» finds Publish site). cmdk inside the editor's Radix dialog.
+- Action feedback (`features/feedback`): `FeedbackToaster` (sonner, unstyled, tokens-only, RTL)
+  and `notifyPublish`: "Publishing the site…" → "Site published · N files" in place, or "The site
+  was not published" + Try again (10 s). `publishStaticSiteFiles` now resolves with its files.
+
+Verification: playground `tsc` and eslint clean on the changed files; the new components' unit tests
+(14) and Storybook interaction stories (9) pass in Chromium; `pnpm check:components` 227,
+`pnpm check:file-sizes` 3,515 files, `pnpm check:boundaries` clean; live editor screenshots in EN and
+AR (RTL) at 1440, 1024 and 390 px. Pre-existing failures unchanged (`editor-labels.test.ts` recent
+changes casing; App story "Default Preview Uses The Selected Breakpoint" fails at HEAD too).
+Open: the element quick bar still scales with canvas zoom (overlay system, separate work).
+
 ## Current continuation — Studio Indigo chat redesign in code, 2026-10-12
 
 Requested increment: **locally verified**. The user asked (Arabic) for the full chat design from the

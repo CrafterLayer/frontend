@@ -392,7 +392,9 @@ export type SectionCheckCode =
   | 'scene-runtime'
   | 'scene-blank'
   | 'scene-layout'
-  | 'scene-control';
+  | 'scene-control'
+  // T231c (2026-10-12): a literal level whose exit or pickups the player cannot reach.
+  | 'scene-level';
 
 export interface SectionCheckIssue {
   readonly code: SectionCheckCode;

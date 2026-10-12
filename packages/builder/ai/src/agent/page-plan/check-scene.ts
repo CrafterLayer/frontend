@@ -9,6 +9,7 @@ import {
 
 import { walkLandedTree } from './check-section';
 import { cleanupFindings, guardFindings } from './scene-lifecycle';
+import { levelFindings } from './scene-levels';
 import {
   closingParen,
   finding,
@@ -441,6 +442,7 @@ export function checkScene(
       ...cleanupFindings(source),
       ...guardFindings(source),
       ...paramsFindings(source, section.jsParams),
+      ...levelFindings(source),
     ];
     return Object.freeze(
       findings.slice(0, MAX_SCENE_ISSUES).map((entry) => Object.freeze({ ...entry })),

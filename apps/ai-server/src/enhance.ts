@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_MODEL, type UsageReport } from './claude';
 import { salvageJson } from './json-salvage';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
+import { withModelThinking } from './thinking-config';
 
 /**
  * The prompt enhancer: `POST /v1/prompt/enhance` (2026-09-28).
@@ -566,31 +567,28 @@ function usageOf(message: Anthropic.Message): UsageReport {
 /**
  * One enhancement, through the same `messages.stream` seam every plan uses —
  * so the CLI, OpenRouter and the Messages API all serve it with no
- * backend-specific code. Thinking is off (the Messages API), and the low
- * budget travels on the private header the CLI (`--effort low`) and
- * OpenRouter (`reasoning.effort`) read; the real API ignores that header, and
- * `output_config.effort` is left unsent because not every model a deployment
- * may list accepts it, while every model accepts thinking disabled.
+ * backend-specific code. Thinking is off, in the form the model takes (the 5.5
+ * models refuse `disabled`: thinking-config.ts), and the low budget travels on
+ * the private header the CLI (`--effort low`) and OpenRouter
+ * (`reasoning.effort`) read; the real API ignores that header.
  */
 export async function enhancePrompt(
   request: EnhanceRequest,
   options: EnhanceOptions,
 ): Promise<EnhanceOutcome> {
   const { system, messages } = buildEnhancePrompt(request);
-  const stream = options.client.messages.stream(
-    {
-      model: options.model ?? DEFAULT_MODEL,
-      max_tokens: ENHANCE_MAX_OUTPUT_TOKENS,
-      thinking: { type: 'disabled' },
-      system: system as Anthropic.TextBlockParam[],
-      messages: messages as Anthropic.MessageParam[],
-      output_config: { format: { type: 'json_schema', schema: ENHANCE_ANSWER_SCHEMA } },
-    },
-    {
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-      headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: 'low' },
-    },
-  );
+  const params = withModelThinking({
+    model: options.model ?? DEFAULT_MODEL,
+    max_tokens: ENHANCE_MAX_OUTPUT_TOKENS,
+    thinking: { type: 'disabled' as const },
+    system: system as Anthropic.TextBlockParam[],
+    messages: messages as Anthropic.MessageParam[],
+    output_config: { format: { type: 'json_schema' as const, schema: ENHANCE_ANSWER_SCHEMA } },
+  });
+  const stream = options.client.messages.stream(params, {
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: 'low' },
+  });
   const message = await stream.finalMessage();
 
   if (message.stop_reason === 'refusal') {

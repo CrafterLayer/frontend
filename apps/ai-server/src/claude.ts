@@ -13,6 +13,7 @@ import {
 } from './plan-shape';
 import { buildPrompt } from './prompt';
 import { cachedPrompt } from './prompt-cache';
+import { withModelThinking } from './thinking-config';
 
 /**
  * The Claude call, and the translation of its failures into the wire contract.
@@ -258,44 +259,41 @@ async function ask(
     : { type: 'adaptive', display: 'summarized' };
 
   options.onProgress?.('Understanding the request…');
+  // Thinking off in the form this model takes: the 5.5 models refuse `disabled` (thinking-config.ts).
+  const params = withModelThinking({
+    model,
+    max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+    thinking,
+    system,
+    messages,
+    output_config: {
+      format: { type: 'json_schema' as const, schema },
+      /*
+        Where the Messages API reads a per-call budget. The header below is
+        only ever read by this server's own shims — the real API ignores it,
+        so on the `sdk` backend a section writer's `low` used to change
+        nothing. A model that does not know the level answers 400 naming it,
+        which is louder than a budget silently not applied.
+      */
+      ...(effort === undefined ? {} : { effort }),
+    },
+  });
   // A same-prefix call already writing the cache: wait until it streams, then read it.
-  const shape = cacheShape([model, thinking, effort ?? null, system, schema]);
+  const shape = cacheShape([params.model, params.thinking, params.output_config, system]);
   const release = await (options.cacheGate ?? SHARED_CACHE_GATE).enter(shape, options.signal);
   const stream = opened(release, () =>
-    options.client.messages.stream(
-      {
-        model,
-        max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-        thinking,
-        system,
-        messages,
-        output_config: {
-          format: { type: 'json_schema', schema },
-          /*
-          Where the Messages API reads a per-call budget. The header below is
-          only ever read by this server's own shims — the real API ignores it,
-          so on the `sdk` backend a section writer's `low` used to change
-          nothing. A model that does not know the level answers 400 naming it,
-          which is louder than a budget silently not applied.
-        */
-          ...(effort === undefined ? {} : { effort }),
-        },
-      },
-      {
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-        // Kept for the CLI shim, which reads the budget from here and nowhere else.
-        ...(options.effort === undefined
-          ? {}
-          : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
-      },
-    ),
+    options.client.messages.stream(params, {
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      // Kept for the CLI shim, which reads the budget from here and nowhere else.
+      ...(options.effort === undefined
+        ? {}
+        : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
+    }),
   );
 
-  // The first streamed event means the prefix is cached: same-shape calls may go.
-  stream.on('thinking', () => {
-    release(true);
-  });
-  // `streamEvent` is the SDK's message_start, the earliest such moment; the shims emit `thinking`.
+  // The first streamed event means the prefix is cached: same-shape calls may go. The SDK's
+  // `streamEvent` (message_start) comes first; the shims keep one listener per event, so
+  // `thinking` releases inside the planning listener below.
   (stream as unknown as { on: (event: 'streamEvent', listener: () => void) => unknown }).on(
     'streamEvent',
     () => {
@@ -305,6 +303,7 @@ async function ask(
   // Drain private summaries while emitting only the first observable planning signal.
   let planning = false;
   stream.on('thinking', () => {
+    release(true);
     if (planning) return;
     planning = true;
     options.onProgress?.('Planning the layout…');

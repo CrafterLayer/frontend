@@ -31,10 +31,10 @@ function parts(stable: string, turns: readonly string[], cache = true): PromptPa
 }
 
 describe('cachedPrompt', () => {
-  it('puts the skills behind their own one-hour breakpoint, the text unchanged', () => {
+  it('puts the rules and the skills behind their own one-hour breakpoints, the text unchanged', () => {
     const { system } = cachedPrompt(parts(STABLE, ['Make it blue']));
     expect(system.map((block) => block.cache_control ?? null)).toEqual([
-      null,
+      PROMPT_CACHE,
       PROMPT_CACHE,
       PROMPT_CACHE,
     ]);
@@ -51,7 +51,10 @@ describe('cachedPrompt', () => {
 
   it('keeps one breakpoint when no skill is active', () => {
     const { system } = cachedPrompt(parts('# Block catalog\n[]', ['Make it blue']));
-    expect(system.map((block) => block.cache_control ?? null)).toEqual([null, PROMPT_CACHE]);
+    expect(system.map((block) => block.cache_control ?? null)).toEqual([
+      PROMPT_CACHE,
+      PROMPT_CACHE,
+    ]);
   });
 
   it('caches the conversation so far on a follow-up, never the new turn', () => {
@@ -155,10 +158,12 @@ describe('what the plan request sends', () => {
 
     const [request] = sent;
     expect(request?.system.map((block) => block.cache_control ?? null)).toEqual([
-      null,
+      PROMPT_CACHE,
       PROMPT_CACHE,
       PROMPT_CACHE,
     ]);
+    // Four breakpoints at most: the rules, the catalog, the skills, the conversation.
+    expect(JSON.stringify(request).split('"cache_control"').length - 1).toBe(4);
     expect(request?.messages.map((turn) => typeof turn.content)).toEqual([
       'string',
       'object',

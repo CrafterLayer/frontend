@@ -19,7 +19,8 @@ import type { PromptParts } from './prompt';
      breakpoint, so a new set re-writes only the skills.
   3. Parallel section writers all wrote the same prefix and read none (cache-gate.ts).
 
-  The conversation so far takes the third breakpoint, so a follow-up reads it back.
+  The rules take a breakpoint of their own (the catalog changes with the selection; the rules
+  never do), and the conversation so far takes the fourth, so a follow-up reads it back.
   `prompt.ts` still builds one stable segment (its digests are pinned); the split happens
   here, at the skills heading it writes. Joined again with a blank line, which is what the
   CLI shim does with system blocks, the text is byte-for-byte the same.
@@ -47,8 +48,13 @@ export function cachedPrompt(parts: PromptParts): CachedPrompt {
       { type: 'text', text: block.text.slice(at + 2), cache_control: PROMPT_CACHE },
     ];
   });
-  // The last turn before the current one, when the system segment caches at all.
+  // The rules too: the catalog changes with the selection, the rules never (four breakpoints at most).
   const cached = system.some((block) => block.cache_control !== undefined);
+  const rules = system[0];
+  if (cached && system.length > 1 && rules?.cache_control === undefined) {
+    system[0] = { ...rules, cache_control: PROMPT_CACHE } as Anthropic.TextBlockParam;
+  }
+  // The last turn before the current one, when the system segment caches at all.
   const history = cached ? parts.messages.length - 2 : -1;
   const messages = parts.messages.map((turn, index): Anthropic.MessageParam =>
     index === history && turn.content.trim() !== ''

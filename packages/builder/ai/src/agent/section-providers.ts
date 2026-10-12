@@ -9,6 +9,7 @@ import {
   createCreativeBriefContextProvider,
 } from '../creative/context-providers';
 import { readCreativeMemory, type CreativeMemoryV1 } from '../creative/creative-memory';
+import { createStoryArcContextProvider, STORY_ARC_PROVIDER_ID } from '../creative/story-arc';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import type { PagePlan, SectionContract } from './page-plan/types';
 import type { RunAiBuildOptions } from './types';
@@ -134,5 +135,14 @@ export function sectionProviders(
           ({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID,
         );
   if (!writesScene(options, contract)) return photos;
-  return withCreativeBrief(photos, creativeRequestOf(options, contract), plan.locale.lang, options);
+  const briefed = withCreativeBrief(
+    photos,
+    creativeRequestOf(options, contract),
+    plan.locale.lang,
+    options,
+  );
+  // T231c (2026-10-12): a page of several scenes is one arc; each writer sees the others.
+  const scenes = plan.sections.filter((section) => writesScene(options, section));
+  if (scenes.length < 2 || briefed.some(({ id }) => id === STORY_ARC_PROVIDER_ID)) return briefed;
+  return Object.freeze([...briefed, createStoryArcContextProvider(scenes, contract.key)]);
 }

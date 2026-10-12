@@ -15,7 +15,7 @@
   font-family: var(--bldr-font);
   inline-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
   overflow: hidden;
-  padding-block: var(--bldr-space-xl);
+  padding-block: var(--bldr-space-md);
   padding-inline: var(--bldr-space-sm);
 }
 
@@ -77,7 +77,7 @@
 /* Shape reinforces selection independently of color, in either direction. */
 .bldr-icon-rail__button[aria-current='page']::before {
   background: var(--bldr-accent);
-  block-size: var(--bldr-space-3xl);
+  block-size: var(--bldr-space-xl);
   border-radius: var(--bldr-radius-full);
   content: '';
   inline-size: var(--bldr-border-thick);
@@ -119,9 +119,9 @@
   border-block-start: var(--bldr-border-hairline) solid var(--bldr-rail-border);
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-md);
+  gap: var(--bldr-space-xs);
   margin-block-start: auto;
-  padding-block-start: var(--bldr-space-md);
+  padding-block-start: var(--bldr-space-sm);
 }
 
 .bldr-icon-rail__account {
@@ -136,7 +136,7 @@
   font-weight: var(--bldr-font-weight-semibold);
   justify-content: center;
   line-height: var(--bldr-line-height-tight);
-  min-block-size: var(--bldr-hit-target-min);
+  min-block-size: var(--bldr-control-lg);
   padding-block: var(--bldr-space-xs);
   padding-inline: var(--bldr-space-xs);
   text-align: center;
@@ -144,20 +144,29 @@
 
 /*
   Captions (Studio Indigo, 2026-10-12): the name under every glyph, Micro 500 in the
-  button's own colour, one line, never wider than the tile. The tile grows to 56px so the
-  icon and its word both breathe; the rail's track (`--bldr-rail-width`, 68px) fits a
-  ten-letter English name and every Arabic one.
+  button's own colour, one line, never wider than the tile. The rail's track
+  (`--bldr-rail-width`, 68px) fits a ten-letter English name and every Arabic one.
+
+  Compact tiles (person's request, 2026-10-12): the 60px tiles left the seven destinations
+  and the footer taller than a laptop screen, so the last one (Assistant) was cut off. A
+  tile is now the 44px hit target itself (glyph, 2px, word), 2px apart, its corner the
+  Large radius, and the selection bar 12px.
 */
 .bldr-icon-rail[data-captions] {
   inline-size: var(--bldr-rail-width);
 }
 
+.bldr-icon-rail[data-captions] .bldr-icon-rail__list {
+  gap: var(--bldr-space-2xs);
+}
+
 .bldr-icon-rail[data-captions] .bldr-icon-rail__button[data-size='lg'] {
   block-size: auto;
+  border-radius: var(--bldr-radius-lg);
   flex-direction: column;
   gap: var(--bldr-space-2xs);
-  min-block-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
-  padding-block: var(--bldr-space-sm);
+  min-block-size: var(--bldr-hit-target-min);
+  padding-block: var(--bldr-space-xs);
   /* The word needs the tile's whole width: a large button's own inline padding clipped
      «الصفحات» to «الصفحا…» in a 64px tile. */
   padding-inline: var(--bldr-space-2xs);

@@ -19,6 +19,7 @@ import {
   type Placement,
 } from './exchange';
 import { claim, holds, release } from './run-lease';
+import { contextProvidersOf } from './story-bible-context';
 import { failureOf, failureTurn, say } from './run-outcomes';
 import { placeRecord } from './turn-plumbing';
 
@@ -75,6 +76,8 @@ export async function runWords(
       request,
       selection: outgoing.pointed,
       ...(history === undefined ? {} : { history }),
+      // Answers and plans read the same memory a build does (the ledger, the bible, the project).
+      ...contextProvidersOf(env),
       skillRegistry: env.registry,
       ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
       ...catalogPolicyFor(

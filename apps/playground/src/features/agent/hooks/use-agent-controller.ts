@@ -110,10 +110,13 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     [options.provider],
   );
   const registry = options.skillRegistry ?? DEFAULT_REGISTRY;
-  const capabilities = useMemo(
-    () => options.capabilities ?? capabilitiesFromEngine(),
-    [options.capabilities],
-  );
+  const capabilities = useMemo(() => {
+    const engine = options.capabilities ?? capabilitiesFromEngine();
+    // A host that keeps checkpoints can restore to before any request (2026-10-12).
+    return options.checkpoints === undefined || engine.restore
+      ? engine
+      : { ...engine, restore: true };
+  }, [options.capabilities, options.checkpoints]);
 
   const sessions = useAgentSessions({
     storage: options.storage,

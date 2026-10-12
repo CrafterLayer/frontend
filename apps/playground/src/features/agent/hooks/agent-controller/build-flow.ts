@@ -256,6 +256,8 @@ async function runBuild(
   say(flow, 'build.started');
   const logBefore = kernel.transactions().length;
   const documentBefore = kernel.getDocument();
+  // A checkpoint before anything is written: "Restore the page to before this request".
+  env.options.checkpoints?.before(turnId, request, documentBefore);
 
   const patchBuild = (change: (turn: BuildTurn) => Turn): void => {
     patchKind(flow, slot.sessionId, turnId, 'build', change);

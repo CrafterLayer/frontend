@@ -13,8 +13,9 @@ import { sceneScriptsOf, type StoryBibleStore } from '../../model/story-bible';
 import type { Env } from './controller-state';
 
 /**
- * What a run is told beyond the page: the applied-change ledger once anything was applied, and
- * the story bible once it holds anything (a `data` fragment; the engine re-validates it).
+ * What a run is told beyond the page: the applied-change ledger once anything was applied, the
+ * story bible once it holds anything (a `data` fragment; the engine re-validates it), and the
+ * host's own context (the project memory).
  */
 export function contextProvidersOf(
   env: Env,
@@ -22,6 +23,8 @@ export function contextProvidersOf(
   const providers = [
     ...(env.memory.hasRecords() ? [env.memory.provider] : []),
     ...(env.storyBible.isEmpty() ? [] : [storyBibleProvider(env.storyBible)]),
+    // The project memory the person keeps (`useAgentKnowledge`), and any other host context.
+    ...(env.options.extraContextProviders ?? []),
   ];
   return providers.length === 0 ? {} : { additionalContextProviders: providers };
 }

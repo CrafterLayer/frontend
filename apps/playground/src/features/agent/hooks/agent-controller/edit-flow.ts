@@ -113,6 +113,8 @@ export async function runEdit(
   if (start !== null) say(flow, start.key, start.params);
   const logBefore = kernel.transactions().length;
   const documentBefore = kernel.getDocument();
+  // A checkpoint before an edit writes (a proposal writes nothing until it is applied).
+  if (activity === 'edit') env.options.checkpoints?.before(turnId, request, documentBefore);
   let beforeApply: BuilderDocument | undefined;
   let salvaged: Salvage | undefined;
   let proposed: Changes | undefined;

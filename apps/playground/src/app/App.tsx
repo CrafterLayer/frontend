@@ -376,6 +376,7 @@ export function App() {
                     <AssistantRailPanel
                       bootId={session.bootId}
                       kernel={session.kernel}
+                      shelf={session.shelf}
                       panes={panes}
                       host={agentHost}
                       code={code}

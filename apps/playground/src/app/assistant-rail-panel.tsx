@@ -1,8 +1,12 @@
+import { useMemo } from 'react';
+
 import type { BuilderKernel } from '@craftkit/builder';
 
 import { AssistantPanel } from '../features/preview/components/AssistantPanel';
 import { LiveAgentPanel } from '../features/agent';
 import { SourceAgentPanel } from '../features/preview/components/SourceAgentPanel';
+import type { SnapshotShelf } from '../features/vault/snapshots';
+import { createAgentCheckpoints } from './agent-checkpoints';
 import { AGENT_EDIT_EFFORT, AGENT_LOCALE, AGENT_PANEL } from './app-env';
 import type { AgentHost } from './use-agent-host';
 import type { AgentModelSettings } from './use-agent-model-settings';
@@ -13,6 +17,8 @@ export interface AssistantRailPanelProps {
   /** This opening of the document: what the panel is keyed on. */
   readonly bootId: string;
   readonly kernel: BuilderKernel;
+  /** The page's restore-point shelf: the agent keeps a checkpoint there before each request. */
+  readonly shelf?: SnapshotShelf | undefined;
   readonly panes: Pick<
     EditorPanes,
     | 'railSection'
@@ -35,10 +41,20 @@ export interface AssistantRailPanelProps {
   readonly returnFocusToRailAgent: () => HTMLElement | null;
 }
 
+/** This viewer's localStorage, or none where reading it throws (a sandboxed frame). */
+function viewerStorage(): Storage | undefined {
+  try {
+    return typeof window === 'undefined' ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The rail's Assistant destination: the agent panel (v2, or the v1 rollback) and the source agent. */
 export function AssistantRailPanel({
   bootId,
   kernel,
+  shelf,
   panes,
   host,
   code,
@@ -68,6 +84,14 @@ export function AssistantRailPanel({
     toggleFreeCode,
     agentEditModel,
   } = settings;
+  // The agent's checkpoints over the page's shelf (2026-10-12): kept before every request.
+  const checkpoints = useMemo(
+    () =>
+      shelf === undefined
+        ? undefined
+        : createAgentCheckpoints({ shelf, kernel, storage: viewerStorage() }),
+    [shelf, kernel],
+  );
   return (
     <div className="pg-rail-panel" hidden={railSection !== 'assistant'} data-section="assistant">
       {AGENT_PANEL === 'v2' ? (
@@ -139,6 +163,7 @@ export function AssistantRailPanel({
               setActiveSide('panel');
             }}
             onSiteSeam={setSiteSeam}
+            checkpoints={checkpoints}
           />
         </div>
       ) : (

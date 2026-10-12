@@ -231,7 +231,11 @@ export function useVaultKernel(
     "start over", which is the whole reason they are worth keeping. Memoised
     because a fresh handle every render would restart every effect watching it.
   */
-  const shelf = useMemo(() => createSnapshotShelf({ store, docId }), [store, docId]);
+  // Ten automatic points: the agent keeps one before every request (2026-10-12).
+  const shelf = useMemo(
+    () => createSnapshotShelf({ store, docId, maxAutoCount: 10 }),
+    [store, docId],
+  );
   const runJournal = useMemo(() => createRunJournal({ store, now: Date.now }), [store]);
   const sourceRunJournal = useMemo(() => createSourceRunJournal({ store }), [store]);
 

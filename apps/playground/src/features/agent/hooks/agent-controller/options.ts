@@ -16,6 +16,7 @@ import type {
 } from '@craftkit/builder';
 
 import type { ProviderKind } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
+import type { AgentCheckpointPort } from '../../model/checkpoints';
 import type { PromptEnhancer } from '../../model/enhance';
 import type { AgentStorage } from '../../model/migrate-sessions';
 import type {
@@ -87,6 +88,18 @@ export interface UseAgentControllerOptions {
   readonly onToggleFreeCode?: ((enabled: boolean) => void) | undefined;
   readonly skillRegistry?: AiSkillRegistry | undefined;
   readonly selectedSkillIds?: readonly string[] | undefined;
+  /**
+   * The person's own skills a request turns on (`useAgentKnowledge`): a build and a page plan
+   * name their steps' skills, so they are handed these by id (`hostSkillIds`).
+   */
+  readonly hostSkillIdsFor?: ((request: string) => readonly string[]) | undefined;
+  /** More context every run reads, after the ledger and the bible (the project memory). */
+  readonly extraContextProviders?: RunAiAgentOptions['additionalContextProviders'] | undefined;
+  /**
+   * The host's page keeper: the page is kept before every build and edit, and a record's
+   * "Restore the page to before this request" takes it back. Absent: no Restore.
+   */
+  readonly checkpoints?: AgentCheckpointPort | undefined;
   readonly agentPolicy?: Partial<AiAgentPolicy> | undefined;
   /** Every ordinary run's events (telemetry; never run authority). */
   readonly onAgentEvent?: ((event: AiAgentEvent) => void) | undefined;

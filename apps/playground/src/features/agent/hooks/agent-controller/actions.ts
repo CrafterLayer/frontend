@@ -97,8 +97,15 @@ export function createActions(flow: Flow): Actions {
       env().options.onViewAsCode?.(turnId);
     },
     copy,
-    // Engine E3 (`restoreBefore`) is absent: the menu hides Restore; a direct call refuses.
-    restore: (): Promise<RestoreResult> => Promise.resolve('conflict'),
+    /*
+      Restore takes the page back to the checkpoint kept before the request (2026-10-12), as
+      one forward change. Without a page keeper the menu hides Restore; a direct call refuses,
+      and so does a request whose checkpoint is gone (evicted, or from another device).
+    */
+    restore: async (turnId): Promise<RestoreResult> => {
+      const outcome = await env().options.checkpoints?.restoreBefore(turnId);
+      return outcome === 'restored' || outcome === 'unchanged' ? 'restored' : 'conflict';
+    },
     showTechnicalDetails: (turnId) => {
       env().options.onTechnicalDetails?.(turnId);
     },

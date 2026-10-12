@@ -42,6 +42,10 @@ export function commonRunOptions(
     ...(options.selectedSkillIds === undefined
       ? {}
       : { selectedSkillIds: options.selectedSkillIds }),
+    // The person's skills this request mentions, for a build's and a page plan's named steps.
+    ...(options.hostSkillIdsFor === undefined
+      ? {}
+      : { hostSkillIds: options.hostSkillIdsFor(request) }),
     ...catalogPolicyFor(options.providerKind ?? 'offline', selection, options.agentPolicy),
     // The composer's free-code switch, read per run: only `true` ever reaches the engine.
     ...(options.freeCode === true ? { freeCode: true } : {}),

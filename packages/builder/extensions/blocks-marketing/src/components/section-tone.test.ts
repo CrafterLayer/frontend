@@ -117,6 +117,12 @@ describe('the slab in the stylesheet and the classes', () => {
     expect(css.indexOf(slabCss())).toBeLessThan(end);
   });
 
+  it('leaves a light card its own ink, whether the ink sits on the card or inside it', () => {
+    /* A boxed table is `bg-surface text-text` on one element: before 2026-10-12 it took the slab's light ink. */
+    expect(slabCss()).toContain(':is(.bg-surface, .bg-accent) :is(.text-text,');
+    expect(slabCss()).toContain(':is(.bg-surface, .bg-accent):is(.text-text,');
+  });
+
   it('derives every slab colour from a theme token, never a literal', () => {
     const block = slabCss();
     expect(block).not.toMatch(/#[0-9a-f]{3,8}\b/iu);

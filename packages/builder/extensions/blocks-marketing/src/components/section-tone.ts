@@ -93,7 +93,9 @@ export function slabCss(): string {
     `  ${slab} :is(.bg-surface, .bg-accent) {`,
     '    --ck-cta-ink: initial;',
     '  }',
-    `  ${slab} :is(.bg-surface, .bg-accent) :is(.text-text, .text-text-inverse, .text-text-muted, .text-accent) {`,
+    // A light card that carries its own ink (`bg-surface text-text` on one element) keeps it too.
+    `  ${slab} :is(.bg-surface, .bg-accent) :is(.text-text, .text-text-inverse, .text-text-muted, .text-accent),`,
+    `  ${slab} :is(.bg-surface, .bg-accent):is(.text-text, .text-text-inverse, .text-text-muted, .text-accent) {`,
     '    color: revert-layer;',
     '  }',
     '}',

@@ -57,7 +57,8 @@ const layer = new P.Container();
 s.stage.addChild(layer);
 const glow = new P.Graphics();
 glow.blendMode = 'add';
-const sparks = new P.Container();
+const sparks = new P.ParticleContainer({ boundsArea: s.app.screen, dynamicProperties: { position: true, rotation: true, vertex: true, color: true, uvs: false } });
+sparks.blendMode = 'add';
 layer.addChild(glow, sparks);
 const disp = new P.DisplacementFilter({ sprite: haze, scale: 22 * p.heat });
 layer.filters = p.heat > 0.02 ? [disp] : null;
@@ -82,7 +83,6 @@ function make(w, h) {
       { type: 'rotationStatic', config: { min: 255, max: 285 } },
       { type: 'spawnShape', config: { type: 'rect', data: { x: -40, y: h + 6, w: w + 80, h: 12 } } },
       { type: 'textureSingle', config: { texture: sparkTex } },
-      { type: 'blendMode', config: { blendMode: 'add' } },
     ],
   });
   // pre-warm: the first frame is already a storm
@@ -104,7 +104,7 @@ s.tick(({ t, dt }) => {
   glow.alpha = 0.75 + 0.25 * s.noise2(t * 2.2, 0.5);
   if (p.interactive && s.pointer.inside) {
     const px = s.pointer.x, py = s.pointer.y, R = 140;
-    for (const c of sparks.children) {
+    for (const c of sparks.particleChildren) {
       const dx = c.x - px, dy = c.y - py, d = Math.hypot(dx, dy) + 0.01;
       if (d < R) { const k = (1 - d / R) * 220 * step; c.x += (-dy / d) * k * s.dir + (dx / d) * k * 0.3; c.y += (dx / d) * k * s.dir + (dy / d) * k * 0.3; }
     }

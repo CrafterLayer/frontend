@@ -44,7 +44,7 @@ const PIXI=s.PIXI,C=s.palette,R=s.app.renderer;
 const FK={coral:[0.0545,0.062],mitosis:[0.0367,0.0649],maze:[0.029,0.057],spots:[0.035,0.065],waves:[0.014,0.045]}[p.pattern]||[p.feed,p.kill];
 function f(x){return (+x).toFixed(4);}
 function v3(c){return 'vec3('+[16,8,0].map(function(b){return ((c>>b&255)/255).toFixed(3);}).join(',')+')';}
-const head='in vec2 vTextureCoord;\nout vec4 finalColor;\nuniform sampler2D uTexture;\nuniform vec4 uInputSize;\nuniform vec4 uOutputFrame;\n';
+const head='in vec2 vTextureCoord;\nout vec4 finalColor;\nuniform sampler2D uTexture;\nuniform highp vec4 uInputSize;\nuniform highp vec4 uOutputFrame;\n';
 const codec='vec2 M;vec2 E;\nvec2 dec(vec4 c){return vec2(c.r+c.g/255.,c.b+c.a/255.);}\nvec4 enc(vec2 v){v=clamp(v,0.,1.);vec2 h=floor(v*255.)/255.;vec2 l=fract(v*255.);return vec4(h.x,l.x,h.y,l.y);}\n';
 const res0=s.rt(1,1).source.resolution||1;
 const step=s.shader(head+'uniform float uBx;\nuniform float uBy;\nuniform float uBr;\n'+codec+

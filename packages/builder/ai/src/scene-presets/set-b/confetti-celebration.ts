@@ -39,15 +39,20 @@ export const CONFETTI_CELEBRATION = definePreset({
 const p = ck.params({ palette: 'theme', seed: 29, speed: 1, density: 1, interactive: true, trigger: 'enter', spread: 70, gravity: 1, sound: false });
 const s = await ck.scene({ libs: ['emitter'], pointer: false });
 const P = s.PIXI, E = s.lib.emitter, pal = s.palette;
-const texs = [];
-function bake(g) { const t = s.app.renderer.generateTexture(g); g.destroy(); texs.push(t); }
+// one sheet: a column per palette colour (paper, ribbon, dot), so every frame shares one source
+const sheetG = new P.Graphics();
 for (let i = 0; i < 5; i++) {
-  const c = pal.colors[i];
-  bake(new P.Graphics().rect(0, 0, 14, 7).fill(c));
-  bake(new P.Graphics().roundRect(0, 0, 5, 18, 2).fill(c));
-  bake(new P.Graphics().circle(5, 5, 5).fill(c));
+  const c = pal.colors[i], x = i * 20;
+  sheetG.rect(x, 0, 14, 7).fill(c).roundRect(x, 10, 5, 18, 2).fill(c).circle(x + 5, 36, 5).fill(c);
 }
-s.dispose(() => { for (const t of texs) t.destroy(true); });
+const sheet = s.app.renderer.generateTexture(sheetG);
+sheetG.destroy();
+const texs = [];
+for (let i = 0; i < 5; i++) {
+  const x = i * 20;
+  for (const f of [[x, 0, 14, 7], [x, 10, 5, 18], [x, 31, 10, 10]]) texs.push(new P.Texture({ source: sheet.source, frame: new P.Rectangle(f[0], f[1], f[2], f[3]) }));
+}
+s.dispose(() => { for (const t of texs) t.destroy(false); sheet.destroy(true); });
 
 if (s.reducedMotion) {
   // the still frame: confetti already settled, scattered by poisson so nothing overlaps
@@ -63,7 +68,7 @@ if (s.reducedMotion) {
   return;
 }
 
-const layer = new P.Container();
+const layer = new P.ParticleContainer({ dynamicProperties: { position: true, rotation: true, vertex: true, uvs: true, color: true } });
 s.stage.addChild(layer);
 const per = Math.min(400, s.count(140));
 function cannon(angle, spread) {
@@ -96,8 +101,9 @@ function burst(em, x, y) {
   em.emit = true;
 }
 function salvo() {
-  burst(left, s.dir > 0 ? 0 : s.width, s.height);
-  burst(right, s.dir > 0 ? s.width : 0, s.height);
+  // each cannon stays in its own corner, aimed inward (the pair is symmetric in either direction)
+  burst(left, 0, s.height);
+  burst(right, s.width, s.height);
   if (p.sound && armed) ck.sound.play('pop', { volume: 0.45 });
 }
 s.pointer.onDown(() => {

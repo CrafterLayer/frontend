@@ -309,6 +309,32 @@ describe('page code with free code mode ON', () => {
     ).toBe(true);
   });
 
+  it('refuses a js that does not parse, with its line, and takes it once it does (Phase 1 B)', () => {
+    const broken = 'const {app}=await ck.stage();\nconst speed = ;\napp.ticker.add(()=>{});';
+    const result = validateAiPlan(setJs(broken), codeKernel(), ports(), undefined, ON);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]?.code).toBe('invalid-args');
+    expect(result.issues[0]?.step).toBe(0);
+    expect(result.issues[0]?.message).toContain('syntax error at line 2');
+    expect(result.issues[0]?.message).toContain('async (ck)=>{…}');
+    // An insert and a patch are held to the same parse.
+    for (const plan of [insertRegion(broken), patchJs(broken)]) {
+      expect(validateAiPlan(plan, codeKernel(), ports(), undefined, ON).ok).toBe(false);
+    }
+    // Top-level await and a comment-only body are the runtime's own wrapper's to take.
+    for (const js of [SCENE, '// nothing yet', broken.replace('= ;', '= 2;')]) {
+      expect(validateAiPlan(setJs(js), codeKernel(), ports(), undefined, ON).ok, js).toBe(true);
+    }
+    // Off, the switch is the reason: no parse is reported for code that may not land at all.
+    const off = validateAiPlan(setJs(broken), codeKernel(), ports());
+    expect(off.ok).toBe(false);
+    if (off.ok) return;
+    expect(off.issues.map(({ code }) => code)).toEqual(['policy-rejected']);
+  });
+
   it('refuses a js that is not a string, with or without the mode', () => {
     for (const composition of [undefined, ON]) {
       for (const value of [42, null, { code: 'x' }]) {
@@ -421,6 +447,28 @@ describe('page code through generateAiPlan', () => {
     expect(plan).toEqual(written);
     expect(lives).toHaveLength(1);
     expect(lives[0]?.freeCode).toBe(true);
+  });
+
+  it('sends a scene that does not parse back to the repair round with its line, then takes the fix', async () => {
+    let seen: readonly AiPlanValidationIssue[] = [];
+    const provider: AiPlanProvider = {
+      propose: () => Promise.resolve(setJs('const {app}=await ck.stage();\napp.ticker.add(t=>{)')),
+      repair: (_request, _context, _plan, issues) => {
+        seen = issues;
+        return Promise.resolve(written);
+      },
+    };
+
+    const plan = await generateAiPlan({
+      kernel: codeKernel(),
+      provider,
+      request: 'a custom PixiJS scene with moving characters',
+      validationPorts: ports('parse'),
+      composition: { freeCode: true },
+    });
+
+    expect(plan).toEqual(written);
+    expect(seen[0]?.message).toContain('syntax error at line 2');
   });
 
   it('keeps the code and drops nothing else when only the stage step is refused (salvage)', async () => {

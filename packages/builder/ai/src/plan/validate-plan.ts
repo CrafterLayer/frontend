@@ -31,6 +31,7 @@ import { DEFAULT_AI_MAX_OPERATIONS, type AiEffectiveCommandPolicy } from '../ski
 import type { ResolvedAiCompositionPolicy } from '../context/composition-policy';
 // media-motion (2026-10-06, fix pass): raw video iframes and css that hides content.
 import { mediaMotionIssues } from './media-plan-checks';
+import { customCodeJsSourceIssue } from './custom-code-js';
 
 const NullRender: BlockRenderComponent = () => null;
 
@@ -888,10 +889,10 @@ function freeCodeOffIssue(index: number): AiPlanValidationIssue {
  * allowed to author to its limits.
  *
  * Off (`freeCode` not true): any non-empty `js` on a customCode block is
- * refused with the reason above. On: it must be a string of at most
- * `CUSTOM_CODE_JS_MAX_LENGTH` characters that does not contain `</script`
- * (belt and braces: the renderer must never be able to close its own script
- * element early). An empty `js` is the default and is always fine. Runs before
+ * refused with the reason above. On: a string of at most
+ * `CUSTOM_CODE_JS_MAX_LENGTH` characters, without `</script` (the renderer must
+ * never close its own script element early), that parses — the syntax error
+ * with its line (custom-code-js.ts). An empty `js` is always fine. Runs before
  * the dry run, which takes a valid string happily whether the person allowed
  * it or not.
  */
@@ -924,19 +925,8 @@ function customCodeJsIssues(
         refusedOff = true;
         continue;
       }
-      if (source.length > CUSTOM_CODE_JS_MAX_LENGTH) {
-        issues.push({
-          code: 'invalid-args',
-          message: `Step ${String(index)} writes "js"${on} of ${String(source.length)} characters; a region holds at most ${String(CUSTOM_CODE_JS_MAX_LENGTH)}. Split the scene across regions or write less code.`,
-          step: index,
-        });
-      } else if (/<\/script/iu.test(source)) {
-        issues.push({
-          code: 'invalid-args',
-          message: `Step ${String(index)} writes "js"${on} containing "</script": the code is stored as a string and never wrapped in a script tag, so remove it (write the string as "<\\/script" if you truly need the text).`,
-          step: index,
-        });
-      }
+      const refused = customCodeJsSourceIssue(source, index, on, CUSTOM_CODE_JS_MAX_LENGTH);
+      if (refused !== undefined) issues.push(refused);
     }
   });
   return issues;

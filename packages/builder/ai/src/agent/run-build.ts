@@ -7,11 +7,7 @@ import type {
 
 import { estimateAssembledAiContextTokens } from '../context';
 import { canonicalJsonStringify } from '../internal/canonical-json';
-import {
-  createPhotoCatalogContextProvider,
-  isCatalogPhotoUrl,
-  PHOTO_CATALOG_PROVIDER_ID,
-} from '../context/providers/photo-catalog';
+import { isCatalogPhotoUrl } from '../context/providers/photo-catalog';
 import type { IntentKind, IntentTarget } from '../intent';
 import { applyAiPlan, type AppliedAiPlan } from '../plan/apply-plan';
 import { repairAiPlanForIssues } from '../plan/generate-plan';
@@ -19,11 +15,6 @@ import { readProviderUsage } from '../provider/usage';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
 import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
-import {
-  CREATIVE_BRIEF_PROVIDER_ID,
-  createCreativeBriefContextProvider,
-} from '../creative/context-providers';
-import { readCreativeMemory, type CreativeMemoryV1 } from '../creative/creative-memory';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import { seoAutofixPlan, SEO_AUTOFIX_LABEL } from '../seo/autofix';
 import { agentToolPrompt } from '../tools/agent/catalog-prompt';
@@ -35,6 +26,20 @@ import { checkSection, tokeniseColourClasses } from './page-plan/check-section';
 import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
 import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
 import { sectionScriptCard } from './section-script-card';
+import {
+  candidateSection,
+  checkWritten,
+  guardedCheck,
+  repairIssues,
+  sectionOf,
+} from './section-candidate';
+import { nextSection } from './section-order';
+import {
+  creativeRequestOf,
+  sectionProviders,
+  withPhotoCatalog,
+  writesScene,
+} from './section-providers';
 import { stepSkills, withHostSkills } from './host-skills';
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
@@ -70,13 +75,7 @@ import {
   type PagePlanStepNote,
 } from './plan-page';
 import { runAiAgent } from './run-agent';
-import type {
-  AiPagePlanDraftEvent,
-  AiPlan,
-  AiPlanProvider,
-  AiPlanStep,
-  AiPlanValidationIssue,
-} from '../types';
+import type { AiPagePlanDraftEvent, AiPlan, AiPlanProvider, AiPlanStep } from '../types';
 import type {
   AiAgentEvent,
   AiAgentRunResult,
@@ -105,6 +104,8 @@ import type {
 export const DEFAULT_AI_BUILD_MAX_TASKS = 12;
 /** Ceiling for ONE section. Only that section's run is aborted. */
 export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
+/** A scene writer's ceiling when the caller set none: page code is the slowest write. */
+export const DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS = 420_000;
 /** Ceiling for the whole build. The running section still finishes. */
 export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
 /**
@@ -301,33 +302,6 @@ function scaffoldSkillIds(options: RunAiBuildOptions): readonly string[] {
 }
 
 /**
- * The photo catalog for one step, briefed for THAT step: a section writer's
- * brief is the request and its own title, so a café's gallery is offered
- * cups and a menu band is not offered the hero's photo.
- *
- * Wave 1 (2026-09-28) put `craftkit.photo-direction` into every section writer
- * — "an image address comes only from PHOTOS YOU MAY USE" — and nothing sent
- * the list: the verifier found no caller of the provider in the tree, so split
- * builds lost their photos. A host's own photo provider on the build is
- * replaced by the step's (a page-wide brief is the wrong one for a section);
- * one the host registered on the kernel, or passed through the legacy
- * `contextProviders` alias, cannot be replaced, so it is left to serve alone —
- * two providers with one id are refused by the assembler.
- */
-function withPhotoCatalog(options: RunAiBuildOptions, brief: string): readonly AiContextProvider[] {
-  const additional = options.additionalContextProviders ?? [];
-  const fixed = [
-    ...(options.contextProviders ?? []),
-    ...options.kernel.context.registry.aiContextProviders(),
-  ];
-  if (fixed.some(({ id }) => id === PHOTO_CATALOG_PROVIDER_ID)) return additional;
-  return Object.freeze([
-    ...additional.filter(({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID),
-    createPhotoCatalogContextProvider({ brief }),
-  ]);
-}
-
-/**
  * The registry as ONE step of a build sees it: every `prepare` is asked for
  * the step's own intent, whatever the words read as.
  *
@@ -405,43 +379,6 @@ function fillSkillIds(
       ),
     ],
   );
-}
-
-/**
- * A creative scene writer also gets the planner's brief (creative agent, 2026-10-12): genre,
- * literal libraries, beats, effects, rig states and the cast — the cast read from the host's
- * story bible when it has one. Deterministic and free (no model call); ordinary writers and
- * builds without free code are unchanged. A host that already serves a brief keeps its own.
- */
-function withCreativeBrief(
-  providers: readonly AiContextProvider[],
-  creativeRequest: string | undefined,
-  lang: string,
-  options: RunAiBuildOptions,
-): readonly AiContextProvider[] {
-  if (
-    creativeRequest === undefined ||
-    providers.some(({ id }) => id === CREATIVE_BRIEF_PROVIDER_ID)
-  ) {
-    return providers;
-  }
-  let memory: CreativeMemoryV1 | undefined;
-  try {
-    memory =
-      options.creativeMemory === undefined
-        ? undefined
-        : readCreativeMemory(options.creativeMemory()).memory;
-  } catch {
-    // A host memory that fails to load never blocks a build; the brief plans without it.
-    memory = undefined;
-  }
-  return Object.freeze([
-    ...providers,
-    createCreativeBriefContextProvider(creativeRequest, {
-      lang,
-      ...(memory === undefined ? {} : { memory }),
-    }),
-  ]);
 }
 
 /** The label the scaffold gave a node it created, if it gave one. */
@@ -780,6 +717,12 @@ async function underDeadline<T>(
     outer?.removeEventListener('abort', forwardStop);
     jobSignal?.removeEventListener('abort', forwardJob);
   }
+}
+
+/** A section's deadline: a scene's is longer, unless the caller set every section's. */
+function sectionTimeoutMs(build: BuildRun, job: SectionJob): number {
+  const scene = build.options.taskTimeoutMs === undefined && job.scene?.() === true;
+  return scene ? DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS : build.taskTimeoutMs;
 }
 
 /** What one section's writer is told and given; the rest of a step comes from the build. */
@@ -1341,8 +1284,10 @@ interface SectionJob {
   readonly complete?: AiBuildSectionLanding;
   /** The brief for attempt 1 or 2 — read when the attempt starts, so neighbours are current. */
   readonly brief?: (attempt: 1 | 2) => FillBrief;
-  /** The section's contract check (step E); absent on a scaffold build. */
+  /** The section's contract and scene check (step E); absent on a scaffold build. */
   readonly check?: (landed: LandedSection) => readonly SectionCheckIssue[];
+  /** Whether its writer writes a scene: started first, given the longer deadline. */
+  readonly scene?: () => boolean;
   /**
    * Code repairs on what a writer wrote, BEFORE the check (palette classes →
    * token classes): what code can fix never costs a repair round. Returns
@@ -1454,41 +1399,10 @@ function stopReasonCode(reason: AiBuildStopReason): AiBuildSkipReasonCode {
   return reason === 'signal' ? 'stopped' : 'budget';
 }
 
-/** A section's writer-owned props as a plan's kept steps would leave them, over the placeholder. */
-function candidateSection(
-  commands: AiPlan['commands'],
-  placeholder: AiBuildSectionValues,
-): LandedSection {
-  let tree: JsonValue = placeholder.tree ?? null;
-  let css: string | undefined = typeof placeholder.css === 'string' ? placeholder.css : undefined;
-  for (const step of commands) {
-    const key = stringArg(step.args, 'key');
-    const value: unknown =
-      typeof step.args === 'object' && step.args !== null
-        ? (step.args as { value?: unknown }).value
-        : undefined;
-    if (key === 'tree') tree = value as JsonValue;
-    if (key === 'css' && typeof value === 'string') css = value;
-  }
-  return css === undefined ? { tree } : { tree, css };
-}
-
 /** The checker never costs a section: one that throws is a check that found nothing. */
 function checkedIssues(job: SectionJob, landed: LandedSection): readonly SectionCheckIssue[] {
-  if (job.check === undefined) return [];
-  try {
-    return job.check(landed);
-  } catch {
-    return [];
-  }
-}
-
-/** The checker's findings on the repair wire: each one the instruction that fixes it. */
-function repairIssues(issues: readonly SectionCheckIssue[]): readonly AiPlanValidationIssue[] {
-  return issues.map(({ code, message, path }) => ({
-    code: 'invalid-plan' as const,
-    message: `${code}: ${message}${path === undefined ? '' : ` (at ${path})`}`,
-  }));
+  const { check } = job;
+  return check === undefined ? [] : guardedCheck(() => check(landed));
 }
 
 /** Events for a step the build runs itself, under `<build>/<step>`, gated like every step's. */
@@ -1562,7 +1476,7 @@ async function checkAndRepair(
     const repaired = await underDeadline(
       options,
       job.task,
-      build.taskTimeoutMs,
+      sectionTimeoutMs(build, job),
       (signal) => {
         const repair = options.provider.repair?.bind(options.provider);
         let reported = false;
@@ -1866,7 +1780,7 @@ function startFill(
         const run = await underDeadline(
           options,
           task,
-          build.taskTimeoutMs,
+          sectionTimeoutMs(build, job),
           (deadline) =>
             runFill(options, build.shared, task, position, total, brief, deadline, invocation),
           signal,
@@ -1972,8 +1886,13 @@ function startFill(
   function pump(): void {
     if (cancelled || (held && !gateOpen)) return;
     while (active < fillConcurrency) {
-      const index = slots.findIndex((slot) => slot.released && !slot.claimed);
-      if (index === -1) return;
+      const open = slots.flatMap(({ released, claimed, counted }, index) =>
+        released && !claimed
+          ? [{ index, counted, scene: () => jobs[index]?.scene?.() === true }]
+          : [],
+      );
+      const index = nextSection(open, build.maxTasks - started);
+      if (index === undefined) return;
       dispatch(index);
     }
   }
@@ -3097,8 +3016,9 @@ function planJobs(
       check: (section) => {
         const current = planFor(key);
         const contract = contractOf(current, key);
-        return contract === undefined ? [] : checkSection(current, contract, section, checkOptions);
+        return contract === undefined ? [] : checkWritten(current, contract, section, checkOptions);
       },
+      scene: () => briefingFor(planFor(key))?.scene === true,
       tidy: (commands) => {
         const tokens = planFor(key).tokens;
         try {
@@ -3130,6 +3050,8 @@ function planJobs(
 /** What a section's writer is handed besides its request, as one plan decides it. */
 interface SectionBriefing {
   readonly kitBacked: boolean;
+  /** Its writer writes a scene (`writesScene`). */
+  readonly scene: boolean;
   readonly skillIds: readonly string[];
   readonly kitSkillIds: readonly string[];
   readonly providers: readonly AiContextProvider[];
@@ -3146,41 +3068,23 @@ function sectionBriefing(
   const contract = contractOf(plan, key);
   if (contract === undefined) return undefined;
   const arabic = ARABIC_LANG.test(plan.locale.lang);
-  const images = contract.images ?? [];
   // A hero is handed the person's own photos even when the plan made it type-led (see imageLines).
-  const photos = images.length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
-  // A scene's own contract carries its expertise. The lead scene may also use the original
-  // creative brief; ordinary supporting bands never inherit it just from page-level words.
-  const creativeRequest = [
-    contract.title,
-    contract.purpose,
-    ...(contract.role === 'hero' ? [options.request] : []),
-  ].join(' ');
+  const photos =
+    (contract.images ?? []).length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
+  const creativeRequest = creativeRequestOf(options, contract);
   const skillIds = fillSkillIds(options, arabic, photos, true, creativeRequest);
-  const needsSceneCode =
-    options.freeCode === true && pixiSkillIdsFor(options.skillRegistry, creativeRequest).length > 0;
+  const scene = writesScene(options, contract);
   const kitBacked =
-    !needsSceneCode && planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
+    !scene && planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
   return {
     kitBacked,
+    scene,
     skillIds,
     kitSkillIds: kitBacked
       ? fillSkillIds(options, arabic, photos, false, creativeRequest)
       : skillIds,
-    // The catalog is where the contract's subjects come from; the person's own need none.
-    providers: withCreativeBrief(
-      images.length > 0
-        ? withPhotoCatalog(
-            options,
-            [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
-          )
-        : (options.additionalContextProviders ?? []).filter(
-            ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
-          ),
-      needsSceneCode ? creativeRequest : undefined,
-      plan.locale.lang,
-      options,
-    ),
+    // Every data fragment the writer is handed: the catalog, and a scene's creative brief.
+    providers: sectionProviders(options, plan, contract),
     sampleValues: Object.freeze(plan.facts.map(({ sample }) => sample)),
   };
 }
@@ -3291,15 +3195,6 @@ async function buildFromPlan(
       pagePlan: plan,
     },
   );
-}
-
-/** The checker never costs a section: one that throws found nothing. */
-function guardedCheck(check: () => readonly SectionCheckIssue[]): readonly SectionCheckIssue[] {
-  try {
-    return check();
-  } catch {
-    return [];
-  }
 }
 
 /**
@@ -3430,12 +3325,6 @@ function rebaseLandings(filled: FilledSections, document: BuilderDocument): Fill
   });
   const changed = reports.some((report, index) => report !== filled.reports[index]);
   return changed ? { ...filled, reports: Object.freeze(reports) } : filled;
-}
-
-/** A region's props as the checker and the neighbour summary read them. */
-function sectionOf(values: AiBuildSectionValues): LandedSection {
-  const tree: JsonValue = values.tree ?? null;
-  return typeof values.css === 'string' ? { tree, css: values.css } : { tree };
 }
 
 // ── The streamed build: act on the plan while it is still being written ──

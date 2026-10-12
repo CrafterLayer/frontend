@@ -1,0 +1,136 @@
+import type { AiContextProvider } from '@craftkit/builder-schema';
+
+import {
+  createPhotoCatalogContextProvider,
+  PHOTO_CATALOG_PROVIDER_ID,
+} from '../context/providers/photo-catalog';
+import {
+  CREATIVE_BRIEF_PROVIDER_ID,
+  createCreativeBriefContextProvider,
+} from '../creative/context-providers';
+import { readCreativeMemory, type CreativeMemoryV1 } from '../creative/creative-memory';
+import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
+import type { PagePlan, SectionContract } from './page-plan/types';
+import type { RunAiBuildOptions } from './types';
+
+/*
+  What a section writer is handed as DATA besides its request (split from
+  run-build.ts, creative-power Phase 1 B, 2026-10-12): the photo catalog
+  briefed for that section, and — for a scene — the creative brief.
+  `sectionProviders` is the ONE place a page-plan section's fragments are
+  assembled; a new fragment for scene writers (a richer brief, a story bible)
+  goes there and nowhere else.
+*/
+
+/**
+ * The photo catalog for one step, briefed for THAT step: a section writer's
+ * brief is the request and its own title, so a café's gallery is offered
+ * cups and a menu band is not offered the hero's photo.
+ *
+ * Wave 1 (2026-09-28) put `craftkit.photo-direction` into every section writer
+ * — "an image address comes only from PHOTOS YOU MAY USE" — and nothing sent
+ * the list: the verifier found no caller of the provider in the tree, so split
+ * builds lost their photos. A host's own photo provider on the build is
+ * replaced by the step's (a page-wide brief is the wrong one for a section);
+ * one the host registered on the kernel, or passed through the legacy
+ * `contextProviders` alias, cannot be replaced, so it is left to serve alone —
+ * two providers with one id are refused by the assembler.
+ */
+export function withPhotoCatalog(
+  options: RunAiBuildOptions,
+  brief: string,
+): readonly AiContextProvider[] {
+  const additional = options.additionalContextProviders ?? [];
+  const fixed = [
+    ...(options.contextProviders ?? []),
+    ...options.kernel.context.registry.aiContextProviders(),
+  ];
+  if (fixed.some(({ id }) => id === PHOTO_CATALOG_PROVIDER_ID)) return additional;
+  return Object.freeze([
+    ...additional.filter(({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID),
+    createPhotoCatalogContextProvider({ brief }),
+  ]);
+}
+
+/**
+ * The words a section's creative expertise is matched on. A scene's own
+ * contract carries its expertise; the lead scene may also use the original
+ * creative brief, while ordinary supporting bands never inherit it just from
+ * page-level words.
+ */
+export function creativeRequestOf(options: RunAiBuildOptions, contract: SectionContract): string {
+  return [
+    contract.title,
+    contract.purpose,
+    ...(contract.role === 'hero' ? [options.request] : []),
+  ].join(' ');
+}
+
+/**
+ * Whether a section's writer writes a scene — page code in its region's `js`:
+ * free code is on and a creative playbook fits its contract. Decided before
+ * the write, so the build can start the slowest writers first and give them
+ * the longer deadline.
+ */
+export function writesScene(options: RunAiBuildOptions, contract: SectionContract): boolean {
+  return (
+    options.freeCode === true &&
+    pixiSkillIdsFor(options.skillRegistry, creativeRequestOf(options, contract)).length > 0
+  );
+}
+
+/**
+ * A creative scene writer also gets the planner's brief (creative agent, 2026-10-12): genre,
+ * literal libraries, beats, effects, rig states and the cast — the cast read from the host's
+ * story bible when it has one. Deterministic and free (no model call); ordinary writers and
+ * builds without free code are unchanged. A host that already serves a brief keeps its own.
+ */
+function withCreativeBrief(
+  providers: readonly AiContextProvider[],
+  creativeRequest: string,
+  lang: string,
+  options: RunAiBuildOptions,
+): readonly AiContextProvider[] {
+  if (providers.some(({ id }) => id === CREATIVE_BRIEF_PROVIDER_ID)) return providers;
+  let memory: CreativeMemoryV1 | undefined;
+  try {
+    memory =
+      options.creativeMemory === undefined
+        ? undefined
+        : readCreativeMemory(options.creativeMemory()).memory;
+  } catch {
+    // A host memory that fails to load never blocks a build; the brief plans without it.
+    memory = undefined;
+  }
+  return Object.freeze([
+    ...providers,
+    createCreativeBriefContextProvider(creativeRequest, {
+      lang,
+      ...(memory === undefined ? {} : { memory }),
+    }),
+  ]);
+}
+
+/**
+ * THE SEAM: every data fragment a page-plan section's writer is handed, as
+ * context providers. The catalog is where the contract's subjects come from
+ * (the person's own photos need none); a scene adds its creative brief.
+ */
+export function sectionProviders(
+  options: RunAiBuildOptions,
+  plan: PagePlan,
+  contract: SectionContract,
+): readonly AiContextProvider[] {
+  const images = contract.images ?? [];
+  const photos =
+    images.length > 0
+      ? withPhotoCatalog(
+          options,
+          [contract.title, ...images.flatMap(({ subject, alt }) => [subject, alt])].join(' '),
+        )
+      : (options.additionalContextProviders ?? []).filter(
+          ({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID,
+        );
+  if (!writesScene(options, contract)) return photos;
+  return withCreativeBrief(photos, creativeRequestOf(options, contract), plan.locale.lang, options);
+}

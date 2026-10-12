@@ -1,4 +1,6 @@
 import {
+  FLOATING_GAP,
+  FLOATING_PADDING,
   positionFloating,
   type FloatingAnchor,
   type FloatingBox,
@@ -26,9 +28,19 @@ import {
  * re-places from the last input, which is also what makes the first paint
  * correct — React mounts the buttons, the observer reports a real size, and the
  * bar lands measured rather than at 0×0.
+ *
+ * Chrome stays CHROME-sized under canvas zoom. The layer this host lives in
+ * shares the frame's `scale(zoom)`, so an uncompensated bar shrank with the
+ * page (at a 0.57 "Fit" its 36px targets drew ~20px — under the 24px minimum).
+ * The host undoes the zoom with `scale(1 / zoom)` folded into the same
+ * transform, so its own px ARE host px; placement still runs layer-local, so
+ * every chrome distance is divided by the zoom on the way in.
  */
 export interface FloatingHostPorts {
-  /** Element size in layer-local px. Injected in jsdom, which has no layout. */
+  /**
+   * Element size in its OWN px — host px, since the host counter-scales the
+   * canvas zoom. Injected in jsdom, which has no layout.
+   */
   measure: (element: HTMLElement) => { width: number; height: number };
   /** Size-change subscription; returns its own detach. */
   observe: (element: HTMLElement, onResize: () => void) => () => void;
@@ -74,9 +86,9 @@ export function systemFloatingPorts(): FloatingHostPorts {
   return {
     measure: (element) => {
       // ── block-parts (2026-10-06) ──
-      // LAYER-LOCAL size: the layout box, which a zoomed canvas's
-      // `scale()` does not change. getBoundingClientRect is host px — at 73%
-      // zoom a 62px two-row bar measured 45 and was placed over its own part.
+      // The layout box: the element's own px, which no transform changes.
+      // (Before the counter-scale the client rect was zoomed — at 73% a 62px
+      // two-row bar measured 45 and was placed over its own part.)
       if (element.offsetWidth > 0 && element.offsetHeight > 0) {
         return { width: element.offsetWidth, height: element.offsetHeight };
       }
@@ -125,25 +137,32 @@ export function createFloatingHost(options: FloatingHostOptions): FloatingHost {
       hide();
       return;
     }
-    const size = ports.measure(element);
-    if (size.width <= 0 || size.height <= 0) {
+    const own = ports.measure(element);
+    if (own.width <= 0 || own.height <= 0) {
       // Not measurable yet (React has not painted the buttons). Stay hidden;
       // the size observer brings us straight back with a real measurement.
       hide();
       return;
     }
+    // Host px per layer-local px. Chrome distances (own size, gap, padding,
+    // arrow) are host px, so each enters the layer-local math divided by it.
+    const s =
+      target.scale !== undefined && Number.isFinite(target.scale) && target.scale > 0
+        ? target.scale
+        : 1;
     const placement = positionFloating({
       anchor,
-      size,
+      size: { width: own.width / s, height: own.height / s },
       frame: target.frame,
       viewport: target.viewport,
       ...(target.visible === undefined ? {} : { visible: target.visible }),
       dir: target.dir,
-      ...(target.scale === undefined ? {} : { scale: target.scale }),
+      scale: s,
       ...(options.align === undefined ? {} : { align: options.align }),
       ...(options.prefer === undefined ? {} : { prefer: options.prefer }),
-      ...(options.gap === undefined ? {} : { gap: options.gap }),
-      ...(options.arrowSize === undefined ? {} : { arrowSize: options.arrowSize }),
+      gap: (options.gap ?? FLOATING_GAP) / s,
+      padding: FLOATING_PADDING / s,
+      ...(options.arrowSize === undefined ? {} : { arrowSize: options.arrowSize / s }),
       // ── block-parts (2026-10-06) ──
       ...(options.keepClear === true ? { keepClear: true } : {}),
       // ── /block-parts ──
@@ -156,9 +175,18 @@ export function createFloatingHost(options: FloatingHostOptions): FloatingHost {
     }
     // Physical coordinates on purpose — the same measured-geometry exception the
     // outlines take (logical insets would move the origin under RTL and corrupt
-    // the math that already accounts for direction).
-    element.style.transform = `translate(${String(Math.round(placement.x))}px, ${String(Math.round(placement.y))}px)`;
-    element.style.setProperty('--bldr-arrow-x', `${String(Math.round(placement.arrowOffset))}px`);
+    // the math that already accounts for direction). Whole HOST px: a half-pixel
+    // transform blurs text. The counter-scale is folded into the SAME transform
+    // (after the translate, so it scales only the bar); the separate `scale`
+    // property would scale the translate too. The arrow is drawn inside the
+    // counter-scaled bar, so its offset goes back out in host px.
+    const at = (value: number) => String(Math.round(value * s) / s);
+    const counter = s === 1 ? '' : ` scale(${String(1 / s)})`;
+    element.style.transform = `translate(${at(placement.x)}px, ${at(placement.y)}px)${counter}`;
+    element.style.setProperty(
+      '--bldr-arrow-x',
+      `${String(Math.round(placement.arrowOffset * s))}px`,
+    );
     element.dataset['placement'] = placement.placement;
     element.style.visibility = 'visible';
   };

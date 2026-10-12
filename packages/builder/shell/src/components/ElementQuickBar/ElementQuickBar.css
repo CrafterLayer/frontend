@@ -13,8 +13,10 @@
   flex-direction: column;
   gap: var(--bldr-space-2xs);
   /* Never wider than the canvas overlay (the nearest inline-size container),
-     less the collision padding the floating placement keeps from its edges. */
-  max-inline-size: calc(100cqi - 2 * var(--bldr-space-xs));
+     less the collision padding the floating placement keeps from its edges.
+     `100cqi` is the layer's UNZOOMED width while the bar is counter-scaled to
+     host px (floating-host.ts), so the cap converts by the canvas zoom. */
+  max-inline-size: calc(100cqi * var(--bldr-canvas-zoom, 1) - 2 * var(--bldr-space-xs));
   padding: var(--bldr-space-xs);
 }
 

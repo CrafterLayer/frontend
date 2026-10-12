@@ -101,6 +101,7 @@ import { performMoveAction, resolveMoveAction } from '../../keyboard/move-action
 import { blockDisplayName } from '../../naming/block-display-name';
 import { customCodeElementName } from '../../naming/custom-code-element-name';
 import { EDITOR_CANVAS_LABELS_EN, type EditorCanvasLabels } from './EditorCanvas.labels';
+import { useCanvasZoom } from './canvas-zoom';
 import {
   parentOf,
   resolveTraversalAction,
@@ -1648,10 +1649,8 @@ export function EditorCanvas({
     machineryRef.current?.anchors.refresh();
   }, [dir]);
 
-  useLayoutEffect(() => {
-    zoomRef.current = normalizedZoom;
-    machineryRef.current?.anchors.refresh();
-  }, [normalizedZoom]);
+  // Zoom reaches the chrome that must keep its own size (floating hosts, layer CSS).
+  useCanvasZoom(normalizedZoom, zoomRef, layerRef, machineryRef);
 
   /*
     A new screen size keeps the selection — and keeps it IN VIEW. At a narrower

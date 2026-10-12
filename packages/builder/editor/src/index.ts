@@ -827,8 +827,7 @@ export {
   type TemplateCardProps,
 } from '@craftkit/builder-shell';
 // end library-playground additions
-// pixi-studio:runtime-wiring additions (2026-10-10): the Script Studio's sandboxed preview
-// (DESIGN §D.3) and the `ck` scene/sound types, so the playground reaches them through this door.
+// pixi-studio:runtime-wiring additions (2026-10-10): the Script Studio's sandboxed preview (DESIGN §D.3) and the `ck` scene/sound types, so the playground reaches them through this door.
 export {
   STUDIO_PREVIEW_MESSAGES,
   STUDIO_PREVIEW_REGION_ID,
@@ -843,4 +842,5 @@ export {
   type StudioPreviewOptions,
   type StudioPreviewTrust,
 } from '@craftkit/builder-renderer';
+export { probeScene, runSceneProbeFrame, type SceneProbeFrameArgs, type SceneProbeOptions, type SceneProbeSection } from '@craftkit/builder-renderer'; // creative-power Phase 2 E: run a scene before it lands (its report type is builder-ai's)
 // end pixi-studio:runtime-wiring additions

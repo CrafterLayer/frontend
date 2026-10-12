@@ -28,10 +28,12 @@ import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
 import { sectionScriptCard } from './section-script-card';
 import {
   candidateSection,
+  checkedIssues,
   checkWritten,
   guardedCheck,
   repairIssues,
   sectionOf,
+  type WrittenIssues,
 } from './section-candidate';
 import { nextSection } from './section-order';
 import {
@@ -1284,8 +1286,8 @@ interface SectionJob {
   readonly complete?: AiBuildSectionLanding;
   /** The brief for attempt 1 or 2 — read when the attempt starts, so neighbours are current. */
   readonly brief?: (attempt: 1 | 2) => FillBrief;
-  /** The section's contract and scene check (step E); absent on a scaffold build. */
-  readonly check?: (landed: LandedSection) => readonly SectionCheckIssue[];
+  /** Step E: contract and scene check (and the scene's run); absent on a scaffold build. */
+  readonly check?: (landed: LandedSection) => WrittenIssues;
   /** Whether its writer writes a scene: started first, given the longer deadline. */
   readonly scene?: () => boolean;
   /**
@@ -1399,12 +1401,6 @@ function stopReasonCode(reason: AiBuildStopReason): AiBuildSkipReasonCode {
   return reason === 'signal' ? 'stopped' : 'budget';
 }
 
-/** The checker never costs a section: one that throws is a check that found nothing. */
-function checkedIssues(job: SectionJob, landed: LandedSection): readonly SectionCheckIssue[] {
-  const { check } = job;
-  return check === undefined ? [] : guardedCheck(() => check(landed));
-}
-
 /** Events for a step the build runs itself, under `<build>/<step>`, gated like every step's. */
 function stepEmitter(build: BuildRun, step: string): (payload: AgentEventPayload) => void {
   let seq = 0;
@@ -1460,7 +1456,7 @@ async function checkAndRepair(
       : { ...wrote, commands: tidied, tidied: true };
   const first = { guarded, proposal: landingProposal(run, guarded) };
   if (job.check === undefined) return first;
-  const issues = checkedIssues(job, candidateSection(guarded.commands, placeholder));
+  const issues = await checkedIssues(job, candidateSection(guarded.commands, placeholder));
   if (issues.length === 0) return { ...first, check: Object.freeze({ issues, repaired: false }) };
   const { options } = build;
   if (options.provider.repair === undefined || build.personStopped() || budgetSpent()) {
@@ -1534,7 +1530,7 @@ async function checkAndRepair(
     const remaining =
       second.commands.length === 0
         ? undefined
-        : checkedIssues(job, candidateSection(second.commands, placeholder));
+        : await checkedIssues(job, candidateSection(second.commands, placeholder));
     emit({ type: 'run.completed', status: 'proposed' });
     if (remaining === undefined || remaining.length > issues.length) {
       return { ...first, check: Object.freeze({ issues, repaired: true }) };
@@ -2902,6 +2898,8 @@ function planJobs(
       options.request,
       ...(options.history ?? []).filter(({ role }) => role === 'user').map(({ text }) => text),
     ].join('\n'),
+    sceneProbe: options.sceneProbe, // creative-power Phase 2 E: a browser host runs scene sections
+    signal: options.signal,
   };
   const ownPhotos = ownPhotoAddresses(checkOptions.request);
   const jobs: SectionJob[] = [];

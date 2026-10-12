@@ -15,6 +15,14 @@ export {
   type AiBuildUnfilledRemoval,
 } from './build-revert';
 export {
+  SCENE_PROBE_TIMEOUT_MS,
+  isProbedScene,
+  sceneProbeIssues,
+  type SceneProbe,
+  type SceneProbeContext,
+  type SceneProbeReport,
+} from './scene-probe';
+export {
   classifyAiRunFailure,
   type AiRunFailure,
   type AiRunFailureCode,

@@ -23,6 +23,7 @@ import type { ScriptRunner } from '../script/types';
 // end script-wiring additions
 import type { AiContextReadyDetails } from './context-report';
 import type { AiRunFailure } from './errors';
+import type { SceneProbe } from './scene-probe';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
   AiCommandPolicy,
@@ -489,9 +490,8 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
   /** Per-section ceiling; only that section's run is aborted. Default 240_000. */
   taskTimeoutMs?: number;
   /**
-   * Whole-build ceiling. No section starts (and no retry, and no check
-   * repair) once it is spent; a section already being written still finishes
-   * and lands. Default 900_000.
+   * Whole-build ceiling. No section starts (and no retry, and no check repair) once it is spent; a
+   * section already being written still finishes and lands. Default 900_000.
    *
    * It measures WORK: planning and writing count, the time a person spends
    * answering `onPlanned` does not (E2) — a careful reader of the plan card
@@ -502,11 +502,10 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    */
   buildBudgetMs?: number;
   /**
-   * How many sections are WRITTEN at once. When omitted, automatic mode runs
-   * one writer per section that needs one, capped at 8
-   * (`MAX_AI_BUILD_AUTO_FILL_CONCURRENCY`, 2026-10-05: six writers in a pool
-   * of four cost ≈ 7 s live, and a streamed plan staggers their starts
-   * anyway). Pass `1` to restore strictly sequential work.
+   * How many sections are WRITTEN at once. When omitted, automatic mode runs one writer per section
+   * that needs one, capped at 8 (`MAX_AI_BUILD_AUTO_FILL_CONCURRENCY`, 2026-10-05: six writers in a
+   * pool of four cost ≈ 7 s live, and a streamed plan staggers their starts anyway). Pass `1` to
+   * restore strictly sequential work.
    *
    * Only the writing overlaps, and it is bounded by this number alone: a slow
    * section never holds back the writers behind it. Sections still LAND one
@@ -514,11 +513,10 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    */
   fillConcurrency?: number;
   /**
-   * Asked once, with the sections the skeleton WOULD create, BEFORE anything is
-   * written. Answer `'build'` and the approved skeleton lands, then every
-   * section is filled; answer `'stop'` (or stop the signal while the question
-   * is open) and the build ends with the document exactly as it was — outcome
-   * `'signal'`, no task, the list in `plannedTasks`.
+   * Asked once, with the sections the skeleton WOULD create, BEFORE anything is written. Answer
+   * `'build'` and the approved skeleton lands, then every section is filled; answer `'stop'` (or
+   * stop the signal while the question is open) and the build ends with the document exactly as it
+   * was — outcome `'signal'`, no task, the list in `plannedTasks`.
    *
    * It exists because the approval a person actually wants is on the LIST — "you
    * understood me, go" — not on each of eight sections in turn. Absent, the
@@ -589,6 +587,8 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    * sends no drafts gets that same build either way.
    */
   streamPlan?: boolean;
+  /** Run a scene section in a browser before it lands (scene-probe.ts); Node builds omit it. */
+  sceneProbe?: SceneProbe | undefined;
   onEvent?: (event: AiBuildEvent) => void;
 }
 

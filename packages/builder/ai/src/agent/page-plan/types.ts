@@ -365,6 +365,9 @@ export type LandedSections = ReadonlyMap<string, LandedSection>;
  *   `height`, a missing `cleanup`, a missing reduced-motion or editor `guard`,
  *   a `forbidden` construct (its own Application, an import, a CDN), split
  *   Arabic `text`, `params` the code never reads.
+ * - `scene-runtime`, `scene-blank`, `scene-layout`, `scene-control` (scene-probe.ts,
+ *   creative-power Phase 2 E): what RUNNING the scene found — it threw or froze, drew nothing,
+ *   left the region or the screen, or hid or never wired its controls.
  */
 export type SectionCheckCode =
   | 'raw-colour'
@@ -385,7 +388,11 @@ export type SectionCheckCode =
   | 'scene-guard'
   | 'scene-forbidden'
   | 'scene-text'
-  | 'scene-params';
+  | 'scene-params'
+  | 'scene-runtime'
+  | 'scene-blank'
+  | 'scene-layout'
+  | 'scene-control';
 
 export interface SectionCheckIssue {
   readonly code: SectionCheckCode;

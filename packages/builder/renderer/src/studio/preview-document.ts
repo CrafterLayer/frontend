@@ -3,6 +3,12 @@ import { codeEngines, type PageEngine } from '../behaviors/script';
 import { ensureCkEngines } from '../engines/ck-engines-shim';
 import { ENGINE_LOADERS, type EngineLoader } from '../engines/inject';
 import { STUDIO_LIB_KEYS, STUDIO_PIXI_BOUND_KEYS, type StudioLibKey } from './contract';
+import {
+  studioProbeContexts,
+  studioSceneProbe,
+  type StudioProbeSeen,
+  type StudioProbeSettings,
+} from './scene-probe-frame';
 
 /**
  * The Script Studio preview document (DESIGN §D.3) — pixi-studio:runtime-wiring (2026-10-10).
@@ -18,7 +24,9 @@ import { STUDIO_LIB_KEYS, STUDIO_PIXI_BOUND_KEYS, type StudioLibKey } from './co
  * - in: `ck-preview:params` {values}, `ck-preview:run`, `ck-preview:pause` {paused?},
  *   `ck-preview:capture`;
  * - out: `ck-preview:ready`, `ck-preview:thumbnail` {dataUrl} (320×180 WebP),
- *   `ck-preview:error` {message, line}, `ck-preview:fps` {fps, paused} every second.
+ *   `ck-preview:error` {message, line}, `ck-preview:fps` {fps, paused} every second, and — when
+ *   built with `probe` (creative-power Phase 2 E) — one `ck-preview:probe` {report} once the
+ *   region has settled (scene-probe-frame.ts).
  */
 
 export type StudioPreviewTrust = 'trusted' | 'unreviewed';
@@ -47,6 +55,14 @@ export interface StudioPreviewOptions {
   readonly soundAssets?: Readonly<Record<string, string>> | undefined;
   /** Test seam: replaces the asset loaders (`ENGINE_LOADERS`). */
   readonly loaders?: Partial<Readonly<Record<PageEngine, EngineLoader>>> | undefined;
+  /**
+   * A rendered region (a section: markup whose root carries `data-ck-js`) to run in place of the
+   * code-only region; `code` then only picks the engines. The section keeps its own height and
+   * the page may scroll, so its layout can be measured.
+   */
+  readonly markup?: string | undefined;
+  /** Post one `ck-preview:probe` report once the region has settled (scene-probe-frame.ts). */
+  readonly probe?: StudioProbeSettings | undefined;
 }
 
 export const STUDIO_PREVIEW_MESSAGES = {
@@ -58,6 +74,7 @@ export const STUDIO_PREVIEW_MESSAGES = {
   thumbnail: 'ck-preview:thumbnail',
   error: 'ck-preview:error',
   fps: 'ck-preview:fps',
+  probe: 'ck-preview:probe',
 } as const;
 
 /** The region element's id inside the preview document. */
@@ -127,7 +144,8 @@ export function studioPreviewEngines(
 /**
  * Inside the frame: the host bridge (serialised with `Function.prototype.toString`, so it is
  * self-contained — named function expressions, no module-scope reference). `mount` is the
- * serialised `mountScripts`.
+ * serialised `mountScripts`; `probe`, when given, the serialised scene probe, called once the
+ * region is mounted with every error the bridge has reported (and will report).
  */
 export function studioPreviewBridge(
   win: Window,
@@ -136,6 +154,13 @@ export function studioPreviewBridge(
     options?: { readonly interactive?: boolean; readonly watch?: boolean },
   ) => () => void,
   reducedMotion: boolean,
+  probe?:
+    | ((
+        win: Window,
+        seen: StudioProbeSeen,
+        post: (message: Record<string, unknown>) => void,
+      ) => void)
+    | null,
 ): void {
   const doc = win.document;
   const host = win.parent;
@@ -143,6 +168,7 @@ export function studioPreviewBridge(
   // "async function anonymous(ck\n) {\n" + '"use strict";\n' precede the author's first line.
   const LINE_OFFSET = 3;
 
+  const seen: StudioProbeSeen = { errors: [] };
   function post(message: Record<string, unknown>): void {
     try {
       if (host !== win) host.postMessage(message, '*');
@@ -229,7 +255,9 @@ export function studioPreviewBridge(
       typeof (error as { message?: unknown }).message === 'string'
         ? (error as { message: string }).message
         : String(error);
-    post({ type: 'ck-preview:error', message, line: lineOf(error) });
+    const line = lineOf(error);
+    if (seen.errors.length < 8) seen.errors.push({ message, line });
+    post({ type: 'ck-preview:error', message, line });
   }
   const consoleRef = (win as Window & { console: Console }).console;
   const nativeError = consoleRef.error.bind(consoleRef);
@@ -238,6 +266,13 @@ export function studioPreviewBridge(
     // eslint-disable-next-line prefer-rest-params -- see above
     const args = Array.prototype.slice.call(arguments) as unknown[];
     if (args[0] === '[ck-js]') report(args[2]);
+    // Pixi's own errors (a shader that will not link…) are the probe's to read, not the Studio's.
+    else if (
+      typeof args[0] === 'string' &&
+      args[0].startsWith('PixiJS Error') &&
+      seen.errors.length < 8
+    )
+      seen.errors.push({ message: args[0].slice(0, 200), line: null });
     nativeError.apply(consoleRef, args);
   };
   win.addEventListener('error', function onError(event: ErrorEvent): void {
@@ -342,6 +377,7 @@ export function studioPreviewBridge(
   });
 
   post({ type: 'ck-preview:ready' });
+  if (typeof probe === 'function') probe(win, seen, post);
 }
 
 /** The complete `srcdoc` for the sandboxed Studio preview (DESIGN §D.3). */
@@ -364,9 +400,14 @@ export async function buildStudioPreviewHtml(options: StudioPreviewOptions): Pro
       ? JSON.stringify(options.params)
       : undefined;
   const themeCss = (options.themeCss ?? '').replace(/<\/(style)/giu, '<\\/$1');
+  const markup = options.markup;
   const style = [
-    'html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--t-surface,transparent);color:var(--t-text,inherit)}',
-    `#${STUDIO_PREVIEW_REGION_ID}{position:relative;width:100%;height:100%;overflow:hidden}`,
+    markup === undefined
+      ? 'html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--t-surface,transparent);color:var(--t-text,inherit)}'
+      : 'html,body{margin:0;padding:0;background:var(--t-surface,transparent);color:var(--t-text,inherit)}',
+    markup === undefined
+      ? `#${STUDIO_PREVIEW_REGION_ID}{position:relative;width:100%;height:100%;overflow:hidden}`
+      : `#${STUDIO_PREVIEW_REGION_ID}{position:relative;width:100%}`,
     themeCss,
   ].join('\n');
 
@@ -388,14 +429,21 @@ export async function buildStudioPreviewHtml(options: StudioPreviewOptions): Pro
     }
   }
 
-  const region = [
-    `<div id="${STUDIO_PREVIEW_REGION_ID}" data-ck-custom-code=""`,
-    ` data-ck-js-id="preview" data-ck-js="${escapeAttribute(options.code)}"`,
-    params === undefined ? '' : ` data-ck-params="${escapeAttribute(params)}"`,
-    '></div>',
-  ].join('');
+  const region =
+    markup === undefined
+      ? [
+          `<div id="${STUDIO_PREVIEW_REGION_ID}" data-ck-custom-code=""`,
+          ` data-ck-js-id="preview" data-ck-js="${escapeAttribute(options.code)}"`,
+          params === undefined ? '' : ` data-ck-params="${escapeAttribute(params)}"`,
+          '></div>',
+        ].join('')
+      : `<div id="${STUDIO_PREVIEW_REGION_ID}">${markup}</div>`;
 
-  const bridge = `(${studioPreviewBridge.toString()})(window, ${mountScripts.toString()}, ${String(options.reducedMotion === true)});`;
+  const probe =
+    options.probe === undefined
+      ? 'null'
+      : `function probe(w, seen, post) { (${studioSceneProbe.toString()})(w, seen, post, ${inlineJson(options.probe)}); }`;
+  const bridge = `(${studioPreviewBridge.toString()})(window, ${mountScripts.toString()}, ${String(options.reducedMotion === true)}, ${probe});`;
 
   return [
     '<!doctype html>',
@@ -406,6 +454,9 @@ export async function buildStudioPreviewHtml(options: StudioPreviewOptions): Pro
     `<meta name="viewport" content="${width === undefined ? 'width=device-width' : `width=${String(width)}`}, initial-scale=1">`,
     `<style>${style}</style>`,
     ...soundData,
+    options.probe === undefined
+      ? ''
+      : `<script>(${studioProbeContexts.toString()})(window);</script>`,
     `<script>(${ensureCkEngines.toString()})(window);</script>`,
     ...engineScripts,
     '</head>',

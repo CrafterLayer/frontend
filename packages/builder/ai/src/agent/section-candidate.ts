@@ -9,6 +9,7 @@ import type {
   SectionCheckIssue,
   SectionContract,
 } from './page-plan/types';
+import { isProbedScene, sceneProbeFindings, type SceneProbe } from './scene-probe';
 import type { AiBuildSectionValues } from './types';
 
 /*
@@ -16,8 +17,20 @@ import type { AiBuildSectionValues } from './types';
   run-build.ts, creative-power Phase 1 B, 2026-10-12): the region's props a
   writer's kept steps leave — tree, css and now its scene — and the one check
   that holds them to the contract (`checkSection`) and the scene to its code
-  (`checkScene`), with what both found phrased for the repair round.
+  (`checkScene`), with what both found phrased for the repair round. A
+  browser host may also RUN a scene section before it lands (creative-power
+  Phase 2 E, scene-probe.ts): what that finds joins the same round.
 */
+
+/** Step E's findings: at once, or — when a scene is run — once it has run. */
+export type WrittenIssues = readonly SectionCheckIssue[] | Promise<readonly SectionCheckIssue[]>;
+
+export interface CheckWrittenOptions extends CheckSectionOptions {
+  /** Runs a scene section in a browser (RunAiBuildOptions.sceneProbe); absent, nothing runs. */
+  readonly sceneProbe?: SceneProbe | undefined;
+  /** The build's signal: a Stop also stops a scene being run. */
+  readonly signal?: AbortSignal | undefined;
+}
 
 /** A region's props as the checker and the neighbour summary read them. */
 export function sectionOf(values: AiBuildSectionValues): LandedSection {
@@ -58,23 +71,50 @@ export function guardedCheck(
   }
 }
 
+function isPending(issues: WrittenIssues): issues is Promise<readonly SectionCheckIssue[]> {
+  return typeof (issues as { then?: unknown }).then === 'function';
+}
+
+/** A check that throws or rejects found nothing: the checker never costs a section. */
+export function checkedIssues(
+  job: { readonly check?: ((landed: LandedSection) => WrittenIssues) | undefined },
+  landed: LandedSection,
+): WrittenIssues {
+  const { check } = job;
+  if (check === undefined) return [];
+  let found: WrittenIssues;
+  try {
+    found = check(landed);
+  } catch {
+    return [];
+  }
+  return isPending(found) ? found.catch(() => []) : found;
+}
+
 /**
  * Step E on a written section: its contract, then its scene — the scene's
  * lookups may name any section's anchor. Each half guarded on its own, so a
- * contract check that throws never hides what the scene check found.
+ * contract check that throws never hides what the scene check found. Given a
+ * `sceneProbe`, a scene section whose code the static check passed is then
+ * RUN (in the page's language and direction) and what that found is added;
+ * otherwise the findings are returned at once, exactly as before.
  */
 export function checkWritten(
   plan: PagePlan,
   contract: SectionContract,
   section: LandedSection,
-  options: CheckSectionOptions,
-): readonly SectionCheckIssue[] {
-  return [
-    ...guardedCheck(() => checkSection(plan, contract, section, options)),
-    ...guardedCheck(() =>
-      checkScene(section, { pageIds: plan.sections.map(({ anchorId }) => anchorId) }),
-    ),
-  ];
+  options: CheckWrittenOptions,
+): WrittenIssues {
+  const scene = guardedCheck(() =>
+    checkScene(section, { pageIds: plan.sections.map(({ anchorId }) => anchorId) }),
+  );
+  const found = [...guardedCheck(() => checkSection(plan, contract, section, options)), ...scene];
+  const probe = options.sceneProbe;
+  if (probe === undefined || scene.length > 0 || !isProbedScene(section)) return found;
+  const { lang, dir } = plan.locale;
+  const context =
+    options.signal === undefined ? { lang, dir } : { lang, dir, signal: options.signal };
+  return sceneProbeFindings(probe, section, context).then((ran) => [...found, ...ran]);
 }
 
 /** The checker's findings on the repair wire: each one the instruction that fixes it. */

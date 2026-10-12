@@ -6,7 +6,7 @@ export {
   DEFAULT_AI_BUILD_MAX_TASKS,
   DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
   runAiAgent,
-  runAiBuild,
+  runAiBuild, SCENE_PROBE_TIMEOUT_MS, isProbedScene, sceneProbeIssues, type SceneProbe, type SceneProbeContext, type SceneProbeReport, // creative-power Phase 2 E
   type AiAgentEvent,
   type AiAgentEventBase,
   type AiAgentPolicy,

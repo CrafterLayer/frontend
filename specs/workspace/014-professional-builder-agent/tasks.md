@@ -645,6 +645,25 @@ Evidence:
       message as explicit skills; SKILL.md / SKILL.mdx upload and paste; starter templates;
       Arabic accusative keywords in the engine matcher.
 
+### Agent tools, data, four blocks, Studio game libraries — 2026-10-12
+
+- [x] T204 Composer commands `/remember`, `/checkpoint`, `/skill` on the words before the slash
+      (`model/skill-slash.ts` `slashCommands`, `hooks/use-knowledge-ui.ts`), EN/AR, status line.
+- [x] T205 `data.show` agent tool (`ai/src/data-tools/`): CSV/TSV/markdown/rows → Chart or Table,
+      number reading, form choice, refill by id; lane catalog lines; skill `craftkit.data-viz`.
+- [x] T206 Zero-token data path: an instruction line over pasted rows is one `data.show` call.
+- [x] T207 Drop a data file on the agent panel (`hooks/use-data-drop.ts`); import a skill from a
+      link (`model/skill-link.ts`), fetched into the Import box to read before adding.
+- [x] T208 Blocks Timeline, MenuSection, Location, Countdown (+ `countdown-clock` pack); Arabic
+      names and property words; palette tiles; publish-through-Tailwind proof.
+- [x] T209 Block-parts gate for Chart, Timeline, Menu, Countdown; dark-section card ink fix.
+- [x] T210 Studio libraries `audio`, `gameai`, `hud` end to end, with skills and browser fixtures.
+- [x] T211 Context cost: `jsMeta` summarised by declaration, template `blockTypes` with the full
+      catalog only; none mode 13,183 → 11,794 wire tokens.
+- [x] T212 Repairs: AI vocabulary generator and its two missing utilities; stale test pins.
+- [ ] T213 Inspector "Scene settings" for customCode `jsParams` from the `jsMeta.params` spec;
+      `jsMeta` hidden (field-kinds gate).
+
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.

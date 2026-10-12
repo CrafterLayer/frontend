@@ -1,5 +1,40 @@
 # Active Work Handoff
 
+## Current continuation — agent tools, data, four blocks, Studio game libraries, 2026-10-12
+
+Requested increment: **locally verified**. The user asked (Arabic) to keep improving the agent and
+its tools, keep expanding the builder, and install the libraries PixiJS needs to be much stronger.
+Executed as T204..T213 (feature 014):
+
+- Composer commands: the `/` list opens with Remember, Save a checkpoint and New skill, acting on
+  the words before the slash (EN/AR words); `hooks/use-knowledge-ui.ts` runs them.
+- `data.show` (builder-ai `data-tools/`): CSV/TSV/markdown/rows → a Chart or Table block, numbers
+  read as people write them (Arabic digits, `$1,200`, `45%`, `1.2k`, accounting brackets), the form
+  chosen by the question (time → line, shares of 100% → donut, mixed units or text → table); refills
+  an existing chart/table by `id`. Edit and build lanes list it (caps +150). Skill
+  `craftkit.data-viz` (auto, EN/AR). The zero-token path reads an instruction line over pasted rows.
+- Panel: drop a .csv/.tsv/.md/.txt on the agent panel → rows under "Chart this:"; Skills tab
+  imports a SKILL.md from an https link (GitHub blob/tree → raw), fetched into the box to read first.
+- Blocks: Timeline, MenuSection, Location, Countdown (published clock: `countdown-clock` pack,
+  1.8 kB, only where used). Every visible word of Chart, Timeline, Menu and Countdown is a part.
+  Dark sections: a light card that carries its own ink keeps it (slab revert rule, all blocks).
+- Studio libraries (lazy, only where named): `audio` (@pixi/sound + zzfx), `gameai` (yuka: steering,
+  FSM, A* over the tilemap), `hud` (@pixi/ui with DOM twins for keyboard and screen readers);
+  skills `craftkit.pixi-audio`, `pixi-game-ai`, `pixi-hud`; Chromium fixtures LTR/RTL × 390/1280.
+- Cost: every catalog-free request ~1,390 tokens lighter (customCode `jsMeta` summarised by its
+  declaration; template `blockTypes` only with the full catalog): none 13,183 → 11,794.
+- Repairs: the AI vocabulary generator (extensionless TS imports) and the two utilities it had
+  stopped generating; stale pins in runs, readiness, copy rules, editor labels, field kinds.
+
+Verification: builder-ai 5642/5643 (pre-existing plan-page repair test); playground 3509/3510;
+blocks-marketing 970; media-engines 197; schema 834; renderer behaviours/engines/export/studio 403
+(all-packs budget 16 → 21 kB, measured; packs ship only where used); creative-engines browser 6/6
+(the engine-examples fixture can time out under a parallel load and passes alone); storybook
+SkillSlash 12, SkillsTab 16, four blocks 33; check:components 240; check:file-sizes. Open: the one
+playground failure is real — customCode's Studio props (`jsParams`, `jsMeta`) have no Inspector
+editor (T213, in progress); Countdown has no date-time picker, Menu no price grid, Location no
+geocoding; music by project asset reference needs an export change.
+
 ## Current continuation — agent skills, memory, checkpoints; Table and Chart; canvas chrome, 2026-10-12
 
 Requested increment: **locally verified**. The user asked (Arabic) to review the agent's memory,

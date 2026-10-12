@@ -71,7 +71,7 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       en: 'Hand-drawn sketchy shapes into Graphics.',
       ar: 'أشكال مرسومة باليد داخل Graphics.',
     },
-    api: ['s.lib.rough.draw(graphics, shape)'],
+    api: ['s.lib.rough.generator()', 's.lib.rough.drawRough(graphics, drawable)'],
     source: 'roughjs',
     since: STUDIO,
   },

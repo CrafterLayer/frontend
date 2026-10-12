@@ -1,5 +1,7 @@
 import type { AiSkillDefinitionV1 } from '../types';
 import { GAME_ENGINE_SKILLS } from './game-engines';
+import { PIXI_PAGE_SHAPES_SKILL } from './page-shapes';
+import { SCENE_ENGINE_SKILLS } from './scene-engines';
 
 /*
   Creative engine skills (creative agent, 2026-10-12): the Agent's playbooks for the Studio
@@ -285,4 +287,7 @@ export const CREATIVE_ENGINE_SKILLS: readonly AiSkillDefinitionV1[] = [
   CREATIVE_TILEMAP_SKILL,
   // game libraries (2026-10-12): audio, game AI and HUD (game-engines.ts).
   ...GAME_ENGINE_SKILLS,
+  // creative power (2026-10-12): physics, scroll murals and the page planner's shapes.
+  ...SCENE_ENGINE_SKILLS,
+  PIXI_PAGE_SHAPES_SKILL,
 ];

@@ -106,6 +106,8 @@ function withCreativeBrief(
     ...providers,
     createCreativeBriefContextProvider(creativeRequest, {
       lang,
+      // The page's cast, setting and libraries reach every scene, not only the hero's.
+      page: options.request,
       ...(memory === undefined ? {} : { memory }),
     }),
   ]);

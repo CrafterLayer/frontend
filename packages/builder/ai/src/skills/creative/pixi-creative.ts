@@ -1,3 +1,5 @@
+import { specificGenreKeywords } from '../../creative/creative-activation';
+import type { CreativeKind } from '../../creative/creative-brief-types';
 import type { AiSkillDefinitionV1 } from '../types';
 
 /** Deliberate playable requests, not a games shop or a studio's landing page. */
@@ -42,6 +44,25 @@ export const PIXI_STORY_KEYWORDS = [
   'قصة بصرية',
 ] as const;
 
+/** Art-directed scenes: what the mural playbook adds to its genre words. */
+export const PIXI_MURAL_KEYWORDS = [
+  'mural',
+  'generative art',
+  'جدارية',
+  'جداريات',
+  'فن توليدي',
+  'رسوم توليدية',
+] as const;
+
+/*
+  A playbook activates on its hand-written phrases plus every specific GENRES keyword of its kind
+  (creative power, 2026-10-12): "bedtime story", "picture book", «حكاية قبل النوم» plan a picture
+  book AND load the story playbook; the broad genre words (creative-activation.ts) never do.
+*/
+function playbookKeywords(own: readonly string[], kind: CreativeKind): readonly string[] {
+  return [...new Set([...own, ...specificGenreKeywords(kind)])];
+}
+
 /** Companion tree markers are part of each example's contract, not invented canvas UI. */
 export const PIXI_GAME_CONTROLS = `<p>Collect three lights, avoid the red obstacle. Use arrows or the movement buttons.</p>
 <div role='group' aria-label='Game controls'>
@@ -73,7 +94,8 @@ draw();s.onResize(draw);if(!s.editor&&!s.reducedMotion)s.dispose(s.fixedTick(ste
 
 export const PIXI_STORY_CONTROLS = `<article><h2 data-story-title></h2><p data-story-copy></p>
 <div role='group' aria-label='Story navigation'><button type='button' data-story-action='back'>Previous</button>
-<button type='button' data-story-action='next'>Next</button><button type='button' data-story-action='reset'>Restart story</button></div>
+<button type='button' data-story-action='next'>Next</button><button type='button' data-story-action='reset'>Restart story</button>
+<button type='button' data-story-voice aria-pressed='false'>Read aloud</button></div>
 <output data-story-status role='status' aria-live='polite'></output></article>`;
 
 export const PIXI_STORY_EXAMPLE = `const s=await ck.scene({seed:11});
@@ -82,11 +104,14 @@ const content=[['dawn','Dawn','A traveller discovers a light.',0xfde68a],['cross
 const layers=content.map(c=>{const layer=new P.Container();const orb=new P.Graphics().circle(0,0,38).fill(c[3]);layer.addChild(orb);layer.visible=false;s.stage.addChild(layer);return layer});
 const title=root.querySelector('[data-story-title]'),copy=root.querySelector('[data-story-copy]'),status=root.querySelector('[data-story-status]');
 const back=root.querySelector('[data-story-action=back]'),next=root.querySelector('[data-story-action=next]');
+const voice=root.querySelector('[data-story-voice]'),speech=globalThis.speechSynthesis;let reading=false;
+const speak=i=>{if(!speech||s.editor)return;speech.cancel();if(reading){const u=new SpeechSynthesisUtterance(content[i][1]+'. '+content[i][2]);u.lang=s.lang;u.rate=.9;speech.speak(u)}};
 const layout=()=>layers.forEach((layer,i)=>layer.position.set(s.width*(.25+i*.25),s.height*.5));
-const show=i=>{layers[i].visible=true;if(title)title.textContent=content[i][1];if(copy)copy.textContent=content[i][2];if(status)status.textContent='Chapter '+(i+1)+' of 3';if(back)back.disabled=i===0;if(next)next.disabled=i===2};
+const show=i=>{layers[i].visible=true;if(title)title.textContent=content[i][1];if(copy)copy.textContent=content[i][2];if(status)status.textContent='Chapter '+(i+1)+' of 3';if(back)back.disabled=i===0;if(next)next.disabled=i===2;if(reading)speak(i)};
 layout();s.onResize(layout);s.canvas.setAttribute('aria-hidden','true');
 const story=s.story(content.map((c,i)=>({id:c[0],enter:()=>show(i),leave:()=>{layers[i].visible=false}})));
 for(const action of ['back','next','reset']){const button=root.querySelector('[data-story-action='+action+']');if(button){const fn=()=>{if(!s.editor)story[action]()};button.addEventListener('click',fn);s.dispose(()=>button.removeEventListener('click',fn))}}
+if(voice){voice.hidden=!speech;const fn=()=>{if(s.editor)return;reading=!reading;voice.setAttribute('aria-pressed',String(reading));speak(content.findIndex(c=>c[0]===story.current))};voice.addEventListener('click',fn);s.dispose(()=>{voice.removeEventListener('click',fn);speech?.cancel()})}
 s.dispose(()=>story.dispose());`;
 
 export const PIXI_MURAL_EXAMPLE = `const s=await ck.scene({seed:23,quality:'auto'});
@@ -113,7 +138,7 @@ export const PIXI_GAME_SKILL: AiSkillDefinitionV1 = {
   trust: 'builtin',
   priority: 44,
   dependencies: ['craftkit.pixi-v8-core'],
-  activation: { mode: 'auto', keywords: PIXI_GAME_KEYWORDS },
+  activation: { mode: 'auto', keywords: playbookKeywords(PIXI_GAME_KEYWORDS, 'game') },
   tags: ['pixi', 'game', 'interaction'],
   instructions: `PLAYABLE, not a decorative hero: define objective, controls and ready/running/paused/won/lost; make restart reset score, clock, bodies and input. No fake multiplayer, save server or authentication.
 FREE CODE OFF: closed media.add only; explain the opt-in. ON: await ck.scene, one v8 namespace, no imports/CDN/new Application. Put instructions, status and labelled start/pause/restart/direction buttons in the tree; scope queries to ck.root. Match the user's language; expose status changes politely, not every frame.
@@ -133,12 +158,13 @@ export const PIXI_STORY_SKILL: AiSkillDefinitionV1 = {
   trust: 'builtin',
   priority: 44,
   dependencies: ['craftkit.pixi-v8-core'],
-  activation: { mode: 'auto', keywords: PIXI_STORY_KEYWORDS },
+  activation: { mode: 'auto', keywords: playbookKeywords(PIXI_STORY_KEYWORDS, 'story') },
   tags: ['pixi', 'story', 'accessibility'],
   instructions: `STORY, not business-history copy: a beginning, discovery, meaningful choice or chapter progression, and an ending. Give each scene a foreground/midground/background, strong focal point and intentional palette. Keep narrative, headings and controls in the DOM; translate all copy and labels to the brief, Arabic shaping stays whole.
 Free code OFF means closed media.add only plus explain opt-in. ON use await ck.scene; no arbitrary packages/CDN or new Application. s.story([{id,enter,leave}],initial?) enters the first/initial chapter once. current reads the id; go(id), next(), back(), reset() return booleans; no wrapping or autoplay. Unique bounded ids, lightweight enter/leave; dispose ends the active chapter. Reuse containers, toggle visible, reset chapter-owned input/effects; never recreate a scene per click.
 Use native previous/next/replay buttons, disabled boundaries, a polite chapter status and visible focus. No forced scroll, auto-advancing narration or flashing; reduced motion preserves manual navigation and a finished frame. Prefer s.tick/onResize/s.dispose for transitions and listeners. Use given image URLs via s.texture with fallback; optional sound requires audio:true, gesture unlock and mute, never fabricate a voice asset. Story content is not a hidden canvas-only experience.
-Example tree: h2[data-story-title], p[data-story-copy], output[data-story-status] and buttons data-story-action=back/next/reset.
+BEDTIME (bedtime story, picture book, lullaby): calm pacing — one short idea per page, slow fades (about a second) or none, a soft night palette that still meets contrast, no flash, shake, sudden sound, timer or auto-advance; the last page says goodnight. READ ALOUD is optional and visible: a button[data-story-voice] with aria-pressed toggles speechSynthesis reading the current page's title and text (u.lang=s.lang, rate about .9); speak only after that press, cancel on every page change, toggle-off and dispose, hide the button where speechSynthesis is missing.
+Example tree: h2[data-story-title], p[data-story-copy], output[data-story-status], buttons data-story-action=back/next/reset and button[data-story-voice] aria-pressed=false.
 e.g. traveller's three chapters: ${inlineExample(PIXI_STORY_EXAMPLE)}`,
 };
 
@@ -153,14 +179,11 @@ export const PIXI_MURAL_SKILL: AiSkillDefinitionV1 = {
   trust: 'builtin',
   priority: 44,
   dependencies: ['craftkit.pixi-v8-core'],
-  activation: {
-    mode: 'auto',
-    keywords: ['mural', 'generative art', 'جدارية', 'جداريات', 'فن توليدي', 'رسوم توليدية'],
-  },
+  activation: { mode: 'auto', keywords: playbookKeywords(PIXI_MURAL_KEYWORDS, 'scene') },
   tags: ['pixi', 'mural', 'composition'],
   instructions: `ART DIRECTION FIRST: select a specific motif from the brief, one focal area, deliberate negative space for DOM copy, 3-5 coherent colours and depth layers. A mural is not always random particles: choose illustrated geometry, typographic image collage, flowing ribbons or a seeded generative landscape. Arabic copy remains DOM or unsplit Text.
 Free code OFF: closed media.add and explain opt-in; ON: ck.scene({seed,quality:'auto'}), one v8 namespace, no imports/CDN. Use s.palette.ramp/mix, seeded s.random/rand/noise2, and s.count for detail budgets. Build geometry once/onResize; animate transforms through s.tick, never allocate a full scene every frame. s.pointer is local; do not let decoration steal editing clicks. Draw a complete still in reduced motion; fewer marks in editor; texture/load failure leaves usable DOM content.
-Optional libs come only from the actual card's allowlist: filters → s.lib.filters, emitter → s.lib.emitter, brush → s.lib.brush, rough → s.lib.rough, viewport → s.lib.viewport. Choose one useful effect, not every library. Cache static groups when appropriate, bound redraw paths and GPU filters, use s.dispose for owned textures/filter resources and external listeners. Size from s.width/height, never window dimensions; test desktop/mobile focal point and contrast. Important meaning remains accessible outside the canvas.
+Optional libs come only from the actual card's allowlist: filters → s.lib.filters, emitter → s.lib.emitter (an Emitter's parent is a PIXI.ParticleContainer), brush → s.lib.brush, rough → s.lib.rough, viewport → s.lib.viewport. Choose one useful effect, not every library. Cache static groups when appropriate, bound redraw paths and GPU filters, use s.dispose for owned textures/filter resources and external listeners. Size from s.width/height, never window dimensions; test desktop/mobile focal point and contrast. Important meaning remains accessible outside the canvas.
 e.g. layered ribbon mural: ${inlineExample(PIXI_MURAL_EXAMPLE)}`,
 };
 

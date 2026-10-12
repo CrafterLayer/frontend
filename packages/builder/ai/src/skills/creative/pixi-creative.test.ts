@@ -107,6 +107,18 @@ describe('Pixi creative skills — actual prompt activation', () => {
     expect(PIXI_GAME_CONTROLS).toContain("aria-label='Game controls'");
     expect(PIXI_STORY_CONTROLS).toContain("aria-label='Story navigation'");
   });
+
+  it('teaches calm bedtime pacing and an optional, visible read-aloud toggle', () => {
+    const story = PIXI_CREATIVE_SKILLS.find(({ id }) => id === STORY)?.instructions ?? '';
+    expect(story).toContain('BEDTIME');
+    expect(story).toMatch(/no flash, shake, sudden sound, timer or auto-advance/u);
+    expect(story).toContain('speechSynthesis');
+    expect(PIXI_STORY_CONTROLS).toContain("data-story-voice aria-pressed='false'");
+    // Silent until pressed, cancelled on page change and dispose, hidden where unsupported.
+    expect(PIXI_STORY_EXAMPLE).toContain('if(reading)speak(i)');
+    expect(PIXI_STORY_EXAMPLE).toContain('speech?.cancel()');
+    expect(PIXI_STORY_EXAMPLE).toContain('voice.hidden=!speech');
+  });
 });
 
 const AsyncFunction = (

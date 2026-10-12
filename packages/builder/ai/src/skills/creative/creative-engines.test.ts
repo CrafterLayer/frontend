@@ -17,6 +17,7 @@ const FX = 'craftkit.pixi-effects';
 const DIALOGUE = 'craftkit.pixi-dialogue';
 const TILES = 'craftkit.pixi-tile-worlds';
 const DIRECTOR = 'craftkit.pixi-director';
+const PAGE_SHAPES = 'craftkit.pixi-page-shapes';
 
 function activeIds(request: string): readonly string[] {
   return createCraftkitAiSkillRegistry()
@@ -53,7 +54,7 @@ describe('creative engine skills — activation', () => {
   });
 
   it('keeps the director explicit and every engine data-only with the core dependency', () => {
-    for (const skill of CREATIVE_ENGINE_SKILLS) {
+    for (const skill of CREATIVE_ENGINE_SKILLS.filter(({ id }) => id !== PAGE_SHAPES)) {
       expect(skill.dependencies).toEqual(['craftkit.pixi-v8-core']);
       expect(skill.restrictToCommands).toBeUndefined();
       expect(skill.instructions).toMatch(/Free code OFF|PLAN BEFORE CODE/u);
@@ -61,6 +62,13 @@ describe('creative engine skills — activation', () => {
     expect(CREATIVE_ENGINE_SKILLS.find(({ id }) => id === DIRECTOR)?.activation).toEqual({
       mode: 'explicit',
     });
+    // The page planner writes no scene code: explicit, no dependency, no command restriction.
+    expect(CREATIVE_ENGINE_SKILLS.find(({ id }) => id === PAGE_SHAPES)).toMatchObject({
+      activation: { mode: 'explicit' },
+    });
+    expect(CREATIVE_ENGINE_SKILLS.find(({ id }) => id === PAGE_SHAPES)?.dependencies).toBe(
+      undefined,
+    );
   });
 });
 

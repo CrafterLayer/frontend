@@ -30,7 +30,9 @@ export type CreativeLib =
   | 'viewport'
   | 'audio'
   | 'gameai'
-  | 'hud';
+  | 'hud'
+  | 'brush'
+  | 'rough';
 
 export interface CreativeBeat {
   readonly id: string;

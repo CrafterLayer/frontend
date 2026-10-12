@@ -26,7 +26,8 @@ import type {
   CreativeLib,
   CreativePlannerOptions,
 } from './creative-brief-types';
-import { FALLBACK_GENRE, GENRES, SETTINGS } from './creative-genres';
+import { PHYSICS_CUE_WORDS, SCROLL_CUE_WORDS } from './creative-activation';
+import { FALLBACK_GENRE, GENRES, SETTINGS, type GenreRule } from './creative-genres';
 
 export type {
   CreativeBeat,
@@ -48,7 +49,13 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
   audio: [
     'sound effects for actions (s.lib.audio sfx presets), optional music from an approved URL',
   ],
+  physics: ['Matter bodies stepped in s.fixedTick with Engine.update(engine, dt * 1000)'],
 };
+
+/* Scroll-driven pieces (creative power, 2026-10-12): the kit's s.scroll, no library. */
+const SCROLL_MECHANICS = [
+  's.scroll.progress moves parallax layers (far slow, near fast); the page keeps its own scroll',
+];
 
 /* Names the brief gives: "named Layla", "called Omar", "اسمه عمر", "اسمها ليلى", «ليلى». */
 /*
@@ -164,6 +171,9 @@ function beatsFor(kind: CreativeKind, genre: CreativeGenre, arabic: boolean): Cr
   ];
 }
 
+const BRUSH_WORDS = ['brush', 'brushstroke', 'painted', 'watercolor', 'فرشاة', 'ألوان مائية'];
+const ROUGH_WORDS = ['hand drawn', 'sketchy', 'doodle', 'crayon', 'مرسوم باليد', 'رسم يدوي'];
+
 const ACCESSIBILITY_EN = [
   'objective, controls and story text live in the DOM; the canvas is decoration or role=img with a label',
   'keyboard and touch controls with visible focus; number keys pick dialogue choices',
@@ -178,33 +188,84 @@ const ACCESSIBILITY_AR = [
   'إعلان التغيرات بهدوء وليس في كل إطار',
 ];
 
+/** The genre rule a text names, most specific first (GENRES order); undefined when none. */
+function genreOf(words: ReturnType<typeof readRequestWords>): GenreRule | undefined {
+  return GENRES.find((candidate) => matches(words, candidate.keywords));
+}
+
+/*
+  A section of a creative page (brief propagation, 2026-10-12): its own genre when it names one
+  of another kind than the page's (a game band on a story page); the more specific of the two
+  when both are the same kind (a bedtime page's "interactive story chapter scene" stays a picture
+  book); the page's when it names none.
+*/
+function sectionRule(own: GenreRule | undefined, page: GenreRule | undefined): GenreRule {
+  if (own === undefined) return page ?? FALLBACK_GENRE;
+  if (own.kind !== page?.kind) return own;
+  return GENRES.indexOf(own) <= GENRES.indexOf(page) ? own : page;
+}
+
 /** Plan a creative piece from the brief (and the story bible, when the project has one). */
 export function planCreativeBrief(
   request: string,
   options: CreativePlannerOptions = {},
 ): CreativeBriefV1 {
+  return briefFrom(request, undefined, options);
+}
+
+/**
+ * The brief ONE section of a creative page writes from (brief propagation, 2026-10-12). A
+ * section writer sees its own title and purpose, not the request, so a chapter band planned from
+ * its words alone lost the cast, the setting and the genre. Here the section's words still
+ * decide what it is (see `sectionRule`), and the page's request supplies the rest: its cast
+ * (hero first), settings and weather, the libraries and cues it asked for. Pure; `pageRequest`
+ * is the person's request for the whole page.
+ */
+export function creativeBriefFor(
+  section: string,
+  pageRequest: string,
+  options: CreativePlannerOptions = {},
+): CreativeBriefV1 {
+  return briefFrom(section, pageRequest, options);
+}
+
+function briefFrom(
+  request: string,
+  pageRequest: string | undefined,
+  options: CreativePlannerOptions,
+): CreativeBriefV1 {
   const source = typeof request === 'string' ? request.slice(0, 4000) : '';
+  const page = typeof pageRequest === 'string' ? pageRequest.slice(0, 4000) : '';
   const words = readRequestWords(source);
+  const sets = page === '' ? [words] : [words, readRequestWords(page)];
+  const asked = (keywords: readonly string[]): boolean =>
+    sets.some((set) => matches(set, keywords));
   const arabic =
-    options.lang !== undefined ? options.lang.toLowerCase().startsWith('ar') : ARABIC.test(source);
-  const rule = GENRES.find((candidate) => matches(words, candidate.keywords)) ?? FALLBACK_GENRE;
-  const settings = SETTINGS.filter((setting) => matches(words, setting.keywords));
+    options.lang !== undefined
+      ? options.lang.toLowerCase().startsWith('ar')
+      : ARABIC.test(source) || ARABIC.test(page);
+  const rule =
+    page === ''
+      ? (genreOf(words) ?? FALLBACK_GENRE)
+      : sectionRule(genreOf(words), genreOf(sets[1] ?? []));
+  const settings = SETTINGS.filter((setting) => asked(setting.keywords));
   const memoryCast = options.memory?.characters ?? [];
-  const requested = castFromRequest(source).filter(
+  // The page's names first: its hero stays the hero of every chapter.
+  const requested = castFromRequest(page === '' ? source : `${page}\n${source}`).filter(
     (character) =>
       !memoryCast.some((known) => known.id === character.id || known.name === character.name),
   );
   const libs = unique<CreativeLib>([
     ...rule.libs,
-    ...(matches(words, ['ink', 'inkle', 'لغة ink']) ? (['ink', 'dialogue'] as const) : []),
-    ...(matches(words, ['zoom', 'pan', 'big map', 'خريطة كبيرة', 'تكبير'])
-      ? (['viewport'] as const)
-      : []),
-    ...(matches(words, ['glow', 'neon', 'retro', 'crt', 'توهج', 'نيون'])
-      ? (['filters'] as const)
-      : []),
+    ...(asked(['ink', 'inkle', 'لغة ink']) ? (['ink', 'dialogue'] as const) : []),
+    ...(asked(['zoom', 'pan', 'big map', 'خريطة كبيرة', 'تكبير']) ? (['viewport'] as const) : []),
+    ...(asked(['glow', 'neon', 'retro', 'crt', 'توهج', 'نيون']) ? (['filters'] as const) : []),
     // game libraries (2026-10-12): enemies, a HUD or sound only when the brief asks for them.
-    ...GAME_LIB_CUES.filter((cue) => matches(words, cue.words)).map((cue) => cue.lib),
+    ...GAME_LIB_CUES.filter((cue) => asked(cue.words)).map((cue) => cue.lib),
+    // creative power (2026-10-12): bodies, brush strokes and sketchy shapes only when asked.
+    ...(asked(PHYSICS_CUE_WORDS) ? (['physics'] as const) : []),
+    ...(asked(BRUSH_WORDS) ? (['brush'] as const) : []),
+    ...(asked(ROUGH_WORDS) ? (['rough'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([
@@ -217,7 +278,11 @@ export function planCreativeBrief(
     genre: rule.genre,
     language: arabic ? 'ar' : 'en',
     libs,
-    mechanics: [...rule.mechanics, ...libs.flatMap((lib) => GAME_LIB_MECHANICS[lib] ?? [])],
+    mechanics: [
+      ...rule.mechanics,
+      ...libs.flatMap((lib) => (rule.libs.includes(lib) ? [] : (GAME_LIB_MECHANICS[lib] ?? []))),
+      ...(asked(SCROLL_CUE_WORDS) ? SCROLL_MECHANICS : []),
+    ],
     beats: beatsFor(rule.kind, rule.genre, arabic),
     effects,
     weather,

@@ -18,6 +18,7 @@ export {
   type CreativeMemoryV1,
 } from './creative-memory';
 export {
+  creativeBriefFor,
   planCreativeBrief,
   renderCreativeBrief,
   type CreativeBeat,
@@ -32,6 +33,15 @@ export {
   CREATIVE_MEMORY_PROVIDER_ID,
   createCreativeBriefContextProvider,
   createCreativeMemoryContextProvider,
+  type CreativeBriefProviderOptions,
   type CreativeMemoryProviderOptions,
 } from './context-providers';
+export {
+  BEDTIME_WORDS,
+  BROAD_GENRE_KEYWORDS,
+  PHYSICS_CUE_WORDS,
+  SCROLL_CUE_WORDS,
+  STORY_WORDS,
+  specificGenreKeywords,
+} from './creative-activation';
 export { literalArgumentsOf, readLiteral, type LiteralValue } from './literal';

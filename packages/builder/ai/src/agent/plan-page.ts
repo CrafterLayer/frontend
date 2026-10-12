@@ -378,7 +378,7 @@ export function pagePlanningBrief(
       input.policy,
       arabic,
       kits,
-      pixiSkillIdsFor(input.skillRegistry, input.request),
+      pixiSkillIdsFor(input.skillRegistry, input.request, 'page-plan'),
     ),
   };
 }
@@ -542,7 +542,7 @@ export async function proposeValidatedPagePlan(
       input.policy,
       arabic,
       kitsAvailable(),
-      withHostSkills(input, pixiSkillIdsFor(registry, input.request)),
+      withHostSkills(input, pixiSkillIdsFor(registry, input.request, 'page-plan')),
     );
     const skills = registry?.prepare({
       request,

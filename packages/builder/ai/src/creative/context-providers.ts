@@ -13,6 +13,7 @@ import {
   type CreativeMemoryV1,
 } from './creative-memory';
 import {
+  creativeBriefFor,
   planCreativeBrief,
   renderCreativeBrief,
   type CreativePlannerOptions,
@@ -46,20 +47,34 @@ export function createCreativeMemoryContextProvider(
   };
 }
 
+export interface CreativeBriefProviderOptions extends CreativePlannerOptions {
+  readonly memory?: CreativeMemoryV1;
+  /**
+   * The person's request for the whole page, when `request` is one section's own words (a
+   * chapter's title and purpose): the brief keeps the page's cast, setting and libraries
+   * (`creativeBriefFor`). Absent: the brief is planned from `request` alone.
+   */
+  readonly page?: string;
+}
+
 /** The deterministic creative brief for one scene request. */
 export function createCreativeBriefContextProvider(
   request: string,
-  options: CreativePlannerOptions & { readonly memory?: CreativeMemoryV1 } = {},
+  options: CreativeBriefProviderOptions = {},
 ): AiContextProvider {
   return {
     id: CREATIVE_BRIEF_PROVIDER_ID,
     collect() {
+      const brief =
+        options.page === undefined
+          ? planCreativeBrief(request, options)
+          : creativeBriefFor(request, options.page, options);
       return {
         source: CREATIVE_BRIEF_PROVIDER_ID,
         kind: 'data',
         trust: 'reviewed',
         title: 'Creative brief (planner): genre, libraries, beats, effects, animation',
-        body: renderCreativeBrief(planCreativeBrief(request, options)),
+        body: renderCreativeBrief(brief),
       };
     },
   };

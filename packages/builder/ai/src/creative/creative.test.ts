@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createCreativeBriefContextProvider,
   createCreativeMemoryContextProvider,
+  creativeBriefFor,
   emptyCreativeMemory,
   learnCreativeMemory,
   learnCreativeMemoryFromScripts,
@@ -231,5 +232,97 @@ describe('creative planner', () => {
     expect(renderCreativeBrief(planCreativeBrief(request))).toBe(text);
     const fragment = createCreativeBriefContextProvider(request).collect({} as never, []);
     expect(fragment).toMatchObject({ kind: 'data', source: 'craftkit:creative-brief', body: text });
+  });
+});
+
+describe('creative brief for one section of a page (brief propagation)', () => {
+  const PAGE =
+    'A bedtime story where a fox named Rumi and an owl called Noor cross a forest at night';
+
+  it('keeps the page’s cast, setting and genre for a chapter that names none of them', () => {
+    const alone = planCreativeBrief('Chapter 2: the long way home');
+    expect(alone).toMatchObject({ genre: 'mural', cast: [], settings: [] });
+    const chapter = creativeBriefFor('Chapter 2: the long way home', PAGE);
+    expect(chapter).toMatchObject({ genre: 'picture-book', kind: 'story' });
+    expect(chapter.cast.map(({ name, role }) => [name, role])).toEqual([
+      ['Rumi', 'hero'],
+      ['Noor', 'supporting'],
+    ]);
+    expect(chapter.settings).toEqual(['forest', 'night']);
+    expect(chapter.weather).toEqual(['leaves', 'fireflies']);
+    expect(chapter.libs).toEqual(['dialogue', 'anim', 'fx']);
+    expect(chapter.beats.map(({ id }) => id)).toEqual(
+      planCreativeBrief(PAGE).beats.map(({ id }) => id),
+    );
+  });
+
+  it('lets the section’s own words decide what it is, the more specific genre winning', () => {
+    // Same kind: the picture book is more specific than a generic chapter story.
+    expect(creativeBriefFor('Interactive story chapter scene: the river', PAGE).genre).toBe(
+      'picture-book',
+    );
+    // Another kind: a game band on a story page is a game, with the story's cast and place.
+    const game = creativeBriefFor('Mini game: a platformer where Rumi collects stars', PAGE);
+    expect(game).toMatchObject({ kind: 'game', genre: 'platformer' });
+    expect(game.cast.map(({ name }) => name)).toEqual(['Rumi', 'Noor']);
+    expect(game.settings).toEqual(['forest', 'night']);
+    // A section's own names join the page's, after them.
+    expect(
+      creativeBriefFor('Chapter 3: Rumi meets «Layla»', PAGE).cast.map(({ name }) => name),
+    ).toEqual(['Rumi', 'Noor', 'Layla']);
+  });
+
+  it('carries the page’s requested libraries and the Arabic language into every section', () => {
+    const page = 'لعبة منصات في غابة، بطلها ثعلب اسمه رومي، مع أعداء وموسيقى';
+    const band = creativeBriefFor('المستوى الثاني', page);
+    expect(band).toMatchObject({ genre: 'platformer', language: 'ar' });
+    expect(band.libs).toEqual(expect.arrayContaining(['tilemap', 'gameai', 'audio']));
+    expect(band.cast.map(({ name }) => name)).toEqual(['رومي']);
+  });
+
+  it('leaves the hero’s brief as it was: its words already hold the request', () => {
+    const request = 'بدي لعبة منصات في غابة';
+    const hero = `الترحيب — مغامرة في الغابة ${request}`;
+    expect(renderCreativeBrief(creativeBriefFor(hero, request, { lang: 'ar' }))).toBe(
+      renderCreativeBrief(planCreativeBrief(hero, { lang: 'ar' })),
+    );
+  });
+
+  it('serves the section brief from the provider when given the page request', () => {
+    const provider = createCreativeBriefContextProvider('Chapter 2: the long way home', {
+      page: PAGE,
+      lang: 'en',
+    });
+    const body = provider.collect({} as never, []).body;
+    expect(body).toBe(renderCreativeBrief(creativeBriefFor('Chapter 2: the long way home', PAGE)));
+    expect(body).toContain('CAST: rumi=Rumi hero; noor=Noor supporting');
+    expect(body).toContain('GENRE: picture-book');
+  });
+});
+
+describe('creative planner — library cues (creative power)', () => {
+  it('adds physics, brush and rough only when the brief asks, and a scroll mechanic for scroll pieces', () => {
+    expect(planCreativeBrief('A platformer with physics crates').libs).toContain('physics');
+    expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('physics');
+    const painted = planCreativeBrief('A hand drawn mural painted with watercolor brush strokes');
+    expect(painted.libs).toEqual(expect.arrayContaining(['brush', 'rough']));
+    const scroll = planCreativeBrief('A parallax scroll mural of a desert');
+    expect(scroll.genre).toBe('mural');
+    expect(scroll.mechanics.join(' ')).toContain('s.scroll.progress');
+    // A physics toy's own mechanic is not repeated by the library cue.
+    const toy = planCreativeBrief('A physics toy with a catapult');
+    expect(toy.genre).toBe('physics-toy');
+    expect(toy.mechanics.filter((line) => line.includes('Matter bodies'))).toHaveLength(1);
+  });
+
+  it('plans the bedtime and picture-book phrases as picture books', () => {
+    for (const request of [
+      'حكاية قبل النوم عن غيمة',
+      'قصة مصورة عن قطة',
+      'A storybook about a bear',
+      'A fairytale about a lost star',
+    ]) {
+      expect(planCreativeBrief(request).genre, request).toBe('picture-book');
+    }
   });
 });

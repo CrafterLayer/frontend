@@ -12,6 +12,7 @@ import {
   CREATIVE_INK_EXAMPLE,
   CREATIVE_TILEMAP_CONTROLS,
   CREATIVE_TILEMAP_EXAMPLE,
+  PIXI_CREATIVE_SKILLS,
 } from '@craftkit/builder/wire';
 
 /*
@@ -31,6 +32,8 @@ interface MountOptions {
   params?: Record<string, unknown>;
   /** Instrumentation that runs before the scene (e.g. counting AudioContexts). */
   prelude?: string;
+  /** Page CSS after the QA style (e.g. room to scroll for a scroll mural). */
+  css?: string;
 }
 
 async function mount(
@@ -48,7 +51,7 @@ const originalScene=ck.scene.bind(ck);ck.scene=async options=>{const s=await ori
     dir: options.dir ?? 'ltr',
     lang: options.lang,
     params: options.params,
-    themeCss: QA_STYLE,
+    themeCss: `${QA_STYLE}${options.css ?? ''}`,
   });
   await page.setContent(
     '<!doctype html><html><body style="margin:0"><iframe title="Creative engines QA" sandbox="allow-scripts" style="border:0;width:100vw;height:100vh"></iframe></body></html>',
@@ -227,7 +230,9 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
 */
 
 function taught(id: string): string {
-  const skill = CREATIVE_ENGINE_SKILLS.find((candidate) => candidate.id === id);
+  const skill = [...CREATIVE_ENGINE_SKILLS, ...PIXI_CREATIVE_SKILLS].find(
+    (candidate) => candidate.id === id,
+  );
   const line = skill?.instructions.split('\n').find((text) => text.startsWith('e.g. '));
   if (line === undefined) throw new Error(`${id} teaches no example`);
   return line.slice(line.indexOf(': ') + ': '.length);
@@ -441,6 +446,184 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
         ),
       ).toBe(80);
       expect(await hud.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(false);
+    } finally {
+      await browser.close();
+    }
+  },
+  60_000,
+);
+
+/*
+  creative power (2026-10-12): the physics and scroll-mural playbooks' examples and the story
+  playbook's read-aloud toggle, exactly as the Agent reads them, with test-owned controls that
+  follow each skill's "Example tree".
+*/
+
+const PHYSICS_CONTROLS = `<div role='group' aria-label='Physics controls'><button type='button' data-physics='drop'>Drop a crate</button><button type='button' data-physics='launch'>Launch the ball</button><button type='button' data-physics='reset'>Reset</button></div><output data-physics-status role='status' aria-live='polite'></output>`;
+
+/** The physics world's display objects (the view's children: the floor, then one per body). */
+const BODIES = 'window.__creativeStage.children[0].children.slice(1)';
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'physics: crates fall and rest on the floor, the ball launches along s.dir, reset restores the stack',
+  async () => {
+    await eachLayout(async (page, { dir }) => {
+      const frame = await mount(page, taught('craftkit.pixi-physics'), PHYSICS_CONTROLS, { dir });
+      const status = frame.getByRole('status');
+      expect(await status.textContent()).toBe('3 crates, 0 balls');
+      expect(await frame.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(true);
+      await frame.getByRole('button', { name: 'Drop a crate' }).click();
+      expect(await status.textContent()).toBe('4 crates, 0 balls');
+      // Dropped from above the box (y < 0), it falls onto the stack and stays inside the walls.
+      await frame.waitForFunction(`${BODIES}.at(-1).y > 150`);
+      await expect
+        .poll(() => frame.evaluate<number>(`Math.max(...${BODIES}.map((g) => g.y))`))
+        .toBeLessThanOrEqual(450 - 27);
+      const xs = await frame.evaluate<number[]>(`${BODIES}.map((g) => g.x)`);
+      expect(Math.min(...xs)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(800);
+      await frame.getByRole('button', { name: 'Launch the ball' }).click();
+      expect(await status.textContent()).toBe('4 crates, 1 balls');
+      // Launched from the start edge (world x 64, or 736 in RTL) toward the stack.
+      await frame.waitForFunction(
+        dir === 'rtl' ? `${BODIES}.at(-1).x < 736 - 80` : `${BODIES}.at(-1).x > 64 + 80`,
+      );
+      await frame.getByRole('button', { name: 'Reset' }).click();
+      expect(await status.textContent()).toBe('3 crates, 0 balls');
+      expect(await frame.evaluate<number>(`${BODIES}.length`)).toBe(3);
+      await frame.locator('#ck-preview').evaluate((root) => {
+        root.remove();
+      });
+      await frame.waitForFunction('window.__creativeStage.destroyed === true');
+    });
+  },
+  180_000,
+);
+
+/* Room above and below a 150vh region, so the page scrolls it through the viewport. */
+const SCROLL_ROOM =
+  'html,body{height:auto;overflow:visible}body{padding-block:100vh}#ck-preview{height:150vh}';
+/** The viewport camera (stage: the far sky, then the viewport) and its centre. */
+const CAMERA_X = 'window.__creativeStage.children[1].center.x';
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'scroll mural: page scroll moves the camera and the far layer along s.dir, never the wheel',
+  async () => {
+    await eachLayout(async (page, { dir, width }) => {
+      const frame = await mount(page, taught('craftkit.pixi-scroll-murals'), '', {
+        dir,
+        css: SCROLL_ROOM,
+      });
+      // The world holds the hills, nine houses and the fireflies, pre-warmed before any frame.
+      const world = 'window.__creativeStage.children[1].children';
+      expect(await frame.evaluate<number>(`${world}.length`)).toBe(11);
+      expect(
+        await frame.evaluate<number>(`${world}.at(-1).particleChildren.length`),
+      ).toBeGreaterThan(5);
+      const start = await frame.evaluate<number>(CAMERA_X);
+      await frame.evaluate('scrollTo(0, innerHeight * 1.25)');
+      await frame.waitForFunction('Math.abs(window.__creativeScene.scroll.progress - 0.5) < 0.05');
+      await expect.poll(() => frame.evaluate<number>(CAMERA_X)).toBeCloseTo(1200, -1);
+      const middle = await frame.evaluate<number>(CAMERA_X);
+      expect(dir === 'rtl' ? start - middle : middle - start).toBeGreaterThan(200);
+      const farX = await frame.evaluate<number>('window.__creativeStage.children[0].x');
+      expect(farX).toBeLessThan(0);
+      expect(farX).toBeGreaterThanOrEqual(-width * 0.1 - 1);
+      // The wheel over the canvas still scrolls the page.
+      const before = await frame.evaluate<number>('scrollY');
+      await page.mouse.move(width / 2, 360);
+      await page.mouse.wheel(0, 240);
+      await expect.poll(() => frame.evaluate<number>('scrollY')).toBeGreaterThan(before + 100);
+      expect(
+        await frame.evaluate<boolean>('document.documentElement.scrollWidth > innerWidth'),
+      ).toBe(false);
+      await frame.locator('#ck-preview').evaluate((root) => {
+        root.remove();
+      });
+      await frame.waitForFunction('window.__creativeStage.destroyed === true');
+    });
+  },
+  180_000,
+);
+
+const STORY_CONTROLS = `<article><h2 data-story-title></h2><p data-story-copy></p><div role='group' aria-label='Story navigation'><button type='button' data-story-action='back'>Previous</button><button type='button' data-story-action='next'>Next</button><button type='button' data-story-action='reset'>Restart story</button><button type='button' data-story-voice aria-pressed='false'>Read aloud</button></div><output data-story-status role='status' aria-live='polite'></output></article>`;
+
+/* Records what the page asks speechSynthesis to say; installed before the scene, body untouched. */
+const RECORD_SPEECH = `window.__spoken=[];Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{speak:u=>window.__spoken.push(u.lang+'|'+u.text),cancel:()=>window.__spoken.push('cancel')}});
+`;
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'story read-aloud: silent until pressed, reads each page in the page language, stops on toggle and dispose',
+  async () => {
+    await eachLayout(async (page, { dir, lang }) => {
+      const frame = await mount(page, taught('craftkit.pixi-stories'), STORY_CONTROLS, {
+        dir,
+        lang,
+        prelude: RECORD_SPEECH,
+      });
+      const spoken = () => frame.evaluate<string[]>('window.__spoken');
+      const voice = frame.getByRole('button', { name: 'Read aloud' });
+      expect(await voice.isVisible()).toBe(true);
+      expect(await voice.getAttribute('aria-pressed')).toBe('false');
+      expect(await spoken()).toEqual([]);
+      await voice.click();
+      expect(await voice.getAttribute('aria-pressed')).toBe('true');
+      expect(await spoken()).toEqual(['cancel', `${lang}|Dawn. A traveller discovers a light.`]);
+      await frame.getByRole('button', { name: 'Next', exact: true }).click();
+      expect((await spoken()).slice(2)).toEqual([
+        'cancel',
+        `${lang}|Crossing. The traveller carries it across the valley.`,
+      ]);
+      await voice.press('Enter');
+      expect(await voice.getAttribute('aria-pressed')).toBe('false');
+      expect((await spoken()).at(-1)).toBe('cancel');
+      const quiet = (await spoken()).length;
+      await frame.getByRole('button', { name: 'Next', exact: true }).click();
+      expect(await spoken()).toHaveLength(quiet);
+      await frame.locator('#ck-preview').evaluate((root) => {
+        root.remove();
+      });
+      await frame.waitForFunction('window.__creativeStage.destroyed === true');
+      expect((await spoken()).at(-1)).toBe('cancel');
+      // Where the browser has no speech synthesis, the toggle is hidden rather than broken.
+      const mute = await mount(page, taught('craftkit.pixi-stories'), STORY_CONTROLS, {
+        dir,
+        lang,
+        prelude: `Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});`,
+      });
+      expect(await mute.getByRole('button', { name: 'Read aloud' }).isHidden()).toBe(true);
+    });
+  },
+  180_000,
+);
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'physics and scroll murals settle into calm still frames under reduced motion',
+  async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({ viewport: { width: 800, height: 700 } });
+      await page.route(/^https?:/u, (route) => route.abort());
+      const toy = await mount(page, taught('craftkit.pixi-physics'), PHYSICS_CONTROLS, {
+        reducedMotion: true,
+      });
+      expect(await toy.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(false);
+      await toy.getByRole('button', { name: 'Drop a crate' }).click();
+      // No loop runs: the press settles the world synchronously, the new crate already at rest.
+      const resting = await toy.evaluate<number>(`${BODIES}.at(-1).y`);
+      expect(resting).toBeGreaterThan(150);
+      expect(resting).toBeLessThanOrEqual(450 - 27);
+      const mural = await mount(page, taught('craftkit.pixi-scroll-murals'), '', {
+        reducedMotion: true,
+        css: SCROLL_ROOM,
+      });
+      expect(await mural.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(
+        false,
+      );
+      expect(await mural.evaluate<number>(CAMERA_X)).toBeCloseTo(1200, 0);
+      await mural.evaluate('scrollTo(0, innerHeight * 1.8)');
+      await page.waitForTimeout(300);
+      expect(await mural.evaluate<number>(CAMERA_X)).toBeCloseTo(1200, 0);
     } finally {
       await browser.close();
     }

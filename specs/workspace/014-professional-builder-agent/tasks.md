@@ -716,10 +716,17 @@ workers; "high power" for stories, murals, games and websites; any package neede
       controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wired for free-code
       builds. Its first finds fixed: the card's stage gets `width:100%`; the aurora shader links.
 - [x] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
-- [ ] T230 Real multi-page sites (up to 8 pages) with one writer pool shared across pages; language
-      versions and translations through the batch queue.
-- [ ] T231 Parallel creative units: story chapters, game levels (reachability checked in code),
-      mural panels; dialogue read from the DOM; scene text translatable.
+- [x] T230 Real multi-page sites (up to 8 pages): `planAiSite` (server `task:'site-plan'`, else the
+      words), every page built at once under one run, one writers' pool (`createAiWriterPool`)
+      shared across pages, a record per page, per-page Undo.
+- [ ] T230b Site pages linked in each page's header/footer menu (`nav.pages`), slug addresses;
+      language versions of a whole site; translations through the batch queue.
+- [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree,
+      five `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
+- [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it
+      dropped them all before, so written games lost their controls. check-scene names them.
+- [ ] T231c Parallel creative units: story chapters, game levels (reachability checked in code),
+      mural panels.
 - [ ] T232 Vision review of a rendered scene (one extra call per scene) — owner's decision.
 - [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing

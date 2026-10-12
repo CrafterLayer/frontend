@@ -1501,24 +1501,6 @@ describe('the prompt enhancer route', () => {
     expect((seen[0]?.params as { model: string }).model).toBe('cli:sonnet');
   });
 
-  it('keeps the enhancer on the route the picker names: an api: pick is enhanced on the key', async () => {
-    const { client, seen } = enhancing(JSON.stringify(ENHANCED));
-    const handle = createHandler({
-      client,
-      model: 'cli:sonnet',
-      models: ['cli:haiku', 'api:claude-opus-5-5', 'api:claude-haiku-5-5'],
-      enhanceModel: 'cli:haiku',
-    });
-
-    await handle(enhanceRequest(REQUEST_BODY, { 'x-craftkit-ai-model': 'api:claude-opus-5-5' }));
-    await handle(enhanceRequest(REQUEST_BODY, { 'x-craftkit-ai-model': 'cli:sonnet' }));
-
-    expect(seen.map((call) => (call.params as { model: string }).model)).toEqual([
-      'api:claude-haiku-5-5',
-      'cli:haiku',
-    ]);
-  });
-
   it('requires the same bearer token as /plan', async () => {
     const { client, seen } = enhancing(JSON.stringify(ENHANCED));
     const handle = createHandler({ client, authToken: 'secret' });

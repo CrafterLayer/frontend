@@ -13,7 +13,7 @@ import {
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
 import type { FreeModelCatalog } from './free-models';
-import { fastestModel } from './model-policy';
+import { enhancerModelFor } from './enhance-route';
 import {
   isAuthoredRunRequest,
   type AuthoredRunCoordinator,
@@ -628,11 +628,6 @@ async function exportResponse(
  */
 const ENHANCE_SERVER_TIMEOUT_MS = Math.min(ENHANCE_TIMEOUT_MS, 40_000);
 
-/** `cli:` (the subscription), `api:` (the API key), or '' for an OpenRouter slug. */
-function routeOf(model: string): string {
-  return /^(cli|api):/u.exec(model)?.[1] ?? '';
-}
-
 async function enhanceResponse(
   body: unknown,
   options: HandlerOptions,
@@ -643,21 +638,7 @@ async function enhanceResponse(
   const timeoutMs = options.enhanceTimeoutMs ?? ENHANCE_SERVER_TIMEOUT_MS;
   const timeout = AbortSignal.timeout(timeoutMs);
   const requestSignal = request.signal;
-  /*
-    Still the fastest model, but on the ROUTE the person picked: with an `api:` model
-    chosen, the enhancer answering through the subscription read as "the picker changed
-    nothing" (2026-10-12). An OpenRouter pick, or a configured enhancer already on the
-    picked route, keeps the configured enhancer.
-  */
-  const allowed = [options.model, ...(options.models ?? [])].filter(
-    (entry): entry is string => entry !== undefined,
-  );
-  const configured = options.enhanceModel ?? fastestModel(allowed);
-  const route = routeOf(pickedModel(request));
-  const model =
-    route === '' || (configured !== undefined && routeOf(configured) === route)
-      ? configured
-      : (fastestModel(allowed.filter((entry) => routeOf(entry) === route)) ?? configured);
+  const model = enhancerModelFor(options, pickedModel(request)); // the picked route's fastest
   try {
     const outcome = await enhancePrompt(read.request, {
       client: options.client,
@@ -692,8 +673,7 @@ function reportUsage(options: HandlerOptions, usage: UsageReport, task: UsageTas
   try {
     options.onUsage({
       ...usage,
-      // The number worth watching: a cached share near zero means a silent
-      // invalidator got into the prefix and the catalog is being re-billed.
+      // The number worth watching: a cached share near zero means a silent invalidator got into the prefix and the catalog is being re-billed.
       cachedShare:
         billedInput === null || usage.cacheReadTokens === null
           ? null

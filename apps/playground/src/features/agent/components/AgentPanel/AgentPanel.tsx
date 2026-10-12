@@ -47,6 +47,7 @@ import { PanelSeparator } from './PanelSeparator';
 import { useHiddenPill } from './use-hidden-pill';
 import { usePhoneLayout } from './use-phone-layout';
 import { useSheetDetent } from './use-sheet-detent';
+import { useSpokenAside } from './use-spoken-aside';
 
 /** Docked beside the canvas, the phone sheet, or whichever the viewport calls for. */
 export type AgentPanelPresentation = 'auto' | 'dock' | 'sheet';
@@ -177,6 +178,7 @@ export function AgentPanel({
 
   // The pill: a run that ended while hidden keeps its line until the panel shows.
   const pill = useHiddenPill(state, visible);
+  const [spoken, say] = useSpokenAside(state.announcement);
 
   /* ── Focus destinations ──────────────────────────────────────────────────────── */
 
@@ -336,6 +338,7 @@ export function AgentPanel({
             }}
             commands={knowledgeUi.commands}
             onCommand={knowledgeUi.onCommand}
+            onAnnounce={say}
           />
         )}
         <Composer
@@ -394,7 +397,7 @@ export function AgentPanel({
     </div>
   );
 
-  const live = <LiveStatus locale={locale} announcement={state.announcement} />;
+  const live = <LiveStatus locale={locale} announcement={state.announcement} spoken={spoken} />;
 
   const statusPill =
     pill === null || pillContainer === undefined || pillContainer === null

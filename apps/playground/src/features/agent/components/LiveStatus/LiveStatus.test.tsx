@@ -117,6 +117,28 @@ describe('LiveStatus', () => {
   });
 });
 
+describe('LiveStatus speaking for a panel control (2026-10-12)', () => {
+  const built = { key: 'build.done', params: { n: 8 }, seq: 6 } as const;
+
+  it('says a control’s sentence in the one region, a repeat as a new node', () => {
+    const { rerender } = render(
+      <LiveStatus locale="en" announcement={built} spoken={{ seq: 1, text: 'Saved to memory' }} />,
+    );
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent(/^Saved to memory$/u);
+    const node = screen.getByRole('status').firstElementChild;
+    rerender(
+      <LiveStatus locale="en" announcement={built} spoken={{ seq: 2, text: 'Saved to memory' }} />,
+    );
+    expect(screen.getByRole('status').firstElementChild).not.toBe(node);
+  });
+
+  it('gives the region back to the announcement when the aside ends', () => {
+    render(<LiveStatus locale="en" announcement={built} spoken={null} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Page built: 8 sections');
+  });
+});
+
 describe('LiveStatus.css', () => {
   it('hides the region by clipping, never by display or visibility', () => {
     expect(CSS).toMatch(/\.ck-agent-live\s*\{[^}]*clip-path:\s*inset\(50%\)/u);

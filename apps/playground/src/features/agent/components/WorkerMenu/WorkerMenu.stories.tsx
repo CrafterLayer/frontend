@@ -44,19 +44,37 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const CHIP = `${t('en', 'workers.label')}: ${t('en', 'workers.option', { n: 3 })}`;
+
 export const Balanced: Story = {
   play: async ({ canvasElement, args }) => {
-    const select = within(canvasElement).getByRole('combobox', { name: t('en', 'workers.label') });
-    await userEvent.selectOptions(select, '6');
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: CHIP }));
+    const items = within(await canvas.findByRole('menu')).getAllByRole('menuitemradio');
+    await expect(items.map((item) => item.getAttribute('aria-checked'))).toEqual([
+      'false',
+      'true',
+      'false',
+    ]);
+    const six = items[2];
+    if (six === undefined) throw new Error('no six');
+    await userEvent.click(six);
     await expect(args.onChange).toHaveBeenCalledWith(6);
   },
 };
 export const Sequential: Story = { args: { value: 1 } };
 export const SixWorkers: Story = { args: { value: 6 } };
+/** The count a build started with holds: the menu opens, a pick changes nothing. */
 export const LockedDuringRun: Story = {
   args: { running: true },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('combobox')).toBeDisabled();
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: CHIP }));
+    const items = within(await canvas.findByRole('menu')).getAllByRole('menuitemradio');
+    const [one] = items;
+    if (one === undefined) throw new Error('no one');
+    await userEvent.click(one);
+    await expect(args.onChange).not.toHaveBeenCalled();
   },
 };
 export const NarrowRightToLeftDark: Story = {

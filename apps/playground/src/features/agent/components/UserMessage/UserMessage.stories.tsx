@@ -81,7 +81,7 @@ async function expectHungFromTheEnd(canvasElement: HTMLElement, cap: number): Pr
   if (drawn === null || drawn === undefined) throw new Error('no bubble');
   const style = getComputedStyle(drawn);
   await expect(style.borderEndEndRadius).toBe('4px');
-  await expect(style.borderStartStartRadius).toBe('12px');
+  await expect(style.borderStartStartRadius).toBe('16px');
 }
 
 async function expectNoSidewaysScroll(canvasElement: HTMLElement): Promise<void> {

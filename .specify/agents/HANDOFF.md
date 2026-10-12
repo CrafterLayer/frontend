@@ -7,12 +7,15 @@ Requested increment: **in progress, pushed in slices** (T215..T235, feature 014)
 context handled like Claude's agent chat, background batches and smarter live workers, and "high
 power" for stories, murals, games and websites, installing any package needed (10/10).
 
-- Done and pushed: T215..T226 (see feature 014 tasks). Highlights: one-hour cache breakpoints +
-  same-prefix staggering; per-model thinking-off (the 5.5 models refused `disabled`); stream error
-  frames; history trimming + context meter; story/game preview scale fix; Message Batches end to
-  end; creative activation, briefs, physics/scroll-mural/page-shape playbooks; static scene checks
-  with one repair; 30 tested scene presets; single-run scene edits get playbooks and a brief.
-- In flight (background helpers): T227 jobs panel, T228 run-check-fix probe, T229 `scene.preset`.
+- Done and pushed: T215..T229, T235, T236 (see feature 014 tasks). Highlights: one-hour cache
+  breakpoints + same-prefix staggering; per-model thinking-off (the 5.5 models refused
+  `disabled`); stream error frames; history trimming + context meter; story/game preview scale
+  fix; Message Batches end to end with a jobs panel; creative activation, briefs,
+  physics/scroll-mural/page-shape playbooks; static scene checks with one repair; 30 tested
+  scene presets and `scene.preset`; the scene probe (free-code builds run each scene in a hidden
+  sandboxed frame, one runtime repair); one live region in the agent panel.
+- Agent stories (apps/storybook, `../playground/src/features/agent/components`): all green
+  after the compact-chat catch-up; AgentSheet's Detent Flow is timing-sensitive under load.
 - Next: T230 multi-page sites with one shared writer pool; T231 parallel creative units.
 - Owner decisions open: T232 vision review, T233 CC0 art packs, T234 CI workflow + formatting.
 - No new npm package was needed so far (the runtime already ships pixi.js 8, matter-js, inkjs,

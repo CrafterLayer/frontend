@@ -711,10 +711,11 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T225 The 30 curated scene presets: frozen catalogue, unit + Chromium tests, seven fixed;
       `s.shader` promotes vertex-stage uniforms to highp; rough's reference corrected.
 - [x] T226 Single-run edits of a scene get its playbooks, the director and a creative brief.
-- [ ] T227 Background jobs panel (start, list, poll, apply, retry live; EN/AR) — in progress.
-- [ ] T228 Run-check-fix: probe each scene in an off-screen frame (errors, blank, coverage, hidden
-      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wire the playground.
-- [ ] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
+- [x] T227 Background jobs panel (start, list, poll, apply, retry live; EN/AR); `/batch` command.
+- [x] T228 Run-check-fix: probe each scene in an off-screen frame (errors, blank, coverage, hidden
+      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wired for free-code
+      builds. Its first finds fixed: the card's stage gets `width:100%`; the aurora shader links.
+- [x] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
 - [ ] T230 Real multi-page sites (up to 8 pages) with one writer pool shared across pages; language
       versions and translations through the batch queue.
 - [ ] T231 Parallel creative units: story chapters, game levels (reachability checked in code),
@@ -723,5 +724,7 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing
       `prettier --check` (both pre-existing on builder-core) — owner's decision.
-- [ ] T235 Page plans still fail hard on context overflow (`agent/plan-page.ts` ~595): fit history
-      with `fitAiPlanWireHistory` as `generateAiPlan` now does.
+- [x] T235 Page plans fit a long history with `fitAiPlanWireHistory` instead of failing on
+      context overflow.
+- [x] T236 The agent panel keeps one live region: `/` command answers speak through LiveStatus;
+      agent stories brought up to the compact chat (workers chip, cards, radius 16).

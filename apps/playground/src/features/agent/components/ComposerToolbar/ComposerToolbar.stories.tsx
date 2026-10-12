@@ -110,8 +110,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * At rest, a draft written: Mode ▾ and Model ▾ at the start; ✨, `[@]` and Send at the end,
- * read in the order a request is made.
+ * At rest, a draft written: Mode ▾, Model ▾ and the workers chip at the start; ✨, `[@]` and
+ * Send at the end, read in the order a request is made.
  */
 export const Ready: Story = {
   play: async ({ canvasElement }) => {
@@ -121,6 +121,7 @@ export const Ready: Story = {
     await expect(names).toEqual([
       'Mode: Auto',
       'Model: Fast',
+      `${t('en', 'workers.label')}: ${t('en', 'workers.option', { n: 3 })}`,
       t('en', 'enhance.button'),
       t('en', 'mention.button'),
       'Send',
@@ -131,8 +132,11 @@ export const Ready: Story = {
 /** Build workers are a separate choice from model and effort, fixed while running. */
 export const BuildWorkers: Story = {
   play: async ({ canvasElement, args }) => {
-    const pool = within(canvasElement).getByRole('combobox', { name: t('en', 'workers.label') });
-    await userEvent.selectOptions(pool, '6');
+    const canvas = within(canvasElement);
+    const name = new RegExp(`^${t('en', 'workers.label')}:`, 'u');
+    await userEvent.click(canvas.getByRole('button', { name }));
+    const menu = await canvas.findByRole('menu');
+    await userEvent.click(within(menu).getByRole('menuitemradio', { name: /^6 workers/u }));
     await expect(args.onWorkersChange).toHaveBeenCalledWith(6);
   },
 };

@@ -34,6 +34,8 @@ export interface SkillSlashProps {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
   /** "Manage skills & memory": opens the header's Skills & memory place. */
   readonly onManage: () => void;
+  /** Speak a note or a command's answer through the panel's one live region, not this one's. */
+  readonly onAnnounce?: ((text: string) => void) | undefined;
   /** Which commands to offer (all of them by default). */
   readonly commands?: readonly SlashCommand[] | undefined;
   /**
@@ -79,6 +81,7 @@ export function SkillSlash({
   onManage,
   commands: offered,
   onCommand,
+  onAnnounce,
 }: SkillSlashProps) {
   const id = useId();
   const labels = knowledgeLabels(locale).slash;
@@ -99,6 +102,10 @@ export function SkillSlash({
     { kind: 'manage' },
   ];
   const [done, setDone] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const said = done ?? note;
+    if (said !== undefined && said !== '') onAnnounce?.(said);
+  }, [done, note, onAnnounce]);
   useEffect(() => {
     if (done === undefined) return undefined;
     const timer = setTimeout(() => {
@@ -229,7 +236,10 @@ export function SkillSlash({
         <div className="ck-agent-slash__popup">
           {options.length === 0 ? <p className="ck-agent-slash__empty">{labels.empty}</p> : null}
           {/* In the tree while the list is open, so a note that fills it is announced. */}
-          <p className="ck-agent-slash__note" role="status">
+          <p
+            className="ck-agent-slash__note"
+            role={onAnnounce === undefined ? 'status' : undefined}
+          >
             {note}
           </p>
           <ul
@@ -329,7 +339,7 @@ export function SkillSlash({
         </div>
       ) : (
         // While the list is closed: the line a command's answer fills (the list has its own).
-        <p className="ck-agent-slash__done" role="status">
+        <p className="ck-agent-slash__done" role={onAnnounce === undefined ? 'status' : undefined}>
           {done}
         </p>
       )}

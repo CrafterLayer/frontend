@@ -11,6 +11,11 @@ export interface LiveStatusProps {
    * (SPEC §4.3). `null` before the first one; the region stays mounted and says nothing.
    */
   readonly announcement: AnnouncementView | null;
+  /**
+   * A sentence a panel control hands it to speak (2026-10-12: the composer's `/` command
+   * answers), so the panel keeps its one live region. Newer than `announcement` while set.
+   */
+  readonly spoken?: { readonly seq: number; readonly text: string } | null | undefined;
 }
 
 /**
@@ -30,10 +35,11 @@ export interface LiveStatusProps {
  * would be spoken once. A new `seq` mounts a new node, which is a change, so it is spoken
  * again.
  */
-export function LiveStatus({ locale, announcement }: LiveStatusProps) {
+export function LiveStatus({ locale, announcement, spoken }: LiveStatusProps) {
   return (
     <p role="status" aria-live="polite" aria-atomic="true" lang={locale} className="ck-agent-live">
-      {announcement === null ? null : (
+      {spoken != null ? <span key={`spoken-${String(spoken.seq)}`}>{spoken.text}</span> : null}
+      {spoken != null || announcement === null ? null : (
         <span key={announcement.seq}>
           {tAnnounce(locale, announcement.key, announcement.params)}
         </span>

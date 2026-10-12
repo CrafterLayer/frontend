@@ -32,7 +32,8 @@ export const Live: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole('status')).toHaveTextContent('Hero');
-    await expect(canvas.getAllByText('Not reported')).toHaveLength(4);
+    // Nothing reported yet: no usage cells at all, never four "Not reported" (2026-10-12).
+    await expect(canvas.queryByText('Not reported')).not.toBeInTheDocument();
   },
 };
 export const Measured: Story = {

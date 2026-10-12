@@ -203,8 +203,9 @@ export const EmptyPageAt420: Story = {
     if (greeting === null) throw new Error('no greeting');
     const lineHeight = Number.parseFloat(getComputedStyle(greeting).lineHeight);
     await expect(Math.round(greeting.getBoundingClientRect().height / lineHeight)).toBe(2);
+    // One line each: a 20px line, 6px above and below, inside the starter card's hairline.
     for (const row of within(canvasElement).getAllByRole('button')) {
-      await expect(Math.round(row.getBoundingClientRect().height)).toBe(32);
+      await expect(Math.round(row.getBoundingClientRect().height)).toBe(34);
     }
   },
 };

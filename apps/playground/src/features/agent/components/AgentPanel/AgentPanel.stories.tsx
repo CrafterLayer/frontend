@@ -443,8 +443,7 @@ function withJobs(locale: Locale, extra: Partial<Pick<Story, 'parameters'>> = {}
       <KnowledgePanelStory scenario={args.scenario} locale={args.locale} withJobs />
     ),
     play: async ({ canvasElement }) => {
-      // Not `expectShell`: with knowledge the composer's `/` status line is a second live region.
-      const panel = panelOf(canvasElement, locale);
+      const panel = await expectShell(canvasElement, locale);
       const title = jobsLabels(locale).title;
       await userEvent.click(within(panel).getByRole('button', { name: title }));
       const dialog = await within(panel).findByRole('dialog', { name: title });
@@ -460,7 +459,8 @@ export const WithBackgroundJobs: Story = withJobs('en');
 export const WithBackgroundJobsRightToLeft: Story = withJobs('ar');
 export const WithBackgroundJobsDark: Story = withJobs('en', { parameters: DARK });
 
-/** "/" in the real composer opens the skills list above it; Enter pins the first skill. */
+/** "/" in the real composer opens the skills list above it; "/brand" + Enter pins that skill
+    (a bare "/" lists the commands — Remember, Checkpoint… — first). */
 export const SlashMenu: Story = {
   args: { scenario: 'empty', locale: 'en' },
   render: (args) => <KnowledgePanelStory scenario={args.scenario} locale={args.locale} />,
@@ -468,7 +468,7 @@ export const SlashMenu: Story = {
     const panel = await expectShell(canvasElement, 'en');
     const slash = knowledgeLabels('en').slash;
     const input = within(panel).getByRole('combobox', { name: t('en', 'input.aria') });
-    await userEvent.type(input, '/');
+    await userEvent.type(input, '/brand');
     const list = await within(panel).findByRole('listbox', { name: slash.label });
     await expect(list).toBeVisible();
     await expect(input).toHaveAttribute('aria-controls', list.id);

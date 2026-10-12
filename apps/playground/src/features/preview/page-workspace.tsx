@@ -1,5 +1,5 @@
 import { ChromeButton, projectSitemap, type BuilderSiteKernel } from '@craftkit/builder';
-import { useCallback, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
   PageActionsMenu,
@@ -8,9 +8,9 @@ import {
 } from './components/PageActionsMenu';
 import { SiteMap } from './components/SiteMap';
 import {
-  countInboundLinks,
   firstReplacement,
   firstReplacementTitle,
+  inboundLinkCounts,
   nextPageAddress,
   pageNumber,
   pageSettingsSteps,
@@ -57,7 +57,18 @@ export function PageWorkspace({
   const view = controlledView ?? localView;
   const [settings, setSettings] = useState<PageSettingsDraft | null>(null);
   const [status, setStatus] = useState('');
-  const projection = projectSitemap(site, { thumbnailByPageId });
+  /*
+    Derived per SITE, not per render (2026-10-12). The workspace re-renders on
+    every host render — a save-state change, a page switch — and both of these
+    walk every node of every page; on a 20-page site they were most of the time
+    "Add page" took to paint. A new page is a new site, so they still follow
+    every change.
+  */
+  const projection = useMemo(
+    () => projectSitemap(site, { thumbnailByPageId }),
+    [site, thumbnailByPageId],
+  );
+  const inboundLinks = useMemo(() => inboundLinkCounts(site), [site]);
 
   const changeView = useCallback(
     (nextView: PageWorkspaceView): void => {
@@ -200,7 +211,7 @@ export function PageWorkspace({
         key={page.id}
         page={page}
         pageCount={projection.pages.length}
-        inboundLinkCount={countInboundLinks(site, page.id)}
+        inboundLinkCount={inboundLinks.get(page.id) ?? 0}
         replacementHomePageId={page.isHome ? firstReplacement(site.pages, page.id) : undefined}
         replacementHomeTitle={page.isHome ? firstReplacementTitle(site.pages, page.id) : undefined}
         canMoveUp={page.index > 0}

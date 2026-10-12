@@ -28,6 +28,7 @@ import { sessionKey } from './persistence';
 import { createRunJournal, type RunJournal } from './run-journal';
 import { createSourceRunJournal, type SourceRunJournal } from './source-run-journal';
 import { seedSiteFrom, siteFromFixture } from './site-boot';
+import { siteSafePorts } from './site-ids';
 import {
   createVaultSitePersistence,
   createSiteSourceDownload,
@@ -175,10 +176,14 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
   let siteKernel: BuilderSiteKernel | undefined;
   const opening = openSite(adapter, docId, {
     extensions: playgroundExtensions(fixture),
-    ports: playgroundPorts(() =>
-      siteKernel === undefined
-        ? undefined
-        : siteKernel.page(siteKernel.currentPage()).getDocument(),
+    // Clear of every page id and node id in the site, not just this page's (site-ids.ts).
+    ports: siteSafePorts(
+      playgroundPorts(() =>
+        siteKernel === undefined
+          ? undefined
+          : siteKernel.page(siteKernel.currentPage()).getDocument(),
+      ),
+      () => siteKernel?.getSite(),
     ),
   }).then((opened) => {
     siteKernel = opened;

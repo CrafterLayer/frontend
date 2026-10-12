@@ -38,6 +38,20 @@ describe('asset contract validation', () => {
     expect(isAssetRef({ assetId: 'studio' })).toBe(true);
   });
 
+  // The cheap pre-check (2026-10-12) must agree with the schema on every value it skips.
+  it.each<[string, unknown]>([
+    ['a string', 'studio'],
+    ['a number', 7],
+    ['null', null],
+    ['an array holding a ref', [{ assetId: 'studio' }]],
+    ['a non-string id', { assetId: 7 }],
+    ['an object without an id', { url: 'studio.jpg' }],
+    ['a ref with an extra key', { assetId: 'studio', crop: 'square' }],
+    ['a plain ref', { assetId: 'studio' }],
+  ])('answers %s exactly as assetRefSchema does', (_name, value) => {
+    expect(isAssetRef(value)).toBe(assetRefSchema.safeParse(value).success);
+  });
+
   it('reports an unresolvable reference with its node and prop path', () => {
     const issues = validateAssetReferences(
       nodesWith({ props: { image: { assetId: 'missing' } } }),

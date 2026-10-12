@@ -1,9 +1,11 @@
-import { validateAssetReferences } from '../assets';
+import { collectAssetRefs, unresolvedAssetReferences } from '../assets/validate';
 import { codePageReferenceSchema, pageLinkSchema } from '../code/types';
-import { LATEST_SCHEMA_VERSION, type BuilderDocument } from '../document/types';
+import { LATEST_SCHEMA_VERSION, type BuilderDocument, type Node } from '../document/types';
 import { validateDocument } from '../document/validate';
 import { validateDesignSystem } from '../theme/validate';
+import type { SiteLibrary } from './library';
 import { symbolCycle } from './library-usage';
+import { parseSiteByMember, reuseFrozen } from './site-validation-memo';
 import {
   builderSiteSchema,
   LATEST_SITE_VERSION,
@@ -65,15 +67,33 @@ export interface SiteValidationIssue {
   };
 }
 
-/** Whole-site validation. Page validity remains owned by validateDocument(). */
+/**
+ * Whole-site validation. Page validity remains owned by validateDocument().
+ *
+ * Incremental for an immutable site (2026-10-12): the shape is parsed member by
+ * member and each page's own work — its shape, its document, the asset refs and
+ * page links it holds — is reused for a FROZEN page object seen before
+ * (site-validation-memo.ts). That is every untouched page of an immer-produced
+ * site, so the site door's check on each commit costs the pages a transaction
+ * changed, not every page there is. Cross-page rules (one home, unique
+ * addresses and ids, links resolve, regions exist, one direction) still run
+ * over every page on every call, and a refusal of the shape is Zod's own,
+ * from the whole-site parse.
+ */
 export function validateSite(value: unknown): SiteValidationResult {
+  const byMember = parseSiteByMember(value);
+  if (byMember !== undefined) return collectSiteIssues(byMember);
   const parsed = builderSiteSchema.safeParse(value);
   if (!parsed.success) {
     return { ok: false, issues: shapeIssues(value, parsed.error.issues) };
   }
+  return collectSiteIssues(parsed.data);
+}
 
-  const site = parsed.data;
+/** Every rule past the shape, over a site that already parsed. */
+function collectSiteIssues(site: BuilderSite): SiteValidationResult {
   const issues: SiteValidationIssue[] = [];
+  const pageIds = new Set(site.pages.map((page) => page.id));
 
   if (site.siteVersion !== LATEST_SITE_VERSION) {
     issues.push({
@@ -97,7 +117,7 @@ export function validateSite(value: unknown): SiteValidationResult {
 
   for (const page of site.pages) {
     collectCodePageIssues(site, page, issues);
-    collectPageLinkIssues(page.document, site, { pageId: page.id }, issues);
+    collectPageLinkIssues(page.document, pageIds, { pageId: page.id }, issues);
     for (const regionId of page.regions) {
       if (!Object.hasOwn(site.sharedRegions, regionId)) {
         issues.push({
@@ -118,7 +138,8 @@ export function validateSite(value: unknown): SiteValidationResult {
       });
     }
 
-    for (const assetIssue of validateAssetReferences(page.document.nodes, site.assets)) {
+    const pageRefs = reuseFrozen(collectAssetRefs, page.document.nodes);
+    for (const assetIssue of unresolvedAssetReferences(pageRefs, site.assets)) {
       issues.push({
         code: 'unresolved-asset-reference',
         message: assetIssue.message,
@@ -128,14 +149,14 @@ export function validateSite(value: unknown): SiteValidationResult {
   }
 
   for (const region of Object.values(site.sharedRegions)) {
-    if (Object.values(region.document.nodes).some((node) => node.type === 'codePage')) {
+    if (reuseFrozen(holdsCodePage, region.document.nodes)) {
       issues.push({
         code: 'invalid-code-page',
         message: 'A shared region cannot own a code page.',
         at: { regionId: region.id },
       });
     }
-    collectPageLinkIssues(region.document, site, { regionId: region.id }, issues);
+    collectPageLinkIssues(region.document, pageIds, { regionId: region.id }, issues);
     collectDocumentIssues(
       region.document,
       `Shared region "${region.id}"`,
@@ -143,7 +164,8 @@ export function validateSite(value: unknown): SiteValidationResult {
       issues,
     );
 
-    for (const assetIssue of validateAssetReferences(region.document.nodes, site.assets)) {
+    const regionRefs = reuseFrozen(collectAssetRefs, region.document.nodes);
+    for (const assetIssue of unresolvedAssetReferences(regionRefs, site.assets)) {
       issues.push({
         code: 'unresolved-asset-reference',
         message: assetIssue.message,
@@ -165,7 +187,7 @@ export function validateSite(value: unknown): SiteValidationResult {
     its own background validated cleanly — which is the most expensive kind of
     gap, because everything downstream is entitled to believe the validator.
   */
-  const designSystem = validateDesignSystem(site.designSystem);
+  const designSystem = reuseFrozen(validateDesignSystem, site.designSystem);
   if (!designSystem.ok) {
     for (const issue of designSystem.issues) {
       /*
@@ -195,15 +217,27 @@ export function validateSite(value: unknown): SiteValidationResult {
   Rendering one would recurse until the stack gives out.
 */
 function collectLibraryIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
-  for (const symbolId of Object.keys(site.library?.symbols ?? {})) {
-    const cycle = symbolCycle(site.library, symbolId);
-    if (cycle === undefined) continue;
+  if (site.library === undefined) return;
+  for (const [symbolId, cycle] of reuseFrozen(symbolCycles, site.library)) {
     issues.push({
       code: 'invalid-site-library',
       message: `Symbol "${symbolId}" contains itself: ${cycle.join(' → ')}.`,
       at: { libraryPath: `symbols.${symbolId}` },
     });
   }
+}
+
+function symbolCycles(library: SiteLibrary): readonly (readonly [string, readonly string[]])[] {
+  const cycles: (readonly [string, readonly string[]])[] = [];
+  for (const symbolId of Object.keys(library.symbols ?? {})) {
+    const cycle = symbolCycle(library, symbolId);
+    if (cycle !== undefined) cycles.push([symbolId, cycle]);
+  }
+  return cycles;
+}
+
+function holdsCodePage(nodes: Readonly<Record<string, Node>>): boolean {
+  return Object.values(nodes).some((node) => node.type === 'codePage');
 }
 
 function collectCodeProjectIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
@@ -230,8 +264,7 @@ function collectCodePageIssues(
   page: SitePage,
   issues: SiteValidationIssue[],
 ): void {
-  const codeNodes = Object.values(page.document.nodes).filter((node) => node.type === 'codePage');
-  if (codeNodes.length === 0) return;
+  if (!reuseFrozen(holdsCodePage, page.document.nodes)) return;
   const root = page.document.nodes[page.document.rootId];
   const reference = codePageReferenceSchema.safeParse(root?.props);
   const validRoot =
@@ -261,11 +294,24 @@ function collectCodePageIssues(
 
 function collectPageLinkIssues(
   document: BuilderDocument,
-  site: BuilderSite,
+  pageIds: ReadonlySet<PageId>,
   at: NonNullable<SiteValidationIssue['at']>,
   issues: SiteValidationIssue[],
 ): void {
-  const ids = new Set(site.pages.map((page) => page.id));
+  for (const target of reuseFrozen(pageLinkTargets, document)) {
+    if (target === undefined || !pageIds.has(target)) {
+      issues.push({
+        code: 'unresolved-page-link',
+        message: 'An internal page link must reference an existing page.',
+        at,
+      });
+    }
+  }
+}
+
+/** Every internal page link in a document, in walk order: its page, or `undefined` if malformed. */
+function pageLinkTargets(document: BuilderDocument): readonly (PageId | undefined)[] {
+  const targets: (PageId | undefined)[] = [];
   function visit(value: unknown): void {
     if (Array.isArray(value)) {
       value.forEach(visit);
@@ -274,13 +320,7 @@ function collectPageLinkIssues(
     if (!isRecord(value)) return;
     if (value['kind'] === 'page' && Object.hasOwn(value, 'pageId')) {
       const link = pageLinkSchema.safeParse(value);
-      if (!link.success || !ids.has(link.data.pageId)) {
-        issues.push({
-          code: 'unresolved-page-link',
-          message: 'An internal page link must reference an existing page.',
-          at,
-        });
-      }
+      targets.push(link.success ? link.data.pageId : undefined);
       return;
     }
     Object.values(value).forEach(visit);
@@ -289,6 +329,7 @@ function collectPageLinkIssues(
     visit(node.props);
     visit(node.responsive);
   }
+  return targets;
 }
 
 function collectDocumentIssues(
@@ -305,7 +346,7 @@ function collectDocumentIssues(
     });
   }
 
-  for (const documentIssue of validateDocument(document)) {
+  for (const documentIssue of reuseFrozen(validateDocumentAlone, document)) {
     const path = documentIssue.path === undefined ? '' : ` at ${documentIssue.path.join('.')}`;
     issues.push({
       code: 'invalid-page-document',
@@ -313,6 +354,10 @@ function collectDocumentIssues(
       at,
     });
   }
+}
+
+function validateDocumentAlone(document: BuilderDocument): ReturnType<typeof validateDocument> {
+  return validateDocument(document);
 }
 
 function collectDuplicatePageIssues(

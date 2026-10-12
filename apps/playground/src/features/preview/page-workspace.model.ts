@@ -146,29 +146,45 @@ export function countInboundLinks(
   site: ReturnType<BuilderSiteKernel['getSite']>,
   pageId: string,
 ): number {
-  let count = 0;
-  const visit = (value: JsonValue): void => {
-    if (
-      value !== null &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      value['kind'] === 'page' &&
-      value['pageId'] === pageId
-    ) {
-      count += 1;
+  return inboundLinkCounts(site).get(pageId) ?? 0;
+}
+
+/**
+ * Every page's inbound-link count, from ONE walk of the site (2026-10-12).
+ *
+ * The list used to ask `countInboundLinks` once per row, and each ask walked
+ * every other page: O(pages × site) on every render, which is every add,
+ * rename, reorder and save notification. The counts are the same: a link is
+ * not counted for the page it sits on, and the walk does not look inside a
+ * link for further links to that link's own target, exactly as the per-page
+ * walk stopped at the link it counted.
+ */
+export function inboundLinkCounts(
+  site: ReturnType<BuilderSiteKernel['getSite']>,
+): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  const visit = (value: JsonValue, from: string | undefined, inside: readonly string[]): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, from, inside);
       return;
     }
-    if (Array.isArray(value)) value.forEach(visit);
-    else if (value !== null && typeof value === 'object') Object.values(value).forEach(visit);
-  };
-  for (const document of [
-    ...site.pages.filter((page) => page.id !== pageId).map((page) => page.document),
-    ...Object.values(site.sharedRegions).map((region) => region.document),
-  ]) {
-    for (const node of Object.values(document.nodes)) {
-      visit(node.props);
-      Object.values(node.responsive ?? {}).forEach(visit);
+    if (value === null || typeof value !== 'object') return;
+    const target = value['kind'] === 'page' ? value['pageId'] : undefined;
+    if (typeof target === 'string') {
+      if (target !== from && !inside.includes(target)) {
+        counts.set(target, (counts.get(target) ?? 0) + 1);
+      }
+      inside = [...inside, target];
     }
-  }
-  return count;
+    for (const item of Object.values(value)) visit(item, from, inside);
+  };
+  const walk = (document: SitePage['document'], from: string | undefined): void => {
+    for (const node of Object.values(document.nodes)) {
+      visit(node.props, from, []);
+      for (const override of Object.values(node.responsive ?? {})) visit(override, from, []);
+    }
+  };
+  for (const page of site.pages) walk(page.document, page.id);
+  for (const region of Object.values(site.sharedRegions)) walk(region.document, undefined);
+  return counts;
 }

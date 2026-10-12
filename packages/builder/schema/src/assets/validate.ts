@@ -33,6 +33,19 @@ export interface AssetReferenceIssue {
 type FlatNodeMap = Readonly<Record<NodeId, Pick<Node, 'props' | 'responsive'>>>;
 
 export function isAssetRef(value: unknown): value is AssetRef {
+  /*
+    A cheap necessary condition first, the schema still decides (2026-10-12).
+    `collectFromValue` asks this of EVERY value in every prop tree — strings,
+    numbers, arrays, nested objects — and nearly all of them fail. A failing
+    `safeParse` builds a whole ZodError, which made this one call ~90% of
+    `validateSite` and `validateSite` the cost of every site dispatch (measured
+    in Node: 234 of 264 ms on a 20-page landing site, 7.6 of 9.5 ms on one).
+    A value that is not an object, or whose `assetId` is not a string, can never
+    pass `z.strictObject({ assetId: z.string() })`, so skipping the parse for it
+    changes no answer.
+  */
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  if (typeof (value as { readonly assetId?: unknown }).assetId !== 'string') return false;
   return assetRefSchema.safeParse(value).success;
 }
 
@@ -79,7 +92,19 @@ export function validateAssetReferences(
   nodes: FlatNodeMap,
   assets: Readonly<Record<AssetId, AssetEntry>>,
 ): readonly AssetReferenceIssue[] {
-  return collectAssetRefs(nodes).flatMap(({ ref, nodeId, propPath }) => {
+  return unresolvedAssetReferences(collectAssetRefs(nodes), assets);
+}
+
+/**
+ * The references among `refs` that `assets` does not hold. Split from
+ * `validateAssetReferences` (2026-10-12) so the site door can reuse an
+ * unchanged page's collected refs and still answer against the CURRENT table.
+ */
+export function unresolvedAssetReferences(
+  refs: readonly CollectedAssetRef[],
+  assets: Readonly<Record<AssetId, AssetEntry>>,
+): readonly AssetReferenceIssue[] {
+  return refs.flatMap(({ ref, nodeId, propPath }) => {
     const { assetId } = ref;
     if (Object.hasOwn(assets, assetId)) {
       return [];

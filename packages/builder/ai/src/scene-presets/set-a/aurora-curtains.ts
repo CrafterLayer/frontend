@@ -28,18 +28,21 @@ const PIXI=s.PIXI,C=s.palette,F=s.lib.filters,R=s.app.renderer;
 const sky=new PIXI.Graphics(),stars=new PIXI.Graphics(),veil=new PIXI.Container(),ridge=new PIXI.Graphics();
 s.stage.addChild(sky,stars,veil,ridge);
 const blur=new F.KawaseBlurFilter({strength:3,quality:3});
-const bloom=new F.AdvancedBloomFilter({threshold:0.2,bloomScale:p.glow,brightness:1.1,blur:6,quality:6});
+const bloom=new F.AdvancedBloomFilter({threshold:0.55,bloomScale:p.glow*0.6,brightness:1,blur:8,quality:6});
 veil.filters=[blur,bloom];
 const night=C.dark?C.surface:C.mix(C.text,0x000000,0.4);
 const hues=[C.colors[0],C.colors[1],C.colors[4],C.mix(C.colors[0],C.colors[1],0.5)];
-let W=1,H=1,ropes=[];
+let W=1,H=1,ropes=[],share=1;
 
-// A soft vertical gradient: bright near the lower edge (v=0), fading upward.
+// A curtain: bright near the lower edge (v=0), fading upward, cut into vertical rays.
 function curtainTexture(h){
-  const g=new PIXI.Graphics(),rt=s.rt(4,h);
-  for(let i=0;i<h;i+=2){
-    const v=i/h,a=Math.min(1,v/0.1)*Math.pow(1-v,1.8);
-    g.rect(0,i,4,2).fill({color:0xffffff,alpha:Math.max(0,Math.min(1,a))});
+  const cols=64,step=3,g=new PIXI.Graphics(),rt=s.rt(cols,h);
+  for(let x=0;x<cols;x++){
+    const ray=0.35+0.65*Math.pow(0.5+0.5*s.noise2(x*0.21,7.3),1.6);
+    for(let i=0;i<h;i+=step){
+      const v=i/h,a=Math.min(1,v/0.08)*Math.pow(1-v,2.2)*ray;
+      if(a>0.01)g.rect(x,i,1,step).fill({color:0xffffff,alpha:Math.min(1,a)});
+    }
   }
   R.render({container:g,target:rt,clear:true});
   g.destroy();
@@ -57,8 +60,10 @@ function layout(w,h){
   ridge.lineTo(W,H).closePath().fill(C.mix(night,0x000000,0.45));
   for(const r of ropes)r.rope.destroy();
   ropes=[];
-  const tex=curtainTexture(Math.max(32,Math.round(H*0.6)));
+  const tex=curtainTexture(Math.max(32,Math.round(H*0.45)));
   const n=Math.min(12,Math.max(1,Math.round(s.count(p.ribbons))));
+  // Additive light: more curtains share the same total, so the sky never burns to white.
+  share=Math.min(1,5/n);
   for(let k=0;k<n;k++){
     const pts=[];
     for(let i=0;i<48;i++)pts.push(new PIXI.Point(i*W/47,H*0.5));
@@ -83,7 +88,7 @@ s.tick(function(time){
       y-=lift*H*0.12*Math.exp(-Math.pow((x-lx)/(W*0.12),2));
       r.pts[i].x=x;r.pts[i].y=y;
     }
-    r.rope.alpha=0.3+0.35*(0.5+0.5*s.noise2(r.ph,T*0.2));
+    r.rope.alpha=share*(0.24+0.3*(0.5+0.5*s.noise2(r.ph,T*0.2)));
     r.rope.tint=C.mix(hues[r.k%4],hues[(r.k+1)%4],0.5+0.5*Math.sin(T*p.hueDrift*0.4+r.k));
   }
   stars.alpha=0.75+0.25*Math.sin(T*0.7);

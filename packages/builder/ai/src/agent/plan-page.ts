@@ -11,8 +11,9 @@ import {
   PHOTO_CATALOG_PROVIDER_ID,
 } from '../context/providers/photo-catalog';
 import { normalizeArabic, summarizeDocumentForIntent, type IntentTarget } from '../intent';
-import { AiContextBudgetError, DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
-import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
+import { DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
+import { fitAiPlanWireHistory } from '../plan/history-budget';
+import { AI_PLAN_WIRE_VERSION } from '../provider/wire';
 import { readProviderUsage } from '../provider/usage';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
@@ -562,11 +563,9 @@ export async function proposeValidatedPagePlan(
     });
     note({ type: 'skills', skills });
 
-    /*
-      The photos the plan may assign by subject. A host's own photo provider
-      wins (its brief may be better than the request); otherwise the request
-      is the brief.
-    */
+    /* The photos the plan may assign by subject. A host's own photo provider wins (its brief
+       may be better than the request); otherwise the request is the brief. History over the
+       budget is fitted below (history-budget.ts): oldest exchanges first. */
     const hostProviders = [
       ...(input.contextProviders ?? []),
       ...(input.additionalContextProviders ?? []),
@@ -591,26 +590,27 @@ export async function proposeValidatedPagePlan(
     note({ type: 'context', context });
 
     const maxContextTokens = input.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
-    const assertBudget = (attempt?: AiPagePlanAttempt): void => {
-      const estimated = estimateAiPlanWireRequestTokens({
-        version: AI_PLAN_WIRE_VERSION,
-        request,
-        context,
-        ...(input.history === undefined ? {} : { history: input.history }),
-        task: 'page-plan',
-        ...(attempt === undefined ? {} : { pagePlanAttempt: attempt }),
-      });
-      if (estimated > maxContextTokens) throw new AiContextBudgetError(estimated, maxContextTokens);
-    };
+    const fitted = (attempt?: AiPagePlanAttempt): readonly AiChatTurn[] | undefined =>
+      fitAiPlanWireHistory(
+        {
+          version: AI_PLAN_WIRE_VERSION,
+          request,
+          context,
+          ...(input.history === undefined ? {} : { history: input.history }),
+          task: 'page-plan',
+          ...(attempt === undefined ? {} : { pagePlanAttempt: attempt }),
+        },
+        maxContextTokens,
+      ).history;
 
     const ask = async (attempt?: AiPagePlanAttempt) => {
-      assertBudget(attempt);
+      const history = fitted(attempt);
       assertActive();
       note({ type: 'proposing', attempt: attempt === undefined ? 1 : 2 });
       let usageReported = false;
       const live: AiProposePagePlanOptions = {
         ...(input.signal === undefined ? {} : { signal: input.signal }),
-        ...(input.history === undefined ? {} : { history: input.history }),
+        ...(history === undefined ? {} : { history }),
         onProgress: (text: string) => {
           if (active() && text.trim().length > 0) note({ type: 'progress', text });
         },

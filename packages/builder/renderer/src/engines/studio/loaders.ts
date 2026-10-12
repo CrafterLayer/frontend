@@ -23,6 +23,11 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-brush': async () => (await import('./brush-source')).BRUSH_SOURCE,
   'lib-rough': async () => (await import('./rough-source')).ROUGH_SOURCE,
   'lib-viewport': async () => (await import('./viewport-source')).VIEWPORT_SOURCE,
+  'lib-anim': async () => (await import('./anim-source')).ANIM_SOURCE,
+  'lib-fx': async () => (await import('./fx-source')).FX_SOURCE,
+  'lib-dialogue': async () => (await import('./dialogue-source')).DIALOGUE_SOURCE,
+  'lib-ink': async () => (await import('./ink-source')).INK_SOURCE,
+  'lib-tilemap': async () => (await import('./tilemap-source')).TILEMAP_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

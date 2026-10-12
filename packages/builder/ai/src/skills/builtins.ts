@@ -6,21 +6,22 @@ import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
 import { createAiSkillRegistry } from './registry';
-import { PIXI_CREATIVE_SKILLS } from './pixi-creative';
+import { CREATIVE_ENGINE_SKILLS } from './creative/creative-engines';
+import { PIXI_CREATIVE_SKILLS } from './creative/pixi-creative';
 import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
 import { DESIGN_CODE_SKILL } from './design-code';
 import { DESIGN_QUALITY_TEACHING } from './design-libraries';
 // end design-code additions
-// pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see PIXI_SOURCES.md.
+// pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see creative/PIXI_SOURCES.md.
 import {
   PIXI_V8_CORE_SKILL,
   PIXI_V8_EFFECTS_SKILL,
   PIXI_V8_GRAPHICS_SKILL,
   PIXI_V8_INTERACTION_PERF_SKILL,
   PIXI_V8_TEXT_ASSETS_SKILL,
-} from './pixi-v8';
+} from './creative/pixi-v8';
 // end pixi-skills additions
 
 function freezeData(value: unknown): void {
@@ -1187,6 +1188,8 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   MOTION,
   SCROLL_CINEMATIC,
   ...PIXI_CREATIVE_SKILLS.map(builtin),
+  // creative agent (2026-10-12): director, animation, effects, dialogue/Ink and tile worlds; priority 44.
+  ...CREATIVE_ENGINE_SKILLS.map(builtin),
   // pixi-skills additions (2026-10-10): priorities 43-41, between scroll-cinematic and accessibility.
   PIXI_V8_CORE,
   PIXI_V8_GRAPHICS,

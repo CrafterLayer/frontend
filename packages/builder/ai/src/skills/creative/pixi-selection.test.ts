@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCraftkitAiSkillRegistry } from './builtins';
+import { createCraftkitAiSkillRegistry } from '../builtins';
 import { pixiSkillIdsFor } from './pixi-selection';
 
 describe('targeted Pixi expertise for explicit build lanes', () => {

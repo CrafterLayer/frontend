@@ -66,6 +66,7 @@ import {
   runAiBuild,
   summarizeDocumentForIntent,
   systemClock,
+  createCreativeMemoryContextProvider,
   type AiAgentEvent,
   type AiAgentPolicy,
   type AiAgentRunResult,
@@ -174,6 +175,7 @@ import {
 } from '../model/runs';
 import { sendState } from '../model/send-state';
 import { stepsOf } from '../model/steps';
+import { sceneScriptsOf, type StoryBibleStore } from '../model/story-bible';
 import {
   FILL_SKILL_ID,
   failedKeys,
@@ -240,6 +242,7 @@ import { useAgentSessions, type AgentSessions } from './use-agent-sessions';
 import { useCanvasLink } from './use-canvas-link';
 import { useLiveStatus, type LiveStatus } from './use-live-status';
 import { usePromptEnhancer, type PromptEnhancerHandle } from './use-prompt-enhancer';
+import { useStoryBible } from './use-story-bible';
 import { runViewTransition } from './use-view-transition';
 // script-wiring additions
 import { agentScriptSiteFor, scriptRunLine } from '../model/script-site';
@@ -465,6 +468,8 @@ interface Env {
   readonly mood: UseAgentMoodResult;
   readonly enhancer: PromptEnhancerHandle;
   readonly memory: AppliedChangeMemory;
+  /** The project's story bible (creative agent, 2026-10-12): read by every run, taught by builds. */
+  readonly storyBible: StoryBibleStore;
   readonly selection: readonly NodeId[];
   /** The catalog suggestions last on screen, by their exact words (`Outgoing.catalog`). */
   readonly shownCatalog: { readonly current: ReadonlySet<string> };
@@ -689,6 +694,41 @@ function kernelOfBuild(flow: Flow, turnId: string): BuilderKernel {
 
 /* ── Shared run options ──────────────────────────────────────────────────────── */
 
+/**
+ * What a run is told beyond the page: the applied-change ledger once anything was applied, and
+ * the story bible once it holds anything (a `data` fragment; the engine re-validates it).
+ */
+function contextProvidersOf(env: Env): Pick<RunAiAgentOptions, 'additionalContextProviders'> {
+  const providers = [
+    ...(env.memory.hasRecords() ? [env.memory.provider] : []),
+    ...(env.storyBible.isEmpty() ? [] : [storyBibleProvider(env.storyBible)]),
+  ];
+  return providers.length === 0 ? {} : { additionalContextProviders: providers };
+}
+
+type ContextProvider = ReturnType<typeof createCreativeMemoryContextProvider>;
+
+const BIBLE_PROVIDERS = new WeakMap<StoryBibleStore, ContextProvider>();
+
+/** One provider per store, so every run sends the same id and reads the bible live. */
+function storyBibleProvider(bible: StoryBibleStore): ContextProvider {
+  let provider = BIBLE_PROVIDERS.get(bible);
+  if (provider === undefined) {
+    provider = createCreativeMemoryContextProvider({ load: () => bible.get() });
+    BIBLE_PROVIDERS.set(bible, provider);
+  }
+  return provider;
+}
+
+/** After a run changed the page: learn the cast, assets and places its scenes declare. */
+function learnStoryBible(env: Env, kernel: BuilderKernel): void {
+  try {
+    env.storyBible.learn(sceneScriptsOf(kernel.getDocument().nodes));
+  } catch {
+    // Learning is a convenience: a page the reader cannot parse never fails the run.
+  }
+}
+
 function commonRunOptions(
   flow: Flow,
   kernel: BuilderKernel,
@@ -708,7 +748,9 @@ function commonRunOptions(
     validationPorts: preflightPorts(),
     selection,
     ...(history === undefined ? {} : { history }),
-    ...(env.memory.hasRecords() ? { additionalContextProviders: [env.memory.provider] } : {}),
+    ...contextProvidersOf(env),
+    // A creative writer's planner brief takes its cast from the bible (read per run).
+    creativeMemory: () => env.storyBible.get(),
     skillRegistry: env.registry,
     ...(options.selectedSkillIds === undefined
       ? {}
@@ -1275,6 +1317,7 @@ async function runEdit(
       env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
     } else if (result.status === 'applied') {
       env.memory.note(result.proposal);
+      learnStoryBible(env, kernel);
       const ids = kernel
         .transactions()
         .slice(logBefore)
@@ -1834,6 +1877,7 @@ function settleBuild(
   }
 
   if (result.scaffold?.status === 'applied') env.memory.note(result.scaffold.proposal);
+  learnStoryBible(env, kernel);
   flow.runtime.builds.set(turnId, { kernel, result });
   const transactionIds = buildTransactions(flow, slot, kernel, logBefore);
   patchKind(flow, slot.sessionId, turnId, 'build', (turn) => ({
@@ -3501,6 +3545,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   const canvas = useCanvasLink(kernel, { onPeek: options.onPeek });
   const enhancer = usePromptEnhancer({ provider, enhancer: options.enhancer });
   const memory = useAppliedChangeMemory();
+  const storyBible = useStoryBible(options.storage);
   const shownCatalog = useRef<ReadonlySet<string>>(new Set());
 
   /* The kernel: its document and selection, as snapshots. */
@@ -3561,6 +3606,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     mood,
     enhancer,
     memory,
+    storyBible: storyBible.store,
     selection,
     shownCatalog,
   });
@@ -3575,6 +3621,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
       mood,
       enhancer,
       memory,
+      storyBible: storyBible.store,
       selection,
       shownCatalog,
     };
@@ -3866,5 +3913,5 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   };
 
   const { reveal, peek } = canvas;
-  return { ...actions, reveal, peek, state, capabilities };
+  return { ...actions, reveal, peek, state, capabilities, storyBible: storyBible.view };
 }

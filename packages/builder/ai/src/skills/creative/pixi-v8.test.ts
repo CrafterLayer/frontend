@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { createCraftkitAiSkillRegistry } from './index';
+import { createCraftkitAiSkillRegistry } from '../index';
 import { PIXI_V8_SKILLS, pixiSkillExamples } from './pixi-v8';
 
 const PIXI_IDS = PIXI_V8_SKILLS.map(({ id }) => id);
@@ -27,16 +27,14 @@ describe('PixiJS v8 skills — activation', () => {
     ['اعمل جدارية متحركة للهيرو', [CORE, GRAPHICS]],
     [
       'اعمل جدارية تفاعلية بالجزيئات تتحرك مع الماوس بألوان الموقع',
-      [
-        CORE,
-        GRAPHICS,
-        'craftkit.pixi-v8-effects',
-        'craftkit.pixi-v8-interaction-perf',
-      ],
+      [CORE, GRAPHICS, 'craftkit.pixi-v8-effects', 'craftkit.pixi-v8-interaction-perf'],
     ],
     ['add a shader background with free code', [CORE, 'craftkit.pixi-v8-effects']],
     // "mural" alone brings the graphics skill too.
-    ['an image mural from my photos with sprites', [CORE, GRAPHICS, 'craftkit.pixi-v8-text-assets']],
+    [
+      'an image mural from my photos with sprites',
+      [CORE, GRAPHICS, 'craftkit.pixi-v8-text-assets'],
+    ],
     ['animate my logo as a sprite', [CORE, 'craftkit.pixi-v8-text-assets']],
     ['a glow that follows the mouse behind the hero', [CORE, 'craftkit.pixi-v8-interaction-perf']],
   ])('loads the Pixi skills for "%s"', (request, expected) => {
@@ -121,7 +119,7 @@ describe('PixiJS v8 skills — the examples', () => {
   and their ticker callbacks run twice. Shaders are not compiled here.
 */
 const mediaEngines = fileURLToPath(
-  new URL('../../../extensions/media-engines/package.json', import.meta.url),
+  new URL('../../../../extensions/media-engines/package.json', import.meta.url),
 );
 
 function pixiPath(): string | undefined {

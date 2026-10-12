@@ -256,6 +256,9 @@ catalogs:
     '@modelcontextprotocol/sdk':
       specifier: 1.30.0
       version: 1.30.0
+    '@pixi/tilemap':
+      specifier: 5.0.2
+      version: 5.0.2
     '@radix-ui/react-accordion':
       specifier: 1.2.20
       version: 1.2.20
@@ -406,6 +409,9 @@ catalogs:
     immer:
       specifier: 11.1.18
       version: 11.1.18
+    inkjs:
+      specifier: 2.4.0
+      version: 2.4.0
     jsdom:
       specifier: 30.0.1
       version: 30.0.1
@@ -1615,9 +1621,15 @@ importers:
       '@craftkit/builder-schema':
         specifier: workspace:*
         version: link:../../schema
+      '@pixi/tilemap':
+        specifier: 'catalog:'
+        version: 5.0.2(pixi.js@8.22.0)
       embla-carousel:
         specifier: 'catalog:'
         version: 8.6.0
+      inkjs:
+        specifier: 'catalog:'
+        version: 2.4.0
       matter-js:
         specifier: 'catalog:'
         version: 0.20.0
@@ -4695,6 +4707,11 @@ packages:
   '@pixi/colord@2.9.6':
     resolution: {integrity: sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA==}
 
+  '@pixi/tilemap@5.0.2':
+    resolution: {integrity: sha512-J+K1eU7uB58WPVD33d7usXrhKA03IGq3IfPvXBFr1027Bb9ScxrGhH0NomR9VpVVUPiHkK7FcTGuOtJMVGAv6A==}
+    peerDependencies:
+      pixi.js: '>=8.5.0'
+
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -7690,6 +7707,10 @@ packages:
         optional: true
       react-devtools-core:
         optional: true
+
+  inkjs@2.4.0:
+    resolution: {integrity: sha512-EoPCYESIbMtfI8SqEDZCJwn+A5is0QozMLw250iic1ReJCgZpRKIezWj0VqgRUzAx0f3MmEbsUjY/ILe2815JQ==}
+    hasBin: true
 
   ip-address@10.7.0:
     resolution: {integrity: sha512-BGFsyJd5mpXp3rK6jIdADLNgpJUK1jnjzvYF8lK+VyDab9JAmqN0YOKDdP17HlgKb2+ehPgDc8EtnRLbGCAMhA==}
@@ -12100,6 +12121,10 @@ snapshots:
 
   '@pixi/colord@2.9.6': {}
 
+  '@pixi/tilemap@5.0.2(pixi.js@8.22.0)':
+    dependencies:
+      pixi.js: 8.22.0
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -15180,6 +15205,8 @@ snapshots:
       - bufferutil
       - utf-8-validate
     optional: true
+
+  inkjs@2.4.0: {}
 
   ip-address@10.7.0: {}
 

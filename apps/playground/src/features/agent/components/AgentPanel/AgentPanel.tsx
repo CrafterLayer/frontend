@@ -22,6 +22,7 @@ import { LiveStatus } from '../LiveStatus';
 import { RunGlyph } from '../RunGlyph';
 import { miniBarView, SheetMiniBar } from '../SheetMiniBar';
 import { isStopShortcut } from '../StopButton';
+import { StoryBiblePanel } from '../StoryBiblePanel';
 import { TurnView } from '../TurnView';
 
 import './AgentPanel.css';
@@ -31,6 +32,18 @@ import { usePhoneLayout } from './use-phone-layout';
 
 /** Docked beside the canvas, the phone sheet, or whichever the viewport calls for. */
 export type AgentPanelPresentation = 'auto' | 'dock' | 'sheet';
+
+/**
+ * The story bible shows once it can matter (creative agent, 2026-10-12): when free code is on
+ * — the only mode that writes game and story scenes — or once the bible holds anything.
+ */
+function showBible(controller: AgentController): boolean {
+  const bible = controller.storyBible;
+  if (bible === undefined) return false;
+  const { characters, assets, locations, facts } = bible.memory;
+  const entries = characters.length + assets.length + locations.length + facts.length;
+  return entries > 0 || controller.state.freeCode?.enabled === true;
+}
 
 export interface AgentPanelProps {
   /** The panel's one door to behaviour: `useAgentController`, or the fake one in stories. */
@@ -290,6 +303,13 @@ export function AgentPanel({
             <RunGlyph state="working" className="ck-agent-panel__checking-glyph" />
             <span>{t(locale, 'run.understanding')}</span>
           </p>
+        ) : null}
+        {showBible(controller) && controller.storyBible !== undefined ? (
+          <StoryBiblePanel
+            locale={locale}
+            bible={controller.storyBible}
+            className="ck-agent-panel__bible"
+          />
         ) : null}
         <Composer
           view={composerView}

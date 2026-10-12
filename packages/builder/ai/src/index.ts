@@ -365,8 +365,21 @@ export {
   PIXI_STORY_EXAMPLE,
   PIXI_STORY_CONTROLS,
   PIXI_MURAL_EXAMPLE,
-} from './skills/pixi-creative';
-export { pixiSkillIdsFor } from './skills/pixi-selection';
+} from './skills/creative/pixi-creative';
+export { pixiSkillIdsFor } from './skills/creative/pixi-selection';
+// creative agent (2026-10-12): engine playbooks, the planner and the story bible.
+export {
+  CREATIVE_ANIMATION_EXAMPLE,
+  CREATIVE_DIALOGUE_EXAMPLE,
+  CREATIVE_EFFECTS_EXAMPLE,
+  CREATIVE_ENGINE_SKILLS,
+  CREATIVE_INK_EXAMPLE,
+  CREATIVE_TILEMAP_CONTROLS,
+  CREATIVE_TILEMAP_EXAMPLE,
+  CREATIVE_ANIMATION_CONTROLS,
+  CREATIVE_EFFECTS_CONTROLS,
+} from './skills/creative/creative-engines';
+export * from './creative';
 
 /*
   The quality gate's DOM-FREE half: one implementation, two callers.

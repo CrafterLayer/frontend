@@ -19,7 +19,12 @@ import { readProviderUsage } from '../provider/usage';
 import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
 import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
-import { pixiSkillIdsFor } from '../skills/pixi-selection';
+import {
+  CREATIVE_BRIEF_PROVIDER_ID,
+  createCreativeBriefContextProvider,
+} from '../creative/context-providers';
+import { readCreativeMemory, type CreativeMemoryV1 } from '../creative/creative-memory';
+import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import { seoAutofixPlan, SEO_AUTOFIX_LABEL } from '../seo/autofix';
 import { agentToolPrompt } from '../tools/agent/catalog-prompt';
 import { expandAgentTools } from '../tools/agent/expand';
@@ -400,6 +405,43 @@ function fillSkillIds(
       ),
     ],
   );
+}
+
+/**
+ * A creative scene writer also gets the planner's brief (creative agent, 2026-10-12): genre,
+ * literal libraries, beats, effects, rig states and the cast — the cast read from the host's
+ * story bible when it has one. Deterministic and free (no model call); ordinary writers and
+ * builds without free code are unchanged. A host that already serves a brief keeps its own.
+ */
+function withCreativeBrief(
+  providers: readonly AiContextProvider[],
+  creativeRequest: string | undefined,
+  lang: string,
+  options: RunAiBuildOptions,
+): readonly AiContextProvider[] {
+  if (
+    creativeRequest === undefined ||
+    providers.some(({ id }) => id === CREATIVE_BRIEF_PROVIDER_ID)
+  ) {
+    return providers;
+  }
+  let memory: CreativeMemoryV1 | undefined;
+  try {
+    memory =
+      options.creativeMemory === undefined
+        ? undefined
+        : readCreativeMemory(options.creativeMemory()).memory;
+  } catch {
+    // A host memory that fails to load never blocks a build; the brief plans without it.
+    memory = undefined;
+  }
+  return Object.freeze([
+    ...providers,
+    createCreativeBriefContextProvider(creativeRequest, {
+      lang,
+      ...(memory === undefined ? {} : { memory }),
+    }),
+  ]);
 }
 
 /** The label the scaffold gave a node it created, if it gave one. */
@@ -3126,7 +3168,7 @@ function sectionBriefing(
       ? fillSkillIds(options, arabic, photos, false, creativeRequest)
       : skillIds,
     // The catalog is where the contract's subjects come from; the person's own need none.
-    providers:
+    providers: withCreativeBrief(
       images.length > 0
         ? withPhotoCatalog(
             options,
@@ -3135,6 +3177,10 @@ function sectionBriefing(
         : (options.additionalContextProviders ?? []).filter(
             ({ id: providerId }) => providerId !== PHOTO_CATALOG_PROVIDER_ID,
           ),
+      needsSceneCode ? creativeRequest : undefined,
+      plan.locale.lang,
+      options,
+    ),
     sampleValues: Object.freeze(plan.facts.map(({ sample }) => sample)),
   };
 }

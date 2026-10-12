@@ -561,28 +561,46 @@ Planning backlog only, recorded 2026-10-11. These tasks are **not started or app
 today**; completed PX work and historical release tasks stay unchanged. Follow the
 [roadmap in plan.md](plan.md#deferred-pixi-package-roadmap--next-session-2026-10-12).
 
-- [ ] T171 On an authorized continuation, amend scoped spec/acceptance scenarios, clarify the first
+- [x] T171 On an authorized continuation, amend scoped spec/acceptance scenarios, clarify the first
       slice and approve plan/tasks; recheck official versions/licenses, package ownership, catalog
-      pins, provenance and budgets before installing anything.
-- [ ] T172 Integrate Tilemap in the media-engine owner with bounded schema/API, a lazy
+      pins, provenance and budgets before installing anything. (2026-10-12: CE-001..007 in spec;
+      @pixi/tilemap 5.0.2 MIT peer pixi.js >=8.5, inkjs 2.4.0 MIT, catalog-pinned.)
+- [x] T172 Integrate Tilemap in the media-engine owner with bounded schema/API, a lazy
       single-Pixi-namespace asset, shared preview/export loader and a playable admitted-tileset
-      fixture; cover camera/input, limits and disposal.
-- [ ] T173 Integrate Inkjs with tool-side story compilation, bounded narrative execution,
-      accessible choices, variables/outcomes and validated versioned save/restore; preserve manual
-      chapters and verify preview/export plus malformed-data and step-limit behavior.
-- [ ] T174 Add AssetPack only to owning build tooling after the first runtime slices; generate
-      reproducible atlases/optimized images/manifests from approved assets and measure outputs;
-      preserve asset identities/licenses and keep tooling out of browser bundles.
-- [ ] T175 For each admitted slice, extend real Agent planning/writer/Retry/Finish teaching and
-      Arabic/English activation tests; extend deterministic and generated-runtime preview/export
-      browser fixtures, owner/consumer checks and bounded usage/quality evidence.
-- [ ] T176 Assess Layout only for a demonstrated in-canvas HUD need; verify Yoga/WASM load order,
-      responsive behavior and packaging before deciding on an adapter. Keep ordinary controls DOM.
-- [ ] T177 Assess Spine only after licensing and licensed skeleton/atlas assets are available;
-      verify editor/runtime version matching before approving any installation or integration.
-- [ ] T178 Independently review each actual increment, resolve findings, run scoped convergence
-      and update evidence/handoff. Record conditional deferrals and remaining live-eval/release
-      gates; do not claim all packages supported or all tasks complete from installation alone.
+      fixture; cover camera/input, limits and disposal. (Procedural tile styles stand in for
+      licensed tilesets; licensed textures are accepted through `tiles`.)
+- [x] T173 Integrate Inkjs with bounded narrative execution, accessible choices, variables/outcomes
+      and validated versioned save/restore; preserve manual chapters and verify preview/export plus
+      malformed-data and step-limit behavior. Deviation: compilation runs in the lazy `ink` asset,
+      because agent-authored scenes have no tool step (see plan).
+- [ ] T174 AssetPack deferred: its image pipeline requires the native `sharp` build that
+      `allowBuilds` disallows; revisit with an approved build-time owner and approved assets.
+- [x] T175 For each admitted slice, extend real Agent planning/writer/Retry/Finish teaching and
+      Arabic/English activation tests; extend deterministic and generated-runtime preview browser
+      fixtures, owner/consumer checks. (Live usage/quality evidence still needs authorized paid
+      evals.)
+- [ ] T176 Layout assessed and deferred: no demonstrated in-canvas HUD need; the dialogue box and
+      game controls stay accessible DOM.
+- [ ] T177 Spine assessed and deferred: runtime licence and licensed skeleton/atlas assets remain
+      unavailable; procedural rigs and sprite states cover character motion meanwhile.
+- [x] T178 Review the actual increment, resolve findings, run scoped checks and update
+      evidence/handoff; record deferrals and remaining live-eval/release gates.
+
+### Creative engines and creative agent — 2026-10-12
+
+- [x] T179 First-party `anim`, `fx` and `dialogue` Studio libraries with unit tests, generated
+      assets and budgets; schema `CK_LIBRARY_REFERENCE`; allowlists in kit/schema/renderer/AI.
+- [x] T180 Creative planner, story bible memory (validate/merge/learn/render), context providers and
+      build-lane brief injection with tests.
+- [x] T181 Skills `pixi-director`, `pixi-animation`, `pixi-effects`, `pixi-dialogue`,
+      `pixi-tile-worlds`, companion selection, budgets, executable examples; move Pixi skills to
+      `skills/creative/`.
+- [x] T182 Playground story bible store/hook, controller wiring, StoryBiblePanel with story, MDX,
+      CSS and behaviour tests; Arabic/English copy.
+- [x] T183 Real-Chromium fixture `test:creative-engines:browser` for the taught examples.
+
+Evidence:
+[verification-creative-engines-2026-10-12.md](verification-creative-engines-2026-10-12.md).
 
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above

@@ -11,9 +11,29 @@
  * exports exist, this file becomes plain re-exports of them and nothing else changes.
  */
 
-export const STUDIO_LIB_KEYS = ['kit', 'filters', 'emitter', 'physics', 'brush', 'rough', 'viewport'] as const;
+export const STUDIO_LIB_KEYS = [
+  'kit',
+  'filters',
+  'emitter',
+  'physics',
+  'brush',
+  'rough',
+  'viewport',
+  'anim',
+  'fx',
+  'dialogue',
+  'ink',
+  'tilemap',
+] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
-export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = ['kit', 'filters', 'emitter', 'viewport'];
+export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
+  'kit',
+  'filters',
+  'emitter',
+  'viewport',
+  'fx',
+  'tilemap',
+];
 
 export interface DeclaredLibs {
   readonly libs: StudioLibKey[];
@@ -40,8 +60,10 @@ function quotedKeys(text: string, into: Set<StudioLibKey>): void {
  */
 export function declaredLibs(code: string): DeclaredLibs {
   const libs = new Set<StudioLibKey>();
-  for (const match of code.matchAll(/\bck\s*\.\s*use\s*\(([^)]*)\)/gu)) quotedKeys(match[1] ?? '', libs);
-  for (const match of code.matchAll(/\blibs\s*:\s*\[([^\]]*)\]/gu)) quotedKeys(match[1] ?? '', libs);
+  for (const match of code.matchAll(/\bck\s*\.\s*use\s*\(([^)]*)\)/gu))
+    quotedKeys(match[1] ?? '', libs);
+  for (const match of code.matchAll(/\blibs\s*:\s*\[([^\]]*)\]/gu))
+    quotedKeys(match[1] ?? '', libs);
   const scene = /\bck\s*\.\s*scene\s*\(/u.test(code);
   if (scene) libs.add('kit');
   const sound =

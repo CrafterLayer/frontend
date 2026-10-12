@@ -122,6 +122,55 @@ component/scene unit tests and `pnpm --filter @craftkit/evals test:pixi-creative
 distinct from live model quality, audio hardware behavior or browser support outside the tested
 Chromium.
 
+## Creative engines (2026-10-12)
+
+Five more lazy Studio libraries, each its own `ck-lib-<key>.js` asset (sources under
+`src/studio/libs/`, entries `src/studio/libs/<key>-entry.ts`):
+
+| Key        | Entry factory           | Pixi-bound | Highlights                                                                    |
+| ---------- | ----------------------- | ---------- | ----------------------------------------------------------------------------- |
+| `anim`     | `createAnimLibrary`     | no         | tweens, timelines, springs, shake, sprite states, procedural rigs (9 poses)   |
+| `fx`       | `createFxLibrary`       | yes        | pooled particles, 12 bursts, 7 weathers, trails, rings, flash, float text     |
+| `dialogue` | `createDialogueLibrary` | no         | cast, branching graph, eval-free conditions, saves, accessible dialogue box   |
+| `ink`      | `createInkLibrary`      | no         | inkjs 2.4.0 compiler + runtime through the same dialogue interface            |
+| `tilemap`  | `createTilemapLibrary`  | yes        | @pixi/tilemap 5.0.2, ASCII worlds, procedural tiles, collision, follow camera |
+
+```js
+const s = await ck.scene({ seed: 4, libs: ['tilemap', 'anim', 'fx'] });
+const world = s.lib.tilemap.world(s.app, {
+  tileSize: 32,
+  rows: ['########', '#p..c..#', '########'],
+  legend: {
+    '#': { style: 'stone', solid: true },
+    p: { kind: 'player', marker: true },
+    c: { kind: 'coin', marker: true },
+  },
+});
+s.stage.addChild(world.view);
+const anim = s.lib.anim.create({ reducedMotion: s.reducedMotion });
+const fx = s.lib.fx.create(s.app, { reducedMotion: s.reducedMotion, rng: s.random });
+if (!s.editor && !s.reducedMotion)
+  s.tick((t) => {
+    anim.update(t.dt);
+    fx.update(t.dt);
+  });
+s.dispose(() => {
+  fx.dispose();
+  anim.dispose();
+  world.dispose();
+});
+```
+
+`@pixi/tilemap` registers its render pipe at import, which is usually after the scene's renderer
+initialised; `tilemap/pipe.ts` adds the pipe to the live renderer from Pixi's shared adaptor list,
+once. `shared/fake-pixi.test-util.ts` is the structural Pixi stand-in the unit tests use; real WebGL
+behaviour is covered by `pnpm --filter @craftkit/evals test:creative-engines:browser`, which runs
+the Agent's taught examples in the generated sandboxed runtime (LTR/RTL, 390/1280 px, reduced
+motion). Rebuild assets with `node scripts/build-studio-engines.mjs <key>`; first-party bundles
+carry a "bundles no third-party package" banner instead of an empty notice. The full guide lives in
+the
+[design libraries architecture page](../../../../docs/architecture/builder-design-libraries.md#creative-engines-and-the-creative-agent-2026-10-12).
+
 ## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

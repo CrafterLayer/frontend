@@ -20,6 +20,11 @@ export const STUDIO_LIB_KEYS = [
   'brush',
   'rough',
   'viewport',
+  'anim',
+  'fx',
+  'dialogue',
+  'ink',
+  'tilemap',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 
@@ -35,15 +40,7 @@ export interface Bilingual {
 }
 
 export type ScriptParamType =
-  | 'number'
-  | 'range'
-  | 'color'
-  | 'palette'
-  | 'select'
-  | 'toggle'
-  | 'text'
-  | 'image'
-  | 'sound';
+  'number' | 'range' | 'color' | 'palette' | 'select' | 'toggle' | 'text' | 'image' | 'sound';
 export type ScriptParamValue = number | string | boolean | readonly string[];
 
 export interface ScriptParamSpec {

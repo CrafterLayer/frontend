@@ -23,6 +23,7 @@
  * Only two small guards ship as code; everything else is erased at build time.
  */
 
+import type { StoryBibleView } from './story-bible';
 import type { RunTelemetryState } from './run-telemetry';
 
 /* ── Primitives ──────────────────────────────────────────────────────────────── */
@@ -916,6 +917,11 @@ export type RestoreResult = 'restored' | 'conflict';
 export interface AgentController {
   readonly state: AgentViewState;
   readonly capabilities: AgentCapabilities;
+  /**
+   * The project's story bible (creative agent, 2026-10-12): characters, assets, locations and
+   * canon the Agent keeps consistent. Optional: a host without one renders no bible panel.
+   */
+  readonly storyBible?: StoryBibleView | undefined;
 
   readonly send: () => void;
   readonly stop: () => void;

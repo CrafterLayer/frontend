@@ -118,9 +118,15 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.page-composition',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
+      // creative agent (2026-10-12): engines and the director (explicit) beside the playbooks.
+      'craftkit.pixi-animation',
+      'craftkit.pixi-dialogue',
+      'craftkit.pixi-director',
+      'craftkit.pixi-effects',
       'craftkit.pixi-games',
       'craftkit.pixi-murals',
       'craftkit.pixi-stories',
+      'craftkit.pixi-tile-worlds',
       // pixi-skills additions (2026-10-10): PixiJS v8 for free-code scene scripts.
       'craftkit.pixi-v8-core',
       'craftkit.pixi-v8-effects',

@@ -28,7 +28,20 @@ import { fnv1a64 } from '../studio/contract';
 import { exportStaticSite } from './export-static-site';
 
 vi.mock('../engines/studio/loaders', () => {
-  const keys = ['kit', 'filters', 'emitter', 'physics', 'brush', 'rough', 'viewport'];
+  const keys = [
+    'kit',
+    'filters',
+    'emitter',
+    'physics',
+    'brush',
+    'rough',
+    'viewport',
+    'anim',
+    'fx',
+    'dialogue',
+    'ink',
+    'tilemap',
+  ];
   const loaders: Record<string, () => Promise<string>> = {
     sound: () => Promise.resolve('/* ck-sound stand-in */'),
   };

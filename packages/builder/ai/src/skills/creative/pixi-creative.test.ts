@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { createCraftkitAiSkillRegistry } from './index';
+import { createCraftkitAiSkillRegistry } from '../index';
 import {
   PIXI_CREATIVE_SKILLS,
   PIXI_GAME_CONTROLS,
@@ -298,7 +298,7 @@ function harness(PIXI: PixiNamespace, reducedMotion = false, editor = false) {
 }
 
 const mediaEngines = fileURLToPath(
-  new URL('../../../extensions/media-engines/package.json', import.meta.url),
+  new URL('../../../../extensions/media-engines/package.json', import.meta.url),
 );
 const pixiPath = createRequire(mediaEngines).resolve('pixi.js');
 

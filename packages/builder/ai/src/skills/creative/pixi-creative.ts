@@ -1,4 +1,4 @@
-import type { AiSkillDefinitionV1 } from './types';
+import type { AiSkillDefinitionV1 } from '../types';
 
 /** Deliberate playable requests, not a games shop or a studio's landing page. */
 export const PIXI_GAME_KEYWORDS = [

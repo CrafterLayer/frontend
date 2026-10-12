@@ -1,0 +1,75 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as StoryBiblePanelStories from './StoryBiblePanel.stories';
+
+<Meta of={StoryBiblePanelStories} />
+
+# StoryBiblePanel
+
+The project's story bible (creative agent, 2026-10-12): the characters, approved assets, places and
+canon facts the Agent keeps identical in every scene and every turn.
+
+<Canvas of={StoryBiblePanelStories.Open} />
+
+## Purpose
+
+A game or story is written over many turns and by several section writers at once. Without a shared
+record the hero's name, colour and voice drift between scenes, and a later turn invents an image the
+project never had. The bible is that record, and this panel makes it visible and editable: the Agent
+fills it from the scenes it writes (their literal `dialogue.cast([...])` arrays, loaded asset URLs
+and background cues), and the person can add a character or a canon fact, or remove anything.
+
+## When to use / not
+
+Above the composer in the agent dock, when the host gives the controller a bible
+(`AgentController.storyBible`) and free code is on or the bible already holds something. Not a
+general notes field: it describes the creative project only, and it never grants the Agent
+permissions.
+
+## Props
+
+| prop          | type             | default | notes                                                   |
+| ------------- | ---------------- | ------- | ------------------------------------------------------- |
+| `locale`      | `Locale`         | none    |                                                         |
+| `bible`       | `StoryBibleView` | none    | the bible (`memory`) and the person's edits             |
+| `defaultOpen` | `boolean`        | `false` | stories and tests; the panel otherwise opens on a click |
+| `className`   | `string`         | none    | appended to `ck-agent-bible`                            |
+
+## States
+
+`Closed`, `Open`, `OpenDark`, `OpenRightToLeft`, `Empty` (explains how the bible fills) and `Narrow`
+(fields wrap at phone width).
+
+## Anatomy
+
+```text
+▸ Story bible (7)                        disclosure: Meta 500, mirrored chevron
+  Characters, assets and facts …         intro (Meta, Slate)
+  Characters                             heading per kind (h3, Meta)
+  ● Layla  hero                     ✕    swatch · name · role · Remove
+  Approved assets
+  [portrait] layla.png              ✕    kind tag · file name (full URL in title)
+  Places / Canon                         one row each, Remove at the end
+  Add a character  [Name][Role][■][Add]  form; Add disabled until a name is typed
+  Add a fact …     [            ][Add]
+  Clear the bible                        asks "Confirm: clear everything" first
+```
+
+The open panel caps its height and scrolls by itself, so a long bible never pushes the composer out
+of view. Colours are builder tokens throughout; the character swatch is the one place the project's
+own colour appears.
+
+## Accessibility
+
+- The toggle is a `button` with `aria-expanded` and `aria-controls`; the closed panel is `inert`, so
+  its controls are out of the tab order.
+- Each Remove button is named by the catalog: "Remove Layla" («إزالة ليلى»).
+- Inputs have visible labels; Add stays disabled until there is text; Enter submits.
+- Clearing is two deliberate presses; the second press is labelled with what it does.
+- Rows are 32px, 44px on a coarse pointer; reduced motion removes the open/close transition; forced
+  colours keep the swatch and outline hovered controls.
+
+## RTL
+
+Every page word (names, places, facts) is `<bdi>` with its own `lang`; asset file names are
+`dir="ltr"`; the chevron mirrors; the fields wrap from the inline start.

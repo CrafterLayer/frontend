@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest';
+
+import { CK_API_REFERENCE } from './api-reference';
+import { CK_LIBRARY_REFERENCE, libraryEntry } from './library-reference';
+import { STUDIO_LIB_KEYS, STUDIO_PIXI_BOUND_KEYS } from './types';
+
+describe('CK_LIBRARY_REFERENCE', () => {
+  it('describes exactly the add-on libraries the allowlist admits, in order', () => {
+    expect(CK_LIBRARY_REFERENCE.map((entry) => entry.key)).toEqual(
+      STUDIO_LIB_KEYS.filter((key) => key !== 'kit'),
+    );
+  });
+
+  it('agrees with the Pixi-bound list', () => {
+    for (const entry of CK_LIBRARY_REFERENCE) {
+      expect(entry.pixiBound).toBe(STUDIO_PIXI_BOUND_KEYS.includes(entry.key));
+    }
+  });
+
+  it('has bilingual purposes and at least one call per library', () => {
+    for (const entry of CK_LIBRARY_REFERENCE) {
+      expect(entry.purpose.en.length).toBeGreaterThan(10);
+      expect(entry.purpose.ar).toMatch(/[؀-ۿ]/u);
+      expect(entry.api.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('is named in ck.use and s.lib signatures', () => {
+    const use = CK_API_REFERENCE.find((member) => member.name === 'ck.use')?.signature ?? '';
+    const lib = CK_API_REFERENCE.find((member) => member.name === 's.lib')?.signature ?? '';
+    for (const entry of CK_LIBRARY_REFERENCE) {
+      expect(use).toContain(`'${entry.key}'`);
+      expect(lib).toContain(`${entry.key}?`);
+    }
+  });
+
+  it('looks entries up by key', () => {
+    expect(libraryEntry('dialogue')?.source).toBe('first-party');
+    expect(libraryEntry('kit')).toBeUndefined();
+  });
+});

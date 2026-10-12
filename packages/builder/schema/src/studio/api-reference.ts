@@ -93,7 +93,7 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     'ck.use',
     'method',
-    "ck.use(...keys: ('kit'|'filters'|'emitter'|'physics'|'brush'|'rough'|'viewport')[]): Promise<Record<string, unknown>>",
+    "ck.use(...keys: ('kit'|'filters'|'emitter'|'physics'|'brush'|'rough'|'viewport'|'anim'|'fx'|'dialogue'|'ink'|'tilemap')[]): Promise<Record<string, unknown>>",
     'Loads add-on libraries once per page. Write the keys literally.',
     'يحمّل المكتبات الإضافية مرة واحدة للصفحة. اكتب الأسماء حرفياً.',
   ),
@@ -158,9 +158,9 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     's.lib',
     'property',
-    's.lib: { filters?, emitter?, physics?, brush?, rough?, viewport? }',
-    'The libraries listed in libs, by key.',
-    'المكتبات المذكورة في libs، باسمها.',
+    's.lib: { filters?, emitter?, physics?, brush?, rough?, viewport?, anim?, fx?, dialogue?, ink?, tilemap? }',
+    'The libraries listed in libs, by key (CK_LIBRARY_REFERENCE describes each).',
+    'المكتبات المذكورة في libs، باسمها (CK_LIBRARY_REFERENCE يصف كل واحدة).',
   ),
   member(
     's.width',

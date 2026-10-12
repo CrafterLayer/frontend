@@ -74,6 +74,11 @@
   background-color: var(--bldr-panel);
 }
 
+/* The story bible (creative agent, 2026-10-12) sits on the composer's text edge, above it. */
+.ck-agent-panel__bible {
+  margin-block-end: var(--bldr-space-xs);
+}
+
 /*
   The clarify check's line (fix pass, 2026-09-29): a sent request being read before it
   runs. Laid out as the RunBar's row (glyph at the thread's glyph column, Meta 500 in Ink),

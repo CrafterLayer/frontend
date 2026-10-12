@@ -5,6 +5,7 @@
     node scripts/build-studio-engines.mjs all
     node scripts/build-studio-engines.mjs kit
     node scripts/build-studio-engines.mjs sound
+    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap
 
   Each output is one minified browser IIFE with no chunks. Pixi-bound libraries
   receive the page's already-loaded Pixi namespace instead of bundling another
@@ -98,6 +99,42 @@ const TARGETS = {
     pixi: true,
     budget: 13_000,
     versionPackage: 'pixi-viewport',
+  },
+  // creative engines (2026-10-12): character animation, effects, dialogue, Ink stories, tile worlds.
+  anim: {
+    entry: 'src/studio/libs/anim-entry.ts',
+    factory: 'createAnimLibrary',
+    pixi: false,
+    budget: 9_000,
+    version: '1.0.0',
+  },
+  fx: {
+    entry: 'src/studio/libs/fx-entry.ts',
+    factory: 'createFxLibrary',
+    pixi: true,
+    budget: 9_000,
+    version: '1.0.0',
+  },
+  dialogue: {
+    entry: 'src/studio/libs/dialogue-entry.ts',
+    factory: 'createDialogueLibrary',
+    pixi: false,
+    budget: 12_000,
+    version: '1.0.0',
+  },
+  ink: {
+    entry: 'src/studio/libs/ink-entry.ts',
+    factory: 'createInkLibrary',
+    pixi: false,
+    budget: 66_000,
+    versionPackage: 'inkjs',
+  },
+  tilemap: {
+    entry: 'src/studio/libs/tilemap-entry.ts',
+    factory: 'createTilemapLibrary',
+    pixi: true,
+    budget: 14_000,
+    versionPackage: '@pixi/tilemap',
   },
   sound: {
     entry: 'src/sound/entry.ts',
@@ -309,7 +346,11 @@ function inspectLicences(metafile, target) {
   return { licences, ownInputs };
 }
 
-function makeBanner(licences) {
+function makeBanner(licences, key) {
+  // First-party libraries bundle no package: say so instead of shipping an empty notice.
+  if (licences.length === 0) {
+    return `/*!\n * CraftKit ck-lib-${key}.js: first-party source; bundles no third-party package.\n */\n`;
+  }
   const bodies = new Map();
   for (const entry of licences) {
     const hash = createHash('sha256').update(entry.text, 'utf8').digest('hex');
@@ -330,7 +371,7 @@ function makeBanner(licences) {
 async function writeGenerated(key, target, bundle, licences, ownInputs) {
   const version = resolveVersion(target);
   const sha256 = createHash('sha256').update(bundle, 'utf8').digest('hex');
-  const banner = makeBanner(licences);
+  const banner = makeBanner(licences, key);
   const source = `${banner}${bundle}`;
   const gzipBytes = gzipSync(source, { level: 9 }).length;
   const gzipBundleBytes = gzipSync(bundle, { level: 9 }).length;
@@ -353,7 +394,7 @@ async function writeGenerated(key, target, bundle, licences, ownInputs) {
   Source: packages/builder/extensions/media-engines/${target.entry}.
   One minified browser IIFE, no splitting and no dynamic import.
   Size: ${String(gzipBytes)} bytes gzip (budget ${String(target.budget)}).
-  Bundled/adapted packages: ${licences.map((entry) => `${entry.name}@${entry.version} (${entry.declared})`).join(', ')}.
+  Bundled/adapted packages: ${licences.length === 0 ? 'none (first-party source)' : licences.map((entry) => `${entry.name}@${entry.version} (${entry.declared})`).join(', ')}.
 */
 
 export const ${versionName} = ${JSON.stringify(version)};

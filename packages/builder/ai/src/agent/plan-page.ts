@@ -14,7 +14,7 @@ import { normalizeArabic, summarizeDocumentForIntent, type IntentTarget } from '
 import { AiContextBudgetError, DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
 import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
 import { readProviderUsage } from '../provider/usage';
-import { pixiSkillIdsFor } from '../skills/pixi-selection';
+import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
 import type {
   AiChatTurn,

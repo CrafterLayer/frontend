@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "@craftkit/builder-schema": "workspace:*",
+    "@pixi/tilemap": "catalog:",
     "embla-carousel": "catalog:",
+    "inkjs": "catalog:",
     "matter-js": "catalog:",
     "perfect-freehand": "catalog:",
     "pixi-filters": "catalog:",

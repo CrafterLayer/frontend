@@ -411,6 +411,37 @@ execution, or permission for paid model calls during verification.
   viewport, filters and sound when sufficient. Record deterministic/browser evidence and fresh
   independent review, separately from live-model quality and feature 014 release.
 
+## Approved creative engines and creative agent increment — 2026-10-12
+
+The user asked (2026-10-12, Arabic) to complete full PixiJS support for stories, add strong
+libraries for expansion, and strengthen the Agent with a creative planner, character and asset
+memory, effect, animation, story and dialogue engines, plus design and project-section organization.
+This executes the deferred package roadmap's runtime slices. It is not all of upstream Pixi, a game
+engine replacement, a backend, unrestricted package execution, or paid model calls during
+verification.
+
+- CE-001: Admit `@pixi/tilemap` and `inkjs` as separate lazy Studio assets in the media-engine owner
+  with licence audit, exact catalog pins and measured budgets; add first-party `anim`, `fx` and
+  `dialogue` assets. One Pixi namespace; nothing in editor or ordinary page bundles; preview and
+  static export load them only when a region names their key literally.
+- CE-002: Engines are bounded and safe for model-authored code: no eval in dialogue conditions,
+  validated story graphs and saves, step/loop limits, capped particles/tweens/tiles/ink source,
+  owned teardown, reduced-motion and editor behaviour, no window/document listeners.
+- CE-003: Stories keep meaning in accessible DOM: speaker, live line, numbered native choice
+  buttons, transcript, Arabic/English labels and whole-word Arabic reveal.
+- CE-004: The Agent gains a deterministic creative planner (genre, libraries, mechanics, beats,
+  setting effects, rig states, cast) delivered as a data fragment to creative scene writers only,
+  and a validated, bounded character & asset memory (story bible) that learns from scenes the Agent
+  wrote without executing them and is read by every build.
+- CE-005: New Arabic/English skills teach the actual engine APIs with executable examples; a matched
+  game/story/mural playbook brings its engine companions within writer budgets; ordinary business
+  pages activate none of them.
+- CE-006: The playground persists the story bible per browser, teaches it after builds and applied
+  edits, sends it to runs, and shows an accessible StoryBiblePanel (component contract complete).
+- CE-007: Organize the creative skills into `skills/creative/` and the creative domain into
+  `src/creative/`; document the libraries, decisions and verification. AssetPack, Layout and Spine
+  remain assessed-and-deferred with recorded reasons.
+
 ## Approved baseline quality repair — 2026-10-10
 
 The user authorizes repairing the old Inspector MDX build error and ScriptParamsForm's missing

@@ -805,6 +805,15 @@ export interface RunAiAgentOptions {
    */
   freeCode?: boolean;
   /**
+   * The project's story bible (creative agent, 2026-10-12): characters, approved assets,
+   * locations and canon, loaded per build and validated by `readCreativeMemory`. A creative
+   * scene writer's planner brief takes its cast from here so every section keeps the same
+   * names and colours. Hosts that also want the full bible in context add
+   * `createCreativeMemoryContextProvider` to `additionalContextProviders`. Absent: briefs are
+   * planned from the request alone.
+   */
+  creativeMemory?: () => unknown;
+  /**
    * The facts ledger's sample values (a page build's writers): tool steps are
    * expanded with them, so no SEO tool writes one as data. Forwarded to
    * generation; before 2026-09-30 a writer's spread reached nothing.

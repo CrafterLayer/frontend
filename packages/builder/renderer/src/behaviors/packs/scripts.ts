@@ -265,8 +265,13 @@ export function mountScripts(
     'brush',
     'rough',
     'viewport',
+    'anim',
+    'fx',
+    'dialogue',
+    'ink',
+    'tilemap',
   ];
-  const PIXI_BOUND: readonly string[] = ['kit', 'filters', 'emitter', 'viewport'];
+  const PIXI_BOUND: readonly string[] = ['kit', 'filters', 'emitter', 'viewport', 'fx', 'tilemap'];
   const LATE_MS = 20000;
   // end pixi-studio:runtime-wiring additions
   const canvas = options?.interactive === false;

@@ -1,0 +1,297 @@
+/*
+  StoryBiblePanel (creative agent, 2026-10-12). A quiet disclosure above the composer, drawn
+  like FactsDisclosure: a meta-size toggle hung into the gutter, a 0fr → 1fr panel that only
+  animates once the person has used it, rows on the agent row height with the Wash on hover.
+  The panel is capped and scrolls on its own, so a long bible never pushes the composer away.
+  Everything is a builder token: light/dark, RTL and forced colours come with them.
+*/
+
+.ck-agent-bible {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-bible__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-bible__toggle:hover,
+.ck-agent-bible__remove:hover,
+.ck-agent-bible__clear:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-bible button:focus-visible,
+.ck-agent-bible input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-bible__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-bible[data-open] .ck-agent-bible__chevron {
+  transform: rotate(90deg);
+}
+
+/* ── The panel: 0fr closed, 1fr open ──────────────────────────────────────── */
+
+.ck-agent-bible__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+}
+
+.ck-agent-bible[data-open] .ck-agent-bible__panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.ck-agent-bible[data-animate] .ck-agent-bible__panel {
+  transition:
+    grid-template-rows var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+.ck-agent-bible[data-animate][data-open] .ck-agent-bible__panel {
+  transition:
+    grid-template-rows var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear 0s;
+}
+
+.ck-agent-bible__inner {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  overflow: hidden auto;
+  min-block-size: 0;
+  max-block-size: min(22rem, 45vh);
+  overscroll-behavior: contain;
+}
+
+.ck-agent-bible__intro {
+  margin: 0;
+  padding-block: var(--bldr-space-2xs) var(--bldr-space-xs);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-bible__heading {
+  display: block;
+  margin: 0;
+  padding-block-start: var(--bldr-space-xs);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-bible__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-bible__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-agent-row-height);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-bible__row:has(> .ck-agent-bible__label:first-child) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ck-agent-bible__swatch {
+  inline-size: var(--bldr-space-md);
+  block-size: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-muted);
+}
+
+.ck-agent-bible__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bldr-space-xs);
+  overflow: hidden;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-bible__label--wrap {
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+.ck-agent-bible__meta,
+.ck-agent-bible__tag {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-bible__tag {
+  padding-inline: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+}
+
+.ck-agent-bible__remove {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--bldr-control-md);
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+}
+
+.ck-agent-bible__form {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  margin: 0;
+}
+
+.ck-agent-bible__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-bible__field {
+  display: grid;
+  flex: 1 1 7rem;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-bible__field--color {
+  flex: 0 0 auto;
+}
+
+.ck-agent-bible input {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: var(--bldr-control-md);
+  padding-block: 0;
+  padding-inline: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-panel);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-read);
+}
+
+.ck-agent-bible input[type='color'] {
+  inline-size: var(--bldr-control-md);
+  padding: var(--bldr-space-2xs);
+  cursor: pointer;
+}
+
+.ck-agent-bible__fact {
+  flex: 1 1 10rem;
+}
+
+.ck-agent-bible__add,
+.ck-agent-bible__clear {
+  min-block-size: var(--bldr-control-md);
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.ck-agent-bible__add:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ck-agent-bible__clear {
+  justify-self: start;
+  margin-block: var(--bldr-space-xs);
+  border-color: transparent;
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-bible__clear[data-confirming] {
+  border-color: var(--bldr-warning);
+  color: var(--bldr-warning);
+}
+
+/* A finger needs 44px (SPEC §6.4). */
+@media (pointer: coarse) {
+  .ck-agent-bible__toggle,
+  .ck-agent-bible__remove,
+  .ck-agent-bible__add,
+  .ck-agent-bible__clear,
+  .ck-agent-bible input {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+
+  .ck-agent-bible__remove {
+    inline-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-bible__chevron,
+  .ck-agent-bible[data-animate] .ck-agent-bible__panel,
+  .ck-agent-bible[data-animate][data-open] .ck-agent-bible__panel {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-bible__swatch {
+    forced-color-adjust: none;
+  }
+
+  .ck-agent-bible__toggle:hover,
+  .ck-agent-bible__remove:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

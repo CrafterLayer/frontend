@@ -1,4 +1,4 @@
-import type { AiSkillDefinitionV1 } from './types';
+import type { AiSkillDefinitionV1 } from '../types';
 import { PIXI_GAME_KEYWORDS, PIXI_STORY_KEYWORDS } from './pixi-creative';
 
 /**

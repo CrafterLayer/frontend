@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-11",
+  "updatedAt": "2026-10-12",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-pixi-telemetry-verified-release-open",
+    "phase": "professional-builder-agent-014-creative-engines-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
-    "gitBranch": "builder-core",
+    "gitBranch": "ccr-9f53a999-qdbfom",
     "gitCommitCount": 44
   },
   "technologyBaseline": {
@@ -227,15 +227,16 @@
     ]
   },
   "currentWork": {
-    "status": "idle-pixi-telemetry-locally-verified-feature-014-release-open",
-    "scope": "builder-ai provider/agent usage and creative skills; ai-server usage/progress transport; Playground Agent telemetry/short-panel scroll; media-engines scene kit 1.1.0; schema CK reference; renderer generated kit; Evals creative browser fixture; existing shared Storybook catalog",
+    "status": "idle-creative-engines-locally-verified-feature-014-release-open",
+    "scope": "media-engines Studio libs anim/fx/dialogue/ink/tilemap (+@pixi/tilemap 5.0.2, inkjs 2.4.0); schema CK_LIBRARY_REFERENCE; renderer generated assets/allowlists; builder-ai creative domain (planner, story bible memory) and skills/creative; Playground story bible store/StoryBiblePanel; Evals creative-engines browser fixture",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "T165-T170 checked with verification-pixi-telemetry-2026-10-11.md; PX-001..005 locally verified. Prior BQ T160-T164, CHAT T154-T159 and QF T148-T153 evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
+    "completedTasks": "T171-T173, T175, T178-T183 checked with verification-creative-engines-2026-10-12.md; CE-001..007 locally verified. T174 AssetPack, T176 Layout, T177 Spine assessed and deferred with reasons. Prior PX/BQ/CHAT/QF evidence remains separate.",
     "nextUncompletedTask": "T045",
     "blocked": {
-      "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
+      "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence.",
+      "storybookBrowser": "Storybook vitest browser runs fail in the cloud container for existing stories too (Playwright/Chromium revision mismatch)."
     },
-    "nextAction": "No requested PX task remains. See verification-pixi-telemetry-2026-10-11.md: real generated-runtime game/story/mural 4 Chromium matrices, live chat 10 variants, Storybook 6 plays/full static build, Playground/server builds, AI 92 and UI 70 final regressions, media 60 and renderer 34 tests, owner/consumer types, workspace36/component222/boundary4506 contracts and fresh independent review/scoped convergence passed. Creative skills reach actual planning, scene-writing and successor contexts; free-code opt-in, ordinary kit writers, budgets and public API boundaries remain intact. Usage is measured/unknown, retries have distinct receipts, 65th-attempt overflow remains unknown after reload. Existing create-scene lint debt and bundle warnings remain; do not claim full pnpm verify, all-game support or live-model speed/quality/cost. On a newly authorized continuation inspect T045/T122; representative paid evals require separate authorization. All new work is unstaged; preserve unrelated direction-set.ts/nav-sync.ts user edits. Task-owned local server5194 was stopped. No package installs, paid calls, staging, commits, pushes or deployment."
+    "nextAction": "See verification-creative-engines-2026-10-12.md. Pre-existing failures to keep separate: renderer behaviors 16 kB budget (19198 B baseline), ai plan-page repair-event order, playground copy-rules x3 and runs.test x2. Next: representative paid evals for the creative skills need authorization; AssetPack needs an approved sharp build owner; Layout/Spine stay conditional."
   },
   "qualityGates": {
     "governanceConfigured": true,

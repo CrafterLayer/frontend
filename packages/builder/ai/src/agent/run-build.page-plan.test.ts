@@ -1230,6 +1230,60 @@ describe('runAiBuild — free code mode (the composer switch «وضع الكود
     },
   );
 
+  it('hands the creative scene writer the planner brief with its story-bible cast, and no one else', async () => {
+    const script = scripted();
+    const result = await runAiBuild({
+      ...baseOptions(kernel(), script.provider),
+      request: 'بدي لعبة منصات في غابة',
+      freeCode: true,
+      creativeMemory: () => ({
+        schemaVersion: 1,
+        characters: [{ id: 'layla', name: 'ليلى', color: '#f59e0b' }],
+      }),
+    });
+    expect(result.outcome).toBe('completed');
+    const briefOf = (call: FillCall | undefined) =>
+      call?.context.fragments.find(({ source }) => source === 'craftkit:creative-brief');
+    const hero = script.fills.find((call) => call.request.includes('ROLE: HERO'));
+    const brief = briefOf(hero);
+    expect(brief?.kind).toBe('data');
+    expect(brief?.body).toContain("LIBS: ck.scene({ libs: ['tilemap', 'anim', 'fx'] })");
+    expect(brief?.body).toContain("fx.weather('leaves')");
+    expect(brief?.body).toContain('layla=ليلى');
+    expect(hero?.context.skills?.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(['craftkit.pixi-director', 'craftkit.pixi-tile-worlds']),
+    );
+    const menu = script.fills.find((call) =>
+      /^SECTION \d+ OF \d+: Our coffees$/mu.test(call.request),
+    );
+    expect(menu).toBeDefined();
+    expect(briefOf(menu)).toBeUndefined();
+  });
+
+  it('plans no brief without free code and survives a failing story bible', async () => {
+    const off = scripted();
+    await runAiBuild({ ...baseOptions(kernel(), off.provider), request: 'بدي لعبة منصات في غابة' });
+    for (const call of off.fills) {
+      expect(
+        call.context.fragments.some(({ source }) => source === 'craftkit:creative-brief'),
+      ).toBe(false);
+    }
+    const broken = scripted();
+    const result = await runAiBuild({
+      ...baseOptions(kernel(), broken.provider),
+      request: 'Make a playable 2d game with stars',
+      freeCode: true,
+      creativeMemory: () => {
+        throw new Error('storage blocked');
+      },
+    });
+    expect(result.outcome).toBe('completed');
+    const hero = broken.fills.find((call) => call.request.includes('ROLE: HERO'));
+    expect(hero?.context.fragments.some(({ source }) => source === 'craftkit:creative-brief')).toBe(
+      true,
+    );
+  });
+
   it('preserves Plan-only expertise and the free-code opt-in boundary', async () => {
     const script = scripted();
     const plan = await planAiPage('بدي لعبة تجمع فيها نجوم', {

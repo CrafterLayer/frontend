@@ -8,130 +8,25 @@ import type {
   CkLibraryFactory,
 } from '../../engines/ck-engines-shim';
 
-// pixi-studio:runtime-wiring additions (2026-10-10)
-/** A script parameter's value (DESIGN §A.1 `ScriptParamValue`). */
-export type CkScriptParamValue = number | string | boolean | readonly string[];
+import type {
+  CkAudioBands,
+  CkSceneContext,
+  CkSceneOptions,
+  CkScriptApi,
+  CkScriptParamValue,
+  CkSoundApi,
+  ScriptsGuard,
+  ScriptsHost,
+} from './scripts-api';
 
-/** `ck.sound.analyser()` per frame: zeros until the reader unmutes (DESIGN §C.1). */
-export interface CkAudioBands {
-  readonly level: number;
-  readonly bass: number;
-  readonly mid: number;
-  readonly treble: number;
-  readonly beat: boolean;
-  readonly active: boolean;
-}
-
-/**
- * `ck.sound` (DESIGN §C.1, §C.3): a lazy proxy onto `assets/ck-sound.js`. On the editor canvas it
- * is a silent stub (`play` returns false, `analyser` returns zeros). Elsewhere the first use loads
- * the engine; nothing sounds before the reader's own gesture unmutes it (muted by default).
- */
-export interface CkSoundApi {
-  /** A bank id, `lib:<projectSoundId>`, `asset:<assetId>` or zzfx numbers. False when nothing played. */
-  play(ref: string | readonly number[], options?: Readonly<Record<string, unknown>>): boolean;
-  /** An ambient bed while the region is visible (never under reduced motion); returns its stop. */
-  ambient(ref: string | readonly number[], options?: Readonly<Record<string, unknown>>): () => void;
-  analyser(): CkAudioBands;
-  readonly muted: boolean;
-  readonly unlocked: boolean;
-  setMuted(muted: boolean): void;
-  onChange(fn: () => void): void;
-}
-
-/** `ck.scene(options)` (DESIGN §B.2 `SceneOptions`). Write `libs` as a literal array. */
-export interface CkSceneOptions {
-  readonly libs?: readonly string[];
-  readonly background?: string | null;
-  /** The canvas takes pointer events (never on the editor canvas). */
-  readonly pointer?: boolean;
-  /** Advanced blend modes (`useBackBuffer`). */
-  readonly blend?: boolean;
-  /** Wants `s.audio` bands (loads ck-sound.js; silent until a gesture). */
-  readonly audio?: boolean;
-  readonly quality?: 'auto' | 'low' | 'high';
-  readonly seed?: number;
-  readonly maxFps?: 30 | 60 | 120;
-}
-
-/**
- * What `ck.scene` hands to `kit.createScene(context)` (the `ck-lib-kit.js` namespace): the stage
- * is already open and every library loaded; the kit builds the `Scene` of DESIGN §B.2 from this
- * and registers its own cleanups through `onDispose`.
- */
-export interface CkSceneContext {
-  readonly ck: CkScriptApi;
-  readonly PIXI: unknown;
-  readonly app: unknown;
-  readonly canvas: HTMLCanvasElement;
-  readonly root: HTMLElement;
-  /** The non-kit libraries the options named, by key. */
-  readonly lib: Readonly<Record<string, unknown>>;
-  readonly options: CkSceneOptions;
-  /** The values `ck.params` merged, or `{}` when the script never called it. */
-  readonly params: Readonly<Record<string, CkScriptParamValue>>;
-  readonly editor: boolean;
-  readonly reducedMotion: boolean;
-  readonly lang: string;
-  readonly rtl: boolean;
-  readonly sound: CkSoundApi;
-  onDispose(fn: () => void): void;
-}
-// end pixi-studio:runtime-wiring additions
-
-/** What a region script receives as its one parameter, `ck`. */
-export interface CkScriptApi {
-  /** The region element (`[data-ck-custom-code]`) to draw inside; `position: relative` if it was static. */
-  readonly root: HTMLElement;
-  /** True on the editor canvas, false on Preview and on the published site. */
-  readonly editor: boolean;
-  /** `prefers-reduced-motion: reduce` at mount; the script decides what that means. */
-  readonly reducedMotion: boolean;
-  /** Cleanup, called on re-run, region removal and page teardown (at once if already disposed). */
-  onDispose(fn: () => void): void;
-  /** The FULL pixi.js v8 namespace, loaded lazily. */
-  pixi(): Promise<unknown>;
-  /** A PIXI.Application filling `ck.root`, initialised, destroyed on dispose. */
-  stage(options?: {
-    readonly background?: string | null;
-    readonly pointer?: boolean;
-    readonly resolution?: number;
-    /** pixi-studio (2026-10-10): advanced blend modes (`useBackBuffer`, DESIGN D6). */
-    readonly blend?: boolean;
-  }): Promise<{ PIXI: unknown; app: unknown; canvas: HTMLCanvasElement }>;
-  // pixi-studio:runtime-wiring additions (2026-10-10) — DESIGN §B.2
-  /**
-   * `defaults` merged with the region's `data-ck-params` (the block's `jsParams`): unknown keys
-   * dropped, each value coerced to its default's type. A params edit re-runs the region.
-   */
-  params<T extends Record<string, CkScriptParamValue>>(defaults: T): T;
-  /**
-   * Loads `assets/ck-lib-<key>.js` per key (pixi first for Pixi-bound keys) and resolves
-   * `{ [key]: namespace }`, one namespace per document. Write the keys LITERALLY.
-   */
-  use(...keys: readonly (string | readonly string[])[]): Promise<Record<string, unknown>>;
-  /** stage + use('kit', ...libs) + kit.createScene: the one stable scene API. */
-  scene(options?: CkSceneOptions): Promise<unknown>;
-  readonly sound: CkSoundApi;
-  /** `<html lang>` (or the nearest `lang`) and whether the region reads right to left. */
-  readonly lang: string;
-  readonly rtl: boolean;
-  // end pixi-studio:runtime-wiring additions
-}
-
-/** The crash guard lives on the frame's window, so every region's mount shares it. */
-interface ScriptsGuard {
-  /** The previous session froze while a script's synchronous part was running. */
-  paused: boolean;
-  /** The localStorage flag is set until the next task. */
-  armed: boolean;
-  /** Paused sessions only: the code each region (by id) had when it was first seen. */
-  seen: Record<string, string>;
-}
-
-interface ScriptsHost {
-  ckJsGuard?: ScriptsGuard;
-}
+export type {
+  CkAudioBands,
+  CkSceneContext,
+  CkSceneOptions,
+  CkScriptApi,
+  CkScriptParamValue,
+  CkSoundApi,
+} from './scripts-api';
 
 /**
  * The `scripts` behaviour pack (free-code mode, 2026-10-09): evaluates a region's `js`.
@@ -161,6 +56,14 @@ interface ScriptsHost {
  *   to inject it (`engines/inject.ts`). It is requested on demand and never gated on reduced
  *   motion: the author's code decides what to draw.
  * - Idempotent: a mounted region carries `data-ck-js-mounted`.
+ * - A plain `ck.stage()` follows its REGION, not only the window (preview-fix 2026-10-12): Pixi's
+ *   `resizeTo` hears only window resizes, so a region that grew after the stage opened (the script
+ *   filling its copy, a web font, Preview's shorter viewport pushing content past a `vh` height)
+ *   kept a canvas of its first size, and the scene ended part-way down while the HTML layers ran
+ *   on past it. Now the canvas always fills the region (`followRegion`): a script that listens
+ *   (`app.renderer.on('resize', layout)`) gets the region's size; one that never does keeps its
+ *   first frame, scaled to cover the region (`object-fit: cover`, pointers mapped the same way).
+ *   `ck.scene` keeps `resizeTo`: the kit follows the region itself.
  *
  * ## Crash guard (editor canvas only)
  *
@@ -234,6 +137,15 @@ export function mountScripts(
     canvas: HTMLCanvasElement;
     init(options: Record<string, unknown>): Promise<void>;
     destroy(rendererOptions?: unknown, options?: unknown): void;
+    // preview-fix (2026-10-12): what a plain stage reads to follow its region.
+    readonly screen?: { readonly width: number; readonly height: number };
+    readonly renderer?: PixiRenderer;
+    render?(): void;
+  }
+  interface PixiRenderer {
+    resize(width: number, height: number): void;
+    listenerCount?(event: string): number;
+    events?: { mapPositionToPoint?(point: { x: number; y: number }, x: number, y: number): void };
   }
 
   const doc: Document | null =
@@ -471,13 +383,13 @@ export function mountScripts(
       readonly resolution?: number;
       readonly blend?: boolean;
     },
+    kit?: boolean,
   ): Promise<{ PIXI: unknown; app: unknown; canvas: HTMLCanvasElement }> {
     return loadPixi(run).then(function create(namespace: unknown) {
       const PIXI = namespace as { Application: new () => PixiApplication };
       const app = new PIXI.Application();
       const given = stageOptions ?? {};
       const init: Record<string, unknown> = {
-        resizeTo: run.el,
         antialias: true,
         autoDensity: true,
         resolution:
@@ -485,6 +397,11 @@ export function mountScripts(
             ? given.resolution
             : Math.min(view.devicePixelRatio || 1, 2),
       };
+      if (kit === true) init['resizeTo'] = run.el;
+      else {
+        init['width'] = Math.max(1, run.el.clientWidth);
+        init['height'] = Math.max(1, run.el.clientHeight);
+      }
       if (typeof given.background === 'string' && given.background !== '') {
         init['background'] = given.background;
         init['backgroundAlpha'] = 1;
@@ -520,6 +437,7 @@ export function mountScripts(
           run.cleanups.push(function destroyStage(): void {
             app.destroy({ removeView: true }, { children: true });
           });
+          if (kit !== true) followRegion(run, app, surface);
           return { PIXI, app, canvas: surface };
         },
         function broken(error: unknown) {
@@ -527,6 +445,43 @@ export function mountScripts(
           throw error;
         },
       );
+    });
+  }
+
+  function followRegion(run: Run, app: PixiApplication, surface: HTMLCanvasElement): void {
+    const el = run.el;
+    const renderer = app.renderer;
+    function listening(): number {
+      return renderer?.listenerCount?.('resize') ?? 0;
+    }
+    const before = listening();
+    function follow(): void {
+      const screen = app.screen;
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      const resized = screen !== undefined && (width !== screen.width || height !== screen.height);
+      if (!run.stopped && resized && width > 0 && height > 0 && listening() > before) {
+        renderer?.resize(width, height);
+        app.render?.();
+      }
+      Object.assign(surface.style, { width: '100%', height: '100%', objectFit: 'cover' });
+    }
+    follow();
+    const events = renderer?.events;
+    if (events !== undefined)
+      events.mapPositionToPoint = function mapThroughCover(point, x, y): void {
+        const rect = surface.getBoundingClientRect();
+        const screen = app.screen ?? rect;
+        const scale = Math.max(rect.width / screen.width, rect.height / screen.height) || 1;
+        point.x = (x - rect.left - (rect.width - screen.width * scale) / 2) / scale;
+        point.y = (y - rect.top - (rect.height - screen.height * scale) / 2) / scale;
+      };
+    const Observer = (view as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+    if (typeof Observer !== 'function') return;
+    const observer = new Observer(follow);
+    observer.observe(el);
+    run.cleanups.push(function unobserve(): void {
+      observer.disconnect();
     });
   }
 
@@ -767,11 +722,15 @@ export function mountScripts(
     }
     // Audio bands start loading the sound engine (never on the canvas, never under reduced motion).
     if (given.audio === true && !canvas && !reducedMotion) ck.sound.analyser();
-    const stage = openStage(run, {
-      background: given.background ?? null,
-      pointer: given.pointer === true,
-      blend: given.blend === true,
-    });
+    const stage = openStage(
+      run,
+      {
+        background: given.background ?? null,
+        pointer: given.pointer === true,
+        blend: given.blend === true,
+      },
+      true,
+    );
     const libs = loadLibraries(run, keys);
     return Promise.all([stage, libs]).then(function compose(pair) {
       const opened = pair[0];

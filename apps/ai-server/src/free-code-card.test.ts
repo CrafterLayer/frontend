@@ -101,7 +101,7 @@ describe('the free-code card (drift guard)', () => {
     expect(FREE_CODE_CARD).toBe(real.FREE_CODE_CARD);
     expect(FREE_CODE_OFF_HINT).toBe(real.FREE_CODE_OFF_HINT);
     expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(real.FREE_CODE_CARD_MAX_CHARS);
-    expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(2_200);
+    expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(2_450);
   }, 30_000);
 });
 

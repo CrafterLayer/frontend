@@ -23,6 +23,11 @@ export {
   type LiveUtilities,
   type LiveUtilitiesOptions,
 } from './tailwind/live-utilities';
+// preview-fix (2026-10-12): custom regions' viewport heights, which the editor canvas pins per zoom.
+export {
+  CANVAS_VIEWPORT_HEIGHT_PROPERTY,
+  canvasViewportHeightUnits,
+} from './tailwind/viewport-units';
 
 export { resolveResponsiveProps, type RenderBreakpoint } from './resolve/responsive';
 export {

@@ -391,15 +391,45 @@ describe('mountScripts — ck.stage', () => {
   interface FakeApp {
     inits: Record<string, unknown>[];
     destroys: unknown[][];
+    apps: Application[];
   }
-  const record: FakeApp = { inits: [], destroys: [] };
+  const record: FakeApp = { inits: [], destroys: [], apps: [] };
   let release: (() => void) | undefined;
   let hold = false;
 
+  interface Point {
+    x: number;
+    y: number;
+  }
+  /** Pixi's renderer as a stage reads it: resize, its 'resize' event, the pointer mapping. */
   class Application {
     canvas = document.createElement('canvas');
+    screen = { width: 0, height: 0 };
+    resizes: [number, number][] = [];
+    renders = 0;
+    readonly onResize: ((width: number, height: number) => void)[] = [];
+    readonly renderer = {
+      resize: (width: number, height: number) => {
+        this.screen = { width, height };
+        this.resizes.push([width, height]);
+        for (const fn of this.onResize) fn(width, height);
+      },
+      on: (event: string, fn: (width: number, height: number) => void) => {
+        if (event === 'resize') this.onResize.push(fn);
+      },
+      listenerCount: (event: string) => (event === 'resize' ? this.onResize.length : 0),
+      events: {} as { mapPositionToPoint?: (point: Point, x: number, y: number) => void },
+    };
+    render(): void {
+      this.renders += 1;
+    }
     init(options: Record<string, unknown>): Promise<void> {
       record.inits.push(options);
+      record.apps.push(this);
+      this.screen = {
+        width: Number(options['width'] ?? 0),
+        height: Number(options['height'] ?? 0),
+      };
       if (!hold) return Promise.resolve();
       return new Promise<void>((resolve) => {
         release = resolve;
@@ -414,6 +444,7 @@ describe('mountScripts — ck.stage', () => {
   beforeEach(() => {
     record.inits = [];
     record.destroys = [];
+    record.apps = [];
     hold = false;
     release = undefined;
     ensureCkEngines(view()).ready('pixi', {
@@ -438,7 +469,6 @@ describe('mountScripts — ck.stage', () => {
     expect(surface?.style.zIndex).toBe('0');
     expect(surface?.style.pointerEvents).toBe('none');
     expect(record.inits[0]).toMatchObject({
-      resizeTo: el,
       backgroundAlpha: 0,
       antialias: true,
       autoDensity: true,
@@ -473,6 +503,99 @@ describe('mountScripts — ck.stage', () => {
     expect(record.destroys).toEqual([[true, { children: true }]]);
     expect(el.querySelector('canvas')).toBeNull();
     expect(errors).not.toHaveBeenCalled();
+  });
+
+  /*
+    preview-fix (2026-10-12): Pixi's `resizeTo` hears only window resizes. A story whose region
+    grew after its stage opened (its copy filled in, Preview's shorter viewport) kept a canvas of
+    the first size: the scene ended part-way down and the HTML cards ran on past it.
+  */
+  describe('follows its region', () => {
+    const size = { width: 1280, height: 604 };
+    const observers: { fire: () => void; targets: Element[]; disconnected: boolean }[] = [];
+    class FakeResizeObserver {
+      readonly entry: { fire: () => void; targets: Element[]; disconnected: boolean };
+      constructor(callback: () => void) {
+        this.entry = { fire: callback, targets: [], disconnected: false };
+        observers.push(this.entry);
+      }
+      observe(target: Element): void {
+        this.entry.targets.push(target);
+      }
+      disconnect(): void {
+        this.entry.disconnected = true;
+      }
+    }
+    const host = () => view() as unknown as { ResizeObserver?: unknown };
+
+    function sizedRegion(code: string): HTMLElement {
+      const el = region(code);
+      Object.defineProperty(el, 'clientWidth', { configurable: true, get: () => size.width });
+      Object.defineProperty(el, 'clientHeight', { configurable: true, get: () => size.height });
+      return el;
+    }
+    /** The region grows by 120px (its copy arrived) and the observer reports it. */
+    function grow(): void {
+      size.height += 120;
+      for (const observer of observers) observer.fire();
+    }
+
+    beforeEach(() => {
+      size.width = 1280;
+      size.height = 604;
+      observers.length = 0;
+      host().ResizeObserver = FakeResizeObserver;
+    });
+    afterEach(() => {
+      delete host().ResizeObserver;
+    });
+
+    it('opens at the region size, without resizeTo, with a canvas that fills the region', async () => {
+      const el = sizedRegion('await ck.stage();');
+      mount(document);
+      await flush();
+      expect(record.inits[0]).toMatchObject({ width: 1280, height: 604 });
+      expect(record.inits[0]).not.toHaveProperty('resizeTo');
+      const style = el.querySelector('canvas')?.style;
+      expect([style?.width, style?.height, style?.objectFit]).toEqual(['100%', '100%', 'cover']);
+      expect(observers[0]?.targets).toEqual([el]);
+    });
+
+    it("resizes the renderer for a script that listens, and its 'resize' layout runs", async () => {
+      const el = sizedRegion(
+        "const { app } = await ck.stage(); app.renderer.on('resize', (w, h) => ck.root.setAttribute('data-laid-out', w + 'x' + h));",
+      );
+      const dispose = mount(document);
+      await flush();
+      grow();
+      const app = record.apps[0];
+      expect(app?.resizes).toEqual([[1280, 724]]);
+      expect(el.getAttribute('data-laid-out')).toBe('1280x724');
+      expect(app?.renders).toBe(1);
+      expect(el.querySelector('canvas')?.style.height).toBe('100%');
+      dispose();
+      expect(observers[0]?.disconnected).toBe(true);
+    });
+
+    it('keeps the first frame of a script that never listens, covering the region', async () => {
+      const el = sizedRegion('await ck.stage();');
+      mount(document);
+      await flush();
+      grow();
+      const app = record.apps[0];
+      expect(app?.resizes).toEqual([]);
+      expect(app?.screen).toEqual({ width: 1280, height: 604 });
+      const surface = el.querySelector('canvas');
+      expect([surface?.style.width, surface?.style.height]).toEqual(['100%', '100%']);
+      expect(surface?.style.objectFit).toBe('cover');
+      // A pointer maps through the same cover: the region's centre is the scene's centre.
+      if (surface === null) throw new Error('no canvas');
+      surface.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 724);
+      const point = { x: 0, y: 0 };
+      app?.renderer.events.mapPositionToPoint?.(point, 640, 362);
+      expect(point.x).toBeCloseTo(640);
+      expect(point.y).toBeCloseTo(302);
+    });
   });
 });
 

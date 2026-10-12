@@ -244,6 +244,8 @@ describe('live utilities watch what renders in AI regions', () => {
 
     expect(live.css()).toContain('.md\\:flex-row-reverse');
     expect(live.css()).toContain('.min-h-\\[72vh\\]');
+    // preview-fix (2026-10-12): the region's viewport height reads the canvas's zoom-1 `--ck-vh`.
+    expect(live.css()).toContain('min-height: calc(72 * var(--ck-vh, 1vh))');
     stop();
     live.dispose();
   });

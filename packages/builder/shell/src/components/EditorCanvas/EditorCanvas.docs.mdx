@@ -50,6 +50,13 @@ and the frame bridge converts pointer coordinates back into authored pixels. Inv
 values fall back safely. Pass `breakpoint` alongside `frameWidth` so the content renders the same
 bucket the inspector edits.
 
+The frame is `100 / zoom` percent tall so the scaled frame fills the column, which makes its own
+viewport — what `vh` measures — taller at every step of zoom-out. The canvas therefore publishes
+`--ck-vh` on the frame root (one hundredth of the frame's height at zoom 1), and custom-code regions
+read their viewport heights through it (`canvasViewportHeightUnits`): a region at `min-height: 70vh`
+has the same height at "Fit · 57%" as at 100%, and the same proportions as in Preview, where nothing
+is set and the real `vh` applies.
+
 ## Accessibility
 
 The canvas host is a focusable named region. Arrow keys traverse siblings (Down/Up) and step

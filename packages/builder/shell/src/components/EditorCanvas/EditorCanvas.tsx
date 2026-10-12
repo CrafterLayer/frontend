@@ -1650,7 +1650,7 @@ export function EditorCanvas({
   }, [dir]);
 
   // Zoom reaches the chrome that must keep its own size (floating hosts, layer CSS).
-  useCanvasZoom(normalizedZoom, zoomRef, layerRef, machineryRef);
+  useCanvasZoom(normalizedZoom, zoomRef, layerRef, machineryRef, frame);
 
   /*
     A new screen size keeps the selection — and keeps it IN VIEW. At a narrower

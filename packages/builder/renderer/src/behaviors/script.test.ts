@@ -128,8 +128,12 @@ const BASELINE_GZIP_BYTES = 12_605;
   21 000 → 22 500 on 2026-10-12, measured: the Table block's sort, search and pages
   (`table-tools`, 2 225 B gzip on its own) add 1 810 B to the every-pack bundle (20 321 → 22 131 B).
   It ships only to a page whose markup carries `data-ck-behavior="table-tools"`.
+  22 500 → 23 000 on 2026-10-12 (preview-fix), measured: a plain `ck.stage()` now follows its
+  region (a ResizeObserver, the renderer resize for a script that listens, the cover fallback and
+  its pointer mapping), +495 B to the every-pack bundle (22 131 → 22 626 B). It is part of the
+  `scripts` pack, which ships only to a page whose markup carries `data-ck-js`.
 */
-const PACKS_BUDGET_GZIP_BYTES = 22_500;
+const PACKS_BUDGET_GZIP_BYTES = 23_000;
 
 describe('behaviorRuntimeScript — packs', () => {
   it('serialises the core runtime and then every pack, each called on the document', () => {

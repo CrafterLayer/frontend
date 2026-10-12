@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { lightTheme } from '@craftkit/builder-renderer';
+import { CANVAS_VIEWPORT_HEIGHT_PROPERTY, lightTheme } from '@craftkit/builder-renderer';
 import type { CustomCodeRoot } from '@craftkit/builder-schema';
 
 import type { GeometryPorts } from '../../rects';
@@ -66,6 +66,10 @@ function harness(zoom: number) {
   return {
     kernel,
     tick,
+    frame,
+    unmount: () => {
+      view.unmount();
+    },
     layer: () => screen.getByTestId('bldr-overlay'),
     actions: () => view.container.querySelector<HTMLElement>('.bldr-floating--actions'),
     rerender: (at: number) => {
@@ -98,5 +102,35 @@ describe('EditorCanvas — chrome keeps its own size under zoom', () => {
 
     h.rerender(1);
     expect(h.actions()?.style.transform).toBe('translate(130px, 268px)');
+  });
+});
+
+/*
+  preview-fix (2026-10-12): the frame is `100 / zoom` percent tall, so its own `vh` grew with
+  zoom-out (a 70vh story stage: 999px at 57%, 604px in Preview). The canvas publishes the zoom-1
+  viewport height — the frame's height times the zoom — and custom regions read vh through it.
+*/
+describe('EditorCanvas — the page keeps its viewport height under zoom', () => {
+  const published = (frame: HTMLIFrameElement) =>
+    frame.contentDocument?.documentElement.style.getPropertyValue(CANVAS_VIEWPORT_HEIGHT_PROPERTY);
+
+  it('sets --ck-vh to a hundredth of the zoom-1 frame height, follows zoom and resize, and clears it', () => {
+    const h = harness(0.5);
+    const view = h.frame.contentWindow;
+    if (view === null) throw new Error('no frame window');
+    const height = view.innerHeight;
+    expect(published(h.frame)).toBe(`${String((height * 0.5) / 100)}px`);
+    h.rerender(0.25);
+    expect(published(h.frame)).toBe(`${String((height * 0.25) / 100)}px`);
+
+    Object.defineProperty(view, 'innerHeight', { configurable: true, value: 1600 });
+    act(() => {
+      view.dispatchEvent(new Event('resize'));
+    });
+    expect(published(h.frame)).toBe('4px');
+
+    const frame = h.frame;
+    h.unmount();
+    expect(published(frame)).toBe('');
   });
 });

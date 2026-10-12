@@ -1,4 +1,5 @@
 import { buildTailwindThemeCss } from './token-bridge';
+import { canvasViewportHeightUnits } from './viewport-units';
 
 /**
  * Tailwind's own compiler, running in the page, generating CSS for exactly
@@ -133,7 +134,6 @@ const STYLE_ATTRIBUTE = 'data-ck-live-utilities';
  * too, and every built-in block sits inside the page root.
  */
 export const CUSTOM_CODE_REGION_ATTRIBUTE = 'data-ck-custom-code';
-
 const REGION_SELECTOR = `[${CUSTOM_CODE_REGION_ATTRIBUTE}]`;
 
 /*
@@ -360,7 +360,7 @@ export async function createLiveUtilities(options: LiveUtilitiesOptions): Promis
       grew = true;
     }
     if (!grew) return;
-    regionCss = scopeToCustomCodeRegions(compiler.build([...built]));
+    regionCss = canvasViewportHeightUnits(scopeToCustomCodeRegions(compiler.build([...built])));
     write();
   };
 

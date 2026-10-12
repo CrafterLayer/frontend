@@ -4,7 +4,7 @@ import {
   CUSTOM_CODE_TAGS,
   type AiContextProvider,
 } from '@craftkit/builder-schema';
-
+import { stepSkills, withHostSkills, type AiHostSkillOptions } from './host-skills';
 import { assembleAiContext, type AiCompositionPolicy } from '../context';
 import {
   createPhotoCatalogContextProvider,
@@ -400,7 +400,7 @@ function planComposition(composition: AiCompositionPolicy | undefined): AiCompos
 }
 
 /** @internal What the planning step needs, from a build or from Plan mode. */
-export interface PagePlanStepInput {
+export interface PagePlanStepInput extends AiHostSkillOptions {
   readonly runId: string;
   readonly kernel: BuilderKernel;
   readonly provider: AiPlanProvider;
@@ -542,7 +542,7 @@ export async function proposeValidatedPagePlan(
       input.policy,
       arabic,
       kitsAvailable(),
-      pixiSkillIdsFor(registry, input.request),
+      withHostSkills(input, pixiSkillIdsFor(registry, input.request)),
     );
     const skills = registry?.prepare({
       request,
@@ -745,7 +745,7 @@ export async function planAiPage(
               return current === true;
             },
           }),
-      ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
+      ...stepSkills(options),
       ...(options.policy === undefined ? {} : { policy: options.policy }),
       ...(options.composition === undefined ? {} : { composition: options.composition }),
       ...(options.freeCode === true ? { freeCode: true } : {}),

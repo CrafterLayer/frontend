@@ -34,9 +34,8 @@ import { classifyAiRunFailure, type AiRunFailure } from './errors';
 import { checkSection, tokeniseColourClasses } from './page-plan/check-section';
 import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
 import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
-// script-wiring additions
 import { sectionScriptCard } from './section-script-card';
-// end script-wiring additions
+import { stepSkills, withHostSkills } from './host-skills';
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
   provisionalCandidate,
@@ -289,7 +288,8 @@ function fittingSkillIds(
   optional: readonly string[],
 ): readonly string[] {
   if (options.skillRegistry === undefined) return [];
-  return fittingSkills(options.skillRegistry, options.policy, required, optional);
+  const offered = withHostSkills(options, optional, required);
+  return fittingSkills(options.skillRegistry, options.policy, required, offered);
 }
 
 /**
@@ -2882,7 +2882,7 @@ async function planStep(
               return current === true;
             },
           }),
-      ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
+      ...stepSkills(options),
       ...(options.policy === undefined ? {} : { policy: options.policy }),
       ...(options.composition === undefined ? {} : { composition: options.composition }),
       ...(options.freeCode === true ? { freeCode: true } : {}),

@@ -46,9 +46,11 @@ export function readRequestWords(request: string): readonly IntentToken[] {
   The endings a keyword's last word may carry. English: plurals, the past and
   the -ing form, the agent and specialist nouns ("barbers", "orthodontist",
   "pediatrician"). Arabic: the feminine and nisba endings ("فريدة", "عقاري",
-  "عقارية") — not the plural ات, which reaches different words as often
-  ("ذكرى" → "ذكريات" memories, "رحلة" → "رحلات" trips); plurals a keyword
-  needs are listed as keywords.
+  "عقارية"), and the indefinite accusative's alif once its tanween is folded
+  away ("أضف مخططًا" holds "مخطط", "صمّم شعارًا" holds "شعار"; 2026-10-12) — not
+  the plural ات, which reaches different words as often ("ذكرى" → "ذكريات"
+  memories, "رحلة" → "رحلات" trips); plurals a keyword needs are listed as
+  keywords.
 */
 const LATIN_ENDINGS = [
   's',
@@ -65,7 +67,7 @@ const LATIN_ENDINGS = [
   'ics',
 ];
 const LATIN_Y_ENDINGS = ['ies', 'ied', 'ian', 'ians', 'ist', 'ists'];
-const ARABIC_ENDINGS = ['ه', 'ي', 'يه'];
+const ARABIC_ENDINGS = ['ه', 'ي', 'يه', 'ا'];
 
 /*
   A Latin keyword word shorter than this takes no endings. Two or three

@@ -46,6 +46,7 @@ import { followKernel } from './kernel-follow';
 import { claim, release, setRun } from './run-lease';
 import { commonRunOptions } from './run-options';
 import { say } from './run-outcomes';
+import { sceneProbeOptions } from './scene-probe-options';
 import { locateTurn, patchKind, patchTurn } from './turn-plumbing';
 
 /* ── Builds ──────────────────────────────────────────────────────────────────── */
@@ -349,6 +350,7 @@ async function runBuild(
       ...(plan.approval ? { onPlanned: askToBuild } : {}),
       onEvent,
       fillConcurrency: flow.ui.getState().workers,
+      ...sceneProbeOptions(flow.env().options.freeCode),
     };
     const result = await runAiBuild(buildOptions);
     settleBuild(flow, slot, turnId, anchor, kernel, result, plan, { logBefore, documentBefore });

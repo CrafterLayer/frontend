@@ -152,7 +152,8 @@ function authorized(request: Request, expected: string | undefined): boolean {
  * is written (`{text}`, or `{reset: true}` when the answer starts over);
  * exactly one `result` ends the stream.
  */
-function frame(event: 'status' | 'unit' | 'draft' | 'usage' | 'result', data: unknown): string {
+type FrameEvent = 'status' | 'unit' | 'draft' | 'usage' | 'error' | 'result';
+function frame(event: FrameEvent, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -841,7 +842,7 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: 'status' | 'draft' | 'usage' | 'result', data: unknown): void => {
+      const send = (event: FrameEvent, data: unknown): void => {
         controller.enqueue(encoder.encode(frame(event, data)));
       };
       const drafts =
@@ -875,12 +876,11 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         drafts?.flush();
         send('result', answered.body);
       } catch (cause) {
-        /*
-          The stream has already begun, so there is no status code left to
-          send. The client's taxonomy still needs an answer, and an
-          invalid-output result is the one shape that reaches it here.
-        */
+        /* The status line is spent: the status rides an `error` frame (a 429 stays retryable,
+           a key problem terminal), then the invalid-output result an older client still reads. */
         drafts?.flush();
+        const { status } = errorResponse(cause);
+        if (status !== 499) send('error', { status, message: describeFailure(cause) });
         send('result', invalidOutputBody(describeFailure(cause)));
       } finally {
         drafts?.dispose();

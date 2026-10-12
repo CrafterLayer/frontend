@@ -12,7 +12,8 @@ import type {
   AiProposePagePlanOptions,
   AssembledAiContext,
 } from '../types';
-import { AiProviderError, type AiProviderErrorDetails } from './errors';
+import { AiProviderError } from './errors';
+import { RemoteAiProviderError, remoteStatusError } from './remote-errors';
 import { notifyProviderUsage } from './usage';
 import {
   AI_PLAN_WIRE_VERSION,
@@ -58,16 +59,7 @@ const ACCEPT_STREAM_OR_JSON = 'text/event-stream, application/json';
  * verbatim; transport failures get one plain sentence each. A caller's own
  * cancellation is NOT one of these — it rethrows as the platform AbortError.
  */
-export class RemoteAiProviderError extends AiProviderError {
-  override readonly name = 'RemoteAiProviderError';
-
-  constructor(
-    message: string,
-    details: AiProviderErrorDetails = { code: 'invalid-output', retryable: false },
-  ) {
-    super(message, details);
-  }
-}
+export { RemoteAiProviderError } from './remote-errors';
 
 /** The optional tasks a server may predate: the page plan (T1) and the prompt enhancer. */
 export type AiRemoteTask = 'page-plan' | 'prompt-enhance';
@@ -412,6 +404,11 @@ async function readSseResponse(
       }
       resultSeen = true;
       result = payload;
+    } else if (event === 'error') {
+      // A failure after the stream began, with the status a plain answer would have carried.
+      if (resultSeen || !isRecord(payload) || typeof payload['status'] !== 'number') return;
+      const said = payload['message'];
+      throw remoteStatusError(payload['status'], typeof said === 'string' ? said : undefined);
     } else if (event === 'draft') {
       if (resultSeen || onDraft === undefined || !isRecord(payload)) return;
       if (payload['reset'] === true) {
@@ -622,18 +619,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
 
       if (!response.ok) {
         cancelResponseBody(response);
-        throw new RemoteAiProviderError(
-          `The assistant server answered with status ${String(response.status)}.`,
-          {
-            code: 'http-status',
-            retryable:
-              response.status === 408 ||
-              response.status === 425 ||
-              response.status === 429 ||
-              response.status >= 500,
-            status: response.status,
-          },
-        );
+        throw remoteStatusError(response.status);
       }
 
       try {

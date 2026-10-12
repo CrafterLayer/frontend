@@ -81,7 +81,7 @@
     "packages/builder/ai/src/plan/tree-markup.ts": 690,
     "packages/builder/ai/src/plan/validate-plan.ts": 1218,
     "packages/builder/ai/src/provider/local-provider.ts": 511,
-    "packages/builder/ai/src/provider/remote-provider.ts": 820,
+    "packages/builder/ai/src/provider/remote-provider.ts": 806,
     "packages/builder/ai/src/provider/wire.ts": 570,
     "packages/builder/ai/src/script/ck-prelude.js": 887,
     "packages/builder/ai/src/section-kit/instantiate.ts": 672,

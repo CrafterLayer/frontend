@@ -123,7 +123,7 @@ function lastRemovableChip(chips: readonly ContextChipView[]): ContextChipView |
  * Top to bottom: the RunBar while a run is live (then a Hairline); a paused queued request
  * and the clarifying questions, each its own section above a Hairline; then the writing
  * area itself: the queued request's header (the queued request *is* this text), the ✨
- * Improve note, the context chips, the textarea (2 to 6 lines, then it scrolls), and the
+ * Improve note, the context chips, the textarea (1 to 8 lines, then it scrolls), and the
  * toolbar. The `@` list floats above the whole card.
  *
  * Keys (SPEC §4.17, §6.7): Enter sends or queues and is ignored while an input method is
@@ -261,7 +261,7 @@ export function Composer({
   const dir = draft.trim() === '' ? uiDir : settledDir;
 
   // Where `field-sizing: content` is missing, grow the box to its text by hand; the CSS
-  // still clamps it to 2 to 6 lines.
+  // still clamps it to 1 to 8 lines.
   useLayoutEffect(() => {
     const field = input.current;
     if (field === null || FIELD_SIZING) return;
@@ -493,7 +493,7 @@ export function Composer({
               data-bldr-focus-ring="delegated"
               data-enhancing={enhancing ? '' : undefined}
               dir={dir}
-              rows={2}
+              rows={1}
               value={draft}
               placeholder={t(locale, placeholderKey)}
               readOnly={enhancing}

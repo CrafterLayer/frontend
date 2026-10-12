@@ -20,6 +20,10 @@ export interface KnowledgeLabels {
   readonly title: string;
   readonly close: string;
   readonly tabs: Readonly<Record<KnowledgeTab, string>>;
+  /** The modal's search (2026-10-12): its label, what it finds a section by, and no match. */
+  readonly search: string;
+  readonly searchWords: Readonly<Record<KnowledgeTab, string>>;
+  readonly noMatch: string;
   readonly skills: {
     readonly intro: string;
     readonly empty: string;
@@ -145,6 +149,13 @@ const EN: KnowledgeLabels = {
   title: 'Skills & memory',
   close: 'Close',
   tabs: { skills: 'Skills', memory: 'Memory', checkpoints: 'Checkpoints' },
+  search: 'Search',
+  searchWords: {
+    skills: 'skills instructions templates defaults pro max ux design copy forms المهارات',
+    memory: 'memory notes facts preferences remember الذاكرة',
+    checkpoints: 'checkpoints restore points history undo versions نقاط الحفظ',
+  },
+  noMatch: 'Nothing matches.',
   skills: {
     intro:
       'Teach the Agent how you work. A skill is instructions it follows in every request, or when a request mentions its words.',
@@ -292,6 +303,13 @@ const AR: KnowledgeLabels = {
   title: 'المهارات والذاكرة',
   close: 'إغلاق',
   tabs: { skills: 'المهارات', memory: 'الذاكرة', checkpoints: 'نقاط الحفظ' },
+  search: 'بحث',
+  searchWords: {
+    skills: 'المهارات مهارة تعليمات قوالب الافتراضية تصميم نصوص نماذج skills',
+    memory: 'الذاكرة ملاحظات حقائق تفضيلات تذكر memory',
+    checkpoints: 'نقاط الحفظ استعادة سجل تراجع نسخ checkpoints',
+  },
+  noMatch: 'لا شيء يطابق البحث.',
   skills: {
     intro:
       'علّم الوكيل طريقتك في العمل. المهارة تعليمات يتبعها في كل طلب، أو حين يذكر الطلب كلماتها.',

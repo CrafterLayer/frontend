@@ -30,7 +30,7 @@ import { AgentTooltipProvider } from '../IconButton';
 
 import { KnowledgePopover } from './KnowledgePopover';
 
-/* ── The panel the popover opens in ───────────────────────────────────────── */
+/* ── The panel the modal opens from ───────────────────────────────────────── */
 
 interface Frame {
   readonly theme?: 'light' | 'dark';
@@ -78,7 +78,7 @@ const inPanel: Decorator = (Story, { args, parameters }) => {
 
 interface KnowledgeProps {
   readonly locale: Locale;
-  readonly presentation?: 'popover' | 'sheet';
+  readonly presentation?: 'modal' | 'sheet';
   readonly initialTab?: KnowledgeTab;
   /** `false`: the host keeps no pages, so there is no Checkpoints tab. */
   readonly withCheckpoints?: boolean;
@@ -86,13 +86,13 @@ interface KnowledgeProps {
 }
 
 /**
- * The header and the popover, wired as AgentPanel wires them: the header's Skills & memory
- * button toggles the popover and is its anchor, over the real stores (`useAgentKnowledge`,
+ * The header and the modal, wired as AgentPanel wires them: the header's Skills & memory
+ * button opens the modal and takes the focus back, over the real stores (`useAgentKnowledge`,
  * seeded) and an in-memory checkpoint port.
  */
 function Knowledge({
   locale,
-  presentation = 'popover',
+  presentation = 'modal',
   initialTab,
   withCheckpoints = true,
   clipboard,
@@ -193,7 +193,7 @@ function opening(locale: Locale, tab: KnowledgeTab = 'skills'): NonNullable<Stor
   };
 }
 
-/* ── The docked popover ───────────────────────────────────────────────────── */
+/* ── The settings modal ───────────────────────────────────────────────────── */
 
 /** Opened from the header: the Skills tab, focus on it. */
 export const Skills: Story = { play: opening('en') };

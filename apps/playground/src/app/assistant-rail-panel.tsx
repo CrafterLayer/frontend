@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder';
 
@@ -9,6 +9,7 @@ import type { AgentHost } from './use-agent-host';
 import type { AgentModelSettings } from './use-agent-model-settings';
 import type { CodeSession } from './use-code-session';
 import { lazyPanel } from './lazy-panel';
+import { usePinnedColumn } from './pin-column';
 import type { EditorPanes } from './use-editor-panes';
 
 export interface AssistantRailPanelProps {
@@ -105,6 +106,9 @@ export function AssistantRailPanel({
     setSiteSeam,
   } = host;
   const { codeSnapshot, sourceAgent } = code;
+  // The panel scrolls inside its thread; the shared column stays at its top (pin-column.ts).
+  const railRef = useRef<HTMLDivElement | null>(null);
+  usePinnedColumn(railRef, railSection === 'assistant');
   const {
     envPlanProvider,
     offeredModels,
@@ -125,7 +129,12 @@ export function AssistantRailPanel({
     [shelf, kernel],
   );
   return (
-    <div className="pg-rail-panel" hidden={railSection !== 'assistant'} data-section="assistant">
+    <div
+      ref={railRef}
+      className="pg-rail-panel"
+      hidden={railSection !== 'assistant'}
+      data-section="assistant"
+    >
       {AGENT_PANEL === 'v2' ? (
         <div className="pg-agent-host" hidden={codeSnapshot !== undefined}>
           <LiveAgentPanel

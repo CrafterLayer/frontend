@@ -1,6 +1,6 @@
 /**
- * KnowledgePopover (2026-10-12): "Skills & memory", hanging from the header's button over
- * the real stores (`useAgentKnowledge`, seeded) and an in-memory checkpoint port.
+ * KnowledgePopover (2026-10-12): "Skills & memory", the settings modal the header's button
+ * opens, over the real stores (`useAgentKnowledge`, seeded) and an in-memory checkpoint port.
  *
  * Asserted by role and name: a dialog named by its title, mounted inside the panel in its
  * language and direction; three tabs (two when the host keeps no pages) whose arrows move
@@ -59,7 +59,7 @@ const AR = knowledgeLabels('ar');
 interface HarnessProps {
   readonly locale?: Locale;
   readonly withCheckpoints?: boolean;
-  readonly presentation?: 'popover' | 'sheet';
+  readonly presentation?: 'modal' | 'sheet';
   readonly initialTab?: KnowledgeTab;
   readonly clipboard?: (text: string) => Promise<void>;
 }
@@ -71,7 +71,7 @@ interface HarnessProps {
 function Harness({
   locale = 'en',
   withCheckpoints = true,
-  presentation = 'popover',
+  presentation = 'modal',
   initialTab,
   clipboard,
 }: HarnessProps) {
@@ -138,7 +138,7 @@ describe('KnowledgePopover', () => {
   it('opens as a dialog named Skills & memory, on the Skills tab', async () => {
     render(<Harness />);
     const popover = await thePopover();
-    expect(popover).toHaveAttribute('data-presentation', 'popover');
+    expect(popover).toHaveAttribute('data-presentation', 'modal');
     expect(within(popover).getByRole('heading', { name: 'Skills & memory' })).toBeInTheDocument();
     expect(within(popover).getByRole('tablist', { name: 'Skills & memory' })).toBeInTheDocument();
     expect(
@@ -284,15 +284,54 @@ describe('KnowledgePopover', () => {
     await waitFor(() => expect(anchorButton()).toHaveFocus());
   });
 
-  it('pressing the button while open closes it once, not closes and reopens it', async () => {
+  it('is modal: the scrim covers the editor, and pressing it closes and returns focus', async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    const { container } = render(<Harness />);
     await thePopover();
-    await user.click(anchorButton());
+    const scrim = container.querySelector('.ck-agent-knowledge__scrim');
+    expect(scrim).not.toBeNull();
+    if (scrim !== null) await user.click(scrim);
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+    await waitFor(() => expect(anchorButton()).toHaveFocus());
     expect(anchorButton()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('finds a section by its words, in English and Arabic, and says when nothing matches', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const popover = await thePopover();
+    const search = within(popover).getByRole('searchbox', { name: 'Search' });
+    await user.type(search, 'notes');
+    expect(
+      within(popover)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Memory']);
+    await user.clear(search);
+    await user.type(search, 'zzz');
+    expect(within(popover).queryAllByRole('tab')).toEqual([]);
+    expect(within(popover).getByText(EN.noMatch)).toHaveAttribute('role', 'status');
+  });
+
+  it('folds Arabic letters as people type them: «الذاكره» finds الذاكرة', async () => {
+    const user = userEvent.setup();
+    render(<Harness locale="ar" />);
+    const popover = await thePopover('ar');
+    await user.type(within(popover).getByRole('searchbox', { name: AR.search }), 'الذاكره');
+    expect(
+      within(popover)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual([AR.tabs.memory]);
+  });
+
+  it('heads the section it shows, and lists the sections vertically', async () => {
+    render(<Harness initialTab="memory" />);
+    const popover = await thePopover();
+    expect(within(popover).getByRole('heading', { name: 'Memory', level: 3 })).toBeInTheDocument();
+    expect(within(popover).getByRole('tablist')).toHaveAttribute('aria-orientation', 'vertical');
   });
 
   it('copies a skill through the clipboard it is given', async () => {

@@ -32,17 +32,67 @@
 
 .ck-agent-toolbar__choices {
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  /*
+    Compact composer (2026-10-12): the choices share ONE row with the actions. Chips are the
+    small control size and sit 2px apart, so mode, model, effort, workers and free code fit
+    beside Improve, @ and Send in a 360px panel once their words are hidden.
+  */
+  flex-wrap: nowrap;
+  gap: var(--ck-agent-chip-gap, var(--bldr-space-2xs));
+  --ck-agent-target: var(--ck-agent-chip, var(--bldr-control-sm));
 }
 
 /* Provider names cannot push Effort or the next-run worker choice out of the panel. */
 .ck-agent-toolbar__choices .ck-agent-choice {
-  --ck-agent-choice-measure: 12ch;
+  --ck-agent-choice-measure: 10ch;
 }
 
-@container agent (inline-size < 360px) {
-  .ck-agent-toolbar__choices .ck-agent-model {
-    --ck-agent-choice-measure: 8ch;
+.ck-agent-toolbar__choices .ck-agent-choice[data-bldr-chrome-button][data-variant][data-size] {
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+}
+
+.ck-agent-choice__icon {
+  flex: none;
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-choice[aria-expanded='true'] .ck-agent-choice__icon,
+.ck-agent-choice:hover .ck-agent-choice__icon {
+  color: var(--bldr-panel-text);
+}
+
+/* The words go first, widest first; the glyph, the accessible name and the tooltip remain. */
+@container agent (inline-size < 560px) {
+  .ck-agent-freecode .ck-agent-freecode__label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: var(--bldr-border-hairline);
+    block-size: var(--bldr-border-hairline);
+    white-space: nowrap;
+  }
+}
+
+@container agent (inline-size < 460px) {
+  .ck-agent-toolbar__choices .ck-agent-model .ck-agent-choice__label,
+  .ck-agent-toolbar__choices .ck-agent-effort .ck-agent-choice__label {
+    display: none;
+  }
+
+  /* A narrow panel draws each choice as a glyph alone, so the tools and Send share one row. */
+  .ck-agent-toolbar__choices .ck-agent-choice__chevron {
+    display: none;
+  }
+
+  .ck-agent-toolbar__choices .ck-agent-choice[data-bldr-chrome-button][data-variant][data-size] {
+    padding-inline: var(--bldr-space-xs);
+  }
+}
+
+@container agent (inline-size < 380px) {
+  .ck-agent-toolbar__choices .ck-agent-mode .ck-agent-choice__label {
+    display: none;
   }
 }
 
@@ -60,6 +110,8 @@
 @media (pointer: coarse) {
   .ck-agent-toolbar {
     --ck-agent-target: var(--bldr-hit-target-min);
+    --ck-agent-chip: var(--bldr-hit-target-min);
+    --ck-agent-chip-gap: var(--bldr-space-md);
     --ck-agent-toolbar-gap: var(--bldr-space-md);
   }
 }
@@ -74,14 +126,14 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: var(--bldr-space-sm);
+  gap: var(--bldr-space-xs);
   box-sizing: border-box;
   block-size: var(--ck-agent-target, var(--bldr-control-md));
   margin: 0;
   padding-block: 0;
-  padding-inline: var(--bldr-space-sm) var(--bldr-space-md);
+  padding-inline: var(--bldr-space-sm);
   border: 0;
-  border-radius: var(--bldr-radius-md);
+  border-radius: var(--bldr-radius-full);
   background-color: transparent;
   color: var(--bldr-panel-text-soft);
   cursor: pointer;
@@ -147,18 +199,6 @@
 
 .ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__knob {
   background-color: var(--bldr-accent-text);
-}
-
-/* A very narrow panel keeps the glyph and the track; the words stay the accessible name. */
-@container agent (inline-size < 320px) {
-  .ck-agent-freecode__label {
-    position: absolute;
-    overflow: hidden;
-    clip-path: inset(50%);
-    inline-size: var(--bldr-border-hairline);
-    block-size: var(--bldr-border-hairline);
-    white-space: nowrap;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

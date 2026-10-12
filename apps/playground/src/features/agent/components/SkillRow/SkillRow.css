@@ -6,7 +6,8 @@
 
 .ck-agent-skill-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* The name and what it does, its actions, then the switch at the inline end (2026-10-12). */
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--bldr-space-sm);
   min-block-size: var(--bldr-agent-row-height);

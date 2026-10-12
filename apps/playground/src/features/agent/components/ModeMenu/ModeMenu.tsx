@@ -53,6 +53,7 @@ export function ModeMenu({ locale, mode, running, onModeChange }: ModeMenuProps)
       onValueChange={onModeChange}
       tooltip={running ? t(locale, 'mode.running') : undefined}
       className="ck-agent-mode"
+      icon="bolt"
     />
   );
 }

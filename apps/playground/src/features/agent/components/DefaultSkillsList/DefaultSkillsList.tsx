@@ -44,16 +44,6 @@ export function DefaultSkillsList({ skills, labels, onToggle, onMakeOwn }: Defau
             className="ck-agent-skill-row ck-agent-defaults__row"
             data-enabled={skill.enabled ? '' : undefined}
           >
-            <input
-              type="checkbox"
-              role="switch"
-              className="ck-agent-skill-row__switch"
-              checked={skill.enabled}
-              aria-label={words.use(skill.name)}
-              onChange={(event) => {
-                onToggle(skill.id, event.target.checked);
-              }}
-            />
             <div className="ck-agent-skill-row__text">
               <span className="ck-agent-skill-row__name" dir="auto">
                 {skill.name}
@@ -82,6 +72,16 @@ export function DefaultSkillsList({ skills, labels, onToggle, onMakeOwn }: Defau
                 <AgentIcon name="pencil" />
               </button>
             </div>
+            <input
+              type="checkbox"
+              role="switch"
+              className="ck-agent-skill-row__switch"
+              checked={skill.enabled}
+              aria-label={words.use(skill.name)}
+              onChange={(event) => {
+                onToggle(skill.id, event.target.checked);
+              }}
+            />
           </li>
         ))}
       </ul>

@@ -62,24 +62,25 @@ function names(): (string | null)[] {
 }
 
 describe('ComposerToolbar', () => {
-  it('changes the build pool independently and locks it during a live run', async () => {
+  it('changes the build pool independently and keeps it during a live run', async () => {
     const user = userEvent.setup();
     const onWorkersChange = vi.fn();
     const given = props({ workers: 3, onWorkersChange });
     const { rerender } = render(<ComposerToolbar {...given} />);
-    const pool = screen.getByRole('combobox', { name: t('en', 'workers.label') });
-    expect(pool).toHaveValue('3');
-    await user.selectOptions(pool, '6');
+    const name = new RegExp(`^${t('en', 'workers.label')}:`, 'u');
+    await user.click(screen.getByRole('button', { name }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^6 workers/u }));
     expect(onWorkersChange).toHaveBeenLastCalledWith(6);
     rerender(<ComposerToolbar {...given} running />);
-    expect(pool).toBeDisabled();
-    await user.selectOptions(pool, '1');
+    await user.click(screen.getByRole('button', { name }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^1 worker/u }));
     expect(onWorkersChange).toHaveBeenCalledTimes(1);
   });
 
   it('omits the pool when the host does not provide worker selection', () => {
     render(<ComposerToolbar {...props()} />);
-    expect(screen.queryByRole('combobox', { name: t('en', 'workers.label') })).toBeNull();
+    const name = new RegExp(`^${t('en', 'workers.label')}:`, 'u');
+    expect(screen.queryByRole('button', { name })).toBeNull();
   });
 
   it('preserves the full accessible model name beside effort even when its visual label is bounded', () => {
@@ -215,11 +216,15 @@ describe('ComposerToolbar', () => {
     expect(mode).not.toHaveAttribute('aria-disabled');
   });
 
-  it('spaces items 4px apart, 8px under a coarse pointer, and wraps rather than clip', () => {
+  it('keeps the choices on one row of 28px chips, 44px and 8px apart under a coarse pointer', () => {
     expect(CSS).toMatch(/gap:\s*var\(--ck-agent-toolbar-gap,\s*var\(--bldr-space-xs\)\)/u);
+    expect(CSS).toMatch(/--ck-agent-target:\s*var\(--ck-agent-chip,\s*var\(--bldr-control-sm\)\)/u);
     expect(CSS).toMatch(
-      /@media \(pointer: coarse\)\s*\{\s*\.ck-agent-toolbar\s*\{\s*--ck-agent-target:\s*var\(--bldr-hit-target-min\);\s*--ck-agent-toolbar-gap:\s*var\(--bldr-space-md\)/u,
+      /@media \(pointer: coarse\)\s*\{\s*\.ck-agent-toolbar\s*\{\s*--ck-agent-target:\s*var\(--bldr-hit-target-min\);\s*--ck-agent-chip:\s*var\(--bldr-hit-target-min\);\s*--ck-agent-chip-gap:\s*var\(--bldr-space-md\)/u,
     );
-    expect(CSS).toMatch(/flex-wrap:\s*wrap/u);
+    // The choices never wrap (their words hide instead); the row wraps only as a last resort.
+    expect(CSS).toMatch(/\.ck-agent-toolbar__choices\s*\{[^}]*flex-wrap:\s*nowrap/u);
+    expect(CSS).toMatch(/\.ck-agent-toolbar\s*\{[^}]*flex-wrap:\s*wrap/u);
+    expect(CSS).toMatch(/@container agent \(inline-size < 460px\)/u);
   });
 });

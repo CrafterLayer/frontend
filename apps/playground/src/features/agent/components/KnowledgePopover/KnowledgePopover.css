@@ -1,14 +1,18 @@
 /*
-  KnowledgePopover, "Skills & memory" (2026-10-12). Docked: e2 on the Sheet like the
-  Conversations list (a hairline, the floating shadow, radius 9), as wide as the panel less
-  8px a side and never wider than 400px, never taller than 75% of the editor. Phone: the
-  sheet's own page on Paper. The head (title and Close) and the tabs stay; only the tab's
-  panel scrolls, and a scroll that reaches its end never carries on into the thread.
+  KnowledgePopover, "Skills & memory" (2026-10-12), redesigned as the editor's settings window
+  (after Anthropic's settings, person's request): a centred modal over a scrim, a side list of
+  sections and the section's own page. Dark Mode + Minimal (UI UX Pro Max, "Developer Tool"
+  and "No-code Builder" rows): one surface, hairlines instead of boxes, a single accent for the
+  selected section, a visible focus ring on every control, nothing that jumps.
+
+  Modal: min(880px, the screen less 32) by min(640px, the screen less 48), centred by
+  `inset: 0; margin: auto` (no transform, so RTL needs nothing). The side list is 232px on the
+  Sunken surface; the section scrolls alone and a scroll that reaches its end stays there.
+  Under 640px of screen the list sits above the section as a row of tabs, as on the phone.
+  Phone: the sheet's own page on Paper.
 */
 
 .ck-agent-knowledge {
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
   min-inline-size: 0;
   color: var(--bldr-panel-text);
@@ -17,78 +21,124 @@
   line-height: var(--bldr-line-height-read);
 }
 
-.ck-agent-knowledge[data-presentation='popover'] {
-  z-index: 40;
-  inline-size: min(400px, calc(100cqi - var(--bldr-space-3xl)));
-  max-block-size: min(
-    calc(0.75 * (100dvh - var(--bldr-topbar-height))),
-    var(--radix-popover-content-available-height, 100dvh)
-  );
-  padding: var(--bldr-space-xs);
+.ck-agent-knowledge__scrim {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  /* Dimmed and softened, so the window reads as the one thing in front (2026-10-12). */
+  background-color: color-mix(in srgb, var(--bldr-panel) 84%, transparent);
+  backdrop-filter: blur(var(--bldr-space-2xs));
+}
+
+.ck-agent-knowledge[data-presentation='modal'] {
+  position: fixed;
+  z-index: 51;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  inline-size: min(880px, calc(100vw - var(--bldr-space-6xl)));
+  block-size: min(640px, calc(100dvh - var(--bldr-space-6xl) - var(--bldr-space-xl)));
+  margin: auto;
+  overflow: hidden;
   border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
   border-radius: var(--bldr-radius-lg);
   background-color: var(--bldr-surface);
-  box-shadow: var(--bldr-shadow-floating);
+  box-shadow: var(--bldr-shadow-overlay);
 }
 
 .ck-agent-knowledge[data-presentation='sheet'] {
   position: absolute;
   z-index: 2;
   inset: 0;
+  display: flex;
+  flex-direction: column;
   padding: var(--bldr-space-md);
   background-color: var(--bldr-panel);
 }
 
-.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__head {
-  min-block-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
-}
+/* ── The side list ───────────────────────────────────────────────────────── */
 
-.ck-agent-knowledge__head {
+.ck-agent-knowledge__nav {
   display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--bldr-space-xs);
-  min-block-size: var(--bldr-control-md);
-  padding-inline: var(--bldr-space-md) 0;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-block-size: 0;
+  padding: var(--bldr-space-xl) var(--bldr-space-md);
+  border-inline-end: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  background-color: var(--bldr-surface-sunken);
 }
 
 .ck-agent-knowledge__title {
+  margin: 0;
+  padding-inline: var(--bldr-space-sm);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-knowledge__search {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-knowledge__search:focus-within {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-knowledge__search-glyph {
+  flex: none;
+}
+
+.ck-agent-knowledge__search input {
   flex: 1 1 auto;
   min-inline-size: 0;
   margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-read);
-  font-weight: var(--bldr-font-weight-semibold);
-  line-height: var(--bldr-line-height-read);
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+}
+
+.ck-agent-knowledge__search input::placeholder {
+  color: var(--bldr-panel-text-soft);
 }
 
 .ck-agent-knowledge__tabs {
   display: flex;
-  flex: none;
+  flex-direction: column;
   gap: var(--bldr-space-2xs);
-  margin-block: var(--bldr-space-xs);
-  margin-inline: var(--bldr-space-xs);
-  padding: var(--bldr-space-2xs);
-  border-radius: var(--bldr-radius-md);
-  background-color: var(--bldr-surface-sunken);
 }
 
 .ck-agent-knowledge__tab {
-  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
   min-inline-size: 0;
-  min-block-size: var(--bldr-control-md);
+  min-block-size: var(--bldr-control-lg);
   margin: 0;
-  padding-block: 0;
   padding-inline: var(--bldr-space-sm);
   border: 0;
-  border-radius: var(--bldr-radius-sm);
+  border-radius: var(--bldr-radius-md);
   background-color: transparent;
   color: var(--bldr-panel-text-soft);
   cursor: pointer;
   font: inherit;
-  font-size: var(--bldr-font-size-meta);
+  font-size: var(--bldr-font-size-read);
   font-weight: var(--bldr-font-weight-medium);
   line-height: var(--bldr-line-height-meta);
+  text-align: start;
   white-space: nowrap;
   transition:
     background-color var(--bldr-duration-state) var(--bldr-easing),
@@ -96,13 +146,17 @@
 }
 
 .ck-agent-knowledge__tab:hover {
+  background-color: var(--bldr-surface-hover);
   color: var(--bldr-panel-text);
 }
 
 .ck-agent-knowledge__tab[aria-selected='true'] {
-  background-color: var(--bldr-surface);
-  box-shadow: var(--bldr-shadow-raised);
+  background-color: var(--bldr-surface-active);
   color: var(--bldr-panel-text);
+}
+
+.ck-agent-knowledge__tab[aria-selected='true'] .ck-agent-knowledge__tab-glyph {
+  color: var(--bldr-accent-strong);
 }
 
 .ck-agent-knowledge__tab:focus-visible {
@@ -110,13 +164,123 @@
   outline-offset: var(--bldr-focus-ring-offset);
 }
 
+.ck-agent-knowledge__tab-glyph {
+  flex: none;
+}
+
+.ck-agent-knowledge__nomatch {
+  margin: 0;
+  padding-inline: var(--bldr-space-sm);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+}
+
+/* ── The section ─────────────────────────────────────────────────────────── */
+
+.ck-agent-knowledge__main {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.ck-agent-knowledge__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  padding-block: var(--bldr-space-xl) var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-3xl) var(--bldr-space-xl);
+}
+
+.ck-agent-knowledge__section {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title, var(--bldr-font-size-read));
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+}
+
 .ck-agent-knowledge__panel {
   flex: 1 1 auto;
   min-block-size: 0;
   overflow-y: auto;
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-md);
+  padding-block: var(--bldr-space-xs) var(--bldr-space-3xl);
+  padding-inline: var(--bldr-space-3xl);
   overscroll-behavior: contain;
+}
+
+/*
+  Settings rows inside the window: a hairline between rows instead of a hover box, and the
+  switch at the size a settings list uses (36 x 20), its knob still at the inline end when on.
+*/
+.ck-agent-knowledge[data-presentation='modal'] .ck-agent-skill-row {
+  padding-block: var(--bldr-space-md);
+  padding-inline: 0;
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: 0;
+}
+
+.ck-agent-knowledge[data-presentation='modal'] .ck-agent-skill-row:hover {
+  background-color: transparent;
+}
+
+.ck-agent-knowledge[data-presentation='modal'] .ck-agent-skill-row__switch {
+  inline-size: calc(var(--bldr-space-3xl) * 2.25);
+  block-size: calc(var(--bldr-space-3xl) * 1.25);
+}
+
+.ck-agent-knowledge[data-presentation='modal'] .ck-agent-skill-row__switch:checked::after {
+  inset-inline-start: calc(100% - var(--bldr-space-3xl) * 1.25 + var(--bldr-space-2xs));
+}
+
+/* The phone sheet, and a modal on a narrow screen: the sections are a row of tabs on top. */
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__nav {
+  padding: 0 0 var(--bldr-space-sm);
+  border-inline-end: 0;
+  background-color: transparent;
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__search {
+  display: none;
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__main {
+  flex: 1 1 auto;
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__bar,
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__panel {
+  padding-inline: 0;
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__tabs {
+  flex-direction: row;
+}
+
+@media (max-width: 640px) {
+  .ck-agent-knowledge[data-presentation='modal'] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ck-agent-knowledge[data-presentation='modal'] .ck-agent-knowledge__nav {
+    flex: none;
+    border-inline-end: 0;
+    border-block-end: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  }
+
+  .ck-agent-knowledge[data-presentation='modal'] .ck-agent-knowledge__tabs {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .ck-agent-knowledge[data-presentation='modal'] .ck-agent-knowledge__bar,
+  .ck-agent-knowledge[data-presentation='modal'] .ck-agent-knowledge__panel {
+    padding-inline: var(--bldr-space-xl);
+  }
 }
 
 @media (pointer: coarse) {
@@ -128,6 +292,13 @@
 @media (prefers-reduced-motion: reduce) {
   .ck-agent-knowledge__tab {
     transition: none;
+  }
+}
+
+/* Where the blur costs too much, the scrim stays a plain dim. */
+@media (prefers-reduced-transparency: reduce) {
+  .ck-agent-knowledge__scrim {
+    backdrop-filter: none;
   }
 }
 

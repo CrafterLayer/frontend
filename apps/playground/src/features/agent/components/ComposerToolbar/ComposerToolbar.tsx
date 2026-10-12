@@ -20,6 +20,7 @@ import { ModeMenu } from '../ModeMenu';
 import { ModelMenu } from '../ModelMenu';
 import { SendButton } from '../SendButton';
 import { WorkerMenu } from '../WorkerMenu';
+import { ComposerTooltip } from './ComposerTooltip';
 
 import './ComposerToolbar.css';
 
@@ -56,11 +57,16 @@ export interface ComposerToolbarProps {
  * the inline start, then the free-code switch when the host keeps one, then ✨ Improve,
  * `[@]` and Send.
  *
- * Free code is a labelled switch, not an icon (Studio Indigo redesign, 2026-10-12): it
- * changes what the next request may write (JavaScript, whole Pixi scenes), so its state is
- * read at a glance: `</>` Free code and a track whose knob sits at the inline end when on.
- * It is a toggle button (`aria-pressed`) described by what on and off mean. Items are 32px with 4px gaps;
- * 44px with 8px gaps on a coarse pointer. Choice and action rows may wrap independently.
+ * Free code is a switch (Studio Indigo redesign, 2026-10-12): it changes what the next request
+ * may write (JavaScript, whole Pixi scenes), so its state is read at a glance: `</>` and a track
+ * whose knob sits at the inline end when on. It is a toggle button (`aria-pressed`) described by
+ * what on and off mean.
+ *
+ * Compact composer (2026-10-12): every choice is one chip on ONE row with the actions, a glyph
+ * and a short value at 28px (44 on a coarse pointer). As the panel narrows the words go first,
+ * widest first (Free code, then Model and Effort, then Mode), the glyphs stay, and each chip's
+ * accessible name and tooltip keep the whole ("Effort: High"). Only a panel too narrow even for
+ * the glyphs lets the actions wrap under them.
  *
  * Read in the order a request is made: how it may touch the page, who writes it, then the
  * tools for the words, then Send, which is the last thing the hand reaches. The row wraps
@@ -107,21 +113,23 @@ export function ComposerToolbar({
         )}
         {freeCode == null || onFreeCodeChange === undefined ? null : (
           <>
-            <button
-              type="button"
-              className="ck-agent-freecode"
-              aria-pressed={freeCode.enabled}
-              aria-describedby={freeCodeHintId}
-              onClick={() => {
-                onFreeCodeChange(!freeCode.enabled);
-              }}
-            >
-              <AgentIcon name="code" className="ck-agent-freecode__glyph" />
-              <span className="ck-agent-freecode__label">{t(locale, 'freeCode.button')}</span>
-              <span className="ck-agent-freecode__track" aria-hidden="true">
-                <span className="ck-agent-freecode__knob" />
-              </span>
-            </button>
+            <ComposerTooltip label={t(locale, 'freeCode.button')} align="start">
+              <button
+                type="button"
+                className="ck-agent-freecode"
+                aria-pressed={freeCode.enabled}
+                aria-describedby={freeCodeHintId}
+                onClick={() => {
+                  onFreeCodeChange(!freeCode.enabled);
+                }}
+              >
+                <AgentIcon name="code" className="ck-agent-freecode__glyph" />
+                <span className="ck-agent-freecode__label">{t(locale, 'freeCode.button')}</span>
+                <span className="ck-agent-freecode__track" aria-hidden="true">
+                  <span className="ck-agent-freecode__knob" />
+                </span>
+              </button>
+            </ComposerTooltip>
             <span id={freeCodeHintId} hidden>
               {t(locale, freeCode.enabled ? 'freeCode.on' : 'freeCode.off')}
             </span>

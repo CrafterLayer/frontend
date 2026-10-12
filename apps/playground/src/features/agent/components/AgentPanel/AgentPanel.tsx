@@ -389,7 +389,7 @@ export function AgentPanel({
           onTabChange={knowledgeUi.setTab}
           newSkill={knowledgeUi.newSkill}
           anchorRef={knowledgeRef}
-          presentation={sheet === null ? 'popover' : 'sheet'}
+          presentation={sheet === null ? 'modal' : 'sheet'}
           id={knowledgeId}
         />
       )}

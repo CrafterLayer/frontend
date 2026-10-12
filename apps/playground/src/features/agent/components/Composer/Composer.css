@@ -41,7 +41,8 @@
   box-sizing: border-box;
   min-inline-size: 0;
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: calc(var(--bldr-radius-xl) + var(--bldr-space-2xs));
+  /* Modern chat composer (2026-10-12): a round, compact box; the words, then one row of tools. */
+  border-radius: calc(var(--bldr-radius-xl) + var(--bldr-space-sm));
   background-color: var(--bldr-surface);
   box-shadow: var(--bldr-shadow-raised);
   transition:
@@ -126,8 +127,9 @@
   inline-size: 100%;
   /* Never stretch an empty writing field to consume spare grid space. */
   align-self: start;
-  min-block-size: calc(2 * var(--bldr-line-height-input));
-  max-block-size: calc(6 * var(--bldr-line-height-input));
+  /* One line until the person writes more (2026-10-12), up to eight; then it scrolls. */
+  min-block-size: var(--bldr-line-height-input);
+  max-block-size: calc(8 * var(--bldr-line-height-input));
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -155,7 +157,7 @@
 @container agent-conversation (max-height: 480px) {
   .ck-agent-composer__input {
     max-block-size: clamp(
-      calc(2 * var(--bldr-line-height-input)),
+      var(--bldr-line-height-input),
       calc(30cqb - 60px),
       calc(6 * var(--bldr-line-height-input))
     );

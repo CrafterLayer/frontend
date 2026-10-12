@@ -22,7 +22,8 @@ describe('RunTelemetry', () => {
         }}
       />,
     );
-    expect(screen.getAllByText('Not reported')).toHaveLength(4);
+    // No count can be totalled, so no usage is drawn at all (2026-10-12): never a partial total.
+    expect(screen.queryByText('Not reported')).not.toBeInTheDocument();
     expect(screen.queryByText('64')).not.toBeInTheDocument();
     expect(screen.queryByText(/0\.6400/u)).not.toBeInTheDocument();
   });
@@ -38,7 +39,8 @@ describe('RunTelemetry', () => {
       />,
     );
     expect(screen.getByRole('status').textContent).toContain('Hero');
-    expect(screen.getAllByText('Not reported')).toHaveLength(4);
+    // Nothing reported yet: no four "Not reported" cells in a narrow thread (2026-10-12).
+    expect(screen.queryByText('Not reported')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Live activity'));
     expect(screen.getByText('Live activity').closest('details')).toHaveAttribute('open');
   });

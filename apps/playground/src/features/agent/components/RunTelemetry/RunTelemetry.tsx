@@ -32,7 +32,14 @@ const COUNTS = [
 export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps) {
   const totals = telemetryTotals(state);
   const latest = state.activity.at(-1);
-  if (latest === undefined && totals.requests === 0) return null;
+  /*
+    Usage is drawn only when the provider reported a count (2026-10-12): four cells reading
+    "Not reported" took a quarter of a narrow thread and said nothing. A missing count beside
+    a reported one still reads "Not reported", so a partial total never passes as whole.
+  */
+  const reported = totals.requests > 0 && COUNTS.some(([field]) => totals[field] !== null);
+  if (latest === undefined && !reported) return null;
+  if (!live && state.activity.length === 0 && !reported) return null;
   return (
     <section className="ck-agent-telemetry" aria-label={t(locale, 'telemetry.activity')}>
       {latest === undefined || !live ? null : (
@@ -54,7 +61,7 @@ export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps)
           </ol>
         </details>
       )}
-      {totals.requests === 0 ? null : (
+      {!reported ? null : (
         <div className="ck-agent-telemetry__usage">
           <p>{t(locale, 'telemetry.usage')}</p>
           <dl>

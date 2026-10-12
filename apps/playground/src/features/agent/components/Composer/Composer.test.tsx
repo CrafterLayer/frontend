@@ -664,10 +664,10 @@ describe('the composer family’s stylesheets', () => {
     }
   });
 
-  it('gives the box 2 to 6 lines, and 16px type under a coarse pointer through the tokens', () => {
+  it('gives the box 1 to 8 lines, and 16px type under a coarse pointer through the tokens', () => {
     const css = sheet('Composer/Composer.css');
-    expect(css).toContain('min-block-size: calc(2 * var(--bldr-line-height-input))');
-    expect(css).toContain('max-block-size: calc(6 * var(--bldr-line-height-input))');
+    expect(css).toContain('min-block-size: var(--bldr-line-height-input)');
+    expect(css).toContain('max-block-size: calc(8 * var(--bldr-line-height-input))');
     expect(css).toMatch(/font-size:\s*var\(--bldr-font-size-input\)/u);
   });
 

@@ -1,54 +1,74 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+/**
+ * WorkerMenu (compact composer, 2026-10-12): the build-worker chip. Ours to prove: the chip
+ * shows the count and is named by the whole ("Build workers: 3 workers"); its menu offers one,
+ * three or six workers, each with what it costs, the current one checked; a pick calls back;
+ * during a run a pick changes nothing and the tooltip says the count is fixed; Arabic labels.
+ */
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { t } from '../../copy';
+import { toolbarLabels } from '../../copy/toolbar-labels';
 
 import { WorkerMenu } from './WorkerMenu';
 
+beforeAll(() => {
+  globalThis.ResizeObserver = class {
+    observe = (): void => undefined;
+    unobserve = (): void => undefined;
+    disconnect = (): void => undefined;
+  };
+});
+
+function items(): HTMLElement[] {
+  return within(screen.getByRole('menu')).getAllByRole('menuitemradio');
+}
+
+const NAME = `${t('en', 'workers.label')}: ${t('en', 'workers.option', { n: 3 })}`;
+
 describe('WorkerMenu', () => {
-  it('offers exactly one, three or six workers and calls the selected build limit', async () => {
+  it('shows the count, named by the whole, and offers one, three or six workers', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<WorkerMenu locale="en" value={3} running={false} onChange={onChange} />);
-    const select = screen.getByRole('combobox', { name: t('en', 'workers.label') });
-    expect(select).toHaveValue('3');
-    expect(screen.getAllByRole('option').map((option) => option.getAttribute('value'))).toEqual([
-      '1',
-      '3',
-      '6',
+    const chip = screen.getByRole('button', { name: NAME });
+    expect(chip).toHaveTextContent('3');
+    await user.click(chip);
+    const list = items();
+    expect(list.map((item) => item.getAttribute('aria-checked'))).toEqual([
+      'false',
+      'true',
+      'false',
     ]);
-    await user.tab();
-    expect(select).toHaveFocus();
-    await user.selectOptions(select, '6');
+    expect(list[0]).toHaveTextContent(t('en', 'workers.option', { n: 1 }));
+    expect(list[2]).toHaveTextContent(toolbarLabels('en').workerDescription[6]);
+    await user.click(list[2]!);
     expect(onChange).toHaveBeenCalledExactlyOnceWith(6);
-    expect(select).toHaveAccessibleDescription(t('en', 'workers.hint'));
   });
 
-  it('locks the choice throughout an active run', async () => {
+  it('keeps the count a running build started with, and says so', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<WorkerMenu locale="en" value={1} running onChange={onChange} />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeDisabled();
-    await user.selectOptions(select, '3');
+    const chip = screen.getByRole('button', { name: /^Build workers:/u });
+    await user.hover(chip);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(toolbarLabels('en').workersLocked);
+    await user.click(chip);
+    await user.click(items()[1]!);
     expect(onChange).not.toHaveBeenCalled();
-    expect(select).toHaveValue('1');
   });
 
-  it('uses Arabic labels and makes the build-only scope available to assistive technology', () => {
+  it('speaks Arabic, in the menu and in its name', async () => {
+    const user = userEvent.setup();
     render(<WorkerMenu locale="ar" value={6} running={false} onChange={vi.fn()} />);
-    const select = screen.getByRole('combobox', { name: t('ar', 'workers.label') });
-    expect(select).toHaveAccessibleDescription(t('ar', 'workers.hint'));
-    expect(
-      screen.getByRole('option', { name: t('ar', 'workers.option', { n: 6 }) }),
-    ).toBeInTheDocument();
-  });
-
-  it('does not accept an out-of-contract option value', () => {
-    const onChange = vi.fn();
-    render(<WorkerMenu locale="en" value={3} running={false} onChange={onChange} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '99' } });
-    expect(onChange).not.toHaveBeenCalled();
+    const chip = screen.getByRole('button', {
+      name: `${t('ar', 'workers.label')}: ${t('ar', 'workers.option', { n: 6 })}`,
+    });
+    await user.click(chip);
+    expect(screen.getByRole('menu')).toHaveAttribute('lang', 'ar');
+    await waitFor(() => {
+      expect(items()[0]).toHaveTextContent(toolbarLabels('ar').workerDescription[1]);
+    });
   });
 });

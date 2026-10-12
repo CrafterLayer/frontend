@@ -32,16 +32,6 @@ export function SkillRow({ skill, labels, onToggle, onEdit, onCopy, onRemove }: 
   const when = skill.mode === 'always' ? words.always : words.when(skill.keywords);
   return (
     <li className="ck-agent-skill-row" data-enabled={skill.enabled ? '' : undefined}>
-      <input
-        type="checkbox"
-        role="switch"
-        className="ck-agent-skill-row__switch"
-        checked={skill.enabled}
-        aria-label={words.use(skill.name)}
-        onChange={(event) => {
-          setRefusal(onToggle(event.target.checked));
-        }}
-      />
       <div className="ck-agent-skill-row__text">
         <span className="ck-agent-skill-row__name">{skill.name}</span>
         <span className="ck-agent-skill-row__when">{when}</span>
@@ -91,6 +81,17 @@ export function SkillRow({ skill, labels, onToggle, onEdit, onCopy, onRemove }: 
           <AgentIcon name="trash" />
         </button>
       </div>
+      {/* Settings-row order (2026-10-12): the name first, the switch at the inline end. */}
+      <input
+        type="checkbox"
+        role="switch"
+        className="ck-agent-skill-row__switch"
+        checked={skill.enabled}
+        aria-label={words.use(skill.name)}
+        onChange={(event) => {
+          setRefusal(onToggle(event.target.checked));
+        }}
+      />
     </li>
   );
 }

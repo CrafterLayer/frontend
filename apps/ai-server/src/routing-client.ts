@@ -31,6 +31,40 @@ export function isApiModel(slug: string): boolean {
   return slug.startsWith(API_MODEL_PREFIX);
 }
 
+/**
+ * The request as the Messages API will take it. The plan schemas are open where
+ * kits differ (a brief's `slots`) and carry more optional fields than the API's
+ * grammar compiler allows (measured 2026-10-12: 26 against a limit of 24), so
+ * strict decoding answers 400 before the model writes a word. The schema goes
+ * into the system prompt as text instead — the path OpenRouter models without
+ * structured outputs already take, and `claude.ts` parses either.
+ */
+function apiParams(params: Record<string, unknown>, model: string): Record<string, unknown> {
+  const outputConfig = params['output_config'] as
+    | { format?: { schema?: unknown }; [key: string]: unknown }
+    | undefined;
+  const schema = outputConfig?.format?.schema;
+  if (outputConfig === undefined || schema === undefined) return { ...params, model };
+  const { format: _format, ...rest } = outputConfig;
+  const system = Array.isArray(params['system']) ? (params['system'] as unknown[]) : [];
+  return {
+    ...params,
+    model,
+    system: [
+      ...system,
+      {
+        type: 'text',
+        text:
+          '# Required output format\n' +
+          'Reply with RAW JSON ONLY — the first character of your reply must be "{" and the last must be "}". ' +
+          'No markdown code fences, no explanation before or after. Conform exactly to this JSON Schema:\n' +
+          JSON.stringify(schema),
+      },
+    ],
+    ...(Object.keys(rest).length === 0 ? { output_config: undefined } : { output_config: rest }),
+  };
+}
+
 /** `cli:haiku` ⇒ `haiku`; a bare `cli:` ⇒ the CLI's own default. */
 function cliModelOf(slug: string): string | undefined {
   const model = slug.slice(CLI_MODEL_PREFIX.length);
@@ -130,11 +164,22 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
           ),
         );
       }
+      const model = slug.slice(API_MODEL_PREFIX.length);
+      const started = Date.now();
+      onLog(`api run: ${model} on the Anthropic API (billed to the key)`);
       const inner = options.api.messages.stream(
-        { ...params, model: slug.slice(API_MODEL_PREFIX.length) } as never,
+        apiParams(params as Record<string, unknown>, model) as never,
         requestOptions,
       ) as unknown as StreamLike;
-      return follow(inner);
+      // The CLI logs its own runs; this is the API's line, so the terminal names who answered.
+      return follow(inner).then((message) => {
+        const usage = message.usage as Partial<Anthropic.Usage> | undefined;
+        onLog(
+          `api usage — model ${model}, in ${String(usage?.input_tokens ?? '?')}, ` +
+            `out ${String(usage?.output_tokens ?? '?')}, ${String(Math.round((Date.now() - started) / 1000))} s`,
+        );
+        return message;
+      });
     };
 
     const done = (async (): Promise<Anthropic.Message> => {

@@ -375,7 +375,7 @@ export function createHandler(options: HandlerOptions) {
       return authoredRunResponse(body, options, request);
     }
     if (url.pathname === ENHANCE_PATH) {
-      return enhanceResponse(body, options, request.signal);
+      return enhanceResponse(body, options, request);
     }
     if (url.pathname !== '/plan' && url.pathname !== '/') {
       return json({ error: 'Endpoint not found.' }, 404);
@@ -628,16 +628,36 @@ async function exportResponse(
  */
 const ENHANCE_SERVER_TIMEOUT_MS = Math.min(ENHANCE_TIMEOUT_MS, 40_000);
 
+/** `cli:` (the subscription), `api:` (the API key), or '' for an OpenRouter slug. */
+function routeOf(model: string): string {
+  return /^(cli|api):/u.exec(model)?.[1] ?? '';
+}
+
 async function enhanceResponse(
   body: unknown,
   options: HandlerOptions,
-  requestSignal: AbortSignal,
+  request: Request,
 ): Promise<Response> {
   const read = readEnhanceRequest(body);
   if ('error' in read) return json({ error: read.error }, 400);
   const timeoutMs = options.enhanceTimeoutMs ?? ENHANCE_SERVER_TIMEOUT_MS;
   const timeout = AbortSignal.timeout(timeoutMs);
-  const model = options.enhanceModel ?? fastestModel([options.model, ...(options.models ?? [])]);
+  const requestSignal = request.signal;
+  /*
+    Still the fastest model, but on the ROUTE the person picked: with an `api:` model
+    chosen, the enhancer answering through the subscription read as "the picker changed
+    nothing" (2026-10-12). An OpenRouter pick, or a configured enhancer already on the
+    picked route, keeps the configured enhancer.
+  */
+  const allowed = [options.model, ...(options.models ?? [])].filter(
+    (entry): entry is string => entry !== undefined,
+  );
+  const configured = options.enhanceModel ?? fastestModel(allowed);
+  const route = routeOf(pickedModel(request));
+  const model =
+    route === '' || (configured !== undefined && routeOf(configured) === route)
+      ? configured
+      : (fastestModel(allowed.filter((entry) => routeOf(entry) === route)) ?? configured);
   try {
     const outcome = await enhancePrompt(read.request, {
       client: options.client,

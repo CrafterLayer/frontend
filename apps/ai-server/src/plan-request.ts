@@ -21,6 +21,10 @@ export interface PlanRequestPolicy {
   readonly sectionEffort?: string;
   /** Whether the PAGE PLAN call thinks (handler.ts says why). */
   readonly planThinking?: boolean;
+  /** Output budget for a SCENE writer (default `SCENE_MAX_TOKENS`); see `callEffort`. */
+  readonly sceneMaxTokens?: number;
+  /** The deployment's own output budget, when it set one; a scene writer never gets less. */
+  readonly maxTokens?: number;
 }
 
 export const DEFAULT_MAX_REQUEST_BYTES = 4 * 1024 * 1024;
@@ -245,6 +249,14 @@ export async function readPlanCall<O extends PlanRequestPolicy>(
 const SECTION_WRITER_SKILL = 'craftkit.build-fill';
 /** The skill a build pins on its scaffold call — the fallback after a refused page plan (run-build.ts). */
 const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
+/** The Pixi playbooks a build hands a section that writes scene code (pixi-selection.ts). */
+const SCENE_SKILL_PREFIX = 'craftkit.pixi-';
+/**
+ * A scene writer's output budget (2026-10-12). A story, game or mural region is a whole
+ * program — up to 32,000 characters of code plus its tree and css, and thinking on top —
+ * so the plan call's 32k ceiling cut long scenes off mid-JSON, which is no answer at all.
+ */
+export const SCENE_MAX_TOKENS = 48_000;
 
 /**
  * This call's own reasoning budget: the one its body asks for (low or
@@ -259,7 +271,7 @@ const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
 export function callEffort(
   wire: AiPlanWireRequest,
   options: PlanRequestPolicy,
-): { effort?: string; thinkingOff?: true } {
+): { effort?: string; thinkingOff?: true; maxTokens?: number } {
   // The call's own budget, already held to CALL_EFFORTS by the handler.
   const asked: unknown = (wire as { effort?: unknown }).effort;
   const deep = DEEP_EFFORTS.has(asked);
@@ -286,6 +298,24 @@ export function callEffort(
     221 s baseline. It is a planning call like the page plan, which already
     runs with thinking off.
   */
+  /*
+    A SCENE writer is the exception (2026-10-12, the owner asked for stronger stories,
+    murals and games): a section writer handed the Pixi playbooks with free code on writes
+    a program, not markup — a lib to load, a lifecycle to dispose, a layout to keep in its
+    region — and with thinking off that is where builds failed the scene checks. It keeps
+    thinking, at medium or the section budget if higher, with a bigger output budget.
+  */
+  const writesAScene =
+    writesASection &&
+    wire.freeCode === true &&
+    pins.some((pin) => pin.id.startsWith(SCENE_SKILL_PREFIX));
+  if (writesAScene && !deep) {
+    const budget = options.sectionEffort === undefined || options.sectionEffort === 'low';
+    return {
+      effort: budget ? 'medium' : options.sectionEffort,
+      maxTokens: Math.max(options.sceneMaxTokens ?? SCENE_MAX_TOKENS, options.maxTokens ?? 0),
+    };
+  }
   const thinkingOff = !deep && (writesASection || scaffoldsABuild || asked === 'low');
   const off = thinkingOff ? ({ thinkingOff: true } as const) : {};
   if (CALL_EFFORTS.has(asked)) return { effort: asked as string, ...off };

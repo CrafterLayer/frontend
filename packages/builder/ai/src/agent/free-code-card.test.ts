@@ -83,7 +83,7 @@ afterEach(() => {
 describe('FREE_CODE_CARD', () => {
   it('fits its budget', () => {
     expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(FREE_CODE_CARD_MAX_CHARS);
-    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2450);
+    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2800);
   });
 
   it('states the runtime API, where the code goes, and the rules', () => {

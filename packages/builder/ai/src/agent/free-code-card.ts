@@ -22,6 +22,7 @@ LAYOUT: size a stage by its width, never vh (editor and screens differ): .ck-sce
 RUNTIME: js is the BODY of an async function of one parameter ck, run once per mount in the page (window, document reachable); errors are logged.
 ck.root the region element: draw only inside it. ck.editor true on the editor canvas. ck.reducedMotion true when motion is unwanted. ck.onDispose(fn) cleanup: timers, listeners, observers, frames.
 await ck.pixi() the full pixi.js v8 namespace. await ck.stage({background?,pointer?,resolution?}) -> {PIXI,app,canvas}: a ready transparent PIXI.Application filling ck.root as it resizes (clicks only with pointer:true), destroyed on dispose; re-lay out on app.renderer.on('resize',fn).
+SCENES with libraries: const s=await ck.scene({libs:['physics','fx'],seed?,pointer?,audio?}) -> each listed lib loaded as s.lib.<key>, sized by s.width/s.height (never window), cleanup via s.dispose. List every lib you use in a literal array; the active playbooks name the keys.
 RULES: no eval, document.write, host localStorage, or network calls the person did not ask for. Guard motion with ck.reducedMotion (one still frame). Hex colours are free. Arabic page: keep text in the tree, not in Pixi, unless asked.
 e.g. Pixi walkers: const {PIXI,app}=await ck.stage();const ws=Array.from({length:5},(_,i)=>{const g=new PIXI.Graphics().roundRect(-14,-8,28,34,10).fill(0xf59e0b).circle(0,-20,11).fill(0xfde68a);g.x=i*140;app.stage.addChild(g);return g});const lay=()=>ws.forEach(g=>{g.y=app.screen.height*.7});lay();app.renderer.on('resize',lay);if(!ck.reducedMotion)app.ticker.add(t=>ws.forEach(g=>{g.x=(g.x+1.5*t.deltaTime)%(app.screen.width+60)}));
 e.g. DOM count-up on scroll (<b data-count="250"> in the tree): const el=ck.root.querySelector('[data-count]');if(el){const to=+el.dataset.count;let id=0;const io=new IntersectionObserver(([e])=>{if(!e.isIntersecting)return;io.disconnect();const t0=performance.now(),f=n=>{const k=ck.reducedMotion?1:Math.min(1,(n-t0)/1200);el.textContent=Math.round(to*k);if(k<1)id=requestAnimationFrame(f)};f(t0)});io.observe(el);ck.onDispose(()=>{io.disconnect();cancelAnimationFrame(id)})}
@@ -36,7 +37,7 @@ export function freeCodeCardExamples(card: string = FREE_CODE_CARD): readonly st
 }
 
 /** The card's budget: a test pins it. */
-export const FREE_CODE_CARD_MAX_CHARS = 2_450;
+export const FREE_CODE_CARD_MAX_CHARS = 2_800;
 
 /**
  * The one line a request that ASKS for page code gets while the switch is off

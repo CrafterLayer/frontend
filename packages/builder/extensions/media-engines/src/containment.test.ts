@@ -159,8 +159,14 @@ describe('canvas scene engine containment (media-motion)', () => {
     expect(manifest.dependencies?.['pixi.js']).toBe('catalog:');
     // creative engines (2026-10-12): @pixi/tilemap is admitted as the lazy ck-lib-tilemap.js asset,
     // bound to the page's one Pixi namespace. Any further @pixi/* package needs its own admission.
+    // game libraries (2026-10-12): @pixi/sound (ck-lib-audio.js) and @pixi/ui (ck-lib-hud.js),
+    // admitted the same way.
     expect(
       Object.entries(manifest.dependencies ?? {}).filter(([name]) => name.startsWith('@pixi/')),
-    ).toEqual([['@pixi/tilemap', 'catalog:']]);
+    ).toEqual([
+      ['@pixi/sound', 'catalog:'],
+      ['@pixi/tilemap', 'catalog:'],
+      ['@pixi/ui', 'catalog:'],
+    ]);
   });
 });

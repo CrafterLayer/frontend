@@ -31,6 +31,9 @@ export const STUDIO_LIB_KEYS = [
   'dialogue',
   'ink',
   'tilemap',
+  'audio',
+  'gameai',
+  'hud',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 /** Keys whose asset binds to the page's Pixi namespace (D2); the others are plain. */
@@ -41,6 +44,8 @@ export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
   'viewport',
   'fx',
   'tilemap',
+  'audio',
+  'hud',
 ];
 
 export type ScriptParamValue = number | string | boolean | readonly string[];

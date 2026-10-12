@@ -1,5 +1,6 @@
 import { compileKeyword, readRequestWords, requestHasKeyword } from '../keyword-match';
 import type { AiSkillRegistry } from '../types';
+import { GAME_LIB_CUES } from './game-cues';
 
 /** Playbooks a request activates by its own words (most specific experience first). */
 const PIXI_PRIMARY_IDS = [
@@ -10,6 +11,9 @@ const PIXI_PRIMARY_IDS = [
   'craftkit.pixi-dialogue',
   'craftkit.pixi-animation',
   'craftkit.pixi-effects',
+  'craftkit.pixi-game-ai',
+  'craftkit.pixi-hud',
+  'craftkit.pixi-audio',
 ] as const;
 
 /** PixiJS v8 guides, matched by their own keywords after the playbooks. */
@@ -44,6 +48,10 @@ const COMPANIONS: Readonly<Record<string, readonly string[]>> = {
     'craftkit.pixi-animation',
   ],
   'craftkit.pixi-dialogue': ['craftkit.pixi-stories', 'craftkit.pixi-animation'],
+  // game libraries (2026-10-12): enemies, a HUD or sound belong to a game.
+  'craftkit.pixi-game-ai': ['craftkit.pixi-games', 'craftkit.pixi-tile-worlds'],
+  'craftkit.pixi-hud': ['craftkit.pixi-games'],
+  'craftkit.pixi-audio': ['craftkit.pixi-games'],
 };
 
 function matched(
@@ -70,6 +78,10 @@ export function pixiSkillIdsFor(
   if (primary.length === 0) return PIXI_GUIDE_IDS.filter((id) => matched(registry, words, id));
   const ids = new Set<string>(primary);
   ids.add(PIXI_DIRECTOR_ID);
+  // Inside a creative piece plain words count ("أعداء", "music", "health"): the person asked.
+  for (const cue of GAME_LIB_CUES)
+    if (cue.words.some((word) => requestHasKeyword(words, compileKeyword(word))))
+      ids.add(cue.skill);
   for (const id of primary) for (const companion of COMPANIONS[id] ?? []) ids.add(companion);
   for (const id of PIXI_GUIDE_IDS) if (matched(registry, words, id)) ids.add(id);
   return [...ids].filter((id) => registry.get(id) !== undefined);

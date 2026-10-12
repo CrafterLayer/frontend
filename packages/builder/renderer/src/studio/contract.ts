@@ -24,6 +24,9 @@ export const STUDIO_LIB_KEYS = [
   'dialogue',
   'ink',
   'tilemap',
+  'audio',
+  'gameai',
+  'hud',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
@@ -33,6 +36,8 @@ export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
   'viewport',
   'fx',
   'tilemap',
+  'audio',
+  'hud',
 ];
 
 export interface DeclaredLibs {

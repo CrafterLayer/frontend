@@ -20,7 +20,17 @@ export type CreativeGenre =
 
 /** The non-kit Studio libraries the planner may recommend (a subset of STUDIO_LIB_KEYS). */
 export type CreativeLib =
-  'anim' | 'fx' | 'dialogue' | 'ink' | 'tilemap' | 'physics' | 'filters' | 'viewport';
+  | 'anim'
+  | 'fx'
+  | 'dialogue'
+  | 'ink'
+  | 'tilemap'
+  | 'physics'
+  | 'filters'
+  | 'viewport'
+  | 'audio'
+  | 'gameai'
+  | 'hud';
 
 export interface CreativeBeat {
   readonly id: string;

@@ -25,6 +25,9 @@ export const STUDIO_LIB_KEYS = [
   'dialogue',
   'ink',
   'tilemap',
+  'audio',
+  'gameai',
+  'hud',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 

@@ -531,6 +531,25 @@ shipped as `assets/ck-scene.js` only on pages with `data-ck-scene`. Owner: packa
 
 - bundled dependency licences: see scene-source.ts banner
 
+## Studio game libraries — audio, game AI, HUD (2026-10-12)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-audio.js`, `ck-lib-gameai.js` and `ck-lib-hud.js`
+(generated `packages/builder/renderer/src/engines/studio/<key>-source.ts`), shipped only on pages
+whose code names the key. `scripts/build-studio-engines.mjs` audits each bundled package's
+`LICENSE` text against its declared licence and carries every notice in the asset's banner.
+
+| Package       | Version | Licence  | Asset              |
+| ------------- | ------- | -------- | ------------------ |
+| @pixi/sound   | 6.0.1   | MIT      | `ck-lib-audio.js`  |
+| zzfx          | 1.3.2   | MIT      | `ck-lib-audio.js`  |
+| yuka          | 0.7.8   | MIT      | `ck-lib-gameai.js` |
+| @pixi/ui      | 2.3.2   | MIT      | `ck-lib-hud.js`    |
+| tweedle.js    | 2.1.0   | MIT      | `ck-lib-hud.js`    |
+| typed-signals | 2.5.0   | CC0-1.0  | `ck-lib-hud.js`    |
+
+`@types/yuka` 0.7.4 (MIT) is a dev dependency for types only and ships nowhere.
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

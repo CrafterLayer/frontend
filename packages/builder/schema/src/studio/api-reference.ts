@@ -93,7 +93,7 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     'ck.use',
     'method',
-    "ck.use(...keys: ('kit'|'filters'|'emitter'|'physics'|'brush'|'rough'|'viewport'|'anim'|'fx'|'dialogue'|'ink'|'tilemap')[]): Promise<Record<string, unknown>>",
+    "ck.use(...keys: ('kit'|'filters'|'emitter'|'physics'|'brush'|'rough'|'viewport'|'anim'|'fx'|'dialogue'|'ink'|'tilemap'|'audio'|'gameai'|'hud')[]): Promise<Record<string, unknown>>",
     'Loads add-on libraries once per page. Write the keys literally.',
     'يحمّل المكتبات الإضافية مرة واحدة للصفحة. اكتب الأسماء حرفياً.',
   ),
@@ -158,7 +158,7 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     's.lib',
     'property',
-    's.lib: { filters?, emitter?, physics?, brush?, rough?, viewport?, anim?, fx?, dialogue?, ink?, tilemap? }',
+    's.lib: { filters?, emitter?, physics?, brush?, rough?, viewport?, anim?, fx?, dialogue?, ink?, tilemap?, audio?, gameai?, hud? }',
     'The libraries listed in libs, by key (CK_LIBRARY_REFERENCE describes each).',
     'المكتبات المذكورة في libs، باسمها (CK_LIBRARY_REFERENCE يصف كل واحدة).',
   ),
@@ -230,8 +230,8 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
     's.audio',
     'property',
     's.audio: { level, bass, mid, treble, beat, active }',
-    'Audio bands, zero until the visitor unmutes (needs audio:true).',
-    'نطاقات الصوت، صفر حتى يلغي الزائر الكتم (يتطلب audio:true).',
+    'Audio bands, zero until the visitor unmutes (needs audio:true). Not s.lib.audio, the scene music/effects library.',
+    'نطاقات الصوت، صفر حتى يلغي الزائر الكتم (يتطلب audio:true). ليست s.lib.audio مكتبة موسيقى المشهد ومؤثراته.',
   ),
   member(
     's.random',

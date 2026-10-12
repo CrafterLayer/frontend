@@ -14,6 +14,7 @@
   brief, so it costs nothing and never contradicts itself between section writers.
 */
 
+import { GAME_LIB_CUES } from '../skills/creative/game-cues';
 import { compileKeyword, readRequestWords, requestHasKeyword } from '../skills/keyword-match';
 import type { CreativeCharacterV1 } from './creative-memory';
 import { creativeSlug } from './creative-memory';
@@ -37,6 +38,17 @@ export type {
 } from './creative-brief-types';
 
 const ARABIC = /[؀-ۿ]/u;
+
+/* What each game library adds to the mechanics (its playbook carries the API). */
+const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
+  gameai: [
+    'enemies as s.lib.gameai agents: patrol, then chase around walls (ai.grid(world) + agent.chase), caught/escaped states',
+  ],
+  hud: ['canvas HUD (s.lib.hud): health/xp bars and score, mirrored in the DOM status'],
+  audio: [
+    'sound effects for actions (s.lib.audio sfx presets), optional music from an approved URL',
+  ],
+};
 
 /* Names the brief gives: "named Layla", "called Omar", "اسمه عمر", "اسمها ليلى", «ليلى». */
 /*
@@ -191,6 +203,8 @@ export function planCreativeBrief(
     ...(matches(words, ['glow', 'neon', 'retro', 'crt', 'توهج', 'نيون'])
       ? (['filters'] as const)
       : []),
+    // game libraries (2026-10-12): enemies, a HUD or sound only when the brief asks for them.
+    ...GAME_LIB_CUES.filter((cue) => matches(words, cue.words)).map((cue) => cue.lib),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([
@@ -203,7 +217,7 @@ export function planCreativeBrief(
     genre: rule.genre,
     language: arabic ? 'ar' : 'en',
     libs,
-    mechanics: rule.mechanics,
+    mechanics: [...rule.mechanics, ...libs.flatMap((lib) => GAME_LIB_MECHANICS[lib] ?? [])],
     beats: beatsFor(rule.kind, rule.genre, arabic),
     effects,
     weather,
@@ -212,6 +226,11 @@ export function planCreativeBrief(
     cast: [...memoryCast, ...requested].slice(0, 8),
     accessibility: arabic ? ACCESSIBILITY_AR : ACCESSIBILITY_EN,
     checks: [
+      ...(libs.includes('audio')
+        ? [
+            'sound starts on a gesture, music has the mute toggle s.lib.audio renders, no meaning by sound alone',
+          ]
+        : []),
       'libs named literally in ck.scene({ libs: [...] }) and only these',
       'every tick, listener, tween, effect, dialogue view and world released through s.dispose',
       'editor (s.editor) draws a still frame and its buttons do nothing',

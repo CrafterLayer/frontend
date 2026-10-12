@@ -257,21 +257,13 @@ export function mountScripts(
   // pixi-studio:runtime-wiring additions (2026-10-10): held equal to STUDIO_LIB_KEYS and
   // STUDIO_PIXI_BOUND_KEYS by scripts.studio.test.ts (this body cannot import them).
   const PARAMS_ATTRIBUTE = 'data-ck-params';
-  const LIB_KEYS: readonly string[] = [
-    'kit',
-    'filters',
-    'emitter',
-    'physics',
-    'brush',
-    'rough',
-    'viewport',
-    'anim',
-    'fx',
-    'dialogue',
-    'ink',
-    'tilemap',
-  ];
-  const PIXI_BOUND: readonly string[] = ['kit', 'filters', 'emitter', 'viewport', 'fx', 'tilemap'];
+  const LIB_KEYS: readonly string[] =
+    'kit filters emitter physics brush rough viewport anim fx dialogue ink tilemap audio gameai hud'.split(
+      ' ',
+    );
+  const PIXI_BOUND: readonly string[] = 'kit filters emitter viewport fx tilemap audio hud'.split(
+    ' ',
+  );
   const LATE_MS = 20000;
   // end pixi-studio:runtime-wiring additions
   const canvas = options?.interactive === false;

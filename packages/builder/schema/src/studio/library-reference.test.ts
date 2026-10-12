@@ -38,4 +38,14 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(libraryEntry('dialogue')?.source).toBe('first-party');
     expect(libraryEntry('kit')).toBeUndefined();
   });
+
+  it('describes the game libraries by the calls their skills teach', () => {
+    expect(libraryEntry('audio')?.api.join('\n')).toContain('s.lib.audio.create(s)');
+    expect(libraryEntry('gameai')?.pixiBound).toBe(false);
+    expect(libraryEntry('gameai')?.api.join('\n')).toContain('.chase(hero)');
+    expect(libraryEntry('hud')?.purpose.en).toMatch(/keyboard/u);
+    expect(CK_API_REFERENCE.find((member) => member.name === 's.audio')?.detail.en).toContain(
+      'Not s.lib.audio',
+    );
+  });
 });

@@ -8,6 +8,7 @@ import {
   CREATIVE_DIALOGUE_EXAMPLE,
   CREATIVE_EFFECTS_CONTROLS,
   CREATIVE_EFFECTS_EXAMPLE,
+  CREATIVE_ENGINE_SKILLS,
   CREATIVE_INK_EXAMPLE,
   CREATIVE_TILEMAP_CONTROLS,
   CREATIVE_TILEMAP_EXAMPLE,
@@ -22,19 +23,31 @@ import {
 
 const QA_STYLE = `html{--t-surface:#101525;--t-text:#f1f5f9;--t-accent:#67e8f9;--t-text-muted:#94a3b8;font-family:system-ui} .qa-controls{position:absolute;z-index:3;inset-inline:12px;top:12px;background:#172033e8;color:#f1f5f9;padding:12px;border-radius:12px} button{background:#f1f5f9;color:#172033;border:1px solid #94a3b8;border-radius:6px;padding:8px;margin:3px;touch-action:none}`;
 
+interface MountOptions {
+  reducedMotion?: boolean;
+  dir?: 'ltr' | 'rtl';
+  lang?: string;
+  /** The region's jsParams (data-ck-params), read by ck.params. */
+  params?: Record<string, unknown>;
+  /** Instrumentation that runs before the scene (e.g. counting AudioContexts). */
+  prelude?: string;
+}
+
 async function mount(
   page: Page,
   code: string,
   controls: string,
-  options: { reducedMotion?: boolean; dir?: 'ltr' | 'rtl' } = {},
+  options: MountOptions = {},
 ): Promise<Frame> {
-  const setup = `ck.root.innerHTML=${JSON.stringify(controls === '' ? '' : `<div class='qa-controls'>${controls}</div>`)};
+  const setup = `${options.prelude ?? ''}ck.root.innerHTML=${JSON.stringify(controls === '' ? '' : `<div class='qa-controls'>${controls}</div>`)};
 const originalScene=ck.scene.bind(ck);ck.scene=async options=>{const s=await originalScene(options);window.__creativeScene=s;window.__creativeStage=s.stage;return s};`;
   const html = await buildStudioPreviewHtml({
     code: `${setup}\n${code}\nwindow.__creativeReady=true;`,
     trust: 'unreviewed',
     reducedMotion: options.reducedMotion ?? false,
     dir: options.dir ?? 'ltr',
+    lang: options.lang,
+    params: options.params,
     themeCss: QA_STYLE,
   });
   await page.setContent(
@@ -200,6 +213,234 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
       const talk = await mount(page, CREATIVE_DIALOGUE_EXAMPLE, '', { reducedMotion: true });
       // No typewriter under reduced motion: the whole line is visible at once.
       expect(await talk.locator('.ckd-text').textContent()).toBe('The lantern went out.');
+    } finally {
+      await browser.close();
+    }
+  },
+  60_000,
+);
+
+/*
+  game libraries (2026-10-12): the audio, game-AI and HUD playbooks' examples exactly as the Agent
+  reads them (the inlined `e.g.` line of each skill), with test-owned controls that follow each
+  skill's "Example tree". Separate tests, so one library's failure never hides another's.
+*/
+
+function taught(id: string): string {
+  const skill = CREATIVE_ENGINE_SKILLS.find((candidate) => candidate.id === id);
+  const line = skill?.instructions.split('\n').find((text) => text.startsWith('e.g. '));
+  if (line === undefined) throw new Error(`${id} teaches no example`);
+  return line.slice(line.indexOf(': ') + ': '.length);
+}
+
+const AUDIO_CONTROLS = `<div role='group' aria-label='Sound effects'><button type='button' data-sfx='jump'>Jump</button><button type='button' data-sfx='coin'>Coin</button><button type='button' data-sfx='powerup'>Power up</button><button type='button' data-sfx='explode'>Boom</button></div><p data-sfx-status role='status' aria-live='polite'></p>`;
+
+const CHASE_CONTROLS = `<p>Reach the green exit before the guard catches you. Arrows or WASD to move.</p><div role='group' aria-label='Game controls'><button type='button' data-chase-start>Start</button><button type='button' data-chase-key='ArrowLeft'>Left</button><button type='button' data-chase-key='ArrowRight'>Right</button><button type='button' data-chase-key='ArrowUp'>Up</button><button type='button' data-chase-key='ArrowDown'>Down</button></div><output data-chase-status role='status' aria-live='polite'></output>`;
+
+const HUD_CONTROLS = `<div role='group' aria-label='Actions'><button type='button' data-hud-act='hit'>Take a hit</button><button type='button' data-hud-act='heal'>Heal</button></div><p data-hud-status role='status' aria-live='polite'></p>`;
+
+/* Counts AudioContexts and successful decodes; installed before the scene, the body untouched. */
+const COUNT_AUDIO = `window.__audioContexts=0;window.__decoded=0;
+for(const k of ['AudioContext','webkitAudioContext']){const N=window[k];if(typeof N==='function')window[k]=class extends N{constructor(...a){super(...a);window.__audioContexts+=1}}}
+const ckDecode=BaseAudioContext.prototype.decodeAudioData;BaseAudioContext.prototype.decodeAudioData=function(...a){const p=ckDecode.apply(this,a);Promise.resolve(p).then(()=>{window.__decoded+=1},()=>undefined);return p};
+`;
+
+/** A 0.6 s, 220 Hz, 8-bit mono WAV as a data: URL — an admitted music URL with no network. */
+function wavDataUrl(): string {
+  const rate = 8000;
+  const samples = 4800;
+  const bytes = Buffer.alloc(44 + samples);
+  bytes.write('RIFF', 0);
+  bytes.writeUInt32LE(36 + samples, 4);
+  bytes.write('WAVEfmt ', 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(rate, 24);
+  bytes.writeUInt32LE(rate, 28);
+  bytes.writeUInt16LE(1, 32);
+  bytes.writeUInt16LE(8, 34);
+  bytes.write('data', 36);
+  bytes.writeUInt32LE(samples, 40);
+  for (let i = 0; i < samples; i += 1)
+    bytes[44 + i] = 128 + Math.round(60 * Math.sin((2 * Math.PI * 220 * i) / rate));
+  return `data:audio/wav;base64,${bytes.toString('base64')}`;
+}
+
+const MAZE = [
+  '############',
+  '#p...#....e#',
+  '#....#.....#',
+  '#....#..g..#',
+  '#..........#',
+  '############',
+];
+
+async function eachLayout(
+  run: (page: Page, layout: { dir: 'ltr' | 'rtl'; lang: string; width: number }) => Promise<void>,
+): Promise<void> {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const dir of ['ltr', 'rtl'] as const)
+      for (const width of [390, 1280]) {
+        const context = await browser.newContext({ viewport: { width, height: 720 } });
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on('pageerror', (error) => errors.push(error.message));
+        await page.route(/^https?:/u, (route) => route.abort());
+        try {
+          await run(page, { dir, lang: dir === 'rtl' ? 'ar' : 'en', width });
+          expect(errors).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      }
+  } finally {
+    await browser.close();
+  }
+}
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'audio: no AudioContext before input, queued music starts on the first gesture, accessible mute toggle',
+  async () => {
+    const music = wavDataUrl();
+    await eachLayout(async (page, { dir, lang }) => {
+      const frame = await mount(page, taught('craftkit.pixi-audio'), AUDIO_CONTROLS, {
+        dir,
+        lang,
+        params: { music },
+        prelude: COUNT_AUDIO,
+      });
+      const toggle = frame.getByRole('button', {
+        name: lang === 'ar' ? 'كتم الصوت' : 'Mute sound',
+      });
+      expect(await toggle.getAttribute('aria-pressed')).toBe('false');
+      await page.waitForTimeout(300);
+      expect(await frame.evaluate<number>('window.__audioContexts')).toBe(0);
+      await frame.getByRole('button', { name: 'Coin' }).click();
+      await frame.waitForFunction('window.__audioContexts >= 1');
+      // The music asked for before any input was held, then decoded once the gesture opened audio.
+      await frame.waitForFunction('window.__decoded >= 1');
+      expect(await frame.getByRole('status').textContent()).toBe('coin');
+      await toggle.click();
+      expect(await toggle.getAttribute('aria-pressed')).toBe('true');
+      await toggle.press('Enter');
+      expect(await toggle.getAttribute('aria-pressed')).toBe('false');
+      await frame.locator('#ck-preview').evaluate((root) => {
+        root.remove();
+      });
+      await frame.waitForFunction('window.__creativeStage.destroyed === true');
+    });
+  },
+  180_000,
+);
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'gameai: the guard chases the hero around the wall on the tile grid and never enters it',
+  async () => {
+    await eachLayout(async (page, { dir }) => {
+      const frame = await mount(page, taught('craftkit.pixi-game-ai'), CHASE_CONTROLS, { dir });
+      expect(await frame.getByRole('status').textContent()).toBe('ready');
+      expect(
+        await frame.evaluate<boolean>(
+          'window.__creativeScene.app.renderer.renderPipes.tilemap !== undefined',
+        ),
+      ).toBe(true);
+      // Sample the guard's display position every frame (layer children: world, hero, guard).
+      await frame.evaluate(() => {
+        const host = window as unknown as {
+          __creativeStage: { children: { children: { x: number; y: number }[] }[] };
+          __guard: [number, number][];
+        };
+        const guard = host.__creativeStage.children[0]?.children.at(-1);
+        host.__guard = [];
+        const sample = (): void => {
+          if (guard !== undefined) host.__guard.push([guard.x, guard.y]);
+          if (host.__guard.length < 3000) requestAnimationFrame(sample);
+        };
+        sample();
+      });
+      await frame.getByRole('button', { name: 'Start', exact: true }).click();
+      await expect
+        .poll(() => frame.getByRole('status').textContent(), { timeout: 30_000 })
+        .toBe('caught');
+      const trail = await frame.evaluate<[number, number][]>('window.__guard');
+      const cells = trail.map(([x, y]) => [Math.floor(x / 32), Math.floor(y / 32)] as const);
+      expect(cells.filter(([col, row]) => MAZE[row]?.[col] === '#')).toEqual([]);
+      // The only way from the guard's room to the hero's is the bottom row's gap.
+      expect(cells.some(([, row]) => row === 4)).toBe(true);
+      expect(Math.min(...cells.map(([col]) => col))).toBeLessThanOrEqual(2);
+    });
+  },
+  240_000,
+);
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'hud: a hit updates the canvas health bar and its meter; the Pause twin works from the keyboard',
+  async () => {
+    await eachLayout(async (page, { dir, lang, width }) => {
+      const frame = await mount(page, taught('craftkit.pixi-hud'), HUD_CONTROLS, { dir, lang });
+      const hudView = 'window.__creativeScene.stage.children.at(-1)';
+      const progress = `${hudView}.children[0].children[1].children[0].progress`;
+      expect(await frame.evaluate<number>(progress)).toBe(100);
+      await frame.getByRole('button', { name: 'Take a hit' }).click();
+      expect(await frame.evaluate<number>(progress)).toBe(80);
+      const meter = frame.locator('[data-ck-hud] meter').first();
+      expect(await meter.evaluate((element) => (element as HTMLMeterElement).value)).toBe(80);
+      const barX = await frame.evaluate<number>(`${hudView}.children[0].x`);
+      if (dir === 'rtl') expect(barX).toBeGreaterThan(width / 2);
+      else expect(barX).toBeLessThan(width / 2);
+      const pause = frame.getByRole('button', { name: lang === 'ar' ? 'إيقاف مؤقت' : 'Pause' });
+      await pause.focus();
+      expect(await pause.isVisible()).toBe(true);
+      await page.keyboard.press('Enter');
+      expect(await frame.getByRole('status').textContent()).toBe(
+        lang === 'ar' ? 'متوقف' : 'Paused',
+      );
+      await frame.getByRole('button', { name: 'Take a hit' }).click();
+      expect(await frame.evaluate<number>(progress)).toBe(80);
+      expect(
+        await frame.evaluate<boolean>('document.documentElement.scrollWidth > innerWidth'),
+      ).toBe(false);
+      // Disposal: the region leaving takes the canvas widgets and their DOM twins with it.
+      await frame.locator('#ck-preview').evaluate((root) => {
+        root.remove();
+      });
+      await frame.waitForFunction('window.__creativeStage.destroyed === true');
+      expect(await frame.locator('[data-ck-hud]').count()).toBe(0);
+    });
+  },
+  180_000,
+);
+
+it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
+  'game libraries stay calm and complete under reduced motion',
+  async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({ viewport: { width: 800, height: 700 } });
+      await page.route(/^https?:/u, (route) => route.abort());
+      const chase = await mount(page, taught('craftkit.pixi-game-ai'), CHASE_CONTROLS, {
+        reducedMotion: true,
+      });
+      expect(await chase.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(
+        false,
+      );
+      await chase.getByRole('button', { name: 'Start', exact: true }).click();
+      const heroX = 'window.__creativeStage.children[0].children[1].x';
+      const before = await chase.evaluate<number>(heroX);
+      await chase.getByRole('button', { name: 'Right' }).click();
+      expect(await chase.evaluate<number>(heroX)).toBeGreaterThan(before + 20);
+      const hud = await mount(page, taught('craftkit.pixi-hud'), HUD_CONTROLS, {
+        reducedMotion: true,
+      });
+      await hud.getByRole('button', { name: 'Take a hit' }).click();
+      expect(
+        await hud.evaluate<number>(
+          'window.__creativeScene.stage.children.at(-1).children[0].children[1].children[0].progress',
+        ),
+      ).toBe(80);
+      expect(await hud.evaluate<boolean>('window.__creativeScene.app.ticker.started')).toBe(false);
     } finally {
       await browser.close();
     }

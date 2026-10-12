@@ -216,6 +216,30 @@ Design decisions:
   disallows in `allowBuilds`), `@pixi/layout` (no demonstrated in-canvas HUD need yet) and Spine
   (runtime licence and licensed skeleton assets unresolved).
 
+### Game libraries (2026-10-12)
+
+Three more keys, same pipeline. Each `create(s, …)` takes the scene, so editor silence, page
+language, the seeded random and disposal through `s.dispose` cannot be forgotten.
+
+| Key      | Source / licence                                                    | gzip / budget | What it gives an authored scene                                                                                                                                       |
+| -------- | ------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audio`  | @pixi/sound 6.0.1 + zzfx 1.3.2 (MIT, Pixi-bound)                    | 16.0 / 18 kB  | 11 procedural ZzFX effects with no files, music from admitted URLs with fades, master volume/mute, an accessible bilingual mute toggle, pause on a hidden page        |
+| `gameai` | yuka 0.7.8 (MIT)                                                    | 20.7 / 22 kB  | Steering agents bound to display objects (seek, flee, arrive, pursue, evade, seeded wander, patrol, avoidance, separation), A* chases over tilemap worlds, small FSMs |
+| `hud`    | @pixi/ui 2.3.2 (MIT; tweedle.js MIT, typed-signals CC0, Pixi-bound) | 25.1 / 27 kB  | Health/xp bars, sliders, buttons, check boxes, scrolling lists and score text in RTL-aware corners, themed from the site tokens, each with a native DOM twin          |
+
+- **No audio before a gesture.** @pixi/sound and ZzFX both create an AudioContext when their module
+  runs, so `ck-lib-audio.js` evaluates them only from a pointer/key/touch inside the scene's region
+  (single-file `import()`); music requested earlier waits, effects are skipped. Music URLs reuse the
+  `s.texture` scheme rule (`https:`, `data:audio/`, `blob:`), bounded to 6 tracks × 12 MB.
+- **Pixel-scale steering.** yuka's x/z plane carries the scene's (x, y); its metre-tuned separation
+  and path arrival are rescaled, wander uses `s.random`, and a bounded grid A* reads tile solidity
+  live. The build marks yuka's module-scope scratch vectors pure so ~40 % of it tree-shakes.
+- **HUD is not UI.** Only glanceable state goes on the canvas; every canvas control has a keyboard
+  path through a visually hidden native twin that appears on focus. Menus and forms stay DOM.
+- **Teaching.** `craftkit.pixi-audio`, `craftkit.pixi-game-ai` and `craftkit.pixi-hud` auto-activate
+  on narrow game phrases only; plain words ("music", "أعداء", "xp") count inside a creative lane
+  (`GAME_LIB_CUES`), where the planner also adds the libraries and their mechanics.
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

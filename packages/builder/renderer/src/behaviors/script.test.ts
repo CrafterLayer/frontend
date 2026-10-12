@@ -122,8 +122,11 @@ const BASELINE_GZIP_BYTES = 12_605;
   14 000 → 16 000 on 2026-10-09 (free-code mode): the `scripts` pack adds 2 669 B gzip to the
   every-pack bundle (25 015 → 27 684 B). It ships only on a site whose markup carries `data-ck-js`
   (see the "ships only the packs" test below), so a page that uses no script pays nothing.
+  16 000 → 21 000 on 2026-10-12, measured: the Studio wiring the creative engines added to the
+  `scripts` pack (69dca3f) left the every-pack bundle 19 231 B over the runtime, and the Countdown
+  block's clock (`countdown-clock`) adds 1 088 B (20 321 B). Both ship only to pages that use them.
 */
-const PACKS_BUDGET_GZIP_BYTES = 16_000;
+const PACKS_BUDGET_GZIP_BYTES = 21_000;
 
 describe('behaviorRuntimeScript — packs', () => {
   it('serialises the core runtime and then every pack, each called on the document', () => {

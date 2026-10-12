@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isLucideIconName, utilityVocabulary } from '@craftkit/builder-schema';
 
+import { PIXI_CREATIVE_SKILL_IDS } from './creative/creative-skill-ids.test-util';
 import {
   CRAFTKIT_AI_SKILL_DEFINITIONS,
   createCraftkitAiSkillRegistry,
@@ -119,15 +120,8 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.page-composition',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
-      // creative agent (2026-10-12): engines and the director (explicit) beside the playbooks.
-      'craftkit.pixi-animation',
-      'craftkit.pixi-dialogue',
-      'craftkit.pixi-director',
-      'craftkit.pixi-effects',
-      'craftkit.pixi-games',
-      'craftkit.pixi-murals',
-      'craftkit.pixi-stories',
-      'craftkit.pixi-tile-worlds',
+      // creative agent and game libraries (2026-10-12): playbooks, engines and the director.
+      ...PIXI_CREATIVE_SKILL_IDS,
       // pixi-skills additions (2026-10-10): PixiJS v8 for free-code scene scripts.
       'craftkit.pixi-v8-core',
       'craftkit.pixi-v8-effects',

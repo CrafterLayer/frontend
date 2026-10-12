@@ -1,4 +1,5 @@
 import type { AiSkillDefinitionV1 } from '../types';
+import { GAME_ENGINE_SKILLS } from './game-engines';
 
 /*
   Creative engine skills (creative agent, 2026-10-12): the Agent's playbooks for the Studio
@@ -282,4 +283,6 @@ export const CREATIVE_ENGINE_SKILLS: readonly AiSkillDefinitionV1[] = [
   CREATIVE_EFFECTS_SKILL,
   CREATIVE_DIALOGUE_SKILL,
   CREATIVE_TILEMAP_SKILL,
+  // game libraries (2026-10-12): audio, game AI and HUD (game-engines.ts).
+  ...GAME_ENGINE_SKILLS,
 ];

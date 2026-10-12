@@ -28,6 +28,9 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-dialogue': async () => (await import('./dialogue-source')).DIALOGUE_SOURCE,
   'lib-ink': async () => (await import('./ink-source')).INK_SOURCE,
   'lib-tilemap': async () => (await import('./tilemap-source')).TILEMAP_SOURCE,
+  'lib-audio': async () => (await import('./audio-source')).AUDIO_SOURCE,
+  'lib-gameai': async () => (await import('./gameai-source')).GAMEAI_SOURCE,
+  'lib-hud': async () => (await import('./hud-source')).HUD_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

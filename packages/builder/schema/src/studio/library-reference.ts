@@ -23,6 +23,7 @@ export interface CkLibraryEntry {
 
 const STUDIO = '2026-10-10';
 const CREATIVE = '2026-10-12';
+const GAMES = '2026-10-12';
 
 export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
   {
@@ -167,6 +168,56 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     ],
     source: '@pixi/tilemap',
     since: CREATIVE,
+  },
+  {
+    key: 'audio',
+    pixiBound: true,
+    purpose: {
+      en: 'Music and sound effects owned by the scene: @pixi/sound for admitted music URLs, ZzFX presets (jump, coin, hit, explode, powerup, click, laser, blip, step, win, lose) with no files; starts on the first gesture, renders an accessible mute toggle, pauses when hidden.',
+      ar: 'موسيقى ومؤثرات صوتية يملكها المشهد: @pixi/sound لروابط الموسيقى المسموحة، ومؤثرات ZzFX جاهزة (قفز، عملة، ضربة، انفجار، قوة، نقرة، ليزر، تنبيه، خطوة، فوز، خسارة) بلا ملفات؛ يبدأ مع أول تفاعل ويعرض زر كتم سهل الوصول ويتوقف عند إخفاء الصفحة.',
+    },
+    api: [
+      'const audio = s.lib.audio.create(s)',
+      "audio.sfx('coin' | 'jump' | 'hit' | … | [zzfxParams], { volume })",
+      'audio.music.play(url, { loop: true, volume: 0.5, fadeMs: 800 }) / audio.music.stop({ fadeMs })',
+      'audio.volume = 0.6 / audio.mute() / audio.unmute() / audio.muted',
+    ],
+    source: '@pixi/sound + zzfx',
+    since: GAMES,
+  },
+  {
+    key: 'gameai',
+    pixiBound: false,
+    purpose: {
+      en: 'Enemy and NPC behaviour: yuka steering (seek, flee, arrive, pursue, evade, wander, patrol, obstacle avoidance, separation) on agents that move display objects, A* chases around tilemap walls and small state machines; seeded and bounded.',
+      ar: 'سلوك الأعداء والشخصيات: توجيه yuka (ملاحقة وهروب ووصول ومطاردة وتفادٍ وتجوال ودورية وتجنّب العوائق وتباعد) لعملاء يحرّكون عناصر العرض، ومطاردة A* حول جدران الخريطة، وآلات حالة صغيرة؛ ببذرة وحدود.',
+    },
+    api: [
+      'const ai = s.lib.gameai.create(s)',
+      'const grid = ai.grid(world)',
+      'const enemy = ai.agent(sprite, { x, y, speed: 110, solid: true }).chase(hero)',
+      'enemy.seek(p) / flee(p) / arrive(p) / pursue(a) / evade(a) / wander() / patrol(points) / avoid() / separate() / stop()',
+      "const brain = ai.fsm({ patrol: { enter, update }, chase: { … } }, 'patrol')",
+      's.fixedTick((dt) => ai.update(dt))',
+    ],
+    source: 'yuka',
+    since: GAMES,
+  },
+  {
+    key: 'hud',
+    pixiBound: true,
+    purpose: {
+      en: 'In-canvas game HUD from @pixi/ui: health/xp bars, sliders, buttons, check boxes, scrolling lists and score text in direction-aware corners, themed from the site tokens; every control has a keyboard/screen-reader DOM twin. Menus and forms stay DOM.',
+      ar: 'واجهة لعبة داخل اللوحة من @pixi/ui: أشرطة صحة وخبرة ومنزلقات وأزرار وخانات اختيار وقوائم منزلقة ونص النقاط في زوايا تتبع اتجاه الصفحة، بألوان رموز الموقع؛ لكل عنصر نظير DOM للوحة المفاتيح وقارئ الشاشة. القوائم والنماذج تبقى DOM.',
+    },
+    api: [
+      'const hud = s.lib.hud.create(s)',
+      "const hp = hud.bar({ label: 'Health', value: 100, max: 100 }); hp.value -= 10",
+      "const score = hud.text('Score 0', { corner: 'topEnd' }); score.text = 'Score 10'",
+      "hud.button({ label, corner: 'bottomEnd', onPress }) / hud.slider({ label, min, max, value, onChange }) / hud.checkbox({ label, checked, onChange }) / hud.list({ label, items })",
+    ],
+    source: '@pixi/ui',
+    since: GAMES,
   },
 ];
 

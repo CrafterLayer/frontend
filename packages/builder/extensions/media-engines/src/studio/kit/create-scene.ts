@@ -28,6 +28,7 @@ import { poissonDisk } from './poisson';
 import { createRandom } from './random';
 import { createScrollTracker } from './scroll';
 import { createShaderFilter, type ShaderHandle } from './shader';
+import { admittedMediaUrl } from '../libs/shared/media-url';
 import { createSceneText, words as splitWords } from './text';
 import { createClock, createGovernor, scaledCount, type SceneTime } from './time-governor';
 import type {
@@ -75,8 +76,6 @@ export const SILENT_SOUND: SceneSound = Object.freeze({
     /* silent */
   },
 });
-
-const TEXTURE_URL = /^(?:https:\/\/|data:image\/|blob:)/iu;
 
 /** Context losses per region element (a rerun keeps the count; the second loss goes still). */
 const contextLosses = new WeakMap<Element, number>();
@@ -634,7 +633,7 @@ export function createScene(
     words: splitWords,
     texture(url: string): Promise<unknown> {
       const value = String(url ?? '').trim();
-      if (!TEXTURE_URL.test(value)) {
+      if (admittedMediaUrl(value, 'image') === undefined) {
         return Promise.reject(
           new Error(
             `s.texture: only https:, data:image/ and blob: URLs load (got "${value.slice(0, 60)}")`,

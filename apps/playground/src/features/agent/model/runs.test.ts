@@ -19,6 +19,7 @@ import {
   withImpact,
   type AnsweredTurn,
 } from './runs';
+import { catalogPolicyFor } from '../../preview/components/AssistantPanel/catalogPolicyFor';
 import type { EditTurn, ProposalTurn, StepPlanTurn, Turn } from './turns';
 
 /*
@@ -187,6 +188,8 @@ async function proposalFor(kernel: BuilderKernel): Promise<builder.AiValidatedPr
     selection: ['hero'],
     validationPorts: preflightPorts(),
     apply: 'never',
+    // As the controller runs it (run-options.ts): the full catalog no longer fits the default budget.
+    ...catalogPolicyFor('offline', ['hero']),
   });
   return result.proposal;
 }

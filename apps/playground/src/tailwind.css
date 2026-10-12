@@ -85,6 +85,8 @@
 @source inline("order-{1,2,3,4,5,6,first,last,none}");
 @source inline("{sm:,md:,lg:,}grid-cols-{1..12}");
 @source inline("grid-cols-none");
+@source inline("max-md:grid-cols-1");
+@source inline("max-md:col-span-1");
 @source inline("{sm:,md:,lg:,}col-span-{1..12}");
 @source inline("col-span-full");
 @source inline("col-start-{1..12}");

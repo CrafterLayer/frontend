@@ -69,7 +69,7 @@ describe('RunTelemetry', () => {
     expect(screen.getByText('20')).toBeVisible();
     expect(screen.getByText('8')).toBeVisible();
     expect(screen.getByText(/no new model charge/u)).toBeVisible();
-    expect(screen.queryByText('Reported cost (USD)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reported cost in US dollars')).not.toBeInTheDocument();
   });
   it('supports Arabic attribution and an empty historical record', () => {
     const { rerender, container } = render(

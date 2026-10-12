@@ -32,11 +32,12 @@
     "format:check": "prettier . --check",
     "check:workspace": "node packages/workspace-tools/src/cli/check-workspace.mjs",
     "check:components": "node packages/workspace-tools/src/cli/check-components.mjs",
+    "check:file-sizes": "node packages/workspace-tools/src/cli/check-file-sizes.mjs",
     "check:bundles": "turbo run check:size --filter=@craftkit/query --filter=@craftkit/routing",
     "check:boundaries": "turbo boundaries",
     "test:workspace": "pnpm --filter @craftkit/workspace-tools test",
     "check:graph": "turbo run lint typecheck test build build-storybook --dry=json",
-    "verify": "pnpm format:check && pnpm test:workspace && pnpm test:ai-bridge && pnpm check:workspace && pnpm check:components && pnpm check:boundaries && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm check:bundles && pnpm test:storybook && pnpm build-storybook"
+    "verify": "pnpm format:check && pnpm test:workspace && pnpm test:ai-bridge && pnpm check:workspace && pnpm check:components && pnpm check:file-sizes && pnpm check:boundaries && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm check:bundles && pnpm test:storybook && pnpm build-storybook"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",

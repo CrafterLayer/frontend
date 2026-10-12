@@ -8,6 +8,8 @@ import { DATA_AGENT_TOOLS } from '../../data-tools';
 // i18n (2026-10-12): page.translate
 import { I18N_AGENT_TOOLS } from '../../i18n-tools';
 import { BUILTIN_AGENT_TOOLS } from './builtin';
+// creative-power F (2026-10-12): scene.preset
+import { scenePresetTool } from './builtin/scene-preset';
 import type { AgentTool, AgentToolLane } from './types';
 
 /**
@@ -27,6 +29,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...DATA_AGENT_TOOLS,
   // i18n (2026-10-12): a page in another language in one step
   ...I18N_AGENT_TOOLS,
+  // creative-power F (2026-10-12): one of the 30 curated Pixi scenes, in one step
+  scenePresetTool as AgentTool,
 ]);
 
 const BY_NAME: ReadonlyMap<string, AgentTool> = new Map(AGENT_TOOLS.map((tool) => [tool.name, tool]));

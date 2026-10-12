@@ -1468,8 +1468,8 @@ describe('agent tools in the edit prompt', () => {
   });
 
   // Shared presets add a bounded capability line without stripping existing tool signatures.
-  it('keeps the edit prompt compact: edit within 2460 characters, seo within 900, the edit rules still < 80% of a build', () => {
-    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(2_460);
+  it('keeps the edit prompt compact: edit within 3250 characters, seo within 900, the edit rules still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(3_250);
     expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
     const edit = buildPrompt(editRequest());
     const build = buildPrompt({

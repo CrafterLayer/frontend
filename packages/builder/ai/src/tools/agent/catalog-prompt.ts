@@ -1,6 +1,7 @@
 import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, ELEMENT_RECIPE_IDS, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
 
 import { DATA_SHOW_AS } from '../../data-tools/data-show';
+import { scenePresetMenu } from './builtin/scene-preset';
 import { agentToolsForLane } from './registry';
 import { AGENT_TOOL_COMMAND, type AgentTool, type AgentToolLane } from './types';
 
@@ -29,11 +30,14 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // kit.section, fonts.set and image.set lose their signatures in edit.
 // i18n (2026-10-12): edit 2290 → 2460, measured (2,458): page.translate's signature and its texts
 // line (+171); below this palette.set or page.translate falls back to a bare name.
+// creative-power F (2026-10-12): edit 2460 → 3250 and section 1200 → 1976, measured (3,247 and
+// 1,973): scene.preset's signature and its preset line (the 30 ids by category, +789); every other
+// tool keeps the shape it had. Not in build: +789 does not fit its 1,270 (a 62% rise for one tool).
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
   build: 1_270,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
-  section: 1_200,
-  edit: 2_460,
+  section: 1_976,
+  edit: 3_250,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -73,6 +77,8 @@ const DETAILS: Readonly<Record<string, string>> = {
   'report.build': `report.build data like data.show → title, KPI cards (last value + change vs previous row; kpis?:['Revenue']), chart, table`,
   // i18n (2026-10-12): the texts are the page's own words, all of them, or the tool refuses.
   'page.translate': 'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
+  // creative-power F (2026-10-12): the catalogue's ids by category; the shared params, then each preset's own.
+  'scene.preset': `scene.preset ${scenePresetMenu()}; params: palette,seed,speed,density + its own; behind:id fills that region under its content, id swaps its scene`,
 };
 
 function details(tools: readonly AgentTool[]): readonly string[] {

@@ -1,0 +1,71 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MemoryTabStories from './MemoryTab.stories';
+
+<Meta of={MemoryTabStories} />
+
+# MemoryTab
+
+The Memory tab of "Skills & memory" (2026-10-12): what the Agent keeps in every request and every
+conversation, and the field to add to it.
+
+<Canvas of={MemoryTabStories.Default} />
+
+## Purpose
+
+People repeat the same standing facts and preferences: "our brand colour is forest green", «اكتب
+دائمًا بالعربية الفصحى», "the clinic is closed on Fridays". The project memory keeps them, and every
+run reads them as reviewed context, never as instructions a model wrote. This tab shows each note
+with its kind (a preference, or a fact about the site) and Forget. It holds at most 20 notes of 500
+characters, the engine's cap for one memory fragment.
+
+## When to use / not
+
+Inside KnowledgePopover, which passes `knowledge.memory`. It renders the notes and calls the store's
+edits (`add`, `remove`, `clear`); the store judges each note (empty, too long, duplicate, full).
+Instructions for how to work belong in a skill (SkillsTab), not here.
+
+## Props
+
+| prop     | type                | default | notes                     |
+| -------- | ------------------- | ------- | ------------------------- |
+| `memory` | `ProjectMemoryView` | none    | the notes and their edits |
+| `labels` | `KnowledgeLabels`   | none    | `knowledgeLabels(locale)` |
+
+## States
+
+| story                            | what it shows                                  |
+| -------------------------------- | ---------------------------------------------- |
+| `Default`, `Dark`                | three notes with their kinds; the count        |
+| `Empty`                          | "Nothing remembered yet."                      |
+| `Remembered`                     | a fact about the site added at the end         |
+| `Refused`                        | Remember with nothing written                  |
+| `Full`                           | twenty notes: a twenty-first is refused        |
+| `ConfirmingClear`                | "Forget everything" armed, in the Alarm colour |
+| `RightToLeft`, `DarkRightToLeft` | Arabic notes                                   |
+| `RefusedRightToLeft`             | a duplicate refused in Arabic                  |
+
+## Anatomy
+
+```text
+Facts and preferences the Agent keeps …          intro (Meta, Graphite)
+Something to remember                            label (Meta 500)
+[Our brand colour is forest green          ]     two-line text area
+[Preference ▾] [Remember]   3 of 20              kind, action, count
+Write something to remember.                     refusal line (Alarm), an alert
+ Preference  Our brand colour is forest …   ✕   kind tag, the words in full, Forget
+Forget everything                                quiet; armed in the Alarm colour
+```
+
+## Accessibility
+
+- The field has a visible label; the kind select is named "Kind" (visually hidden).
+- A refusal is one `alert` line, always in the DOM and empty until a refusal.
+- Each Forget is named for its note: Forget “Our brand colour is forest green”.
+- "Forget everything" takes two presses: the first arms it (`data-confirming`, "Forget
+  everything?"), the second clears. Leaving the button disarms it.
+
+## RTL
+
+Logical properties only. The field and each note run in their own script's direction (`dir="auto"`),
+so an English note in an Arabic panel still reads left to right.

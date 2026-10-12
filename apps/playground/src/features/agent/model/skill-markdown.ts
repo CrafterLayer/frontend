@@ -13,6 +13,11 @@
  * the instructions; `keywords` may be a comma list, a `[a, b]` list or `- a` lines; without
  * keywords the words of the name turn the skill on. Nothing here judges limits: the draft
  * goes through `checkSkillDraft` like one typed by hand.
+ *
+ * MDX reads too (a SKILL.mdx, 2026-10-12): `import` lines and `export` statements are not
+ * instructions and are dropped — an `export const meta = { name: '…', … }` (or `frontmatter`,
+ * `metadata`) stands in for the front matter — and JSX tags are unwrapped to their words, so
+ * `<Callout>Never use red.</Callout>` teaches "Never use red." Nothing in it is ever run.
  */
 import { splitKeywords, type UserSkill, type UserSkillDraft } from './user-skills';
 
@@ -59,9 +64,61 @@ function nameWords(name: string): readonly string[] {
   );
 }
 
-/** A draft from Markdown, or `undefined` when there is no name and no instructions to read. */
+const MDX_IMPORT = /^\s*import\s+(?:[^'"]*\s+from\s+)?['"][^'"]+['"];?\s*$/u;
+const MDX_META = /^\s*export\s+const\s+(?:meta|frontmatter|metadata)\s*=\s*\{/u;
+
+/** `key: 'value'` and `key: ['a', 'b']` pairs of an MDX `export const meta = { … }`. */
+function readMetaObject(block: string): Map<string, string> {
+  const fields = new Map<string, string>();
+  const pair = /([A-Za-z_]+)\s*:\s*(\[[^\]]*\]|"[^"]*"|'[^']*'|`[^`]*`)/gu;
+  for (const [, key = '', raw = ''] of block.matchAll(pair)) {
+    const value = raw.startsWith('[')
+      ? raw
+          .slice(1, -1)
+          .split(',')
+          .map(unquote)
+          .filter((word) => word !== '')
+          .join(', ')
+      : raw.slice(1, -1);
+    fields.set(key.toLowerCase(), value);
+  }
+  return fields;
+}
+
+/** MDX as Markdown: imports and exports out (the meta object kept apart), JSX unwrapped. */
+function readMdx(source: string): { readonly body: string; readonly meta: Map<string, string> } {
+  const lines = source.split('\n');
+  const kept: string[] = [];
+  let meta = new Map<string, string>();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    if (MDX_IMPORT.test(line)) continue;
+    if (/^\s*export\s/u.test(line)) {
+      // The statement runs until its braces close (one line, or an object over several).
+      let block = line;
+      let depth = (line.match(/\{/gu) ?? []).length - (line.match(/\}/gu) ?? []).length;
+      while (depth > 0 && index + 1 < lines.length) {
+        index += 1;
+        const next = lines[index] ?? '';
+        block += `\n${next}`;
+        depth += (next.match(/\{/gu) ?? []).length - (next.match(/\}/gu) ?? []).length;
+      }
+      if (MDX_META.test(block)) meta = readMetaObject(block);
+      continue;
+    }
+    kept.push(line);
+  }
+  const body = kept
+    .join('\n')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/gu, '')
+    .replace(/<\/?[A-Z][\w.]*(?:\s[^<>]*)?\/?>/gu, '');
+  return { body, meta };
+}
+
+/** A draft from Markdown or MDX, or `undefined` when there is no name and no instructions. */
 export function parseSkillMarkdown(markdown: string): UserSkillDraft | undefined {
-  const source = markdown.replace(/\r\n?/gu, '\n');
+  const mdx = readMdx(markdown.replace(/\r\n?/gu, '\n'));
+  const source = mdx.body.replace(/^\s*\n/u, '');
   const match = FRONT_MATTER.exec(source);
   let name = '';
   let description = '';
@@ -75,6 +132,11 @@ export function parseSkillMarkdown(markdown: string): UserSkillDraft | undefined
     keywordText = fields.get('keywords') ?? fields.get('triggers') ?? '';
     mode = unquote(fields.get('mode') ?? '').toLowerCase() === 'always' ? 'always' : 'auto';
     body = source.slice(match[0].length);
+  } else if (mdx.meta.size > 0) {
+    name = mdx.meta.get('name') ?? mdx.meta.get('title') ?? '';
+    description = mdx.meta.get('description') ?? '';
+    keywordText = mdx.meta.get('keywords') ?? mdx.meta.get('triggers') ?? '';
+    mode = (mdx.meta.get('mode') ?? '').toLowerCase() === 'always' ? 'always' : 'auto';
   } else {
     const heading = /^\s*#\s+(.+)\n?/u.exec(source);
     if (heading !== null) {

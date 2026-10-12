@@ -1,0 +1,104 @@
+/*
+  MemoryTab (2026-10-12): the intro, the field with its kind and Remember, then the notes —
+  a kind tag, the words wrapping in full, Forget at the inline end — and "Forget everything",
+  whose second press is in the Alarm colour.
+*/
+
+.ck-agent-memory,
+.ck-agent-memory__form {
+  display: grid;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.ck-agent-memory__form {
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-memory__text {
+  min-block-size: calc(2 * var(--bldr-control-md));
+}
+
+.ck-agent-memory__kind {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+}
+
+.ck-agent-memory__count {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-memory__note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--bldr-space-sm);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-md);
+}
+
+.ck-agent-memory__note:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-memory__tag {
+  padding-inline: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}
+
+.ck-agent-memory__words {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.ck-agent-memory__forget {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--bldr-control-md);
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+}
+
+.ck-agent-memory__forget:hover {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-memory__forget:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-memory__clear {
+  justify-self: start;
+}
+
+.ck-agent-memory__clear[data-confirming] {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-memory__forget {
+    inline-size: var(--bldr-hit-target-min);
+    block-size: var(--bldr-hit-target-min);
+  }
+}

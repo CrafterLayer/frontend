@@ -10,6 +10,8 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
 import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
 
 import { t } from '../../copy';
+import { knowledgeLabels } from '../../copy/knowledge-labels';
+import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
 import type { Locale } from '../../model/view-types';
 import {
   fakeViewState,
@@ -17,6 +19,16 @@ import {
   type FakeCall,
   type FakeScenario,
 } from '../../testing/fake-controller';
+import {
+  createFakeCheckpoints,
+  SAMPLE_CHECKPOINTS,
+  SAMPLE_CHECKPOINTS_AR,
+  SAMPLE_NOTES,
+  SAMPLE_NOTES_AR,
+  SAMPLE_SKILLS,
+  SAMPLE_SKILLS_AR,
+  seededStorage,
+} from '../../testing/knowledge-fixtures';
 
 import { AgentPanel, type AgentPanelPresentation } from './AgentPanel';
 
@@ -348,5 +360,86 @@ export const PhoneSheet: Story = {
     await expect(
       within(sheet).getByRole('button', { name: t('ar', 'sheet.showPage') }),
     ).toBeVisible();
+  },
+};
+
+/* ── Skills & memory (2026-10-12) ──────────────────────────────────────────── */
+
+interface KnowledgePanelStoryProps {
+  readonly scenario: FakeScenario;
+  readonly locale: Locale;
+}
+
+/**
+ * The panel given its knowledge, as LiveAgentPanel gives it: the person's skills and the
+ * project memory over the real stores (seeded), and an in-memory checkpoint port. The
+ * header then draws Skills & memory, which opens KnowledgePopover inside the panel.
+ */
+function KnowledgePanelStory({ scenario, locale }: KnowledgePanelStoryProps) {
+  const arabic = locale === 'ar';
+  const [initial] = useState(() => fakeViewState(scenario, locale, { now: Date.now() }));
+  const controller = useFakeController(initial, { locale, onCall: logCall });
+  const [storage] = useState(() =>
+    seededStorage(
+      arabic ? SAMPLE_SKILLS_AR : SAMPLE_SKILLS,
+      arabic ? SAMPLE_NOTES_AR : SAMPLE_NOTES,
+    ),
+  );
+  const [checkpoints] = useState(() =>
+    createFakeCheckpoints(arabic ? SAMPLE_CHECKPOINTS_AR : SAMPLE_CHECKPOINTS),
+  );
+  const { view } = useAgentKnowledge({ storage, checkpoints });
+  const [panelWidth, setPanelWidth] = useState(320);
+  return (
+    <div style={{ display: 'grid', justifyItems: 'start', blockSize: 720, minInlineSize: 480 }}>
+      <AgentPanel
+        controller={controller}
+        knowledge={view}
+        width={panelWidth}
+        onWidthChange={setPanelWidth}
+      />
+    </div>
+  );
+}
+
+function withKnowledge(locale: Locale, extra: Partial<Pick<Story, 'parameters'>> = {}): Story {
+  return {
+    args: { scenario: 'built', locale },
+    ...extra,
+    render: (args) => <KnowledgePanelStory scenario={args.scenario} locale={args.locale} />,
+    play: async ({ canvasElement }) => {
+      const panel = await expectShell(canvasElement, locale);
+      const title = knowledgeLabels(locale).title;
+      const button = within(panel).getByRole('button', { name: title });
+      await userEvent.click(button);
+      const popover = await within(panel).findByRole('dialog', { name: title });
+      await expect(popover).toBeVisible();
+      await expect(button).toHaveAttribute('aria-expanded', 'true');
+      await expect(within(popover).getAllByRole('tab')).toHaveLength(3);
+    },
+  };
+}
+
+/** The header's Skills & memory opens the popover inside the panel, on the Skills tab. */
+export const WithKnowledge: Story = withKnowledge('en');
+export const WithKnowledgeRightToLeft: Story = withKnowledge('ar');
+export const WithKnowledgeDark: Story = withKnowledge('en', { parameters: DARK });
+
+/** "/" in the real composer opens the skills list above it; Enter pins the first skill. */
+export const SlashMenu: Story = {
+  args: { scenario: 'empty', locale: 'en' },
+  render: (args) => <KnowledgePanelStory scenario={args.scenario} locale={args.locale} />,
+  play: async ({ canvasElement }) => {
+    const panel = await expectShell(canvasElement, 'en');
+    const slash = knowledgeLabels('en').slash;
+    const input = within(panel).getByRole('combobox', { name: t('en', 'input.aria') });
+    await userEvent.type(input, '/');
+    const list = await within(panel).findByRole('listbox', { name: slash.label });
+    await expect(list).toBeVisible();
+    await expect(input).toHaveAttribute('aria-controls', list.id);
+    await userEvent.keyboard('{Enter}');
+    await expect(within(panel).getByRole('group', { name: slash.pinned })).toBeVisible();
+    await expect(input).toHaveValue('');
+    await expect(input).toHaveAttribute('aria-expanded', 'false');
   },
 };

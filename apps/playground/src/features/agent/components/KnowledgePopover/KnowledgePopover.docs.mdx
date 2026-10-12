@@ -1,0 +1,87 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as KnowledgePopoverStories from './KnowledgePopover.stories';
+
+<Meta of={KnowledgePopoverStories} />
+
+# KnowledgePopover
+
+"Skills & memory" (2026-10-12): what the Agent knows, in one place under the header's Skills &
+memory button: the person's own skills, the project memory and the page's checkpoints, as tabs. A
+Radix Popover in the docked panel; a page of its own in the phone sheet.
+
+<Canvas of={KnowledgePopoverStories.Skills} />
+
+## Purpose
+
+The Agent reads three kinds of standing knowledge on every request: skills the person wrote
+(SkillsTab), facts and preferences they asked it to keep (MemoryTab), and the page as it was before
+each request (CheckpointsTab). This popover is where a person sees and changes all three without
+leaving the conversation. It floats (e2) and closes on Esc, Close, the header button or a press
+elsewhere.
+
+## When to use / not
+
+Once per panel, when the host gives AgentPanel its `knowledge` (`useAgentKnowledge(...).view`).
+AgentPanel passes the header's button as `anchorRef` (AgentHeader `knowledgeRef`) and owns its
+`aria-expanded` and `aria-controls`; opening it closes the Conversations list, and the other way
+round. In the phone sheet pass `presentation="sheet"`.
+
+It renders the view and calls its edits; it never stores anything itself. The Conversations list
+(HistoryPopover) and a record's "Restore the page to before this request" (RestoreDialog) are other
+surfaces.
+
+## Props
+
+| prop                   | type                                    | default     | notes                                                         |
+| ---------------------- | --------------------------------------- | ----------- | ------------------------------------------------------------- |
+| `locale`               | `Locale`                                | none        | picks `knowledgeLabels(locale)`                               |
+| `knowledge`            | `AgentKnowledgeView`                    | none        | skills, memory and, when the host keeps pages, checkpoints    |
+| `open`, `onOpenChange` | `boolean`, `(open) => void`             | none        | controlled                                                    |
+| `anchorRef`            | `RefObject<HTMLElement>`                | none        | the header's button: it hangs from it, focus returns to it    |
+| `presentation`         | `'popover' \| 'sheet'`                  | `'popover'` | `sheet`: a page of the phone sheet                            |
+| `id`                   | `string`                                | generated   | for the button's `aria-controls`                              |
+| `initialTab`           | `'skills' \| 'memory' \| 'checkpoints'` | `'skills'`  | Checkpoints falls back to Skills when the host keeps no pages |
+| `clipboard`            | `(text: string) => Promise<void>`       | navigator   | where "Copy as SKILL.md" writes (tests, stories)              |
+
+## States
+
+| story                                                | what it shows                                       |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `Skills` (+ dark, right to left, dark right to left) | opened from the header: the Skills tab, focus on it |
+| `Memory`, `MemoryRightToLeft`                        | the Memory tab                                      |
+| `Checkpoints`, `CheckpointsDark`                     | the Checkpoints tab                                 |
+| `NoCheckpoints`                                      | the host keeps no pages: two tabs                   |
+| `Keyboard`                                           | → , End, Home, then Esc back to the header's button |
+| `KeyboardRightToLeft`                                | ← moves on in Arabic                                |
+| `Sheet`, `SheetRightToLeft`, `SheetDark`             | the phone sheet's page                              |
+
+AgentPanel's `WithKnowledge` stories open it from the real panel.
+
+## Anatomy
+
+**Popover:** the Sheet with a hairline and the floating shadow (e2), radius 9, as wide as the panel
+less 16px and never wider than 400; never taller than 75% of the editor. The head is the title
+"Skills & memory" (Read 600) and Close. Under it the tabs, a segmented row on Sunken, the chosen tab
+raised on the Sheet. Then the tab's panel, the only part that scrolls, contained so a scroll never
+carries on into the thread.
+
+**Phone sheet:** the page covers the sheet's face on Paper, its head as tall as the sheet header.
+
+## Accessibility
+
+- The popover is a Radix dialog (non-modal) named by its title; the phone page is a region named the
+  same.
+- The tabs are a `tablist` named by the title, each a `tab` with `aria-selected` and one tab stop
+  (roving `tabindex`). → and ← move between them (mirrored in Arabic: ← moves on), Home and End
+  jump; the panel is a `tabpanel` named by its tab.
+- Opening focuses the chosen tab. Close, Esc and the header button close it and return focus to the
+  button; a press elsewhere leaves focus where the person put it. Pressing the button while it is
+  open closes it once rather than closing and reopening it.
+- In the phone sheet Esc closes the page.
+
+## RTL
+
+It mounts inside the panel (its portal scope is read off the header's button), so it takes the
+panel's `dir`, `lang` and theme. Logical properties only: in Arabic it hangs from the button's left
+end and the tabs run right to left.

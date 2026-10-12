@@ -72,3 +72,40 @@ describe('skillMarkdown', () => {
     ).not.toContain('keywords:');
   });
 });
+
+describe('parseSkillMarkdown, MDX', () => {
+  it('drops imports and exports, reads the meta export and unwraps JSX', () => {
+    const mdx = [
+      "import { Callout } from '../components';",
+      '',
+      'export const meta = {',
+      "  name: 'Clinic tone',",
+      '  description: "Every clinic page",',
+      "  keywords: ['clinic', 'عيادة'],",
+      "  mode: 'auto',",
+      '};',
+      '',
+      'Speak calmly and plainly.',
+      '',
+      '<Callout type="warning">Never promise a cure.</Callout>',
+      '{/* reviewed by the clinic, 2026 */}',
+      '<Divider />',
+    ].join('\n');
+    expect(parseSkillMarkdown(mdx)).toEqual({
+      name: 'Clinic tone',
+      description: 'Every clinic page',
+      instructions: 'Speak calmly and plainly.\n\nNever promise a cure.',
+      keywords: ['clinic', 'عيادة'],
+      mode: 'auto',
+    });
+  });
+
+  it('reads MDX with front matter like Markdown, and keeps lowercase HTML', () => {
+    const mdx =
+      "---\nname: Menu\nkeywords: menu\n---\nimport X from 'x';\n\nUse <strong>bold</strong> prices.\n";
+    expect(parseSkillMarkdown(mdx)).toMatchObject({
+      name: 'Menu',
+      instructions: 'Use <strong>bold</strong> prices.',
+    });
+  });
+});

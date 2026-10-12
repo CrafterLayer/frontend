@@ -249,6 +249,17 @@ export const ICONS = {
     mirror: false,
   },
 
+  /** Skills & memory: what the Agent knows (2026-10-12). A spark and a plus. */
+  skills: {
+    shapes: (
+      <>
+        <path d="M6.75 2.75 7.9 5.6l2.85 1.15L7.9 7.9 6.75 10.75 5.6 7.9 2.75 6.75 5.6 5.6Z" />
+        <path d="M11.75 9.5v3.75M9.88 11.38h3.75" />
+      </>
+    ),
+    mirror: false,
+  },
+
   /* ── Conversations and the phone sheet ──────────────────────────────────── */
 
   /** Search conversations. */

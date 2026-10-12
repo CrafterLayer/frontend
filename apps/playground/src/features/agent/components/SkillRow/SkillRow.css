@@ -1,0 +1,143 @@
+/*
+  SkillRow (2026-10-12): the switch at the text edge, the name in Ink over the trigger line
+  in Graphite, the three actions at the inline end. A skill that is off reads at reduced
+  strength. Delete's second press is in the Alarm colour.
+*/
+
+.ck-agent-skill-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-agent-row-height);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-md);
+}
+
+.ck-agent-skill-row:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-skill-row__switch {
+  position: relative;
+  flex: none;
+  inline-size: calc(var(--bldr-space-3xl) * 1.75);
+  block-size: var(--bldr-space-3xl);
+  margin: 0;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-full);
+  appearance: none;
+  background-color: var(--bldr-surface-sunken);
+  cursor: pointer;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-skill-row__switch::after {
+  position: absolute;
+  inset-block: var(--bldr-space-2xs);
+  inset-inline-start: var(--bldr-space-2xs);
+  aspect-ratio: 1;
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-muted);
+  content: '';
+  transition: inset-inline-start var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-skill-row__switch:checked {
+  border-color: var(--bldr-accent);
+  background-color: var(--bldr-accent);
+}
+
+.ck-agent-skill-row__switch:checked::after {
+  inset-inline-start: calc(100% - var(--bldr-space-3xl) + var(--bldr-space-2xs));
+  background-color: var(--bldr-accent-text);
+}
+
+.ck-agent-skill-row__switch:focus-visible,
+.ck-agent-skill-row__action:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-skill-row__text {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-skill-row__name {
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-skill-row__when {
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  Off reads softer by colour, never by opacity: a dimmed trigger line fell to 2.3:1, and the
+  refusal line under it lost the Alarm colour's contrast too.
+*/
+.ck-agent-skill-row:not([data-enabled]) .ck-agent-skill-row__name {
+  color: var(--bldr-panel-text-soft);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-skill-row__actions {
+  display: flex;
+  gap: var(--bldr-space-2xs);
+}
+
+.ck-agent-skill-row__action {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--bldr-control-md);
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+}
+
+.ck-agent-skill-row__action:hover {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-skill-row__action[data-confirming] {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-skill-row__action {
+    inline-size: var(--bldr-hit-target-min);
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-skill-row__switch,
+  .ck-agent-skill-row__switch::after {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-skill-row__switch:checked::after {
+    background-color: Canvas;
+  }
+}

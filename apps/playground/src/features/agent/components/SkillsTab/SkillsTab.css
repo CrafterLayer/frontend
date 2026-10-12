@@ -1,0 +1,115 @@
+/*
+  SkillsTab (2026-10-12): the intro, the two actions with the count at their end, the
+  person's skills, then the built-in skills behind a quiet disclosure, capped and scrolling
+  on their own so forty skills never push the person's own away.
+*/
+
+.ck-agent-skills,
+.ck-agent-skills__import {
+  display: grid;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.ck-agent-skills__count {
+  margin-inline-start: auto;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-skills__builtins {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  padding-block-start: var(--bldr-space-xs);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-skills__summary {
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-control-md);
+}
+
+.ck-agent-skills__summary:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-skills__summary:focus-visible,
+.ck-agent-skills__builtin-list:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-skills__builtin-list {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  overflow-y: auto;
+  max-block-size: min(16rem, 40vh);
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.ck-agent-skills__builtin {
+  display: grid;
+  padding-inline: var(--bldr-space-xs);
+}
+
+.ck-agent-skills__builtin-name {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-skills__builtin-description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Starter templates (2026-10-12): name over description, a quiet + at the inline end. */
+.ck-agent-skills__template-list {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-skills__template {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name add'
+    'description add';
+  align-items: center;
+  column-gap: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.ck-agent-skills__template .ck-agent-skills__builtin-name {
+  grid-area: name;
+}
+
+.ck-agent-skills__template .ck-agent-skills__builtin-description {
+  grid-area: description;
+}
+
+.ck-agent-skills__template-add {
+  grid-area: add;
+  inline-size: var(--bldr-control-md);
+  padding-inline: 0;
+}

@@ -1,0 +1,58 @@
+/*
+  SkillEditor (2026-10-12): one column of fields at the panel's text edge — name, when to use
+  it, the instructions (a resizable area with its count), how it turns on (two radios) and,
+  for the word-triggered kind, the words. The refusal line sits above Save and Cancel.
+*/
+
+.ck-agent-skill-editor {
+  display: grid;
+  gap: var(--bldr-space-md);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.ck-agent-skill-editor__title {
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-skill-editor__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bldr-space-sm);
+}
+
+.ck-agent-skill-editor__mode {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ck-agent-skill-editor__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-md);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  cursor: pointer;
+}
+
+.ck-agent-skill-editor__choice input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--bldr-accent);
+}
+
+.ck-agent-skill-editor__choice input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}

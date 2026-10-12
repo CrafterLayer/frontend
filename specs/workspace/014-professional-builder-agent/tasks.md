@@ -627,6 +627,24 @@ Evidence:
 - [x] T194 `FeedbackToaster` + `notifyPublish`: publish narrated in one toast, Try again on failure.
 - [x] T195 Tests, stories, docs, component contract, file sizes, LTR/RTL screenshots.
 
+### Agent knowledge: skills, memory, checkpoints; canvas chrome; Table and Chart — 2026-10-12
+
+- [x] T196 Engine: `RunAiAgentOptions.hostSkillIds` (`agent/host-skills.ts`): a build's steps and a
+      page plan offer the host's skills first among their optional skills (never mandatory).
+- [x] T197 The person's own skills (`model/user-skills*.ts`, `skill-markdown.ts`): always-on or
+      word-triggered, SKILL.md import/export, an always-on budget, persisted per viewer.
+- [x] T198 Project memory (`model/project-memory.ts`): preferences and site facts sent to every run,
+      answers and plans included, as one reviewed `data` fragment.
+- [x] T199 Checkpoints (`model/checkpoints.ts`, `app/agent-checkpoints.ts`): the page is kept on the
+      vault shelf before every build and edit; Restore to before a request now works.
+- [x] T200 "Skills & memory" in the agent header: KnowledgePopover with Skills, Memory and
+      Checkpoints tabs (SkillsTab, SkillRow, SkillEditor, MemoryTab, CheckpointsTab), EN/AR, RTL.
+- [x] T201 Canvas floating chrome keeps its size under zoom (quick bar, action bar, text bubble).
+- [x] T202 Table and Chart blocks (accessible SVG charts, no new dependency).
+- [x] T203 The composer's `/` lists skills (own, then built-in) and pins up to three to the next
+      message as explicit skills; SKILL.md / SKILL.mdx upload and paste; starter templates;
+      Arabic accusative keywords in the engine matcher.
+
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.

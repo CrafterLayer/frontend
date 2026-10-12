@@ -20,7 +20,7 @@ import {
 import { createEditKernel, memoryStorage } from '../testing/scripted-engine';
 
 import { useAgentController } from './use-agent-controller';
-import { useAgentKnowledge } from './use-agent-knowledge';
+import { useAgentKnowledge, useReleasePinsAfterRun } from './use-agent-knowledge';
 
 const WAIT = { timeout: 20_000 } as const;
 
@@ -43,6 +43,7 @@ function useLiveController(props: {
     provider: props.provider,
     ...knowledge.controllerOptions,
   });
+  useReleasePinsAfterRun(controller.state.run !== null, knowledge.view);
   return { knowledge, controller };
 }
 
@@ -146,4 +147,57 @@ describe('useAgentKnowledge', () => {
     });
     expect(outcome).toBe('conflict');
   }, 30_000);
+
+  it('sends the skills the composer pinned as the request’s own, then lets them go', async () => {
+    const kernel = createEditKernel();
+    kernel.setSelection(['selected-hero']);
+    const { provider, contexts } = capturingProvider('Welcome');
+    const { result } = renderHook(() =>
+      useLiveController({
+        kernel,
+        provider,
+        knowledgeStorage: seededStorage([], []),
+        checkpoints: createFakeCheckpoints([]),
+      }),
+    );
+    const skills = () => result.current.knowledge.view.skills;
+    act(() => {
+      expect(skills().pin('craftkit.copywriting')).toBe(true);
+      expect(skills().pin('user.skill-404')).toBe(false);
+    });
+    expect(skills().pinned).toEqual(['craftkit.copywriting']);
+    expect(result.current.knowledge.controllerOptions.selectedSkillIds).toEqual([
+      'craftkit.copywriting',
+    ]);
+
+    act(() => {
+      result.current.controller.setDraft('Make the hero feel warmer and more personal');
+    });
+    act(() => {
+      result.current.controller.send();
+    });
+    await waitFor(() => {
+      expect(result.current.controller.state.run).toBeNull();
+    }, WAIT);
+    expect((contexts[0]?.skills ?? []).map(({ id }) => id)).toContain('craftkit.copywriting');
+    // The pin held for one message.
+    await waitFor(() => {
+      expect(skills().pinned).toEqual([]);
+    });
+  }, 30_000);
+
+  it('takes at most three pinned skills', () => {
+    const { result } = renderHook(() => useAgentKnowledge({ storage: null }));
+    const ids = result.current.view.skills.builtIns.slice(0, 4).map(({ id }) => id);
+    for (const id of ids.slice(0, 3)) {
+      act(() => {
+        expect(result.current.view.skills.pin(id)).toBe(true);
+      });
+    }
+    act(() => {
+      expect(result.current.view.skills.pin(ids[3] ?? '')).toBe(false);
+      result.current.view.skills.unpin(ids[0] ?? '');
+    });
+    expect(result.current.view.skills.pinned).toHaveLength(2);
+  });
 });

@@ -1,0 +1,138 @@
+/*
+  KnowledgePopover, "Skills & memory" (2026-10-12). Docked: e2 on the Sheet like the
+  Conversations list (a hairline, the floating shadow, radius 9), as wide as the panel less
+  8px a side and never wider than 400px, never taller than 75% of the editor. Phone: the
+  sheet's own page on Paper. The head (title and Close) and the tabs stay; only the tab's
+  panel scrolls, and a scroll that reaches its end never carries on into the thread.
+*/
+
+.ck-agent-knowledge {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-knowledge[data-presentation='popover'] {
+  z-index: 40;
+  inline-size: min(400px, calc(100cqi - var(--bldr-space-3xl)));
+  max-block-size: min(
+    calc(0.75 * (100dvh - var(--bldr-topbar-height))),
+    var(--radix-popover-content-available-height, 100dvh)
+  );
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: var(--bldr-space-md);
+  background-color: var(--bldr-panel);
+}
+
+.ck-agent-knowledge[data-presentation='sheet'] .ck-agent-knowledge__head {
+  min-block-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
+}
+
+.ck-agent-knowledge__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-md) 0;
+}
+
+.ck-agent-knowledge__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-knowledge__tabs {
+  display: flex;
+  flex: none;
+  gap: var(--bldr-space-2xs);
+  margin-block: var(--bldr-space-xs);
+  margin-inline: var(--bldr-space-xs);
+  padding: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-surface-sunken);
+}
+
+.ck-agent-knowledge__tab {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-knowledge__tab:hover {
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-knowledge__tab[aria-selected='true'] {
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-knowledge__tab:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-knowledge__panel {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  overscroll-behavior: contain;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-knowledge__tab {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-knowledge__tab {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-knowledge__tab[aria-selected='true'] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+}

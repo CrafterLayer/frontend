@@ -1,5 +1,12 @@
 import { DirectionProvider } from '@radix-ui/react-direction';
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 import { t } from '../../copy';
@@ -17,11 +24,15 @@ import { AgentSheet, type SheetControls, type SheetDetent } from '../AgentSheet'
 import { AgentStatusPill, pillView } from '../AgentStatusPill';
 import { AgentThread, type AgentThreadHandle } from '../AgentThread';
 import { Composer, type ComposerActions } from '../Composer';
+import { knowledgeLabels } from '../../copy/knowledge-labels';
+import type { AgentKnowledgeView } from '../../model/knowledge';
 import { HistoryPopover } from '../HistoryPopover';
 import { AgentTooltipProvider } from '../IconButton';
 import { LiveStatus } from '../LiveStatus';
 import { RunGlyph } from '../RunGlyph';
 import { miniBarView, SheetMiniBar } from '../SheetMiniBar';
+import { KnowledgePopover } from '../KnowledgePopover';
+import { SkillSlash } from '../SkillSlash';
 import { isStopShortcut } from '../StopButton';
 import { StoryBiblePanel } from '../StoryBiblePanel';
 import { TurnView } from '../TurnView';
@@ -49,6 +60,11 @@ function showBible(controller: AgentController): boolean {
 export interface AgentPanelProps {
   /** The panel's one door to behaviour: `useAgentController`, or the fake one in stories. */
   readonly controller: AgentController;
+  /**
+   * What the Agent knows (2026-10-12): the person's skills, the project memory and the
+   * checkpoints (`useAgentKnowledge`). Given, the header draws "Skills & memory".
+   */
+  readonly knowledge?: AgentKnowledgeView | undefined;
   /**
    * Whether anyone is looking. Hidden keeps the panel mounted, so the run, the
    * conversation and the draft survive a visit to Layers, and pauses its clocks (SPEC §4.1).
@@ -104,6 +120,7 @@ type PanelState = 'hidden' | 'stopping' | 'running' | 'checking' | 'awaiting-dec
  */
 export function AgentPanel({
   controller,
+  knowledge,
   visible = true,
   width,
   onWidthChange,
@@ -120,6 +137,7 @@ export function AgentPanel({
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const headingId = useId();
   const historyId = useId();
+  const knowledgeId = useId();
 
   const phoneViewport = usePhoneLayout();
   const phone = presentation === 'sheet' || (presentation === 'auto' && phoneViewport);
@@ -135,9 +153,11 @@ export function AgentPanel({
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const threadRef = useRef<AgentThreadHandle | null>(null);
   const conversationsRef = useRef<HTMLButtonElement | null>(null);
+  const knowledgeRef = useRef<HTMLButtonElement | null>(null);
   const caretToEnd = useRef(false);
 
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [ownWidth, setOwnWidth] = useState(PANEL_WIDTH_DEFAULT);
   const panelWidth = clampPanelWidth(width ?? ownWidth);
@@ -238,7 +258,9 @@ export function AgentPanel({
     <TurnView locale={locale} turn={turn} actions={controller} composer={() => inputRef.current} />
   );
 
-  const awaitingPlan = turns.some((turn) => turn.kind === 'page-plan' && turn.view.status === 'ready');
+  const awaitingPlan = turns.some(
+    (turn) => turn.kind === 'page-plan' && turn.view.status === 'ready',
+  );
   const panelState: PanelState = !visible
     ? 'hidden'
     : run?.stopping === true
@@ -275,6 +297,7 @@ export function AgentPanel({
           running={run !== null}
           conversationsOpen={historyOpen}
           onConversations={() => {
+            setKnowledgeOpen(false);
             setHistoryOpen((open) => !open);
           }}
           onNewConversation={controller.newConversation}
@@ -284,6 +307,20 @@ export function AgentPanel({
           onClose={sheet?.close}
           onShowPage={sheet?.showPage}
           status={t(locale, headerStatusKey(state))}
+          knowledge={
+            knowledge === undefined
+              ? undefined
+              : {
+                  label: knowledgeLabels(locale).title,
+                  open: knowledgeOpen,
+                  onToggle: () => {
+                    setHistoryOpen(false);
+                    setKnowledgeOpen((open) => !open);
+                  },
+                  controls: knowledgeId,
+                }
+          }
+          knowledgeRef={knowledgeRef}
         />
       </div>
       <AgentThread
@@ -315,6 +352,19 @@ export function AgentPanel({
             className="ck-agent-panel__bible"
           />
         ) : null}
+        {knowledge === undefined ? null : (
+          <SkillSlash
+            locale={locale}
+            skills={knowledge.skills}
+            draft={draft}
+            onDraftChange={controller.setDraft}
+            inputRef={inputRef}
+            onManage={() => {
+              setHistoryOpen(false);
+              setKnowledgeOpen(true);
+            }}
+          />
+        )}
         <Composer
           view={composerView}
           actions={composerActions}
@@ -335,6 +385,17 @@ export function AgentPanel({
         running={run !== null}
         focusWhenEmpty={newConversationButton}
       />
+      {knowledge === undefined ? null : (
+        <KnowledgePopover
+          locale={locale}
+          knowledge={knowledge}
+          open={knowledgeOpen}
+          onOpenChange={setKnowledgeOpen}
+          anchorRef={knowledgeRef}
+          presentation={sheet === null ? 'popover' : 'sheet'}
+          id={knowledgeId}
+        />
+      )}
     </div>
   );
 

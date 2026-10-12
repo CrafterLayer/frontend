@@ -134,7 +134,7 @@
     "packages/builder/schema/src/style/codec.ts": 583,
     "packages/builder/shell/src/components/EditorCanvas/EditorCanvas.stories.tsx": 853,
     "packages/builder/shell/src/components/EditorCanvas/EditorCanvas.test.tsx": 2679,
-    "packages/builder/shell/src/components/EditorCanvas/EditorCanvas.tsx": 3137,
+    "packages/builder/shell/src/components/EditorCanvas/EditorCanvas.tsx": 3136,
     "packages/builder/shell/src/components/InlineRichSurface/InlineRichSurface.tsx": 527,
     "packages/builder/shell/src/components/Inspector/Inspector.css": 565,
     "packages/builder/shell/src/components/Inspector/Inspector.stories.tsx": 1162,

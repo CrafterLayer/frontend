@@ -1,0 +1,76 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CheckpointsTabStories from './CheckpointsTab.stories';
+
+<Meta of={CheckpointsTabStories} />
+
+# CheckpointsTab
+
+The Checkpoints tab of "Skills & memory" (2026-10-12): the page as it was before each request the
+Agent ran, and the points the person saved, each with Restore.
+
+<Canvas of={CheckpointsTabStories.Default} />
+
+## Purpose
+
+The host keeps the page before every request (`AgentCheckpointPort.before`), so any of them can be
+taken back. A restore is one forward change on the page, so one Undo takes it back. The person can
+also save the page now under a name of their own, before trying something bold.
+
+## When to use / not
+
+Inside KnowledgePopover, only when the host keeps pages (`knowledge.checkpoints`). Without a vault
+there is no tab. It renders the list and calls `restore` and `save`; the host does the work. A
+record's own "Restore the page to before this request" (RestoreDialog) is the same restore, reached
+from the conversation.
+
+## Props
+
+| prop          | type              | default | notes                                                            |
+| ------------- | ----------------- | ------- | ---------------------------------------------------------------- |
+| `checkpoints` | `CheckpointsView` | none    | `items` newest first (`undefined` while read), `restore`, `save` |
+| `labels`      | `KnowledgeLabels` | none    | `knowledgeLabels(locale)`                                        |
+| `locale`      | `Locale`          | none    | the times' language; digits stay Latin                           |
+
+## States
+
+| story                                       | what it shows                                          |
+| ------------------------------------------- | ------------------------------------------------------ |
+| `Default`, `Dark`                           | three points, newest first; a saved one carries a mark |
+| `Loading`                                   | "Reading checkpoints…" while the list is read          |
+| `Empty`                                     | none kept yet                                          |
+| `Restored`, `RestoredDark`                  | "The page is restored. Undo takes it back."            |
+| `RestoreMissing`                            | the point is no longer kept                            |
+| `RestoreFailed`, `RestoreFailedRightToLeft` | the restore failed                                     |
+| `Saved`                                     | saved under a typed name: a new point at the top       |
+| `SaveFailed`                                | "The checkpoint was not saved."                        |
+| `RightToLeft`, `DarkRightToLeft`            | Arabic                                                 |
+
+## Anatomy
+
+```text
+The page is kept before every request …          intro (Meta, Graphite)
+[Before the new hero           ] [Save checkpoint]
+The page is restored. Undo takes it back.        status line, hidden while empty
+▌Before the new menu               [Restore]     a saved point: Accent mark at its start
+ Saved · 12 Oct, 11:15
+ Make the hero darker and add …    [Restore]     before a request
+ Before a request · 12 Oct, 11:40
+```
+
+Save with an empty field saves under "Saved checkpoint". While a save or restore is in flight, Save
+and every Restore are disabled.
+
+## Accessibility
+
+- Each Restore is named for its point: Restore the page to “Before the new menu”; its visible word
+  is "Restore".
+- The outcome of a save or a restore is said once in a `status` line (polite).
+- The name field is labelled "Checkpoint name" (visually hidden; the placeholder is an example).
+- Each time is a `<time>` with its ISO `datetime`.
+
+## RTL
+
+Logical properties only: the saved point's mark sits at the inline start (right in Arabic), Restore
+at the inline end. Labels run in their own script's direction (`dir="auto"`); times are formatted in
+the panel's language with Latin digits (`ar-u-nu-latn`).

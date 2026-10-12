@@ -1,4 +1,5 @@
 import type { SiteRunSeam } from '../../../preview/components/AssistantPanel/use-site-run';
+import { useAgentKnowledge, useReleasePinsAfterRun } from '../../hooks/use-agent-knowledge';
 import {
   useAgentController,
   type UseAgentControllerOptions,
@@ -8,8 +9,7 @@ import { AgentPanel, type AgentPanelProps } from './AgentPanel';
 import { useSiteSeam } from './use-site-seam';
 
 export interface LiveAgentPanelProps
-  extends UseAgentControllerOptions,
-    Omit<AgentPanelProps, 'controller'> {
+  extends UseAgentControllerOptions, Omit<AgentPanelProps, 'controller'> {
   /** The run lease the Site destination borrows (see `useSiteSeam`). */
   readonly onSiteSeam?: ((seam: SiteRunSeam) => void) | undefined;
 }
@@ -32,13 +32,18 @@ export function LiveAgentPanel({
   tooltipDelay,
   className,
   onSiteSeam,
+  checkpoints,
   ...options
 }: LiveAgentPanelProps) {
-  const controller = useAgentController(options);
+  // The person's skills, the project memory and the checkpoints (2026-10-12).
+  const knowledge = useAgentKnowledge({ storage: options.storage, checkpoints });
+  const controller = useAgentController({ ...options, ...knowledge.controllerOptions });
+  useReleasePinsAfterRun(controller.state.run !== null, knowledge.view);
   useSiteSeam(controller, onSiteSeam);
   return (
     <AgentPanel
       controller={controller}
+      knowledge={knowledge.view}
       visible={visible}
       width={width}
       onWidthChange={onWidthChange}

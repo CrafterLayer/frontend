@@ -1,5 +1,39 @@
 # Active Work Handoff
 
+## Current continuation — agent skills, memory, checkpoints; Table and Chart; canvas chrome, 2026-10-12
+
+Requested increment: **locally verified**. The user asked (Arabic) to review the agent's memory,
+checkpoints and power, to add a place in the agent chat where they can add skills (as other agents
+have them, with `/` in the chat listing skills, and skills uploadable as .md/.mdx), to make the agent
+much stronger, then to fix the element bar, add more blocks such as a table, and support charts.
+Executed as T196..T203 (feature 014):
+
+- Engine: `RunAiAgentOptions.hostSkillIds` (`agent/host-skills.ts`) — builds and page plans now offer
+  the host's skills (they name their skills, so a person's skills never reached a build); the
+  keyword matcher reads the Arabic indefinite accusative («أضف مخططًا» holds «مخطط»).
+- Skills: `model/user-skills*.ts`, `skill-markdown.ts` (SKILL.md and SKILL.mdx: front matter or
+  `export const meta`, imports/exports dropped, JSX unwrapped), `skill-templates.ts` (six starter
+  skills EN/AR); always-on skills share an 8,000-character budget (mandatory in the engine).
+- Memory: `model/project-memory.ts` — preferences and site facts, one reviewed `data` fragment on
+  every run; answers and plans now read the same context as builds (`words-flow.ts`).
+- Checkpoints: `model/checkpoints.ts` + `app/agent-checkpoints.ts` over the vault shelf (10 auto
+  points): kept before every build and edit; "Restore the page to before this request" works.
+- UI: header "Skills & memory" (KnowledgePopover: SkillsTab with New/Import/Upload/templates/
+  built-ins, SkillEditor, SkillRow, MemoryTab, CheckpointsTab) and the composer's `/` (SkillSlash:
+  own skills then built-ins, pins up to three to the next message as explicit skills).
+- Blocks: `table` and `chart` (bar/line/area/pie/donut, hand-built accessible SVG, no dependency) in
+  blocks-marketing; library, Inspector (EN/AR), AI catalog, static export.
+- Canvas: the floating chrome (action bar, quick bar, text bubble, name chips) keeps its size under
+  zoom (`useCanvasZoom`, `--bldr-canvas-zoom`).
+
+Verification: see the commits 59d4eeb..HEAD; agent and app suites show only the pre-existing
+failures (editor-labels ×1, copy-rules ×3, runs ×2); builder-ai 5451 with the pre-existing
+plan-page repair test; blocks-marketing 865; shell 1807. Found, not fixed: the Storybook vitest
+setup never applies the a11y addon's annotations (`apps/storybook/.storybook/vitest.setup.ts`), so
+`a11y: { test: 'error' }` does not run; enabling it exposes the Composer textarea's
+`aria-allowed-role` failure. Open: drag ghost, drop indicators, spacing bands and snap guides still
+scale with zoom; a grid editor and CSV paste for table cells and chart values.
+
 ## Current continuation — Studio Indigo platform UX, command palette and feedback, 2026-10-12
 
 Requested increment: **locally verified**. The user asked (Arabic) for a complete, professional

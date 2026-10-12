@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { createCraftkitAiSkillRegistry, type AiSkillRegistry } from '@craftkit/builder';
 
@@ -7,6 +7,7 @@ import type { AgentKnowledgeView, BuiltInSkillView } from '../model/knowledge';
 import type { AgentStorage } from '../model/migrate-sessions';
 import { createProjectMemoryStore } from '../model/project-memory';
 import { skillMarkdown } from '../model/skill-markdown';
+import { MAX_PINNED_SKILLS } from '../model/skill-slash';
 import { userSkillDefinitions, userSkillIdsFor } from '../model/user-skills';
 import { createUserSkillsStore } from '../model/user-skills-store';
 
@@ -45,7 +46,7 @@ export interface UseAgentKnowledgeOptions {
 
 export type KnowledgeControllerOptions = Pick<
   UseAgentControllerOptions,
-  'skillRegistry' | 'hostSkillIdsFor' | 'extraContextProviders' | 'checkpoints'
+  'skillRegistry' | 'selectedSkillIds' | 'hostSkillIdsFor' | 'extraContextProviders' | 'checkpoints'
 >;
 
 export interface UseAgentKnowledgeResult {
@@ -96,14 +97,24 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
   }, [checkpoints]);
 
   const registry = useMemo(() => registryWith(userSkillDefinitions(skills)), [skills]);
+  // The composer's `/` pins: kept while they name a skill the registry holds (one turned off
+  // or deleted drops out), sent as the request's explicit skills.
+  const [pinned, setPinned] = useState<readonly string[]>([]);
+  const activePins = useMemo(
+    () => pinned.filter((id) => registry.get(id) !== undefined),
+    [pinned, registry],
+  );
   const controllerOptions = useMemo<KnowledgeControllerOptions>(
     () => ({
       ...(registry === BUILT_IN_REGISTRY ? {} : { skillRegistry: registry }),
-      hostSkillIdsFor: (request: string) => userSkillIdsFor(registry, skills, request),
+      hostSkillIdsFor: (request: string) => [
+        ...new Set([...activePins, ...userSkillIdsFor(registry, skills, request)]),
+      ],
+      ...(activePins.length === 0 ? {} : { selectedSkillIds: activePins }),
       extraContextProviders: notes.length === 0 ? [] : [stores.memory.provider],
       ...(checkpoints === undefined ? {} : { checkpoints }),
     }),
-    [registry, skills, notes.length, stores.memory.provider, checkpoints],
+    [registry, skills, activePins, notes.length, stores.memory.provider, checkpoints],
   );
 
   const view = useMemo<AgentKnowledgeView>(
@@ -119,6 +130,17 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
         exportMarkdown: (id) => {
           const skill = skills.find((entry) => entry.id === id);
           return skill === undefined ? undefined : skillMarkdown(skill);
+        },
+        pinned: activePins,
+        pin: (id) => {
+          if (activePins.includes(id)) return true;
+          if (activePins.length >= MAX_PINNED_SKILLS || registry.get(id) === undefined)
+            return false;
+          setPinned([...activePins, id]);
+          return true;
+        },
+        unpin: (id) => {
+          setPinned((current) => current.filter((entry) => entry !== id));
         },
       },
       memory: {
@@ -138,8 +160,23 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
             },
           }),
     }),
-    [skills, notes, items, stores, checkpoints],
+    [skills, notes, items, stores, checkpoints, activePins, registry],
   );
 
   return { controllerOptions, view };
+}
+
+/**
+ * Pins hold for one message: they are let go once the run they went out with has finished
+ * (every step of a build reads them, so they stay until the last one has).
+ */
+export function useReleasePinsAfterRun(running: boolean, view: AgentKnowledgeView): void {
+  const wasRunning = useRef(running);
+  const { pinned, unpin } = view.skills;
+  useEffect(() => {
+    if (wasRunning.current && !running) {
+      for (const id of pinned) unpin(id);
+    }
+    wasRunning.current = running;
+  }, [running, pinned, unpin]);
 }

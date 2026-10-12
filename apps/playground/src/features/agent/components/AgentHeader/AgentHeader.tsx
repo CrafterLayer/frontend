@@ -59,6 +59,20 @@ export interface AgentHeaderProps {
   /** The phone sheet's Show the page `[⤓]`, drawn after New conversation. */
   readonly onShowPage?: (() => void) | undefined;
   /**
+   * "Skills & memory" (2026-10-12): the person's skills, the project memory and the
+   * checkpoints. Drawn before Conversations when the host gives the panel its knowledge.
+   */
+  readonly knowledge?:
+    | {
+        readonly label: string;
+        readonly open: boolean;
+        readonly onToggle: () => void;
+        readonly controls?: string | undefined;
+      }
+    | undefined;
+  /** The Skills & memory button, for KnowledgePopover to anchor to and return focus to. */
+  readonly knowledgeRef?: Ref<HTMLButtonElement> | undefined;
+  /**
    * (added, Studio Indigo redesign 2026-10-12) One short line under the name, in Meta:
    * what the Agent is doing in a word or three («يبني الصفحة», "Waiting for your decision").
    * AgentPanel passes `headerStatusOf(state)`. Drawn text, never a live region: the RunBar
@@ -97,6 +111,8 @@ export function AgentHeader({
   onClose,
   onShowPage,
   status,
+  knowledge,
+  knowledgeRef,
 }: AgentHeaderProps) {
   const generatedId = useId();
   const nameId = headingId ?? generatedId;
@@ -132,6 +148,17 @@ export function AgentHeader({
         {status === undefined ? null : <p className="ck-agent-header__status">{status}</p>}
       </div>
       <div className="ck-agent-header__actions">
+        {knowledge === undefined ? null : (
+          <IconButton
+            ref={knowledgeRef}
+            icon="skills"
+            label={knowledge.label}
+            aria-haspopup="dialog"
+            aria-expanded={knowledge.open}
+            aria-controls={knowledge.open ? knowledge.controls : undefined}
+            onClick={knowledge.onToggle}
+          />
+        )}
         <IconButton
           ref={conversationsRef}
           icon="history"

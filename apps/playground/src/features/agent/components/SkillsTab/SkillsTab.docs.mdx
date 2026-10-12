@@ -1,0 +1,78 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SkillsTabStories from './SkillsTab.stories';
+
+<Meta of={SkillsTabStories} />
+
+# SkillsTab
+
+The Skills tab of "Skills & memory" (2026-10-12): the person's own skills, New skill and Import, and
+the skills the Agent already has.
+
+<Canvas of={SkillsTabStories.Default} />
+
+## Purpose
+
+People teach the Agent how they work: a brand voice, a house style, "every page ends with our
+booking band". A skill is data, never code: a name, when to use it, instructions, and how it turns
+on, either in every request or when a request mentions its words. This tab lists them, each with its
+switch, Edit, Copy as SKILL.md and Delete, and lets a person write one or import a SKILL.md. Under
+them, behind a quiet disclosure, it lists the built-in skills, so a person sees what to add rather
+than repeat.
+
+## When to use / not
+
+Inside KnowledgePopover, which passes `knowledge.skills` and the panel's labels. It renders the view
+and calls its edits (`add`, `update`, `setEnabled`, `remove`, `importMarkdown`, `exportMarkdown`);
+the store judges every write (`checkSkillDraft`), and a refusal comes back as a line to show. Not a
+place for project facts (MemoryTab).
+
+## Props
+
+| prop        | type                              | default                         | notes                               |
+| ----------- | --------------------------------- | ------------------------------- | ----------------------------------- |
+| `skills`    | `UserSkillsView`                  | none                            | the person's skills and their edits |
+| `labels`    | `KnowledgeLabels`                 | none                            | `knowledgeLabels(locale)`           |
+| `clipboard` | `(text: string) => Promise<void>` | `navigator.clipboard.writeText` | where "Copy as SKILL.md" writes     |
+
+## States
+
+| story                            | what it shows                                                   |
+| -------------------------------- | --------------------------------------------------------------- |
+| `Default`, `Dark`                | three skills (one off), the count, the built-ins closed         |
+| `Empty`                          | none of their own yet                                           |
+| `Editing`, `EditingRightToLeft`  | New skill or Edit: SkillEditor takes the list's place           |
+| `Importing`                      | one field for a pasted SKILL.md                                 |
+| `Imported`                       | the front matter's name and mode, added to the list             |
+| `ImportRefused`                  | "This is not a skill that can be read."                         |
+| `Refused`                        | a second long every-request skill refused by the budget, in-row |
+| `BuiltIns`                       | the built-in skills, opened                                     |
+| `RightToLeft`, `DarkRightToLeft` | Arabic skills and words                                         |
+
+## Anatomy
+
+```text
+Teach the Agent how you work. …                 intro (Meta, Graphite)
+[New skill] [Import]                  3 of 24    actions; count at the inline end
+ ● Brand voice                       ✎ ⧉ 🗑     SkillRow, one per skill
+   When a request mentions copy, headline
+▸ Built-in skills (N)                            disclosure, hairline above
+```
+
+Writing or importing a skill replaces the list in place; Save, Add skill or Cancel bring it back.
+The built-in list is capped and scrolls on its own, so many built-ins never push the person's own
+skills away.
+
+## Accessibility
+
+- Each skill's controls are named for it (SkillRow).
+- The import field has a visible label; a refusal is one `alert` line above Add skill.
+- The built-ins are a native `details`/`summary`. Their list scrolls on its own, so it is a tab stop
+  named by the summary, and a keyboard can scroll it.
+- Every refusal is the store's own reason, in the panel's language: the every-request budget, the
+  limit of 24, or an unreadable SKILL.md.
+
+## RTL
+
+Logical properties only; the count sits at the inline end. The SKILL.md field runs in its own
+script's direction (`dir="auto"`), monospaced.

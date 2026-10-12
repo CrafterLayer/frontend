@@ -1,0 +1,219 @@
+/*
+  SkillSlash (2026-10-12). The list floats 8px above the composer like the `@` list — e2 on
+  the Sheet, the floating shadow, radius 9 — rows of the panel's row height, each with its
+  command in the mono face, the name in Ink and one line of description in Graphite. A quiet
+  heading line opens "Your skills" and "Built-in"; the last row opens Skills & memory. The active
+  row is Mist under Ink with a 2px Indigo bar at its inline start, as the `@` list's is.
+
+  The pinned skills sit on the composer's text edge, above it: Indigo-wash chips with ×.
+*/
+
+.ck-agent-slash {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.ck-agent-slash__popup {
+  position: absolute;
+  z-index: 31;
+  inset-block-end: calc(100% + var(--bldr-space-md));
+  inset-inline: 0;
+  box-sizing: border-box;
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-slash__list {
+  max-block-size: calc(7 * var(--bldr-agent-row-height));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.ck-agent-slash__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-agent-row-height);
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  cursor: pointer;
+}
+
+.ck-agent-slash__heading {
+  padding-block: var(--bldr-space-xs) var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__option[data-kind='manage'] {
+  margin-block-start: var(--bldr-space-2xs);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: 0;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-slash__option[aria-selected='true'] {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-slash__option[aria-selected='true']::after {
+  position: absolute;
+  inset-block: var(--bldr-space-xs);
+  inset-inline-start: 0;
+  inline-size: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent);
+  content: '';
+}
+
+.ck-agent-slash__command {
+  flex: none;
+  min-inline-size: 0;
+  max-inline-size: 40%;
+  overflow: hidden;
+  color: var(--bldr-accent-strong);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-slash__text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ck-agent-slash__name,
+.ck-agent-slash__description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-slash__description {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__description:empty {
+  display: none;
+}
+
+/* On the active row's wash the Graphite line falls under 4.5:1; it steps up, as the `@` list's does. */
+.ck-agent-slash__option[aria-selected='true'] .ck-agent-slash__description {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-slash__glyph {
+  flex: none;
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-slash__empty,
+.ck-agent-slash__note {
+  margin: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__note {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-slash__note:empty {
+  display: none;
+}
+
+.ck-agent-slash__pinned {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  margin-block-end: var(--bldr-space-xs);
+}
+
+.ck-agent-slash__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-2xs);
+  max-inline-size: 100%;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-slash__unpin {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--bldr-control-sm);
+  block-size: var(--bldr-control-sm);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  background-color: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ck-agent-slash__unpin:hover {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+.ck-agent-slash__unpin:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-slash__option {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+
+  .ck-agent-slash__list {
+    max-block-size: calc(4 * var(--bldr-hit-target-min));
+  }
+
+  .ck-agent-slash__unpin {
+    inline-size: var(--bldr-hit-target-min);
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-slash__option[aria-selected='true'] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+}

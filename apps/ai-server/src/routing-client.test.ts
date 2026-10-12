@@ -119,6 +119,29 @@ describe('routing', () => {
     expect(openrouter.calls).toHaveLength(0);
   });
 
+  it('hands the Messages API the schema as text, keeping the effort, since strict decoding refuses the plan schemas', async () => {
+    const api = backend({ text: '{}' });
+    const client = createRoutingClient({ openrouter: backend({}).client, cli: vi.fn(), api: api.client });
+    const schema = { type: 'object', properties: { rationale: { type: 'string' } } };
+
+    await client.messages
+      .stream({
+        ...PARAMS,
+        model: 'api:claude-haiku-5-5',
+        system: [{ type: 'text', text: 'rules' }],
+        output_config: { format: { type: 'json_schema', schema }, effort: 'low' },
+      } as never)
+      .finalMessage();
+
+    const sent = api.calls[0]?.params as {
+      system: { text: string }[];
+      output_config: Record<string, unknown>;
+    };
+    expect(sent.output_config).toEqual({ effort: 'low' });
+    expect(sent.system[0]?.text).toBe('rules');
+    expect(sent.system[1]?.text).toContain(JSON.stringify(schema));
+  });
+
   it('fails an api: model naming the missing key when no API client was built', async () => {
     const client = createRoutingClient({ openrouter: backend({}).client, cli: vi.fn() });
 

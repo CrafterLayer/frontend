@@ -1,0 +1,342 @@
+/*
+  The creative planner's tables (split from creative-planner.ts, 2026-10-12): the genre rules
+  in match order and the settings whose words bring their weather and effects. Data only; the
+  planner reads them, nothing here decides.
+*/
+
+import type { CreativeGenre, CreativeKind, CreativeLib } from './creative-brief-types';
+
+export interface GenreRule {
+  readonly genre: CreativeGenre;
+  readonly kind: CreativeKind;
+  readonly keywords: readonly string[];
+  readonly libs: readonly CreativeLib[];
+  readonly mechanics: readonly string[];
+  readonly effects: readonly string[];
+  readonly animation: readonly string[];
+}
+
+/* Order matters: the first rule whose keywords match wins, most specific first. */
+export const GENRES: readonly [GenreRule, ...GenreRule[]] = [
+  {
+    genre: 'platformer',
+    kind: 'game',
+    keywords: [
+      'platformer',
+      'platform game',
+      'side scroller',
+      'jump and run',
+      'لعبة منصات',
+      'منصات',
+      'لعبة قفز',
+      'ماريو',
+    ],
+    libs: ['tilemap', 'anim', 'fx'],
+    mechanics: [
+      'run and jump with gravity, coyote time and a jump buffer (world.move + onGround)',
+      'collect pickups found with world.find and cleared with world.set',
+      'hazards and a reachable exit; lives or a timer',
+      'follow camera clamped to the level',
+    ],
+    effects: ['dust', 'coin', 'hit', 'levelup'],
+    animation: ['idle', 'run', 'jump', 'hurt', 'celebrate'],
+  },
+  {
+    genre: 'maze-adventure',
+    kind: 'game',
+    keywords: [
+      'maze',
+      'dungeon',
+      'top down',
+      'top-down',
+      'rpg',
+      'adventure game',
+      'treasure hunt',
+      'متاهة',
+      'زنزانة',
+      'لعبة مغامرة',
+      'مغامرات',
+      'البحث عن الكنز',
+      'كنز',
+    ],
+    libs: ['tilemap', 'anim', 'fx', 'dialogue'],
+    mechanics: [
+      'grid or free movement blocked by solid tiles',
+      'keys, doors and treasure placed with legend markers',
+      'a character to talk to with one meaningful choice',
+      'win on reaching the goal; restart resets the map',
+    ],
+    effects: ['sparkle', 'coin', 'magic'],
+    animation: ['idle', 'walk', 'talk', 'celebrate'],
+  },
+  {
+    genre: 'visual-novel',
+    kind: 'story',
+    keywords: [
+      'visual novel',
+      'branching story',
+      'branching',
+      'choose your own',
+      'dialogue',
+      'dialog',
+      'conversation',
+      'رواية مرئية',
+      'قصة متفرعة',
+      'قصة بخيارات',
+      'خيارات',
+      'اختيارات',
+      'حوار',
+      'حوارات',
+      'محادثة',
+    ],
+    libs: ['dialogue', 'anim', 'fx'],
+    mechanics: [
+      'dialogue graph with speakers from the cast and a polite live region',
+      'at least two meaningful choices that set variables',
+      'two or more endings decided by those variables',
+      'save/restore and replay',
+    ],
+    effects: ['sparkle', 'magic'],
+    animation: ['idle', 'talk', 'think', 'wave', 'celebrate'],
+  },
+  {
+    genre: 'picture-book',
+    kind: 'story',
+    keywords: [
+      'picture book',
+      'bedtime story',
+      'fairy tale',
+      'children story',
+      'kids story',
+      'for kids',
+      'for children',
+      'قصة أطفال',
+      'قصص أطفال',
+      'للأطفال',
+      'حكاية',
+      'حكايات',
+      'قبل النوم',
+      'خرافية',
+    ],
+    libs: ['dialogue', 'anim', 'fx'],
+    mechanics: [
+      'large readable pages with one idea each',
+      'gentle choices or tap-to-discover moments',
+      'narration plus short character lines',
+      'a warm ending and replay',
+    ],
+    effects: ['sparkle', 'magic', 'heal'],
+    animation: ['idle', 'wave', 'talk', 'celebrate'],
+  },
+  {
+    genre: 'chapter-story',
+    kind: 'story',
+    keywords: [
+      'interactive story',
+      'playable story',
+      'visual narrative',
+      'chapter scene',
+      'story',
+      'قصة تفاعلية',
+      'قصص تفاعلية',
+      'قصة بصرية',
+      'مشاهد قصصية',
+      'قصة',
+    ],
+    libs: ['dialogue', 'anim', 'fx'],
+    mechanics: [
+      's.story chapters or a dialogue graph with manual navigation',
+      'one discovery or choice that changes what follows',
+      'a clear ending and replay',
+    ],
+    effects: ['sparkle'],
+    animation: ['idle', 'walk', 'talk'],
+  },
+  {
+    genre: 'physics-toy',
+    kind: 'game',
+    keywords: ['physics', 'bounce', 'stack', 'catapult', 'pinball', 'فيزياء', 'ارتداد', 'مقلاع'],
+    libs: ['physics', 'fx', 'anim'],
+    mechanics: [
+      'Matter bodies stepped in s.fixedTick',
+      'aim or drag input with a keyboard alternative',
+      'score and reset',
+    ],
+    effects: ['hit', 'dust', 'confetti'],
+    animation: ['idle', 'celebrate'],
+  },
+  {
+    genre: 'puzzle',
+    kind: 'game',
+    keywords: [
+      'puzzle',
+      'match three',
+      'memory game',
+      'matching game',
+      'sliding puzzle',
+      'لغز',
+      'ألغاز',
+      'لعبة ذاكرة',
+      'مطابقة',
+    ],
+    libs: ['anim', 'fx'],
+    mechanics: [
+      'a grid of focusable pieces',
+      'clear win condition and move counter',
+      'hint and restart',
+    ],
+    effects: ['sparkle', 'confetti', 'hit'],
+    animation: ['idle', 'celebrate', 'think'],
+  },
+  {
+    genre: 'arcade',
+    kind: 'game',
+    keywords: [
+      'game',
+      'arcade',
+      'runner',
+      'endless',
+      'shooter',
+      'space game',
+      'racing',
+      'collect',
+      'لعبة',
+      'ألعاب',
+      'سباق',
+      'سيارات',
+      'فضاء',
+      'جمع',
+    ],
+    libs: ['anim', 'fx'],
+    mechanics: [
+      'objective, controls and ready/running/paused/won/lost states',
+      'difficulty that rises over time',
+      'score, lives or a timer in the DOM status',
+    ],
+    effects: ['hit', 'coin', 'explosion', 'sparkle'],
+    animation: ['idle', 'run', 'hurt', 'celebrate'],
+  },
+  {
+    genre: 'mural',
+    kind: 'scene',
+    keywords: [
+      'mural',
+      'generative art',
+      'scene',
+      'animated background',
+      'جدارية',
+      'جداريات',
+      'فن توليدي',
+      'مشهد',
+    ],
+    libs: ['fx', 'anim'],
+    mechanics: [
+      'one focal area and depth layers',
+      'ambient motion through s.tick',
+      'a complete still frame for reduced motion',
+    ],
+    effects: [],
+    animation: [],
+  },
+];
+
+/** A brief that names no genre is an art-directed scene. */
+export const FALLBACK_GENRE: GenreRule = GENRES.find(({ genre }) => genre === 'mural') ?? GENRES[0];
+
+export interface SettingRule {
+  readonly id: string;
+  readonly keywords: readonly string[];
+  readonly weather: readonly string[];
+  readonly effects: readonly string[];
+}
+
+export const SETTINGS: readonly SettingRule[] = [
+  {
+    id: 'forest',
+    keywords: ['forest', 'woods', 'jungle', 'garden', 'غابة', 'غابات', 'حديقة', 'أشجار'],
+    weather: ['leaves', 'fireflies'],
+    effects: ['sparkle'],
+  },
+  {
+    id: 'sea',
+    keywords: [
+      'sea',
+      'ocean',
+      'underwater',
+      'beach',
+      'river',
+      'بحر',
+      'محيط',
+      'تحت الماء',
+      'شاطئ',
+      'نهر',
+    ],
+    weather: ['bubbles'],
+    effects: ['splash'],
+  },
+  {
+    id: 'desert',
+    keywords: ['desert', 'sand', 'dunes', 'صحراء', 'رمال', 'كثبان'],
+    weather: ['embers'],
+    effects: ['dust'],
+  },
+  {
+    id: 'winter',
+    keywords: ['winter', 'snow', 'ice', 'frozen', 'شتاء', 'ثلج', 'ثلوج', 'جليد'],
+    weather: ['snow'],
+    effects: ['sparkle'],
+  },
+  {
+    id: 'rain',
+    keywords: ['rain', 'storm', 'rainy', 'مطر', 'أمطار', 'عاصفة', 'ممطر'],
+    weather: ['rain'],
+    effects: ['splash'],
+  },
+  {
+    id: 'night',
+    keywords: [
+      'night',
+      'stars',
+      'moon',
+      'space',
+      'galaxy',
+      'ليل',
+      'ليلة',
+      'نجوم',
+      'قمر',
+      'فضاء',
+      'مجرة',
+    ],
+    weather: ['stars'],
+    effects: ['sparkle'],
+  },
+  {
+    id: 'fire',
+    keywords: ['fire', 'volcano', 'dragon', 'lava', 'نار', 'بركان', 'تنين', 'حمم'],
+    weather: ['embers'],
+    effects: ['fire', 'explosion'],
+  },
+  {
+    id: 'magic',
+    keywords: [
+      'magic',
+      'wizard',
+      'fairy',
+      'spell',
+      'enchanted',
+      'سحر',
+      'سحري',
+      'ساحر',
+      'جنية',
+      'تعويذة',
+    ],
+    weather: ['fireflies'],
+    effects: ['magic', 'sparkle'],
+  },
+  {
+    id: 'city',
+    keywords: ['city', 'street', 'town', 'مدينة', 'شارع', 'حارة'],
+    weather: [],
+    effects: ['dust'],
+  },
+];

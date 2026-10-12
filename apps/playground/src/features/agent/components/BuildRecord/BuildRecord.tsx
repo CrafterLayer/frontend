@@ -1,16 +1,8 @@
 import { useCallback, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 
-import {
-  buildTitleKey,
-  formatClock,
-  formatNumber,
-  formatRemaining,
-  t,
-  tAnnounce,
-} from '../../copy';
+import { buildTitleKey, formatRemaining, t } from '../../copy';
 import type {
   AgentController,
-  BuildPhase,
   BuildRecordView,
   Locale,
   RecordMenuItem,
@@ -24,7 +16,7 @@ import { FactsDisclosure } from '../FactsDisclosure';
 import { InlineConfirm } from '../InlineConfirm';
 import { RecordMenu, type RecordMenuProps } from '../RecordMenu';
 import { glyphForBuildPhase } from '../RunGlyph';
-import { RunRecord, type RecordMetaItem } from '../RunRecord';
+import { RunRecord } from '../RunRecord';
 import { SpineList } from '../SpineList';
 import { segmentForRow } from '../SpineRow';
 
@@ -33,6 +25,8 @@ import './BuildRecord.css';
 import { RecordButton } from './RecordButton';
 import { RecordLead, type LeadSegment } from './RecordLead';
 import { useLandingStagger, useOnScreen } from './use-landing-stagger';
+
+import { FOLDED, LIVE, WITH_DIRECTION, captionOf, headMeta } from './build-record-meta';
 
 /**
  * The controller actions a build record calls. Every one is an action on the page or a
@@ -68,57 +62,6 @@ export interface BuildRecordProps {
   readonly headingRef?: Ref<HTMLHeadingElement> | undefined;
   /** Appended to `ck-agent-record ck-agent-build`. */
   readonly className?: string | undefined;
-}
-
-/** Phases in which the build is still being written. */
-const LIVE: ReadonlySet<BuildPhase> = new Set(['skeleton', 'building', 'stopping']);
-
-/**
- * Phases whose sections sit behind "Show sections" from the start: nothing of the build is on
- * the page, and the record's own lines (the failure, "Build undone") are the news.
- */
-const FOLDED: ReadonlySet<BuildPhase> = new Set(['failed', 'undone']);
-
-/** Where the DirectionLine shows (SPEC §4.8 phase table: building, done; a stop changes nothing). */
-const WITH_DIRECTION: ReadonlySet<BuildPhase> = new Set(['building', 'stopping', 'done']);
-
-/** The head's figures: the count while live, the final time once settled (SPEC §4.8). */
-function headMeta(locale: Locale, view: BuildRecordView): readonly RecordMetaItem[] {
-  switch (view.phase) {
-    case 'building':
-    case 'stopping':
-      return [
-        {
-          text: `${formatNumber(locale, view.landed)}/${formatNumber(locale, view.total)}`,
-          label: tAnnounce(locale, 'build.progress', { done: view.landed, total: view.total }),
-        },
-      ];
-    case 'skeleton':
-    case 'interrupted':
-      return [];
-    default:
-      return view.elapsedMs === undefined ? [] : [{ text: formatClock(view.elapsedMs) }];
-  }
-}
-
-/** The record's caption line (SPEC §4.8 "Caption line(s)"), or null when the phase has none. */
-function captionOf(locale: Locale, view: BuildRecordView): string | null {
-  switch (view.phase) {
-    case 'done':
-    case 'partial':
-      return t(locale, 'build.caption.done', { n: view.landed });
-    case 'stopped':
-      return t(locale, 'build.caption.stopped', {
-        n: view.rows.filter((row) => row.state === 'notWritten').length,
-      });
-    case 'interrupted':
-      // The list was not saved: nothing can finish it, and the caption says so.
-      return view.actions.finishRest === 0 && view.landed < view.total
-        ? t(locale, 'build.caption.notResumable')
-        : t(locale, 'build.caption.interrupted', { done: view.landed, total: view.total });
-    default:
-      return null;
-  }
 }
 
 /**

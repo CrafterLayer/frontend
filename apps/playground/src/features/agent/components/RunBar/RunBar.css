@@ -12,15 +12,21 @@
   The bar is on the Sheet, so the glyph's ground ring follows it (see RunGlyph).
 */
 
+/*
+  Studio Indigo (design refresh, 2026-10-12): the bar is a dark strip on the rail colour, so
+  "the Agent is working" is the strongest signal in the dock and never reads as one more line
+  of the thread. White status, rail-text clock, a white arc on the glyph and a translucent Stop.
+*/
 .ck-agent-runbar {
-  --ck-agent-ground: var(--bldr-surface-hover);
+  --ck-agent-ground: var(--bldr-rail);
 
   display: grid;
   grid-template-rows: 1fr;
   border-start-start-radius: inherit;
   border-start-end-radius: inherit;
-  background-color: var(--bldr-surface-hover);
-  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  background-color: var(--bldr-rail);
+  color: var(--bldr-rail-text-strong);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-rail);
   animation: ck-agent-runbar-in var(--bldr-duration-enter) var(--bldr-easing-enter);
 }
 
@@ -45,7 +51,7 @@
   min-inline-size: 0;
   margin: 0;
   overflow: hidden;
-  color: var(--bldr-panel-text-soft);
+  color: var(--bldr-rail-text-strong);
   font-family: var(--bldr-font);
   font-size: var(--bldr-font-size-meta);
   font-weight: var(--bldr-font-weight-medium);
@@ -63,6 +69,47 @@
   .ck-agent-runbar__clock {
     display: none;
   }
+}
+
+/* ── On the dark strip: clock, glyph and Stop take the rail's colours ─────── */
+
+.ck-agent-runbar .ck-agent-clock {
+  color: var(--bldr-rail-text);
+}
+
+.ck-agent-runbar .ck-agent-glyph[data-state] .ck-agent-glyph__ring {
+  stroke: var(--bldr-rail-border);
+}
+
+.ck-agent-runbar .ck-agent-glyph .ck-agent-glyph__arc {
+  stroke: var(--bldr-rail-text-strong);
+}
+
+.ck-agent-runbar .ck-agent-glyph .ck-agent-glyph__core,
+.ck-agent-runbar .ck-agent-glyph .ck-agent-glyph__disc {
+  fill: var(--bldr-rail-text-strong);
+}
+
+.ck-agent-runbar .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-rail-border);
+  background-color: var(--bldr-rail-raised);
+  color: var(--bldr-rail-text-strong);
+}
+
+.ck-agent-runbar .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-runbar .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  border-color: var(--bldr-rail-text);
+  background-color: var(--bldr-rail-raised);
+  color: var(--bldr-rail-text-strong);
+}
+
+.ck-agent-runbar
+  .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-runbar
+  .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover {
+  border-color: var(--bldr-rail-border);
+  background-color: var(--bldr-rail);
+  color: var(--bldr-rail-text);
 }
 
 /* ── Motion (SPEC §5 moment 8): 0fr → 1fr over `enter`, back over `exit` ───────────── */
@@ -87,7 +134,7 @@
 @keyframes ck-agent-runbar-out {
   from {
     grid-template-rows: 1fr;
-    border-block-end-color: var(--bldr-panel-border);
+    border-block-end-color: var(--bldr-rail);
   }
 }
 
@@ -95,6 +142,15 @@
 @media (prefers-contrast: more) {
   .ck-agent-runbar {
     border-block-end-color: var(--bldr-panel-border-strong);
+  }
+}
+
+/* High contrast: the strip becomes the system's own surface, with its text colour. */
+@media (forced-colors: active) {
+  .ck-agent-runbar,
+  .ck-agent-runbar__status {
+    background-color: Canvas;
+    color: CanvasText;
   }
 }
 

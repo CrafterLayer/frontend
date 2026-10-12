@@ -11,7 +11,10 @@
   the row, and the glyph stays on the first line when there are two.
 
   Read type in Graphite; hover lays the Wash from the glyph column to the row's end
-  (radius 6) and inks the words. Never Indigo (SPEC §2.1 rule 3).
+  and inks the words. Never Indigo (SPEC §2.1 rule 3).
+
+  Studio Indigo (2026-10-12): each suggestion is its own quiet card (Hairline edge, the
+  panel's item surface, radius 9, 6px apart) so starters read as choices, not a bullet list.
 */
 
 .ck-agent-suggestions {
@@ -20,6 +23,7 @@
 
 .ck-agent-suggestions__list {
   display: grid;
+  row-gap: var(--bldr-space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -39,11 +43,11 @@
   inline-size: 100%;
   min-block-size: var(--bldr-agent-row-height);
   margin: 0;
-  padding-block: var(--bldr-space-2xs);
-  padding-inline: var(--bldr-space-0) var(--bldr-space-md);
-  border: 0;
-  border-radius: var(--bldr-radius-sm);
-  background-color: transparent;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md) var(--bldr-space-lg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-panel-item);
   color: var(--bldr-panel-text-soft);
   font-family: var(--bldr-font);
   font-size: var(--bldr-font-size-read);

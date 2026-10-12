@@ -32,13 +32,21 @@
   inset-inline: 0;
 }
 
+/*
+  Studio Indigo (2026-10-12): radius 14 and the raised shadow lift the card off the panel;
+  the Rule edge stays (3:1 boundary for the field). Writing adds a 4px Accent-soft halo
+  outside the ring, so the focused composer reads at a glance without a heavier border.
+*/
 .ck-agent-composer__card {
   box-sizing: border-box;
   min-inline-size: 0;
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-xl);
+  border-radius: calc(var(--bldr-radius-xl) + var(--bldr-space-2xs));
   background-color: var(--bldr-surface);
-  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+  box-shadow: var(--bldr-shadow-raised);
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    box-shadow var(--bldr-duration-state) var(--bldr-easing);
 }
 
 .ck-agent-composer__card:focus-within {
@@ -57,6 +65,9 @@
     border-color: var(--bldr-accent);
     outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
     outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+    box-shadow:
+      0 0 0 calc(2 * var(--bldr-border-thick)) var(--bldr-accent-soft),
+      var(--bldr-shadow-raised);
   }
 }
 

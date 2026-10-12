@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import type { BatchCapability } from './batch-routes';
+import { isApiModel } from './routing-client';
+
 /**
  * `api:` models beside `cli:` ones (3e0bc10): the Messages API on the owner's key, and the guard
  * that keeps that key away from the subscription CLI. Kept here so main.ts and cli-client.ts stay
@@ -45,4 +48,38 @@ export function logLocalBackends(cliSlugs: readonly string[], apiSlugs: readonly
   for (const slug of apiSlugs) {
     console.log(`[ai-server] ${slug}: the Anthropic API (billed to ANTHROPIC_API_KEY)`);
   }
+}
+
+/**
+ * Who runs background batches (`/batch`, batch-routes.ts). Only the Messages API batches: the
+ * `sdk` backend with its key, or — beside OpenRouter — the `api:` models on ANTHROPIC_API_KEY.
+ * Anything else is a sentence naming what is missing, which `/batch` answers with a 501.
+ */
+export function batchBackendFor(
+  backend: 'sdk' | 'cli' | 'openrouter',
+  client: Anthropic,
+  models: readonly string[],
+  key: string | undefined,
+): BatchCapability {
+  if (backend === 'sdk') {
+    return client.apiKey === null && client.authToken === null
+      ? {
+          unavailable:
+            'Background batches need the Anthropic Messages API: set ANTHROPIC_API_KEY in apps/ai-server/.env and restart.',
+        }
+      : { client, route: 'sdk' };
+  }
+  if (backend === 'cli') {
+    return {
+      unavailable:
+        'Background batches need the Anthropic Messages API, and this server answers through the local `claude` CLI (CRAFTKIT_AI_BACKEND=cli), which cannot batch: run the sdk backend with ANTHROPIC_API_KEY.',
+    };
+  }
+  if (key !== undefined && models.some(isApiModel)) {
+    return { client: new Anthropic({ apiKey: key }), route: 'api' };
+  }
+  return {
+    unavailable:
+      'Background batches need the Anthropic Messages API, and OpenRouter cannot batch: add an api: model to CRAFTKIT_AI_MODELS and set ANTHROPIC_API_KEY in apps/ai-server/.env.',
+  };
 }

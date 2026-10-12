@@ -108,6 +108,25 @@ token to authored code.
 | `CRAFTKIT_AI_CLI_TIMEOUT_MS`      | `600000`                       | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation.                                                |
 | `CRAFTKIT_AI_ALLOWED_ORIGINS`     | loopback, any port             | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected.                         |
 
+## Background batches
+
+The agent's big jobs (the same request on every page of a site) go through the Message Batches API
+at half price, answered within 24 hours. `batch-routes.ts` has the contract; builder-ai's
+`createAiBatchRunner` drives it.
+
+- `POST /batch` accepts `{ "version": 1, "model"?: string, "items": [{ "id", "request" }] }`: 1 to
+  100 items, each an ordinary `/plan` body held to `/plan`'s checks and sent as exactly the request
+  `/plan` would stream for it (one-hour cache breakpoints included). Answers the batch's state.
+- `GET /batch/:id` answers `{ version, id, status, counts, createdAt, endedAt, expiresAt }`;
+  `POST /batch/:id/cancel` stops it.
+- `GET /batch/:id/results` (`409` until `status` is `ended`) answers one entry per item, keyed by
+  id: `{ id, body, usage }` where `body` is exactly what `/plan` would have answered, or
+  `{ id, error: { type, message } }` for an item that errored, expired or was cancelled.
+
+Only the Messages API batches: the `sdk` backend with `ANTHROPIC_API_KEY`, or `api:` models beside
+OpenRouter. On the `cli` backend, or OpenRouter with no `api:` model or key, `/batch` answers `501`
+naming what is missing; an item whose model only the CLI or OpenRouter serves answers `409`.
+
 ## Concurrency
 
 There is no request cap here, on purpose. A page-sized request in the playground is a split build

@@ -39,7 +39,7 @@ export function isApiModel(slug: string): boolean {
  * into the system prompt as text instead — the path OpenRouter models without
  * structured outputs already take, and `claude.ts` parses either.
  */
-function apiParams(params: Record<string, unknown>, model: string): Record<string, unknown> {
+export function apiParams(params: Record<string, unknown>, model: string): Record<string, unknown> {
   const outputConfig = params['output_config'] as
     | { format?: { schema?: unknown }; [key: string]: unknown }
     | undefined;

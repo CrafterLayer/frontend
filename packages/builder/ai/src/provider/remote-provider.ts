@@ -196,7 +196,7 @@ async function readJsonResponse(response: Response, maxResponseBytes: number): P
  * error names the server instead of confusing the kernel-door validator. The
  * real per-command validation still happens in `assertValidAiPlan`.
  */
-function parseWireResponse(payload: unknown): AiPlan {
+export function parseWireResponse(payload: unknown): AiPlan {
   if (
     isRecord(payload) &&
     Object.hasOwn(payload, 'version') &&
@@ -451,7 +451,7 @@ function endpointPolicyError(message: string): RemoteAiProviderError {
   return new RemoteAiProviderError(message, { code: 'endpoint-policy', retryable: false });
 }
 
-function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): void {
+export function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): void {
   let parsed: URL;
   try {
     parsed = new URL(endpoint);

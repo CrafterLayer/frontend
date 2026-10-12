@@ -17,7 +17,7 @@ import {
   type OpenRouterModelFacts,
 } from './openrouter-client';
 import { createRoutingClient, isApiModel, isCliModel } from './routing-client';
-import { createApiBackend, logLocalBackends } from './api-models';
+import { batchBackendFor, createApiBackend, logLocalBackends } from './api-models';
 import { jsonParseError, unwrapJson } from './json-salvage';
 import { createNodeServer } from './server';
 import { createProcessRuntimeSupervisor } from './runtime-workers';
@@ -506,10 +506,10 @@ console.log(
   `[ai-server] prompt enhancer: ${enhanceModel ?? "the backend's default model"}, low effort, ` +
     'at most 900 output tokens',
 );
-
 const handle = createHandler({
   client,
   codeRuntime,
+  batches: batchBackendFor(backend, client, namedModels, setting('ANTHROPIC_API_KEY')),
   ...(enhanceModel === undefined ? {} : { enhanceModel }),
   onLog: (line) => {
     console.log(`[ai-server] ${line}`);

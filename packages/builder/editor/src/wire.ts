@@ -44,6 +44,15 @@ export {
   type AiPlanWireInvalidOutputResponse,
   type AiPlanWireRequest,
   type AiPlanWireResponse,
+  // background batches (2026-10-12): the routes and limits the ai-server holds a batch to.
+  AI_BATCH_ITEM_ID_PATTERN,
+  AI_BATCH_MAX_ITEMS,
+  AI_BATCH_PATH,
+  type AiBatchWireItem,
+  type AiBatchWireRequest,
+  type AiBatchWireResultItem,
+  type AiBatchWireResults,
+  type AiBatchWireState,
 } from '@craftkit/builder-ai';
 
 export {

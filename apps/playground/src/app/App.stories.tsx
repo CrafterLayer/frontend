@@ -27,9 +27,9 @@ export const UnsupportedClaimsAreAbsent: Story = {
 
     // Positive anchor: the real preview action proves the top bar mounted.
     await expect(canvas.getByRole('button', { name: 'Preview' })).toBeVisible();
-    // Mutations that kill these lines: remove the app-scoped omission rule for
-    // either half of the unsupported split action. A visible no-op Publish
-    // control must never return to the running playground.
+    // The bar's Publish is the real one (static site files), named for what it does;
+    // no bare no-op "Publish" and no options half may return to the running playground.
+    await expect(canvas.getByRole('button', { name: 'Publish site' })).toBeVisible();
     await expect(canvas.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     await expect(canvas.queryByRole('button', { name: 'Publish options' })).not.toBeInTheDocument();
 

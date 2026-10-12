@@ -305,6 +305,12 @@ export interface PaletteProps {
    */
   templateCards?: readonly TemplateCardInfo[] | undefined;
   // end library-playground additions
+  /**
+   * Draw the Blocks / Templates switch (default `true`). A host that already offers
+   * templates beside the palette (LibraryPanel's own Templates tab) turns it off, so the
+   * person never meets a row of tabs inside a row of tabs; the palette then shows blocks.
+   */
+  showViewTabs?: boolean | undefined;
 }
 
 /**
@@ -320,6 +326,7 @@ export function Palette({
   dragHandle,
   labels = PALETTE_LABELS_EN,
   templateCards,
+  showViewTabs = true,
 }: PaletteProps) {
   // end library-playground additions
   const blockNames = labels.blockNames;
@@ -540,23 +547,25 @@ export function Palette({
 
   return (
     <nav className="bldr-palette" aria-label={labels.palette}>
-      <div className="bldr-palette__tabs" role="tablist" aria-label={labels.tabs}>
-        {(['blocks', 'templates'] as const).map((candidate) => (
-          <button
-            key={candidate}
-            type="button"
-            role="tab"
-            className="bldr-palette__tab"
-            aria-selected={view === candidate}
-            onClick={() => {
-              setView(candidate);
-              setQuery('');
-            }}
-          >
-            {candidate === 'blocks' ? labels.blocksTab : labels.templatesTab(templates.length)}
-          </button>
-        ))}
-      </div>
+      {showViewTabs ? (
+        <div className="bldr-palette__tabs" role="tablist" aria-label={labels.tabs}>
+          {(['blocks', 'templates'] as const).map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              role="tab"
+              className="bldr-palette__tab"
+              aria-selected={view === candidate}
+              onClick={() => {
+                setView(candidate);
+                setQuery('');
+              }}
+            >
+              {candidate === 'blocks' ? labels.blocksTab : labels.templatesTab(templates.length)}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="bldr-palette__search">
         <label className="bldr-visually-hidden" htmlFor={searchId}>
           {view === 'blocks' ? labels.searchBlocks : labels.searchTemplates}

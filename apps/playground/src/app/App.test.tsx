@@ -453,7 +453,9 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.queryByRole('combobox', { name: 'Fixture' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'Edit mode' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Harness' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+    // The real publish is the bar's one primary action, whole, with no options half.
+    expect(screen.getByRole('button', { name: 'Publish site' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Publish options' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));

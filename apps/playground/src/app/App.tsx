@@ -949,7 +949,17 @@ export function App() {
         which is exactly the slot the component offers for them.
       */}
       <TopBar
-        labels={labels.topBar}
+        /*
+          Studio Indigo (2026-10-12): the real publish (static site files) IS the bar's one
+          primary action, so it takes the TopBar's Publish slot, whole (no options half), and
+          says "Publish site". It used to sit in the action band as a plain button beside
+          five others of the same weight.
+        */
+        labels={{ ...labels.topBar, publish: labels.chrome.publishSite }}
+        onPublish={() => void publishStaticSiteFiles()}
+        publishDisabled={!publishSite.canPublish || publishSite.publishing}
+        publishTitle={publishSite.error}
+        showPublishOptions={false}
         dir={labels.dir}
         productName="CraftKit Builder"
         logo={<span className="pg-mark">CK</span>}
@@ -1003,17 +1013,10 @@ export function App() {
             </div>
             <ChromeButton
               size="sm"
-              disabled={!publishSite.canPublish || publishSite.publishing}
-              title={publishSite.error}
-              onClick={() => void publishStaticSiteFiles()}
-            >
-              {labels.chrome.publishSite}
-            </ChromeButton>
-            <ChromeButton
-              size="sm"
               variant="toggle"
               className="pg-pane-toggle"
               aria-label={labels.chrome.togglePanel}
+              title={labels.chrome.togglePanel}
               aria-pressed={visiblePanes.panel}
               onClick={() => {
                 setPanelOpen(!visiblePanes.panel);
@@ -1032,6 +1035,7 @@ export function App() {
               variant="toggle"
               className="pg-pane-toggle"
               aria-label={labels.chrome.toggleInspector}
+              title={labels.chrome.toggleInspector}
               aria-pressed={visiblePanes.aside}
               onClick={() => {
                 setAsideOpen(!visiblePanes.aside);
@@ -1169,6 +1173,7 @@ export function App() {
               items={railDestinations}
               secondary={railUtilities}
               label={labels.chrome.railLabel}
+              captions
               activeId={railSection}
               onSelect={(id) => {
                 /*

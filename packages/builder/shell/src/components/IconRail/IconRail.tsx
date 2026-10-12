@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { FocusEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 import { ChromeButton } from '../ChromeButton';
 import './IconRail.css';
@@ -16,6 +16,13 @@ export interface IconRailProps {
   onSelect?: ((id: string) => void) | undefined;
   account?: ReactNode | undefined;
   label?: string | undefined;
+  /**
+   * Draw each item's name under its icon (Studio Indigo, 2026-10-12). Icon-only navigation
+   * hides where things are; a short caption beside every glyph is what makes the rail
+   * learnable, so a host with room (68px) turns it on. The caption replaces the hover label,
+   * which would only repeat it. Off by default, so a narrow host keeps the icon rail.
+   */
+  captions?: boolean | undefined;
 }
 
 /**
@@ -58,6 +65,7 @@ export function IconRail({
   onSelect,
   account,
   label = 'Builder sections',
+  captions = false,
 }: IconRailProps) {
   const showLabel = (button: HTMLButtonElement) => {
     const label = button.querySelector<HTMLElement>('.bldr-icon-rail__label');
@@ -74,43 +82,58 @@ export function IconRail({
   };
   const hasFooter = secondary.length > 0 || account !== undefined;
 
+  /* One button for both lists; with captions the name is drawn, without them it pops over. */
+  const renderButton = (item: RailItem) => (
+    <ChromeButton
+      className="bldr-icon-rail__button"
+      size="lg"
+      variant="quiet"
+      aria-label={item.label}
+      {...(captions
+        ? {}
+        : {
+            onMouseEnter: (event: MouseEvent<HTMLButtonElement>) => {
+              showLabel(event.currentTarget);
+            },
+            onMouseLeave: (event: MouseEvent<HTMLButtonElement>) => {
+              hideLabel(event.currentTarget);
+            },
+            onFocus: (event: FocusEvent<HTMLButtonElement>) => {
+              showLabel(event.currentTarget);
+            },
+            onBlur: (event: FocusEvent<HTMLButtonElement>) => {
+              hideLabel(event.currentTarget);
+            },
+            onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+              if (event.key === 'Escape') hideLabel(event.currentTarget);
+            },
+          })}
+      aria-current={activeId === item.id ? 'page' : undefined}
+      onClick={() => {
+        onSelect?.(item.id);
+      }}
+    >
+      <span className="bldr-icon-rail__icon" aria-hidden="true">
+        {item.icon}
+      </span>
+      {captions ? (
+        <span className="bldr-icon-rail__caption" aria-hidden="true">
+          {item.label}
+        </span>
+      ) : (
+        <span className="bldr-icon-rail__label" popover="manual" aria-hidden="true">
+          {item.label}
+        </span>
+      )}
+    </ChromeButton>
+  );
+
   return (
-    <nav className="bldr-icon-rail" aria-label={label}>
+    <nav className="bldr-icon-rail" aria-label={label} data-captions={captions ? '' : undefined}>
       <ul className="bldr-icon-rail__list bldr-icon-rail__list--primary">
         {items.map((item) => (
           <li key={item.id} className="bldr-icon-rail__item">
-            <ChromeButton
-              className="bldr-icon-rail__button"
-              size="lg"
-              variant="quiet"
-              aria-label={item.label}
-              onMouseEnter={(event) => {
-                showLabel(event.currentTarget);
-              }}
-              onMouseLeave={(event) => {
-                hideLabel(event.currentTarget);
-              }}
-              onFocus={(event) => {
-                showLabel(event.currentTarget);
-              }}
-              onBlur={(event) => {
-                hideLabel(event.currentTarget);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') hideLabel(event.currentTarget);
-              }}
-              aria-current={activeId === item.id ? 'page' : undefined}
-              onClick={() => {
-                onSelect?.(item.id);
-              }}
-            >
-              <span className="bldr-icon-rail__icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="bldr-icon-rail__label" popover="manual" aria-hidden="true">
-                {item.label}
-              </span>
-            </ChromeButton>
+            {renderButton(item)}
           </li>
         ))}
       </ul>
@@ -121,38 +144,7 @@ export function IconRail({
             <ul className="bldr-icon-rail__list bldr-icon-rail__list--secondary">
               {secondary.map((item) => (
                 <li key={item.id} className="bldr-icon-rail__item">
-                  <ChromeButton
-                    className="bldr-icon-rail__button"
-                    size="lg"
-                    variant="quiet"
-                    aria-label={item.label}
-                    onMouseEnter={(event) => {
-                      showLabel(event.currentTarget);
-                    }}
-                    onMouseLeave={(event) => {
-                      hideLabel(event.currentTarget);
-                    }}
-                    onFocus={(event) => {
-                      showLabel(event.currentTarget);
-                    }}
-                    onBlur={(event) => {
-                      hideLabel(event.currentTarget);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') hideLabel(event.currentTarget);
-                    }}
-                    aria-current={activeId === item.id ? 'page' : undefined}
-                    onClick={() => {
-                      onSelect?.(item.id);
-                    }}
-                  >
-                    <span className="bldr-icon-rail__icon" aria-hidden="true">
-                      {item.icon}
-                    </span>
-                    <span className="bldr-icon-rail__label" popover="manual" aria-hidden="true">
-                      {item.label}
-                    </span>
-                  </ChromeButton>
+                  {renderButton(item)}
                 </li>
               ))}
             </ul>

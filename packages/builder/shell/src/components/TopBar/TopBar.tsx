@@ -18,6 +18,18 @@ export interface TopBarProps {
   onPreview?: (() => void) | undefined;
   onPublish?: (() => void) | undefined;
   onPublishOptions?: (() => void) | undefined;
+  /**
+   * The host's publish is wired but cannot run now (nothing to publish, or a publish is in
+   * flight). Publish stays in place, disabled, with `publishTitle` saying why.
+   */
+  publishDisabled?: boolean | undefined;
+  /** Why Publish is disabled, or what it will do; drawn as its title. */
+  publishTitle?: string | undefined;
+  /**
+   * Draw the split half, Publish options. A host whose publish has no options leaves it out
+   * (`false`) and Publish becomes one whole primary button. Default `true`.
+   */
+  showPublishOptions?: boolean | undefined;
   /** Free slot before the actions — where a host puts its own controls. */
   extra?: ReactNode | undefined;
   label?: string | undefined;
@@ -98,6 +110,9 @@ export function TopBar({
   onPreview,
   onPublish,
   onPublishOptions,
+  publishDisabled = false,
+  publishTitle,
+  showPublishOptions = true,
   extra,
   labels = TOP_BAR_LABELS_EN,
   label = labels.toolbar,
@@ -234,25 +249,27 @@ export function TopBar({
             className="bldr-topbar__publish-main"
             size="lg"
             variant="primary"
-            disabled={onPublish === undefined}
-            title={onPublish === undefined ? labels.publishingOff : undefined}
+            disabled={onPublish === undefined || publishDisabled}
+            title={onPublish === undefined ? labels.publishingOff : publishTitle}
             onClick={onPublish}
           >
             {labels.publish}
           </ChromeButton>
-          <ChromeButton
-            className="bldr-topbar__publish-options"
-            size="lg"
-            tone="primary"
-            variant="icon"
-            aria-label={labels.publishOptions}
-            disabled={onPublishOptions === undefined}
-            onClick={onPublishOptions}
-          >
-            <svg {...ICON_PROPS}>
-              <path d="m5 6.5 3 3 3-3" />
-            </svg>
-          </ChromeButton>
+          {showPublishOptions ? (
+            <ChromeButton
+              className="bldr-topbar__publish-options"
+              size="lg"
+              tone="primary"
+              variant="icon"
+              aria-label={labels.publishOptions}
+              disabled={onPublishOptions === undefined}
+              onClick={onPublishOptions}
+            >
+              <svg {...ICON_PROPS}>
+                <path d="m5 6.5 3 3 3-3" />
+              </svg>
+            </ChromeButton>
+          ) : null}
         </div>
       </div>
     </div>

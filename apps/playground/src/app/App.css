@@ -30,7 +30,10 @@ body,
   --bldr-topbar-height: 48px;
   --bldr-panel-width: 320px;
   --bldr-inspector-width: 288px;
-  --bldr-rail-width: 48px;
+  /* Studio Indigo (2026-10-12): 68px, so every destination carries its name under its icon. */
+  --bldr-rail-width: 68px;
+  /* An overlaid panel starts after the captioned rail, never over its words. */
+  --bldr-shell-rail-measure: var(--bldr-rail-width);
   /* The harness panel is positioned against this, so the app root has to be a
      containing block — `overflow` alone never was one. */
   position: relative;
@@ -55,7 +58,36 @@ body,
   display: inline-flex;
   flex: none;
   align-items: center;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface-sunken);
   white-space: nowrap;
+}
+
+/*
+  Studio Indigo (2026-10-12): Canvas / Sitemap is one segmented control, the same sunken
+  track as the device switcher; the chosen view is a raised white tile, not an Accent wash,
+  so the bar's only Accent fill is Publish.
+*/
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed] {
+  border: 0;
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed='true'],
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed='true']:enabled:hover {
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed='false']:enabled:hover {
+  background-color: transparent;
+  color: var(--bldr-panel-text);
 }
 
 @media (width < 700px) {
@@ -78,12 +110,29 @@ body,
   }
 }
 
-/* The pane toggles are words at a desk and glyphs on a phone (below). */
+/*
+  The pane toggles are glyphs at every width (Studio Indigo, 2026-10-12): two words in an
+  Accent wash beside the view switch read as two more tabs. Their names stay their
+  accessible names and their titles.
+*/
 .pg-pane-toggle__icon {
-  display: none;
+  display: block;
   flex: none;
   block-size: var(--bldr-space-3xl);
   inline-size: var(--bldr-space-3xl);
+}
+
+.pg-app .pg-pane-toggle {
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-app .pg-pane-toggle__label {
+  position: absolute;
+  overflow: hidden;
+  block-size: var(--bldr-border-hairline);
+  inline-size: var(--bldr-border-hairline);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* A phone: the agent's PHONE_QUERY (<600px, coarse pointer). Final test,
@@ -138,14 +187,6 @@ body,
   .pg-app .bldr-statusbar__centre {
     display: none;
   }
-}
-
-/* The reusable TopBar has a publish surface for hosts that own a real publish
-   operation. This in-memory playground does not: drawing either half of the
-   split action would promise an operation that cannot happen. Remove the
-   complete group from layout, hit-testing, and the accessibility tree here. */
-.pg-app .bldr-topbar__publish {
-  display: none;
 }
 
 /* The scenario shows the layers tree AND the inspector in the one aside track.

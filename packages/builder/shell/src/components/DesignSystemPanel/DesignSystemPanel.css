@@ -185,6 +185,14 @@
   padding-inline: var(--bldr-space-xs);
 }
 
+/*
+  A colour's NAME is words, often Arabic: mono spaced «اسم اللون» into separate letters.
+  Only the hex field keeps the mono face (Studio Indigo, 2026-10-12).
+*/
+.bldr-palette__input:not(.bldr-palette__input--mono) {
+  font-family: var(--bldr-font);
+}
+
 .bldr-token-rows__field:focus-visible,
 .bldr-palette__value:focus-visible,
 .bldr-palette__input:focus-visible,

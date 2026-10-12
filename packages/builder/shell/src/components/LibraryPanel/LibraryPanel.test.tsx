@@ -197,6 +197,8 @@ describe('LibraryPanel', () => {
     render(<LibraryPanel kernel={makeKernel()} />);
     await user.click(screen.getByRole('tab', { name: 'Blocks' }));
     expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+    // One row of tabs: the composed palette drops its own Blocks / Templates switch.
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
   });
 
   it('builds thumbnails from the classes a tree uses, sandboxed and directional', () => {

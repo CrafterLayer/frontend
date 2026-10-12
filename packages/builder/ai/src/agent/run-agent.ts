@@ -48,6 +48,7 @@ import type {
 } from './types';
 import { contextReadyReport, type OnContextReady, wireRequestTokens } from './context-report';
 import { classifyAiRunFailure } from './errors';
+import { withSceneEdit } from './scene-edit-context';
 // script-wiring additions
 import { scriptCrossPage, scriptCrossPageFollowUp, scriptPagesTouched } from '../script/cross-page';
 import { directScript } from '../script/direct-scripts';
@@ -289,14 +290,9 @@ function generationOptions(
     ...(options.contextProviders === undefined
       ? {}
       : { contextProviders: options.contextProviders }),
-    ...(options.additionalContextProviders === undefined
-      ? {}
-      : { additionalContextProviders: options.additionalContextProviders }),
     ...(options.history === undefined ? {} : { history: options.history }),
-    ...(skillRegistry === undefined ? {} : { skillRegistry }),
-    ...(options.selectedSkillIds === undefined
-      ? {}
-      : { selectedSkillIds: options.selectedSkillIds }),
+    // The run's registry, skills and providers; an edit of scene code adds its playbooks and brief.
+    ...withSceneEdit(options, reading, skillRegistry),
     ...(options.policy?.allowUntrustedSkills === undefined
       ? {}
       : { allowUntrustedSkills: options.policy.allowUntrustedSkills }),

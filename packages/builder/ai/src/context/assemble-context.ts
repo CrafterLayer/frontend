@@ -28,7 +28,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { serializeTreeMarkup } from '../plan/tree-markup';
-import { wirePropsSchema } from './wire-schema';
+import { wirePropsSchema, withStudioSummaries } from './wire-schema';
 import type {
   AiBlockContext,
   AiBlockPropertyIntentContext,
@@ -124,7 +124,7 @@ function blockCatalogEntry({ schema }: RegisteredBlock): AiContextBlockCatalogEn
   return Object.freeze({
     type: schema.type,
     description: schema.description,
-    propsSchema: deepFreezeJson(cloneJson(blockPropsJsonSchema(schema))),
+    propsSchema: deepFreezeJson(cloneJson(withStudioSummaries(blockPropsJsonSchema(schema), schema.props))),
     ...(schema.surfaces === undefined
       ? {}
       : { surfaces: frozenStrings([...schema.surfaces].sort(compareText)) }),
@@ -595,13 +595,13 @@ function propertyIntentSummary(
   };
 }
 
-function collectTemplates(ctx: AiContextReadApi): readonly AiTemplateContext[] {
+function collectTemplates(ctx: AiContextReadApi, full: boolean): readonly AiTemplateContext[] {
   return ctx.registry.compositions(ctx.surface).map((composition) => ({
     id: composition.id,
     name: composition.name,
     rootType: composition.rootType,
     nodeCount: composition.nodeCount,
-    blockTypes: [...composition.blockTypes],
+    ...(full ? { blockTypes: [...composition.blockTypes] } : {}), // a model without the catalog cannot author them
   }));
 }
 
@@ -881,7 +881,7 @@ export const templateCatalogContextProvider: AiContextProvider = {
         trust: 'builtin',
         title: 'Registered page templates',
       },
-      collectTemplates(ctx),
+      collectTemplates(ctx, true),
     );
   },
 };
@@ -1088,7 +1088,7 @@ export function assembleAiContext(
     fragments,
     totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     blocks: collectBlocks(readCtx, composition, focus),
-    templates: collectTemplates(readCtx),
+    templates: collectTemplates(readCtx, composition.catalogMode === 'full'),
     document: focused?.document ?? collectDocument(readCtx, composition, selection),
     selection: collectSelection(readCtx, selection),
     commands,

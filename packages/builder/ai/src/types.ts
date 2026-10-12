@@ -118,7 +118,7 @@ export interface AiTemplateContext {
   name: string;
   rootType: string;
   nodeCount: number;
-  blockTypes: readonly string[];
+  /** The template's block types; with the full catalog only (2026-10-12: 18 templates, ~850 tokens). */ blockTypes?: readonly string[];
 }
 
 /** One command the model may propose in this exact run. */

@@ -39,7 +39,6 @@
     "apps/playground/src/features/agent/model/run-view.ts": 668,
     "apps/playground/src/features/agent/model/turns.ts": 700,
     "apps/playground/src/features/agent/model/view-types.ts": 1027,
-    "apps/playground/src/features/agent/testing/fake-controller.ts": 1754,
     "apps/playground/src/features/agent/testing/scripted-engine.ts": 592,
     "apps/playground/src/features/agent/testing/wp-12-records-fixtures.ts": 764,
     "apps/playground/src/features/agent/testing/wp-13-decisions-fixtures.ts": 525,

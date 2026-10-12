@@ -1,0 +1,447 @@
+/* The legacy assistant thread: turns, run rows, outcome cards and receipts. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* Every turn is an article: the thread reads as a list of things said, and
+   two of the person's turns in a row sit closer than a turn and its answer. */
+.pg-chat__turn {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.pg-chat__turn[data-from='you'] + .pg-chat__turn[data-from='you'] {
+  margin-block-start: calc(var(--bldr-space-sm) - var(--bldr-space-xl));
+}
+
+/* The person's turn sits to the trailing edge in a filled bubble; the
+   assistant's runs full width behind its own avatar. Asymmetry is what
+   makes a thread readable at a glance without reading it. */
+.pg-chat__you {
+  align-self: end;
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-xl);
+  border-end-end-radius: var(--bldr-radius-xs);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-control);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  max-inline-size: 85%;
+  overflow-wrap: anywhere;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  unicode-bidi: plaintext;
+  white-space: pre-wrap;
+}
+
+.pg-chat__reply {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+/* The reply avatar is a frozen face at 24 px; the seat only, see the mark. */
+.pg-chat__avatar {
+  align-items: center;
+  block-size: var(--bldr-space-5xl);
+  border-radius: var(--bldr-radius-full);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-5xl);
+  justify-content: center;
+}
+
+.pg-chat__reply-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.pg-chat__thinking {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-chat__thinking p {
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__thinking-dots {
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
+}
+
+/* Three dots in the accent family — thinking in the chrome's own colour;
+   the aurora is spent on the name, the halo and the composer, never here. */
+.pg-chat__thinking-dots span {
+  animation: pg-chat-pulse 1.1s var(--bldr-easing) infinite;
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  inline-size: var(--bldr-space-xs);
+}
+
+.pg-chat__thinking-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+  background: var(--bldr-accent-strong);
+}
+
+.pg-chat__thinking-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+  background: var(--bldr-accent-ring);
+}
+
+@keyframes pg-chat-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__thinking-dots span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* THE RUN, as rows. GenerationProgress inside the thread: the card takes the
+   accent stripe every in-flight thing wears, and the thinking line under it
+   carries the provider's own words. */
+.pg-chat__inflight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+}
+
+/* A run can be slow without being wrong: muted words under the card, never a
+   warning colour — colour is reserved for what actually failed. */
+.pg-chat__slow {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__inflight .bldr-genprogress {
+  border-inline-start: var(--bldr-border-focus) solid var(--bldr-accent);
+  box-shadow: var(--bldr-shadow-raised);
+}
+
+.pg-chat__inflight .bldr-genprogress__heading {
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__inflight .bldr-genprogress__name {
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-chat__inflight .bldr-genprogress__count,
+.pg-chat__inflight .bldr-genprogress__status,
+.pg-chat__inflight .bldr-genprogress__detail {
+  font-size: var(--bldr-font-size-micro);
+}
+
+/* The panel is 288 px wide: a row's name and its detail ("Repairing 1") cannot
+   share one line, so the detail drops under the name and spans the row. */
+.pg-chat__inflight .bldr-genprogress__stage {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.pg-chat__inflight .bldr-genprogress__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__inflight .bldr-genprogress__detail {
+  grid-column: 2 / -1;
+  grid-row: 2;
+}
+
+/* The signature card: every assistant outcome after "thinking" lands here.
+   The leading edge carries the state; the box around it never changes — the
+   edge that shows on hover is what makes a card readable in the dark chrome,
+   where a hairline on a raised surface is invisible by design. */
+.pg-chat__card {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+
+  border-radius: var(--bldr-radius-xl);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-xl);
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__card:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+/* The head row: what this card IS, and how much it does. */
+.pg-chat__card-head {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-chat__card-kind {
+  align-items: center;
+  color: var(--bldr-accent);
+  display: inline-flex;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  text-transform: uppercase;
+}
+
+.pg-chat__card-kind[data-kind='applied'] {
+  color: var(--bldr-success);
+}
+
+.pg-chat__card-count {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  margin-inline-start: auto;
+}
+
+/* The receipt: every row that finished, and how long it took. */
+.pg-chat__timing {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+}
+
+/* EVERY ending's one quiet line: how long the run took, how far it got, and
+   the provider's own last words. Mono, because two of the three are data. */
+.pg-chat__receipt {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  /* A provider's last words can be one long unspaced token. */
+  overflow-wrap: anywhere;
+}
+
+/* The refusal card's body is not a flex column, so the receipt has to hold
+   itself off the meta line above it. */
+.pg-chat__card--refused .pg-chat__receipt {
+  margin-block-start: var(--bldr-space-xs);
+}
+
+/* Where it broke: the code as a pill, then source, status and the row. */
+.pg-chat__failure-meta {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__code {
+  background: var(--bldr-danger-soft);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-danger);
+  font-family: var(--bldr-font-mono);
+  padding-inline: var(--bldr-space-xs);
+}
+
+/* Discard sits at the inline end, apart from the actions that keep the plan,
+   and only turns red once the pointer commits to it. */
+.pg-chat__decide-discard {
+  margin-inline-start: auto;
+}
+
+.pg-chat__decide-discard:hover {
+  color: var(--bldr-danger);
+}
+
+.pg-chat__card--applied {
+  border-inline-start-color: var(--bldr-success);
+}
+
+.pg-chat__card--refused {
+  align-items: flex-start;
+  border-inline-start-color: var(--bldr-danger);
+  flex-direction: row;
+}
+
+.pg-chat__card--refused svg {
+  color: var(--bldr-danger);
+  flex: none;
+  margin-block-start: calc(var(--bldr-space-2xs) / 2);
+}
+
+/* A receipt, not a card: one line, sunk and dimmed, and hover leaves it be. */
+.pg-chat__card--discarded {
+  background: var(--bldr-surface-sunken);
+  border-inline-start-color: var(--bldr-panel-border-strong);
+  opacity: 0.72;
+  padding-block: var(--bldr-space-sm);
+}
+
+.pg-chat__card--discarded:hover {
+  opacity: 0.72;
+}
+
+.pg-chat__rationale {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  unicode-bidi: plaintext;
+}
+
+.pg-chat__continue-text,
+.pg-chat__mention-excerpt {
+  unicode-bidi: plaintext;
+}
+
+.pg-chat__refused {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  /* A refusal quotes the door verbatim — prop names with no spaces included. */
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.pg-chat__card--refused > div {
+  min-inline-size: 0;
+}
+
+/* The commands, in the mono face, because they are the exact thing that will
+   pass through the door — not a paraphrase of it. */
+.pg-chat__steps {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-6xl) var(--bldr-space-md);
+}
+
+.pg-chat__steps li + li {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  padding-block-start: var(--bldr-space-xs);
+}
+
+.pg-chat__steps li::marker {
+  color: var(--bldr-accent);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+/* WHAT THE SALVAGE LEFT BEHIND.
+
+   Collapsed by default, and that is the whole design: the count is the fact a
+   person must not miss, and the per-step reasons are what they read only if
+   they decide to act on it. An open list of validator messages above the plan
+   would bury the plan under its own errata.
+
+   No error colour. A salvaged plan SUCCEEDED at what it kept — painting this
+   red would tell a person the card is a failure when it is a smaller success,
+   and they would stop reading before the steps that worked. */
+/* THE PLANNED PAGE, top to bottom.
+
+   An ordered list because the ORDER is the plan: a person reading it is
+   checking that the page reads the way they meant, and a bulleted set would
+   drop the one fact the list is carrying. */
+/* THE INTERRUPTED CARD: a run nobody closed.
+
+   Its own tone, and deliberately not the refusal red. An unfinished run is not
+   a failure — sections landed, and the person is being offered four ways
+   forward, not told something broke. */
+.pg-chat__card--interrupted {
+  border-color: var(--bldr-warning, var(--bldr-accent));
+}
+
+/* Each section carries its outcome at the end of its own row: written, or the
+   door's sentence. A written one is quieter than one still owed. */
+.pg-chat__outline-sections li {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  justify-content: space-between;
+}
+
+.pg-chat__outline-sections li[data-written='true'] {
+  color: var(--bldr-panel-text-soft);
+}
+
+.pg-chat__outline-sections {
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+  padding-inline-start: var(--bldr-space-xl);
+}
+
+.pg-chat__outline-sections li::marker {
+  color: var(--bldr-accent);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__salvage {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+.pg-chat__salvage > summary {
+  cursor: pointer;
+  /* The marker stays: it is the only affordance saying there is more inside. */
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-chat__salvage > .pg-chat__steps {
+  background: transparent;
+  margin-block-start: var(--bldr-space-sm);
+  padding-block-end: var(--bldr-space-0);
+  padding-inline-start: var(--bldr-space-md);
+}
+
+.pg-chat__decide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+}
+
+.pg-chat__applied {
+  align-items: center;
+  color: var(--bldr-success);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}

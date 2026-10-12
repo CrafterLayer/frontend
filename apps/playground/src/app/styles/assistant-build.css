@@ -1,0 +1,204 @@
+/* The legacy assistant thread: the split build and its section rows. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* ── THE SPLIT BUILD ──────────────────────────────────────────────────────
+   A page as a LIST, not a spinner. One row per section, the open one carrying
+   the same GenerationProgress rows a single call would have shown. Everything
+   here borrows the panel's existing vocabulary — the sunken well the command
+   list sits in, the accent for what is happening, the muted grey for what has
+   not started — because a build is not a different product, it is the same
+   assistant doing more at once. */
+.pg-chat__tasks-head {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__tasks-count {
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__tasks {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-md);
+}
+
+.pg-chat__task {
+  border-inline-start: var(--bldr-border-focus) solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  padding-inline-start: var(--bldr-space-sm);
+}
+
+.pg-chat__task + .pg-chat__task {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  padding-block-start: var(--bldr-space-xs);
+}
+
+/* The row's own line: the title takes the room, its state sits at the end. */
+.pg-chat__task-line {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.pg-chat__task-title {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  white-space: nowrap;
+}
+
+.pg-chat__task-state {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+/* Only the OPEN row is coloured. A list where every finished row shouted in
+   green would leave nothing for the one thing actually happening. */
+.pg-chat__task[data-status='running'] {
+  border-inline-start-color: var(--bldr-accent);
+}
+
+.pg-chat__task[data-status='running'] .pg-chat__task-title,
+.pg-chat__task[data-status='running'] .pg-chat__task-state {
+  color: var(--bldr-accent);
+}
+
+.pg-chat__task[data-status='applied'] .pg-chat__task-title {
+  color: var(--bldr-panel-text);
+}
+
+.pg-chat__task[data-status='applied'] .pg-chat__task-state {
+  color: var(--bldr-success);
+}
+
+.pg-chat__task[data-status='skipped'] {
+  border-inline-start-color: var(--bldr-warning-border);
+}
+
+.pg-chat__task[data-status='skipped'] .pg-chat__task-state {
+  color: var(--bldr-warning);
+}
+
+/* A section the build gave up on says why, in the door's own words. */
+.pg-chat__task-reason {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  /* A refusal quotes prop names with no spaces in them. */
+  overflow-wrap: anywhere;
+  unicode-bidi: plaintext;
+}
+
+/* The open section's rows sit INSIDE its row, so they are inset and lose the
+   stripe the parent already carries. */
+.pg-chat__task-run {
+  display: block;
+  margin-block-start: var(--bldr-space-xs);
+}
+
+.pg-chat__task-run .bldr-genprogress {
+  border-inline-start: none;
+  box-shadow: none;
+}
+
+.pg-chat__task-undo {
+  margin-inline-start: auto;
+}
+
+/* The model's own SSE narration stays visible beside the section work. It is
+   bounded and scrollable so a long run informs without pushing the composer
+   out of reach. */
+.pg-chat__live-stream {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  max-block-size: 9rem;
+  overflow: auto;
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+.pg-chat__live-current {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pg-chat__live-stream header {
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pg-chat__live-stream ol {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pg-chat__live-stream li {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pg-chat__live-stream li::before {
+  color: var(--bldr-accent);
+  content: '›';
+  margin-inline-end: var(--bldr-space-xs);
+}
+
+/* What the approval is really promising: the skeleton is already down, and
+   every step after it is its own undo. */
+.pg-chat__tasks-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+/* A build's rows never animate: the clock inside the open one is information,
+   and the rest is a list. This block exists so a future hover or slide cannot
+   be added here without meeting the same rule. */
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__task,
+  .pg-chat__task-run .bldr-genprogress {
+    transition: none;
+  }
+}
+
+.pg-chat__composer {
+  background: var(--bldr-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-3xl);
+}

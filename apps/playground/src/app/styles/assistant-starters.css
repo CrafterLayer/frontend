@@ -1,0 +1,242 @@
+/* The legacy assistant panel: openers, the empty state and the starter strip. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* An opener a person can press is worth more than a paragraph telling them
+   what to type — and each of these is a request that genuinely works. */
+.pg-chat__empty {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-control);
+  padding-block: var(--bldr-space-5xl);
+  gap: var(--bldr-space-lg);
+  line-height: var(--bldr-line-height-normal);
+  text-align: center;
+}
+
+/* The empty state's mark hovers — the one ambient motion in the thread, and
+   it is gone the moment a conversation starts. */
+.pg-chat__empty-mark {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: calc(var(--bldr-space-6xl) * 1.5);
+  border-radius: var(--bldr-radius-full);
+  display: flex;
+  inline-size: calc(var(--bldr-space-6xl) * 1.5);
+  justify-content: center;
+}
+
+@keyframes pg-magic-float {
+  from {
+    translate: 0 var(--bldr-space-2xs);
+  }
+
+  to {
+    translate: 0 calc(var(--bldr-space-xs) * -1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__empty-mark {
+    animation: none;
+  }
+}
+
+.pg-chat__empty p {
+  margin: var(--bldr-space-0);
+  max-inline-size: 30ch;
+}
+
+/*
+  The suggestion rail: ONE scrollable row directly above the composer.
+
+  It was a column of four full-width cards, because it began life as the empty
+  state's welcome — four big targets on an otherwise blank panel. The moment it
+  became permanent, that shape was wrong: on a 360px panel it ate half the
+  height and squeezed the conversation into a sliver, so the thing meant to help
+  you continue a conversation was hiding it.
+
+  A rail solves the height problem the only way that keeps the suggestions
+  useful: they stay one tap away, they cost a fixed 1 row whatever their number
+  or length, and the overflow scrolls sideways instead of pushing anything.
+*/
+.pg-chat__starters {
+  align-self: stretch;
+  display: flex;
+  list-style: none;
+  margin: var(--bldr-space-0);
+  text-align: start;
+}
+
+/* EMPTY panel: a column of full-width targets. Nothing to crowd, and a person
+   who has said nothing yet is choosing, not continuing. */
+.pg-chat__starters[data-layout='stack'] {
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+}
+
+/* IN CONVERSATION: one row, fixed height, scrolled sideways. */
+.pg-chat__starters[data-layout='rail'] {
+  gap: var(--bldr-space-xs);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /*
+    Room for the whole focus ring. `overflow-x: auto` makes the BLOCK axis clip
+    too, and the ring reaches `focus-ring-width + focus-ring-offset` outside the
+    button — 2px of padding left its outer pixel shaved off top and bottom.
+  */
+  padding-block: calc(var(--bldr-focus-ring-width) + var(--bldr-focus-ring-offset));
+  padding-inline: var(--bldr-space-md);
+  scroll-behavior: smooth;
+  /*
+    Focus must not land on a chip that is off-screen. Browsers scroll a focused
+    element into view inside a scroller on their own; the padding is what stops
+    it arriving flush against the edge with its focus ring half-clipped.
+  */
+  scroll-padding-inline: var(--bldr-space-md);
+  scrollbar-width: none;
+  /*
+    Touch is left ALONE. `touch-action: pan-x` was here and it took vertical
+    panning away: a finger that started its drag on the rail could no longer
+    scroll the conversation behind it, which on a phone-width panel is most of
+    the screen. The browser already resolves the axis for a horizontal
+    scroller — telling it otherwise only removes a gesture.
+  */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__starters[data-layout='rail'] {
+    scroll-behavior: auto;
+  }
+}
+
+.pg-chat__starters::-webkit-scrollbar {
+  display: none;
+}
+
+.pg-chat__starters[data-layout='rail'] > li {
+  flex: none;
+}
+
+.pg-chat__starter {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  /* A pill, not a card: it reads as an option to pick, not a thing to read. */
+  border-radius: var(--bldr-radius-full);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  /*
+    A real touch target. The chip is caption-sized text with tight padding, which
+    measured about 42px — under the 44px this project sets as its minimum, on a
+    control sitting directly above the composer where a thumb reaches most
+    often. The min-height costs nothing visually and is the difference between a
+    tap and a near-miss.
+  */
+  min-block-size: var(--bldr-hit-target-min);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/*
+  Stacked, a suggestion is a card: full width, roomier, and free to wrap —
+  there is no row to keep one line tall.
+*/
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter {
+  border-radius: var(--bldr-radius-lg);
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  padding: var(--bldr-space-lg);
+  box-shadow: var(--bldr-shadow-raised);
+}
+
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter-icon {
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-sm);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  inline-size: var(--bldr-control-sm);
+}
+
+.pg-chat__starters[data-layout='stack'] .pg-chat__starter-text {
+  white-space: normal;
+}
+
+/*
+  Railed, a suggestion is a pill. Capped rather than wrapped: a chip that wraps
+  to three lines is the column layout again in one chip, and the whole sentence
+  is still in the accessible name and the tooltip.
+*/
+.pg-chat__starters[data-layout='rail'] .pg-chat__starter {
+  /*
+    A chip may take at most half the rail. 18rem let ONE suggestion fill 84% of
+    a 360px panel, so the strip read as a single option with the other three
+    invisible past the edge — a rail that shows one item is a rail for nothing.
+  */
+  max-inline-size: var(--bldr-measure-picker);
+}
+
+.pg-chat__starter:hover:not(:disabled) {
+  background: var(--bldr-accent-soft);
+  border-color: transparent;
+  color: var(--bldr-panel-text);
+}
+
+/* Present, and plainly not pressable: the strip holds its height while the
+   assistant works so nothing under the hand moves. */
+.pg-chat__starter:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.pg-chat__starter:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  The follow-up is the model's own "and next…", about the conversation that is
+  actually happening — so it leads the rail and is the one chip that looks like
+  an answer rather than a menu item.
+*/
+.pg-chat__starter[data-kind='followUp'] {
+  background: var(--bldr-accent-soft);
+  border-color: transparent;
+  color: var(--bldr-accent);
+}
+
+/*
+  At chip scale the icon is a hint, not a button — but `--bldr-space-lg` is
+  10px, which is smaller than the glyph it holds: the plus was being squeezed
+  into a box two thirds its size. `--bldr-control-height-sm`'s icon-sized
+  sibling is the right measure for something that sits beside caption text.
+*/
+.pg-chat__starter-icon {
+  align-items: center;
+  block-size: var(--bldr-space-xl);
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  justify-content: center;
+}
+
+.pg-chat__starter[data-kind='followUp'] .pg-chat__starter-icon {
+  color: inherit;
+}
+
+.pg-chat__starter-text {
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

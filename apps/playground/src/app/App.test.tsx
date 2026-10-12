@@ -107,10 +107,23 @@ describe('the app frame must not reach into the page being edited', () => {
   // Comments are stripped first: a rule's own explanation often quotes the
   // very pattern the gate forbids, and a gate that reads prose is not reading
   // the stylesheet.
-  const appCss = readFileSync(join(process.cwd(), 'src', 'app', 'App.css'), 'utf8').replaceAll(
-    /\/\*[\s\S]*?\*\//g,
-    '',
-  );
+  // App.css is an ordered index of `@import`s (split by region, 2026-10-12); the gate
+  // reads the stylesheets it imports, in cascade order, as the one sheet they make.
+  const appCssIndex = readFileSync(join(process.cwd(), 'src', 'app', 'App.css'), 'utf8');
+  const appCss = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)]
+    .map((match) => readFileSync(join(process.cwd(), 'src', 'app', match[1] ?? ''), 'utf8'))
+    .join('\n')
+    .replaceAll(/\/\*[\s\S]*?\*\//g, '');
+
+  it('keeps App.css an index of region stylesheets, none of them over 500 lines', () => {
+    const imports = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)].map((match) => match[1] ?? '');
+    expect(imports.length).toBeGreaterThan(5);
+    expect(appCssIndex.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/@import[^;]+;/g, '').trim()).toBe('');
+    for (const path of imports) {
+      const text = readFileSync(join(process.cwd(), 'src', 'app', path), 'utf8');
+      expect(text.split('\n').length, path).toBeLessThanOrEqual(501);
+    }
+  });
 
   const globalBlocks = (selector: RegExp): string[] =>
     [...appCss.matchAll(/(^|\n)([^@{}\n][^{}]*)\{([^}]*)\}/g)]
@@ -157,7 +170,7 @@ describe('the app frame must not reach into the page being edited', () => {
     expect(wrappers).toContain('pg-boot-panel');
     for (const wrapper of wrappers) {
       const rules = globalBlocks(new RegExp(`\\.${wrapper}\\s*(,|$)`));
-      expect(rules, `.${wrapper} has no rule in App.css`).not.toHaveLength(0);
+      expect(rules, `.${wrapper} has no rule in the app stylesheets`).not.toHaveLength(0);
       expect(
         rules.some((body) => /block-size:\s*100%/.test(body)),
         `.${wrapper} never sets block-size: 100%`,

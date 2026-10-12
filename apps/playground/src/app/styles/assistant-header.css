@@ -1,0 +1,360 @@
+/* The legacy assistant panel: its head, brand mark, name, context line and history menu. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* ── The assistant, as a conversation ──────────────────────────────────────
+   A thread that scrolls and a composer pinned to the foot — the shape every
+   chat has, because it is the shape the reading order needs: history above,
+   the thing you are writing where your hands are. The panel owns the height;
+   only the thread scrolls, so the composer never walks off the bottom.
+
+   THE SIGNATURE: a proposal's outcome is a colour on its leading edge, not a
+   sentence you have to read — accent while pending, success once applied,
+   danger if the kernel door refused it, muted once discarded. Scan the
+   thread top to bottom and the stripes alone tell the story; the words are
+   there for when you stop scanning. Every colour below is a state token this
+   theme already ships (`@craftkit/builder-theme`), so light/dark and any
+   future re-theme move this panel for free — nothing here is a literal. */
+
+.pg-chat {
+  /* THE MAGIC PALETTE. One aurora, defined once: every enchanted surface in
+     this panel — the composer's ring, the marks, the send action — draws from
+     these four stops, so the panel reads as one spell rather than four
+     decorated corners. The literals live here and only here. */
+  --pg-magic-1: #7c6cff;
+  --pg-magic-2: #22d3ee;
+  --pg-magic-3: #f472b6;
+  --pg-magic-4: #fbbf24;
+  --pg-magic-conic: conic-gradient(
+    from var(--pg-magic-angle, 0deg),
+    var(--pg-magic-1),
+    var(--pg-magic-2),
+    var(--pg-magic-3),
+    var(--pg-magic-4),
+    var(--pg-magic-1)
+  );
+  --pg-magic-linear: linear-gradient(
+    135deg,
+    var(--pg-magic-1),
+    var(--pg-magic-3) 55%,
+    var(--pg-magic-2)
+  );
+  /* The face's halo, read by `.pg-face` (AgentFace.css) as an optional
+     inherited variable: the aurora rhyme survives inside the chat, and the
+     face stays literal-free. Outside `.pg-chat` the glow is transparent. */
+  --pg-face-glow: rgb(124 108 255 / 40%);
+  /* The name's tail: the aurora's first stop, mixed into the panel ink so the
+     glyphs keep their contrast (fallback below; the mix under @supports). */
+  --pg-magic-ink: var(--bldr-accent-strong);
+  background: var(--bldr-panel);
+  container-type: size;
+  block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+/* Registered so the conic gradient's start angle can interpolate — this is
+   what lets the aurora ROTATE instead of flickering between two frames.
+   Browsers without @property simply hold the gradient still; every magic
+   surface stays correct, only the rotation is lost. */
+@supports (color: color-mix(in oklab, red, blue)) {
+  .pg-chat {
+    --pg-magic-ink: color-mix(in oklab, var(--pg-magic-1) 55%, var(--bldr-panel-text));
+    --pg-face-glow: color-mix(in srgb, var(--pg-magic-1) 40%, transparent);
+  }
+}
+
+@property --pg-magic-angle {
+  inherits: false;
+  initial-value: 0deg;
+  syntax: '<angle>';
+}
+
+@keyframes pg-magic-spin {
+  to {
+    --pg-magic-angle: 360deg;
+  }
+}
+
+.pg-chat__head {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  background: var(--bldr-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-xl) var(--bldr-space-3xl);
+}
+
+.pg-chat__title {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+}
+
+.pg-chat__brand {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-lg);
+  min-inline-size: 0;
+}
+
+/* The brand mark is the face's 32 px box and nothing more: the face owns its
+   own disc, ink and glow (AgentFace.css), so this rule only holds the seat. */
+.pg-chat__brand-mark {
+  align-items: center;
+  block-size: var(--bldr-space-6xl);
+  border-radius: var(--bldr-radius-full);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-6xl);
+  justify-content: center;
+}
+
+.pg-chat__heading {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-display);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The name — one name, in the locale's language — is one isolated bidi run,
+   so nothing beside it ever reorders around it. */
+.pg-chat__name {
+  unicode-bidi: isolate;
+}
+
+/* Undo and Code point somewhere; under RTL they point the other way. The
+   face's arched brow is deliberately NOT mirrored — it is a face, not an arrow. */
+.pg-chat:dir(rtl) .pg-chat__icon--mirror {
+  scale: -1 1;
+}
+
+/* Plex Sans carries no Arabic glyphs; name the Arabic face first and fall
+   through to the system's until Plex Sans Arabic is loaded (a follow-up). */
+.pg-chat [lang='ar'] {
+  font-family: 'IBM Plex Sans Arabic', var(--bldr-font);
+}
+
+/* The name itself carries a trace of the aurora. Guarded: if the clip is not
+   supported the plain panel-text colour above stands, so the title can never
+   paint itself invisible. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .pg-chat__heading .pg-chat__name {
+    background: linear-gradient(
+      90deg,
+      var(--bldr-panel-text) 0%,
+      var(--bldr-panel-text) 45%,
+      var(--pg-magic-ink) 100%
+    );
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* His one visible line, and the panel's one live region: what is announced
+   is exactly what is read. Sits under the name, above what he can see. */
+.pg-chat__voice {
+  margin-block-start: var(--bldr-space-2xs);
+}
+
+/* What the assistant can see, stated. A person cannot judge a proposal
+   without knowing what it was looking at. The leading dot borrows the
+   accent colour so this line reads as LIVE status, not filler copy. */
+.pg-chat__sees {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  background: transparent;
+  border-radius: var(--bldr-radius-md);
+  padding: var(--bldr-space-xs) 0 0;
+  overflow-wrap: anywhere;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__sees::before {
+  /* Context is stable information, so its indicator stays still. */
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  content: '';
+  flex: none;
+  inline-size: var(--bldr-space-sm);
+}
+
+@keyframes pg-chat-beacon {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__sees::before {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* CONVERSATION HISTORY as a menu, not a native select.
+   A `<select>` renders the past as a form field to be filled in. What this
+   actually is, is a list of things you have already said — so it opens as a
+   popup that can carry each chat's own weight (how many messages it holds)
+   and mark which one you are in. The trigger stays one quiet line until
+   pressed, because history is a place you go back to, not a control you
+   operate every turn. */
+.pg-chat__sessions {
+  position: relative;
+}
+
+.pg-chat__sessions-trigger {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-trigger:hover {
+  background: var(--bldr-surface-hover);
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-chat__sessions-trigger:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__sessions-title {
+  flex: 1;
+  font-size: var(--bldr-font-size-micro);
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__sessions-count {
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-semibold);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-chat__sessions-chevron {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex: none;
+  transition: rotate var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-trigger[aria-expanded='true'] .pg-chat__sessions-chevron {
+  rotate: 180deg;
+}
+
+/* The popup floats over the thread, so it needs the OVERLAY elevation — the
+   raised shadow a panel uses would let the thread's own cards read through it. */
+.pg-chat__sessions-menu {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  inset-block-start: calc(100% + var(--bldr-space-xs));
+  inset-inline: 0;
+  max-block-size: calc(var(--bldr-space-6xl) * 7);
+  overflow-y: auto;
+  padding: var(--bldr-space-xs);
+  position: absolute;
+  z-index: 20;
+}
+
+.pg-chat__sessions-item {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+  text-align: start;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-chat__sessions-item:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.pg-chat__sessions-item:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-focus-ring-offset) * -1);
+}
+
+.pg-chat__sessions-item[aria-checked='true'] {
+  background: var(--bldr-accent-soft);
+}
+
+.pg-chat__sessions-item-check {
+  align-items: center;
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+  justify-content: center;
+}
+
+.pg-chat__sessions-item-title {
+  flex: 1;
+  font-size: var(--bldr-font-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__sessions-item-meta {
+  color: var(--bldr-panel-muted);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+}
+
+.pg-chat__thread {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--bldr-space-3xl);
+  scroll-padding-block: var(--bldr-space-3xl);
+  scrollbar-width: thin;
+  overscroll-behavior-y: contain;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--bldr-space-3xl);
+}

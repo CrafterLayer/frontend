@@ -1,0 +1,208 @@
+/* The legacy assistant overlays: preview dialog, modes, mention picker, continue chip. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* ── THE PREVIEW DIALOG ────────────────────────────────────────────────────
+   The would-be page over a dimmed editor. The page area is a PAGE: white and
+   its own world, exactly what publish would produce, so what you accept is
+   what you saw. */
+.pg-chat__preview-backdrop {
+  align-items: center;
+  backdrop-filter: blur(3px);
+  background: rgb(9 9 14 / 55%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: var(--bldr-space-4xl);
+  position: fixed;
+  z-index: 60;
+}
+
+.pg-chat__preview {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  box-shadow:
+    0 0 0 1px rgb(124 108 255 / 35%),
+    0 24px 80px rgb(9 9 14 / 60%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inline-size: min(72rem, 100%);
+  max-block-size: 100%;
+  overflow: hidden;
+}
+
+.pg-chat__preview-head {
+  align-items: center;
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-md);
+  padding: var(--bldr-space-xl) var(--bldr-space-3xl);
+}
+
+.pg-chat__preview-head h3 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-chat__preview-head p {
+  color: var(--bldr-panel-muted);
+  flex: 1;
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+/* The page itself: white on purpose, in both themes — this is the reader's
+   world, not the editor's chrome. */
+.pg-chat__preview-page {
+  background: #fff;
+  color: #18181b;
+  overflow: auto;
+}
+
+.pg-chat__preview-actions {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: flex-end;
+  padding: var(--bldr-space-lg) var(--bldr-space-3xl);
+}
+
+/* ── MODES, the way Claude wears them: quiet pills inside the composer, the
+   active one lit. Ask proposes, Auto applies, Plan only plans. */
+.pg-chat__modes {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-lg);
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+}
+
+.pg-chat__mode {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-lg);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* `:not(:disabled)` on both interactive states: a locked control that still
+   lights up on hover and shows a pointer is telling the hand it can be pressed,
+   which is the one thing it cannot do. */
+.pg-chat__mode:hover:not(:disabled) {
+  background: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.pg-chat__mode:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.pg-chat__mode[aria-checked='true'] {
+  background: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.pg-chat__mode:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* ── THE @ MENTION PICKER: blocks on the page, one press each. Floats over
+   the thread from the composer's top edge, like every mention menu. */
+.pg-chat__mentions {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-overlay);
+  inset-block-end: calc(100% + var(--bldr-space-sm));
+  display: flex;
+  flex-direction: column;
+  inset-inline: var(--bldr-space-md);
+  max-block-size: calc(var(--bldr-space-6xl) * 6);
+  overflow-y: auto;
+  padding: var(--bldr-space-xs);
+  position: absolute;
+  z-index: 30;
+}
+
+.pg-chat__mention {
+  align-items: baseline;
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+  text-align: start;
+}
+
+.pg-chat__mention:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.pg-chat__mention:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-focus-ring-offset) * -1);
+}
+
+.pg-chat__mention-id {
+  color: var(--bldr-accent);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-chat__mention-type {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.pg-chat__mention-excerpt {
+  color: var(--bldr-panel-text-soft);
+  flex: 1;
+  font-size: var(--bldr-font-size-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-chat__mention-empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-md);
+}
+
+/* ── The continue chip: a full-width, WRAPPING suggestion — long Arabic
+   follow-ups fold inside the card instead of running off its edge. */
+.pg-chat__composer .pg-chat__composer-actions .bldr-chrome-button.pg-chat__continue,
+.pg-chat__card .bldr-chrome-button.pg-chat__continue {
+  align-items: flex-start;
+  block-size: auto;
+  inline-size: 100%;
+  justify-content: flex-start;
+  min-block-size: var(--bldr-control-sm);
+  padding-block: var(--bldr-space-sm);
+  text-align: start;
+  white-space: normal;
+}
+
+.pg-chat__continue-text {
+  flex: 1;
+  line-height: var(--bldr-line-height-snug);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

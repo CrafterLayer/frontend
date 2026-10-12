@@ -1,0 +1,299 @@
+/* Boot and save states, the panel track, the agent panel slot and pill, the canvas proposal. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* THE BOOT.
+
+   The app opens its document from the vault now, and `openDocument` is
+   asynchronous — it reads storage, migrates, replays the tail and validates
+   twice before a kernel exists. So there is a real moment with no kernel, and
+   these three rules are what that moment looks like: quiet, in place, and
+   costing the layout nothing. The shell, the rail and the top bar are already
+   drawn by then; only the editing area waits. */
+
+.pg-boot {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-md);
+  justify-content: center;
+  margin: var(--bldr-space-0);
+  min-block-size: 100%;
+  padding: var(--bldr-space-4xl);
+  text-align: center;
+}
+
+/* A save that will not open is not a loading state wearing a different colour:
+   it is a decision a person has to make, so it reads as one. */
+.pg-boot--failed {
+  color: var(--bldr-panel-text);
+  max-inline-size: var(--bldr-measure-page);
+  margin-inline: auto;
+}
+
+.pg-boot--failed h2 {
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.pg-boot--failed p {
+  margin: var(--bldr-space-0);
+}
+
+.pg-boot__reason {
+  background: var(--bldr-danger-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-danger);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  padding: var(--bldr-space-sm) var(--bldr-space-md);
+  /* An error message is the one string on the page nobody wrote for this box. */
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+/* Two actions, and the recoverable one leads. Side by side because they are a
+   choice between two answers to the same question, not a step and an escape. */
+.pg-boot__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  justify-content: center;
+}
+
+/* "Your work is not being saved."
+
+   Positioned at the OTHER end of the editor from `.pg-restored`, so the two can
+   be on screen together without either covering the other, and absolutely — the
+   editor beneath it is laid out identically whether storage is healthy or not.
+   It is the only thing on this page that appears BECAUSE something is wrong, so
+   it is allowed to be the loudest. */
+.pg-save {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  inline-size: fit-content;
+  inset-block-end: calc(var(--bldr-space-4xl) + var(--bldr-space-md));
+  inset-inline: 0;
+  margin-inline: auto;
+  max-inline-size: calc(var(--bldr-measure-dock) * 2);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  position: absolute;
+  z-index: 3;
+}
+
+.pg-save p {
+  margin: var(--bldr-space-0);
+  min-inline-size: 0;
+}
+
+/* A refused save is the failure this whole feature exists to prevent, and it
+   reads in the same colour every other refusal in the editor reads in. */
+.pg-save--error {
+  background: var(--bldr-danger-soft);
+  border-color: var(--bldr-danger-border);
+  color: var(--bldr-danger);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+/* Storage's own sentence, set apart the way `.pg-boot__reason` sets one apart:
+   it is the one string on this page nobody here wrote. */
+.pg-save__reason {
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  overflow-wrap: anywhere;
+}
+
+/* The panel track holds its width while the document opens. Collapsing it and
+   bringing it back would move every other region twice for no reason. */
+.pg-boot-panel {
+  block-size: 100%;
+}
+
+/* The assistant's always-mounted wrapper.
+
+   It exists so a rail visit does not unmount a run in flight, and it must be
+   invisible to layout: the shell's panel slot is a grid item with a definite
+   height, and `.pg-chat` sizes itself at `block-size: 100%` against its parent.
+   Measured in Chromium without this rule, that 100% resolved against an
+   auto-height box and the chat grew to its content (3484px): the conversation
+   stopped scrolling inside itself and the composer sat ~2.7k px below the fold.
+   Passing the height straight through is the whole job. */
+.pg-rail-panel {
+  block-size: 100%;
+}
+
+.pg-source-agent-host,
+.pg-legacy-agent-host,
+.pg-agent-host {
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+/* The v2 agent panel fills the column the shell gives it; the panel sizes itself to the
+   same width the shell was handed, so the two never disagree. */
+.pg-agent-host {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.pg-agent-host[hidden] {
+  display: none;
+}
+
+/* The status bar's slot for the agent's pill: nothing until the panel hides and a run
+   has something to say. */
+.pg-agent-pill-host {
+  display: contents;
+}
+
+/* A proposal on the canvas before it is applied: the would-be page, read-only, scrolled
+   inside the canvas region like the page itself. */
+.pg-agent-preview {
+  block-size: 100%;
+  box-sizing: border-box;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--bldr-space-3xl);
+  background: var(--bldr-surface-tint);
+}
+
+.pg-agent-preview__page {
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) dashed var(--bldr-accent);
+  border-radius: var(--bldr-radius-sm);
+  margin-inline: auto;
+  max-inline-size: 100%;
+  overflow: hidden;
+}
+
+/* "This came back from your last session."
+
+   Absolutely positioned inside `.pg-app`, which is already the containing
+   block, so the editor beneath is laid out identically whether the page was
+   restored or not — the same reason the harness opens over the canvas rather
+   than inside the bar. */
+.pg-restored {
+  align-items: center;
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  display: flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-sm);
+  /* Logical insets: in an RTL chrome this belongs to the other edge, and it
+     gets there without a second rule. */
+  inset-block-start: calc(var(--bldr-topbar-height) + var(--bldr-space-md));
+  /* Centred over the editor, never pinned to a panel's edge. Pinned to the end
+     it covered the Inspector — the properties of whatever is selected, which is
+     the thing a person opened the editor to read — and at
+     `--bldr-measure-picker` (208px) one sentence became a nine-line column.
+     `inset-inline: 0` plus `margin-inline: auto` centres it in either
+     direction, so RTL needs no second rule. */
+  inset-inline: 0;
+  margin-inline: auto;
+  max-inline-size: calc(var(--bldr-measure-dock) * 2);
+  inline-size: fit-content;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  position: absolute;
+  z-index: 3;
+}
+
+.pg-restored p {
+  margin: var(--bldr-space-0);
+  /* One line where there is room for one; it wraps only when there is not. */
+  min-inline-size: 0;
+}
+
+/*
+  Pages above layers, in the one structure panel. A grid rather than a flex
+  column so the page list takes exactly what it needs and the tree takes the
+  rest: the list grows with the site and the tree grows with the page, and
+  letting both compete for the same free space made one of them jump every time
+  the other changed.
+*/
+.pg-structure {
+  block-size: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+/*
+  A plan, read as a plan. Pre-wrap because the four labelled parts arrive as
+  LINES and re-flowing them into a paragraph would destroy the only structure
+  the answer has.
+
+  `overflow-wrap: anywhere` is the price of pre-wrap: it preserves the model's
+  newlines and would also preserve a single unbroken 400-character line, which
+  on a 360px panel pushes the whole card sideways. And the type is set
+  explicitly — this paragraph had NO font-size, line-height or colour of its
+  own, and nothing in its ancestor chain set them either, so it rendered at the
+  browser's 16px default beside caption-sized siblings.
+*/
+.pg-chat__outline {
+  color: var(--bldr-panel-text);
+  /*
+    `normal` (1.55) is the most open step the theme's line-height scale
+    publishes; `relaxed` was written here and never existed, so this rule fell
+    back to the browser default and the theme's coverage gate went red. The
+    scale is deliberately three steps — adding a fourth is a design decision for
+    the theme, not something one paragraph should make on its own.
+  */
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-normal)
+    var(--bldr-font);
+  margin: var(--bldr-space-0);
+  min-inline-size: var(--bldr-space-0);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pg-chat__outline-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-chat__outline-note {
+  margin: var(--bldr-space-sm, 0.5rem) 0 0;
+  opacity: 0.75;
+}
+
+.pg-chat__preview-note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+/* What the plan would change, above its steps: the size of the decision comes
+   before its details. */
+.pg-chat__impact {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  margin: var(--bldr-space-0) var(--bldr-space-0) var(--bldr-space-sm);
+}
+
+/* The estimate rides beside the impact, quieter: it informs the decision, it is
+   not the decision. */
+.pg-chat__cost {
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+/* Where a control used to be, in Plan mode: the reason, not a dead button. */
+.pg-chat__plan-only {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}

@@ -17,6 +17,7 @@ import {
   type OpenRouterModelFacts,
 } from './openrouter-client';
 import { createRoutingClient, isApiModel, isCliModel } from './routing-client';
+import { createApiBackend, logLocalBackends } from './api-models';
 import { jsonParseError, unwrapJson } from './json-salvage';
 import { createNodeServer } from './server';
 import { createProcessRuntimeSupervisor } from './runtime-workers';
@@ -284,25 +285,11 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   const openRouterSlugs = models.filter((entry) => !isCliModel(entry) && !isApiModel(entry));
   /*
     The OpenRouter shim needs a model of its own only when a request names
-    none, which never happens through the handler; when the default is a
-    `cli:` or `api:` entry, the first OpenRouter slug stands in.
+    none, which never happens through the handler; when the default is a `cli:` or `api:` entry, the first OpenRouter slug stands in.
   */
   const openRouterDefault =
     isCliModel(model) || isApiModel(model) ? (openRouterSlugs[0] ?? model) : model;
-  /*
-    `api:` entries: the Messages API on the owner's key. Built only when the picker
-    lists one, so a key sitting in .env bills nothing until an `api:` model is chosen.
-  */
-  const anthropicKey = setting('ANTHROPIC_API_KEY');
-  const api =
-    apiSlugs.length > 0 && anthropicKey !== undefined
-      ? new Anthropic({ apiKey: anthropicKey })
-      : undefined;
-  if (apiSlugs.length > 0 && api === undefined) {
-    console.warn(
-      `WARNING: ${apiSlugs.join(', ')} need ANTHROPIC_API_KEY in apps/ai-server/.env; requests naming them will fail.`,
-    );
-  }
+  const api = createApiBackend(apiSlugs, setting('ANTHROPIC_API_KEY'));
   for (const entry of openRouterSlugs) {
     if (!entry.includes('/')) {
       console.warn(
@@ -391,14 +378,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   });
   if (cliSlugs.length === 0 && apiSlugs.length === 0 && fallback === undefined) return openrouter;
 
-  for (const slug of cliSlugs) {
-    console.log(
-      `[ai-server] ${slug}: the local \`claude\` CLI (your own subscription, no API billing)`,
-    );
-  }
-  for (const slug of apiSlugs) {
-    console.log(`[ai-server] ${slug}: the Anthropic API (billed to ANTHROPIC_API_KEY)`);
-  }
+  logLocalBackends(cliSlugs, apiSlugs);
   if (fallback !== undefined) {
     console.log(
       `[ai-server] fallback: ${fallback} answers when an OpenRouter model is overloaded or unreachable`,

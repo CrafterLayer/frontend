@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import type Anthropic from '@anthropic-ai/sdk';
 
+import { subscriptionEnv } from './api-models';
 import type { CliWarmPool } from './cli-warm-pool';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
@@ -374,16 +375,6 @@ function cancelled(): Error {
   return error;
 }
 
-/*
-  The `claude` CLI prefers an API key over the owner's login, so a key in this
-  server's environment (there for `api:` models) would silently move every
-  `cli:` run onto API billing. The child never sees one.
-*/
-function subscriptionEnv(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
-  const { ANTHROPIC_API_KEY: _key, ANTHROPIC_AUTH_TOKEN: _token, ...rest } = process.env;
-  return { ...rest, ...extra };
-}
-
 /** The real child: its own process group, so a cancelled request can kill the tree. */
 const spawnRealCli: SpawnCli = (command, args, env) =>
   spawn(command, [...args], {
@@ -391,8 +382,7 @@ const spawnRealCli: SpawnCli = (command, args, env) =>
     env: subscriptionEnv(env),
     detached: process.platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
-    // Node's typed `stdout`/`stderr` are nullable in general; with this exact
-    // stdio triple they are always streams.
+    // Node's typed `stdout`/`stderr` are nullable in general; with this exact stdio triple they are always streams.
   }) as unknown as CliChildProcess;
 
 /** One CLI run: a child already spawned (cold, or a warm spare) and what to tell whom. */

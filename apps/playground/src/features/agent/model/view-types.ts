@@ -354,6 +354,8 @@ export interface BuildRecordView {
    * writes a game or story scene (free code on, a creative request). CreativeBriefCard.
    */
   readonly brief?: CreativeBriefView | undefined;
+  /** T230: the site page this record built, one record per page of a site build. */
+  readonly page?: string | undefined;
 }
 
 /** The planner's genres (`CreativeGenre` in `@craftkit/builder`), each a `brief.genre.*` key. */
@@ -460,12 +462,10 @@ export interface AnswerView {
 }
 
 /**
- * The one-line endings (SPEC §4.10 `end.*`). The last three are controller additions
- * (WP-16) for a build that could not land where the words asked, said after its record:
- * `siteAsOnePage` (a site request built as one page: the chat builds one page at a time),
- * `newPageAppended` (a new page was asked for but the host offers no `addPage`, so it was
- * built below this page) and `appendedNotReplaced` (a start-over this build cannot do:
- * a scaffold build appends, so nothing was replaced).
+ * The one-line endings (SPEC §4.10 `end.*`). The last three (WP-16) are said after a build
+ * that could not land where the words asked: `siteAsOnePage` and `newPageAppended` when the
+ * host offers no `addPage` (a site built as one page, T230; a new page built below this
+ * one), `appendedNotReplaced` when a scaffold build cannot start over, so it appended.
  */
 export type EndNoteKey =
   | 'proposalDiscarded'

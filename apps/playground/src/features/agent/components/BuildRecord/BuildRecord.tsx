@@ -1,6 +1,7 @@
 import { useCallback, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { buildTitleKey, formatRemaining, t } from '../../copy';
+import { siteLabels } from '../../copy/site-labels';
 import type {
   AgentController,
   BuildRecordView,
@@ -377,6 +378,18 @@ export function BuildRecord({
   }
 
   const failed = rows.filter((row) => row.state === 'failed').length;
+  const status = t(locale, buildTitleKey(phase, view.stopReason), { n: failed });
+  // T230: one page of a site build names its page first ("About: Page built").
+  const title =
+    view.page === undefined ? (
+      status
+    ) : (
+      <>
+        <bdi className="ck-agent-build__page">{view.page}</bdi>
+        {siteLabels(locale).pageSeparator}
+        {status}
+      </>
+    );
   // A sample can only need replacing where its section is on the page: a section that was
   // stopped, failed or undone claims nothing. Facts no row names are kept as given.
   const rowState = new Map(rows.map((row) => [row.key, row.state]));
@@ -392,7 +405,7 @@ export function BuildRecord({
       data-offscreen={onScreen ? undefined : ''}
       glyph={glyphForBuildPhase(phase)}
       animateGlyph={live}
-      title={t(locale, buildTitleKey(phase, view.stopReason), { n: failed })}
+      title={title}
       meta={headMeta(locale, view)}
       headingRef={setHeading}
       actions={buttons.length === 0 ? undefined : buttons}

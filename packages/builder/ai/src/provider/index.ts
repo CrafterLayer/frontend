@@ -46,6 +46,14 @@ export {
   type AiPromptEnhanceWireResponse,
 } from './wire';
 export {
+  AI_SITE_PLAN_WIRE_MAX_PAGES,
+  aiSitePlanWireRequest,
+  readAiSitePlanWireResponse,
+  type AiSitePlanWireReading,
+  type AiSitePlanWireResponse,
+  type AiSitePlanWireResult,
+} from './site-plan-wire';
+export {
   createDirectPlanProvider,
   type DirectAiPlanCatalogEntry,
   type DirectAiPlanProviderOptions,

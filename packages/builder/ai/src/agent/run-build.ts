@@ -36,6 +36,7 @@ import {
   type WrittenIssues,
 } from './section-candidate';
 import { nextSection } from './section-order';
+import { fillConcurrencyFor, withWriterPermit } from './writer-pool';
 import {
   creativeRequestOf,
   sectionProviders,
@@ -110,27 +111,8 @@ export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
 export const DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS = 420_000;
 /** Ceiling for the whole build. The running section still finishes. */
 export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
-/**
- * Automatic builds run one writer per section that needs one, up to this many
- * (2026-10-05, DESIGN D7): never the task count without a ceiling.
- */
-export const MAX_AI_BUILD_AUTO_FILL_CONCURRENCY = 8;
-
-/**
- * Sections written at once.
- *
- * Automatic: one writer per section, capped at eight. It was three growing by
- * one per further group of three, capped at six — and measured live
- * (baseline 2026-09-30) six writers in a pool of four cost ≈ 7 s of a 65 s
- * page, while a streamed plan already staggers the writers' starts by about
- * a second each, so the machine never sees them all start at once. A
- * caller-provided number stays exact, including `1` for strictly sequential
- * work.
- */
-export function fillConcurrencyFor(taskCount: number, requested: number | undefined): number {
-  if (requested !== undefined) return Math.min(taskCount, Math.max(1, requested));
-  return Math.min(taskCount, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY);
-}
+// How many write at once, and the pool several builds share (T230): writer-pool.ts.
+export { fillConcurrencyFor, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY } from './writer-pool';
 
 const MAX_RUN_ID_LENGTH = 160;
 /** The kernel refuses a longer grouped-dispatch label outright. */
@@ -1866,7 +1848,10 @@ function startFill(
     slot.abort = abort;
     slot.fingerprint = job.fingerprint?.();
     active += 1;
-    const run: Promise<void> = writeSection(slot, job, generation, abort.signal)
+    // A site's pages share one writers' pool (T230): the write waits its turn in it.
+    const write = (): Promise<Written | undefined> =>
+      writeSection(slot, job, generation, abort.signal);
+    const run: Promise<void> = withWriterPermit(options, abort.signal, write)
       .then((written) => {
         if (written !== undefined && slot.generation === generation) slot.settle(written);
       })

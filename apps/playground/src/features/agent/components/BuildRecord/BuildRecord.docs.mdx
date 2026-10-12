@@ -51,6 +51,10 @@ A game or story build (free code on, a request the Pixi playbooks match) carries
 record draws a CreativeBriefCard first in its lead, beside the spine's first stretch, until the
 record folds under a newer exchange (creative agent, 2026-10-12).
 
+One page of a site build (T230) carries `view.page`: the head names the page first, in `<bdi>`, then
+the state ("About us: Page built", «من نحن: بُنيت الصفحة»). Stories: `SitePage`,
+`SitePageRightToLeft`.
+
 `BuildRecordActions` is
 `Pick<AgentController, 'undoSection' | 'redoSection' | 'undoBuild' | 'redoBuild' | 'retrySections' | 'finishRest' | 'removeEmpty' | 'tryAgain' | 'reveal' | 'peek' | 'openPageHistory'>`.
 Every one is an action on the page or a successor run: none posts a sentence as the person's turn.

@@ -18,6 +18,12 @@ import {
   type UsageReport,
 } from './plan-params';
 import { PAGE_PLAN_ANSWER_SCHEMA, planShapeCheck } from './plan-shape';
+import {
+  SITE_PLAN_ANSWER_SCHEMA,
+  readSitePlanMessage,
+  sitePlanParams,
+  type SitePlanOutcome,
+} from './site-plan';
 
 /**
  * The Claude call, and the translation of its failures into the wire contract.
@@ -105,8 +111,10 @@ async function ask(
   request: AiPlanWireRequest,
   options: ClaudeOptions,
   schema: Readonly<Record<string, unknown>>,
+  // A site plan (T230) brings its own short prompt: site-plan.ts `sitePlanParams`.
+  build: typeof planParams = planParams,
 ): Promise<Anthropic.Message> {
-  const { params, system } = planParams(request, options, schema);
+  const { params, system } = build(request, options, schema);
   options.onProgress?.('Understanding the request…');
   // A same-prefix call already writing the cache: wait until it streams, then read it.
   const shape = cacheShape([params.model, params.thinking, params.output_config, system]);
@@ -200,4 +208,27 @@ export async function proposePagePlan(
 ): Promise<PagePlanOutcome> {
   const message = await ask(request, options, PAGE_PLAN_ANSWER_SCHEMA);
   return readPagePlanMessage(message, options);
+}
+
+// ── the site-plan task (T230, 2026-10-12) ───────────────────────────────────
+
+/**
+ * Ask for a SITE PLAN (`task: 'site-plan'`): the pages a multi-page request asks for, each
+ * with its own brief. The same call and narration as a plan, with site-plan.ts's prompt,
+ * schema and reader; the client validates the pages.
+ */
+export async function proposeSitePlan(
+  request: AiPlanWireRequest,
+  options: ClaudeOptions,
+): Promise<SitePlanOutcome> {
+  const message = await ask(request, options, SITE_PLAN_ANSWER_SCHEMA, sitePlanParams);
+  return readSitePlanMessage(message, options);
+}
+
+/** The model call a request's task asks for: a plan, a page plan, or a site plan. */
+export function proposerFor(
+  wire: AiPlanWireRequest,
+): typeof proposePlan | typeof proposePagePlan | typeof proposeSitePlan {
+  if (wire.task === 'page-plan') return proposePagePlan;
+  return wire.task === 'site-plan' ? proposeSitePlan : proposePlan;
 }

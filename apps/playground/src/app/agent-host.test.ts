@@ -117,6 +117,16 @@ describe('pageOpener', () => {
     expect(siteKernel.transactions().at(-1)?.author).toBe('ai');
   });
 
+  it("opens a site build's further pages without making them current (T230)", async () => {
+    const siteKernel = site();
+    const current = siteKernel.currentPage();
+    const { kernel } = await pageOpener(siteKernel)('Services', { current: false });
+    const created = siteKernel.getSite().pages.at(-1);
+    expect(created?.title).toBe('Services');
+    expect(siteKernel.currentPage()).toBe(current);
+    expect(kernel).toBe(siteKernel.page(created?.id ?? ''));
+  });
+
   it('picks the first free /page-N address', () => {
     expect(nextPageAddress(['/', '/about'])).toBe('/page-3');
     expect(nextPageAddress(['/', '/page-2'])).toBe('/page-3');

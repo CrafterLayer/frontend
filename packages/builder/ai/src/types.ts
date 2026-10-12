@@ -284,6 +284,22 @@ export interface AiPlanProvider {
     options?: AiProposePagePlanOptions,
   ): Promise<AiPagePlanProposal>;
   /**
+   * Optional (T230, 2026-10-12): plan a SITE. A request for several pages ("a 4-page
+   * website: home, about, services, contact") is answered with its pages, each with its
+   * own build brief in the person's language that carries the site's subject, so every
+   * page is built as part of one site. Nothing is written: the host builds each page
+   * with `runAiBuild`.
+   *
+   * Optional like every capability after `propose`: without it, or when it fails, the
+   * pages are read from the words (`sitePlanFromRequest`). What comes back is UNTRUSTED:
+   * only `validateSitePlan` turns it into pages (at most `AI_SITE_MAX_PAGES`). On the
+   * remote wire this is `task: 'site-plan'` on the plan endpoint (wire.ts).
+   */
+  proposeSitePlan?(
+    request: string,
+    options?: AiProposeSitePlanOptions,
+  ): Promise<AiSitePlanProposal>;
+  /**
    * Optional: rewrite a person's DRAFT before it runs — spelling and spacing
    * fixed in its own language, an edit made explicit, a build turned into a
    * short professional brief — and name what is missing as 0–3 questions.
@@ -420,6 +436,25 @@ export interface AiProposePagePlanOptions extends AiProposeOptions {
    * swallowed by the provider and never change the call's outcome.
    */
   onDraft?: (event: AiPagePlanDraftEvent) => void;
+}
+
+/** Live options for `proposeSitePlan` (T230): a proposal's, without free code. */
+export type AiProposeSitePlanOptions = Pick<
+  AiProposeOptions,
+  'signal' | 'onProgress' | 'onUsage' | 'history'
+>;
+
+/** One page of a provider's site plan: its name, and its own build brief. */
+export interface AiSitePlanProposalPage {
+  readonly title: string;
+  readonly request: string;
+}
+
+/** A provider's site plan (T230), before `validateSitePlan` reads it. */
+export interface AiSitePlanProposal {
+  readonly pages: readonly AiSitePlanProposalPage[];
+  /** One sentence on the site, in the person's language. */
+  readonly rationale?: string;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

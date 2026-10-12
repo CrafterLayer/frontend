@@ -44,6 +44,8 @@ export {
   type AiPlanWireInvalidOutputResponse,
   type AiPlanWireRequest,
   type AiPlanWireResponse,
+  // T230: the site-plan task's page limit, which the ai-server's answer schema holds to.
+  AI_SITE_PLAN_WIRE_MAX_PAGES,
   // background batches (2026-10-12): the routes and limits the ai-server holds a batch to.
   AI_BATCH_ITEM_ID_PATTERN,
   AI_BATCH_MAX_ITEMS,

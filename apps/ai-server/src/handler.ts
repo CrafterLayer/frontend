@@ -3,7 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
-import { proposePagePlan, proposePlan, type AnswerDraft, type ClaudeOptions } from './claude';
+import { proposerFor, type AnswerDraft, type ClaudeOptions } from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
 import type { FreeModelCatalog } from './free-models';
@@ -483,7 +483,7 @@ async function enhanceResponse(
 }
 
 function taskOf(wire: AiPlanWireRequest): UsageTask {
-  return wire.task === 'page-plan' ? 'page-plan' : 'plan';
+  return wire.task ?? 'plan';
 }
 
 /**
@@ -513,8 +513,8 @@ async function answer(
     ...(onProgress === undefined ? {} : { onProgress }),
     ...(onDraft === undefined ? {} : { onDraft }),
   };
-  const outcome =
-    wire.task === 'page-plan' ? await proposePagePlan(wire, call) : await proposePlan(wire, call);
+  // A plan, a page plan, or a site plan (T230), by the request's task.
+  const outcome = await proposerFor(wire)(wire, call);
   return answerBody(outcome, measured);
 }
 

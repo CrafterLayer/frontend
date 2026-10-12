@@ -114,11 +114,16 @@ export function nextPageAddress(addresses: readonly string[]): string {
  * request, makes it the current page and hands the build its lens. The same two steps
  * Pages → Add page takes (`page-workspace.tsx`), through the site kernel's door, authored
  * `ai` so the change strip says who opened it. A refused command rejects, and the panel
- * then builds below the current page and says so.
+ * then builds below the current page and says so. A site build (T230) opens its further
+ * pages with `{ current: false }`, so the page the person watches (the home page) stays
+ * current while the others are written beside it.
  */
 export function pageOpener(
   siteKernel: BuilderSiteKernel,
-): (title: string) => Promise<{ readonly kernel: BuilderKernel }> {
+): (
+  title: string,
+  open?: { readonly current?: boolean },
+) => Promise<{ readonly kernel: BuilderKernel }> {
   // script-wiring additions
   /*
     The panel's site hand-off for code mode (agent-script DESIGN §A.9): the opener is the
@@ -128,7 +133,7 @@ export function pageOpener(
   */
   rememberAgentSite(siteKernel);
   // end script-wiring additions
-  return (title) => {
+  return (title, open = {}) => {
     try {
       const pages = siteKernel.getSite().pages;
       const before = new Set(pages.map((page) => page.id));
@@ -136,7 +141,7 @@ export function pageOpener(
       siteKernel.dispatch('addPage', { address, title }, 'ai');
       const created = siteKernel.getSite().pages.find((page) => !before.has(page.id));
       if (created === undefined) return Promise.reject(new Error('The new page did not appear.'));
-      siteKernel.setCurrentPage(created.id);
+      if (open.current !== false) siteKernel.setCurrentPage(created.id);
       return Promise.resolve({ kernel: siteKernel.page(created.id) });
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));

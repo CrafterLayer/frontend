@@ -35,6 +35,11 @@ export interface BuildPlan {
   readonly kernel?: BuilderKernel | undefined;
   /** What the thread says after the record, once the build landed something. */
   readonly notes: readonly EndNoteKey[];
+  /**
+   * T230: the transactions THIS page landed, when the run writes several pages at once (a
+   * site): page lenses share one log, so the run's own list holds every page's.
+   */
+  readonly landed?: (() => readonly string[]) | undefined;
 }
 
 /** A build's transactions: every AI transaction it landed (direction, skeleton, sections). */
@@ -43,7 +48,9 @@ function buildTransactions(
   slot: Slot,
   kernel: BuilderKernel,
   logBefore: number,
+  plan: BuildPlan,
 ): readonly string[] {
+  if (plan.landed !== undefined) return plan.landed();
   const seen = collected(flow, slot);
   if (seen.length > 0) return seen;
   return kernel
@@ -108,7 +115,7 @@ export function settleBuild(
       env.mood.settleTurn({ runId: slot.runId, outcome: 'plan', applied: false });
     } else if (fallback.status === 'applied') {
       env.memory.note(fallback.proposal);
-      const ids = buildTransactions(flow, slot, kernel, logBefore);
+      const ids = buildTransactions(flow, slot, kernel, logBefore, plan);
       const transactionId = ids.at(-1);
       const changes = compare(flow, kernel, before.documentBefore, kernel.getDocument());
       const edit: EditTurn = {
@@ -176,7 +183,7 @@ export function settleBuild(
   if (result.scaffold?.status === 'applied') env.memory.note(result.scaffold.proposal);
   learnStoryBible(env, kernel);
   flow.runtime.builds.set(turnId, { kernel, result });
-  const transactionIds = buildTransactions(flow, slot, kernel, logBefore);
+  const transactionIds = buildTransactions(flow, slot, kernel, logBefore, plan);
   patchKind(flow, slot.sessionId, turnId, 'build', (turn) => ({
     ...turn,
     progress:
@@ -228,6 +235,8 @@ export function failBuild(
   anchor: string | null,
   request: string,
   cause: unknown,
+  /** T230: this page's own transactions, on one page of a site (`BuildPlan.landed`). */
+  pageTransactions: () => readonly string[] = () => collected(flow, slot),
 ): void {
   const env = flow.env();
   const turn = locateTurn(flow, turnId)?.turn;
@@ -260,7 +269,7 @@ export function failBuild(
       patchKind(flow, slot.sessionId, turnId, 'build', (current) => {
         const { stopping: _stopping, ...rest } = current;
         void _stopping;
-        return { ...rest, status: 'settled', transactionIds: collected(flow, slot) };
+        return { ...rest, status: 'settled', transactionIds: pageTransactions() };
       });
       const announcement = buildEndAnnouncement({
         phase: 'stopped',
@@ -291,7 +300,7 @@ export function failBuild(
       ...current,
       status: 'failed',
       failure,
-      transactionIds: collected(flow, slot),
+      transactionIds: pageTransactions(),
     }));
     say(flow, landed > 0 ? 'failed.kept' : 'failed.skeleton');
   }

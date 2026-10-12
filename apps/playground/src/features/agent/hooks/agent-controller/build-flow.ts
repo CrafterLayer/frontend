@@ -1,38 +1,24 @@
 /**
  * The page build flow (`runAiBuild`): where a build lands, Plan mode's Build of a
- * planned page, the plan card an Ask build holds at, and the run itself.
+ * planned page, and the run itself (the page's build is page-build.ts's; a site's
+ * pages are site-flow.ts's, T230).
  */
 import {
-  type AiAgentEvent,
-  type AiBuildEvent,
-  type AiBuildOwnEvent,
-  type AiBuildPlanAnswer,
-  type AiBuildPlannedTask,
   type BuilderKernel,
   customCodeSchema,
   type IntentRoute,
   type IntentTarget,
   type PagePlan,
-  runAiBuild,
-  type RunAiBuildOptions,
   summarizeDocumentForIntent,
   validatePagePlan,
 } from '@craftkit/builder';
 
-import {
-  type BuildProgress,
-  initialBuildProgress,
-  landedCount,
-  reduceBuildProgress,
-} from '../../model/build-progress';
-import { draftFromEnginePagePlan } from '../../model/page-plan-draft';
-import { reduceRunTelemetry } from '../../model/run-telemetry';
+import { initialBuildProgress } from '../../model/build-progress';
 import { routeRequest } from '../../model/runs';
-import { sectionValues } from '../../model/successor-fill';
-import type { BuildTurn, PagePlanTurn, Turn } from '../../model/turns';
+import type { BuildTurn } from '../../model/turns';
 import type { AssistantMode, EndNoteKey } from '../../model/view-types';
 
-import { type BuildPlan, failBuild, settleBuild } from './build-settle';
+import type { BuildPlan } from './build-settle';
 import { type Flow, pageTitleFrom } from './controller-state';
 import {
   creativeMark,
@@ -42,12 +28,10 @@ import {
   type Outgoing,
   type Placement,
 } from './exchange';
-import { followKernel } from './kernel-follow';
-import { claim, release, setRun } from './run-lease';
-import { commonRunOptions } from './run-options';
+import { buildPage } from './page-build';
+import { claim, release } from './run-lease';
 import { say } from './run-outcomes';
-import { sceneProbeOptions } from './scene-probe-options';
-import { locateTurn, patchKind, patchTurn } from './turn-plumbing';
+import { runSite } from './site-flow';
 
 /* ── Builds ──────────────────────────────────────────────────────────────────── */
 
@@ -124,12 +108,15 @@ export async function runPage(
   route: IntentRoute,
   mode: AssistantMode,
 ): Promise<void> {
-  const landing = await landingFor(
-    flow,
-    route.target,
-    outgoing.text,
-    route.kind === 'build-site' ? ['siteAsOnePage'] : [],
-  );
+  /*
+    T230 (2026-10-12): a site is built as a site, every page under one run, when the host
+    can open pages. Without `addPage` it is still built as one page, and the thread says so.
+  */
+  const site = route.kind === 'build-site';
+  const opens = flow.env().options.addPage !== undefined;
+  if (site && opens && (await runSite(flow, outgoing, placement, mode))) return;
+  const notes: readonly EndNoteKey[] = site && !opens ? ['siteAsOnePage'] : [];
+  const landing = await landingFor(flow, route.target, outgoing.text, notes);
   await runBuild(flow, outgoing, placement, {
     target: landing.target,
     approval: mode === 'ask' || landing.confirm,
@@ -179,52 +166,6 @@ export async function buildPlanned(
   });
 }
 
-export function plannedSections(planned: readonly AiBuildPlannedTask[]): PagePlanTurn['sections'] {
-  return planned.map((task, index) => ({ key: `section-${String(index + 1)}`, title: task.title }));
-}
-
-/** The plan card an Ask build holds at (SPEC §3.7 "Waiting for your approval"). */
-function approvalTurn(
-  turnId: string,
-  request: string,
-  planned: readonly AiBuildPlannedTask[],
-  direction: string,
-  plan: PagePlan | undefined,
-  held: BuildProgress,
-  touched: boolean,
-): PagePlanTurn {
-  const common = {
-    id: turnId,
-    kind: 'page-plan',
-    request,
-    status: 'ready',
-    // Build answers the held question: exactly these sections land (SPEC §7.6 E6).
-    note: 'exact',
-    approval: true,
-    heldBuild: held,
-    ...(touched ? { pageTouched: true as const } : {}),
-  } as const;
-  if (plan !== undefined) {
-    const draft = draftFromEnginePagePlan(plan);
-    return {
-      ...common,
-      subject: draft.subject,
-      ...(draft.direction === undefined ? {} : { direction: draft.direction }),
-      sections: draft.sections,
-      enginePlan: plan,
-      editable: true,
-    };
-  }
-  const mood = direction.replace(/\s+/gu, ' ').trim();
-  return {
-    ...common,
-    subject: request,
-    ...(mood === '' ? {} : { direction: { mood } }),
-    sections: plannedSections(planned),
-    editable: false,
-  };
-}
-
 /**
  * One page build, from the first event to the record it leaves. `recordTurnId` re-runs
  * into an existing turn (a plan card's Build), so the list inks in place.
@@ -241,7 +182,6 @@ async function runBuild(
   const history = historyFor(flow, placement);
   const slot = claim(flow, placement.sessionId, turnId, 'build');
   if (slot === null) return;
-  followKernel(flow, kernel);
   const request = engineRequest(outgoing);
   const building: BuildTurn = {
     id: turnId,
@@ -255,118 +195,10 @@ async function runBuild(
   const anchor = openExchange(flow, placement, outgoing, building);
   env.mood.beginRun(slot.runId, '');
   say(flow, 'build.started');
-  const logBefore = kernel.transactions().length;
-  const documentBefore = kernel.getDocument();
-  // A checkpoint before anything is written: "Restore the page to before this request".
-  env.options.checkpoints?.before(turnId, request, documentBefore);
-
-  const patchBuild = (change: (turn: BuildTurn) => Turn): void => {
-    patchKind(flow, slot.sessionId, turnId, 'build', change);
-  };
-
-  /*
-    The ONE approval, on the list. Asked before anything is written: the build turn
-    becomes the plan card under the same id, and the run waits on this promise. Stop in
-    the composer answers it too (the abort listener), so a person who wants out never has
-    to find a second button.
-  */
-  const askToBuild = (
-    planned: readonly AiBuildPlannedTask[],
-    direction: string,
-    pagePlan?: PagePlan,
-  ): Promise<AiBuildPlanAnswer> =>
-    new Promise<AiBuildPlanAnswer>((resolve) => {
-      if (slot.controller.signal.aborted) {
-        resolve('stop');
-        return;
-      }
-      const settle = (answer: AiBuildPlanAnswer): void => {
-        if (flow.runtime.approvals.get(turnId) !== settle) return;
-        flow.runtime.approvals.delete(turnId);
-        setRun(flow, slot, { awaiting: false });
-        resolve(answer);
-      };
-      flow.runtime.approvals.set(turnId, settle);
-      slot.controller.signal.addEventListener(
-        'abort',
-        () => {
-          settle('stop');
-        },
-        { once: true },
-      );
-      const touched = kernel.transactions().length > logBefore;
-      patchBuild((turn) =>
-        approvalTurn(turnId, request, planned, direction, pagePlan, turn.progress, touched),
-      );
-      setRun(flow, slot, { awaiting: true, activity: 'plan' });
-      say(flow, 'plan.ready');
-    });
-
-  const onEvent = (event: AiBuildEvent): void => {
-    env.mood.onEvent(event);
-    if (event.type.startsWith('build.') || event.type.startsWith('task.')) {
-      env.options.onBuildEvent?.(event as AiBuildOwnEvent);
-    } else {
-      env.options.onAgentEvent?.(event as AiAgentEvent);
-    }
-    if (event.type === 'build.planned') {
-      // The skeleton just landed: what each region holds now IS its placeholder.
-      const document = kernel.getDocument();
-      const placeholders = Object.fromEntries(
-        event.tasks.map((task) => [task.id, sectionValues(document, task.id)]),
-      );
-      patchBuild((turn) => ({ ...turn, placeholders }));
-      setRun(flow, slot, { activity: 'build', awaiting: false });
-      say(flow, 'build.planned', { n: event.tasks.length });
-    }
-    patchBuild((turn) => {
-      const progress = reduceBuildProgress(turn.progress, event);
-      const step = event.runId.slice(slot.runId.length + 1);
-      const match = /^(?:fill|check)-(\d+)(?:-\d+)?$/u.exec(step);
-      const task =
-        event.runId.startsWith(`${slot.runId}/`) && match !== null
-          ? turn.progress.tasks.find((row) => row.position === Number(match[1]))
-          : undefined;
-      const scope = task?.title;
-      const telemetry = reduceRunTelemetry(turn.telemetry, event, scope);
-      return progress === turn.progress && telemetry === turn.telemetry
-        ? turn
-        : { ...turn, progress, telemetry };
-    });
-    if (event.type === 'task.completed') {
-      const record = locateTurn(flow, turnId)?.turn;
-      if (record?.kind === 'build') {
-        env.live.landed(landedCount(record.progress), record.progress.tasks.length);
-      }
-      setRun(flow, slot, { lastLanding: { title: event.task.title, at: flow.clock.now() } });
-    }
-  };
-
   try {
-    const buildOptions: RunAiBuildOptions = {
-      ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
-      ...(plan.target === undefined ? {} : { target: plan.target }),
-      ...(plan.pagePlan === undefined ? {} : { pagePlan: plan.pagePlan }),
-      ...(plan.approval ? { onPlanned: askToBuild } : {}),
-      onEvent,
-      fillConcurrency: flow.ui.getState().workers,
-      ...sceneProbeOptions(flow.env().options.freeCode),
-    };
-    const result = await runAiBuild(buildOptions);
-    settleBuild(flow, slot, turnId, anchor, kernel, result, plan, { logBefore, documentBefore });
-  } catch (cause: unknown) {
-    failBuild(flow, slot, turnId, anchor, request, cause);
+    const { pointed } = outgoing;
+    await buildPage(flow, slot, { turnId, kernel, request, pointed, history, anchor, plan });
   } finally {
-    flow.runtime.approvals.delete(turnId);
-    if (flow.runtime.superseded.delete(turnId)) {
-      patchTurn(flow, slot.sessionId, turnId, (turn) =>
-        turn.kind === 'page-plan' ||
-        turn.kind === 'end' ||
-        (turn.kind === 'build' && turn.progress.tasks.length === 0)
-          ? { id: turnId, kind: 'end', key: 'planSuperseded' }
-          : turn,
-      );
-    }
     release(flow, slot);
   }
 }

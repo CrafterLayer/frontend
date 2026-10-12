@@ -11,6 +11,8 @@ import {
   type AiPromptEnhancement,
   type AiProposeOptions,
   type AiProposePagePlanOptions,
+  type AiProposeSitePlanOptions,
+  type AiSitePlanProposal,
   type AssembledAiContext,
 } from '@craftkit/builder';
 
@@ -246,6 +248,7 @@ export function createRetryingAiPlanProvider(
   const innerForget = inner.forget?.bind(inner);
   const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
   const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
+  const innerProposeSitePlan = inner.proposeSitePlan?.bind(inner);
 
   const provider: AiPlanProvider = {
     propose(
@@ -300,6 +303,13 @@ export function createRetryingAiPlanProvider(
       live?: AiProposePagePlanOptions,
     ): Promise<AiPagePlanProposal> =>
       withRetries(live, () => innerProposePagePlan(request, context, live));
+  }
+  // A site plan (T230) travels the same wire as a proposal, and gets the same schedule.
+  if (innerProposeSitePlan !== undefined) {
+    provider.proposeSitePlan = (
+      request: string,
+      live?: AiProposeSitePlanOptions,
+    ): Promise<AiSitePlanProposal> => withRetries(live, () => innerProposeSitePlan(request, live));
   }
   if (innerEnhancePrompt !== undefined) {
     provider.enhancePrompt = (

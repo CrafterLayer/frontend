@@ -208,6 +208,8 @@ function batchItem(
         `${backend.route === 'api' ? ' (an api: model)' : ''}, and the local CLI and OpenRouter cannot.`,
     };
   }
+  // A site plan (T230) is asked live while its site is built; it has no batch reader.
+  if (wire.task === 'site-plan') return { status: 400, error: 'A site plan is not batched.' };
   const pagePlan = wire.task === 'page-plan';
   const schema = pagePlan ? PAGE_PLAN_ANSWER_SCHEMA : contractSchemaOf(wire);
   // /plan answers this with an invalid-output body and no model call; a batch refuses the item.

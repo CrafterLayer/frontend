@@ -116,9 +116,9 @@ export interface BuildTurn {
   readonly revived?: true | undefined;
   readonly followUp?: string | undefined;
   readonly skills?: readonly AiSkillActivationPin[] | undefined;
-  /*
-    WP-16 additions, all plain data so they survive a reload:
-  */
+  /** T230: the site page this build wrote, when it is one page of a site build. */
+  readonly page?: string | undefined;
+  // WP-16 additions, all plain data so they survive a reload:
   /**
    * Each region's writer-owned props as the skeleton laid them, read at `build.planned`.
    * What "Remove empty sections" compares against (`removeUnfilledSections` removes only a

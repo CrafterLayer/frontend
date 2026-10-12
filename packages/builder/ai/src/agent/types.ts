@@ -24,6 +24,7 @@ import type { ScriptRunner } from '../script/types';
 import type { AiContextReadyDetails } from './context-report';
 import type { AiRunFailure } from './errors';
 import type { SceneProbe } from './scene-probe';
+import type { AiBuildWriterOptions } from './writer-pool';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
   AiCommandPolicy,
@@ -464,9 +465,10 @@ export type AiBuildEvent = AiAgentEvent | AiBuildOwnEvent;
  * itself, and widens the observer to the events above. Everything else is
  * forwarded to each step verbatim — except `signal`, which a section writer
  * receives chained with its own deadline, and `selectedSkillIds`, which the
- * build names per step.
+ * build names per step. `fillConcurrency` and `writerPool` live in writer-pool.ts.
  */
-export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'> {
+export interface RunAiBuildOptions
+  extends Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'>, AiBuildWriterOptions {
   /**
    * Whether this build may WRITE.
    *
@@ -501,17 +503,6 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    * flight and nothing lands after it.
    */
   buildBudgetMs?: number;
-  /**
-   * How many sections are WRITTEN at once. When omitted, automatic mode runs one writer per section
-   * that needs one, capped at 8 (`MAX_AI_BUILD_AUTO_FILL_CONCURRENCY`, 2026-10-05: six writers in a
-   * pool of four cost ≈ 7 s live, and a streamed plan staggers their starts anyway). Pass `1` to
-   * restore strictly sequential work.
-   *
-   * Only the writing overlaps, and it is bounded by this number alone: a slow
-   * section never holds back the writers behind it. Sections still LAND one
-   * after another in page order, so the transaction log reads top to bottom.
-   */
-  fillConcurrency?: number;
   /**
    * Asked once, with the sections the skeleton WOULD create, BEFORE anything is written. Answer
    * `'build'` and the approved skeleton lands, then every section is filled; answer `'stop'` (or

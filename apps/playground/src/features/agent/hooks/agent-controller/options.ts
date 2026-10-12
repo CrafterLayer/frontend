@@ -59,9 +59,16 @@ export interface UseAgentControllerOptions {
   readonly providerKind?: ProviderKind | undefined;
   /**
    * Opens a new page for a "new page" request and hands back its kernel; the build then
-   * lands there. Absent: the page is built below this one, and the thread says so.
+   * lands there. Absent: the page is built below this one, and the thread says so. A site
+   * build (T230) opens each further page with `{ current: false }`: the page the person is
+   * watching stays current while the others are built.
    */
-  readonly addPage?: ((title: string) => Promise<{ readonly kernel: BuilderKernel }>) | undefined;
+  readonly addPage?:
+    | ((
+        title: string,
+        open?: { readonly current?: boolean },
+      ) => Promise<{ readonly kernel: BuilderKernel }>)
+    | undefined;
   /**
    * The site's language versions (2026-10-12): a request for the site in several languages
    * adds a page per language through it, then each is translated. Absent: no site, and such a

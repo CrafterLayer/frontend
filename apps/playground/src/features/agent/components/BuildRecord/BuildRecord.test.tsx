@@ -142,6 +142,14 @@ describe('BuildRecord: the head says the state in words', () => {
     renderRecord(buildPartial('ar'), 'ar');
     expect(heading('بُنيت الصفحة، وتعذّر قسم واحد')).toBeInTheDocument();
   });
+
+  it('names its page first when it is one page of a site build, isolated in <bdi>', () => {
+    renderRecord({ ...buildDone('en'), page: 'About us' });
+    expect(heading('About us: Page built')).toBeInTheDocument();
+    expect(heading('About us: Page built').querySelector('bdi')).toHaveTextContent('About us');
+    renderRecord({ ...buildBuilding('ar'), page: 'من نحن' }, 'ar');
+    expect(heading('من نحن: بناء الصفحة')).toBeInTheDocument();
+  });
 });
 
 describe('BuildRecord: honest figures', () => {

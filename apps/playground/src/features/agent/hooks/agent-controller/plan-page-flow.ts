@@ -8,7 +8,7 @@ import { draftFromEnginePagePlan } from '../../model/page-plan-draft';
 import { reduceRunTelemetry } from '../../model/run-telemetry';
 import type { PagePlanTurn } from '../../model/turns';
 
-import { plannedSections } from './build-flow';
+import { plannedSections } from './page-build';
 import { type Flow, stoppedError } from './controller-state';
 import {
   engineRequest,

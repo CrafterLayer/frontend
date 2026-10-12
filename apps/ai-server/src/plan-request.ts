@@ -1,6 +1,7 @@
 import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import type { FreeModelCatalog } from './free-models';
+import { SITE_PLAN_MAX_TOKENS } from './site-plan';
 
 /*
   How a POST asks for a plan, read the one way (2026-10-12: moved out of handler.ts, so
@@ -80,9 +81,10 @@ export async function readJsonBody(
 /**
  * The tasks the plan endpoint answers (`AiPlanWireRequest.task`): absent or
  * `'plan'` is an `AiPlan`, exactly as before 2026-09-28; `'page-plan'` is a
- * page plan (`AiPagePlanWireResponse` in builder-ai's provider/wire.ts).
+ * page plan (`AiPagePlanWireResponse` in builder-ai's provider/wire.ts); `'site-plan'`
+ * (T230) is a site's pages (`AiSitePlanWireResponse`, site-plan-wire.ts).
  */
-const KNOWN_TASKS: ReadonlySet<unknown> = new Set(['plan', 'page-plan']);
+const KNOWN_TASKS: ReadonlySet<unknown> = new Set(['plan', 'page-plan', 'site-plan']);
 
 /** The header a request names its model in. Also granted by `cors.ts` for preflights. */
 export const MODEL_HEADER = 'x-craftkit-ai-model';
@@ -283,6 +285,12 @@ export function callEffort(
   if (wire.task === 'page-plan') {
     if (deep) return { effort: asked as string };
     return options.planThinking === true ? {} : { thinkingOff: true };
+  }
+  // A site plan (T230) is a list of pages and briefs: no thinking, a small budget.
+  if (wire.task === 'site-plan') {
+    return deep
+      ? { effort: asked as string }
+      : { thinkingOff: true, maxTokens: SITE_PLAN_MAX_TOKENS };
   }
   const pins = wire.context.skills ?? [];
   const writesASection = pins.some((pin) => pin.id === SECTION_WRITER_SKILL);

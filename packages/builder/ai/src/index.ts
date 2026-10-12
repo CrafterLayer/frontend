@@ -46,7 +46,7 @@ export {
     `skeletonFromPlan`, `checkSection`, `summarizeNeighbours` and `planAiPage`
     are the orchestration's steps T2, E, the writers' context and T1.
   */
-  fillConcurrencyFor,
+  fillConcurrencyFor, createAiWriterPool, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY, type AiBuildWriterOptions, type AiWriterPermit, type AiWriterPool, // T230: one writers' pool across a site's pages
   type AiBuildPlanAnswer,
   type AiBuildSectionCheck,
   type AiBuildSkipReasonCode,
@@ -54,7 +54,7 @@ export {
   type AiPagePlanEvent,
   type PlanAiPage,
   type PlanAiPageOptions,
-  type PlanAiPageResult,
+  type PlanAiPageResult, AI_SITE_MAX_PAGES, AI_SITE_MAX_REQUEST_LENGTH, AI_SITE_MAX_TITLE_LENGTH, AI_SITE_MIN_PAGES, planAiSite, sitePlanFromRequest, validateSitePlan, type AiSitePage, type AiSitePlan, type PlanAiSiteOptions, type SiteFromWordsOptions, type ValidateSitePlanResult, // T230: a site plan
   NEIGHBOUR_SUMMARY_MAX_CHARS,
   PAGE_PLAN_INTENTS,
   PAGE_PLAN_MAX_FACTS,
@@ -244,7 +244,7 @@ export {
   type AiPagePlanWireResponse,
   type AiPagePlanWireResult,
   type AiPlanWireTask,
-} from './provider/wire';
+} from './provider/wire'; export { AI_SITE_PLAN_WIRE_MAX_PAGES, aiSitePlanWireRequest, readAiSitePlanWireResponse, type AiSitePlanWireReading, type AiSitePlanWireResponse, type AiSitePlanWireResult } from './provider/site-plan-wire'; // T230: the site-plan task
 export {
   DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
   AiContextBudgetError,
@@ -327,7 +327,7 @@ export {
   type AiPlan,
   type AiPlanOutputContract,
   type AiPlanProvider,
-  type AiProposePagePlanOptions,
+  type AiProposePagePlanOptions, type AiProposeSitePlanOptions, type AiSitePlanProposal, type AiSitePlanProposalPage, // T230: the provider's site plan
   type AiPagePlanDraftEvent, // P3-client-wire addition (fast page build, DESIGN §5.2)
   type AiPlanStep,
   type AiChatTurn,

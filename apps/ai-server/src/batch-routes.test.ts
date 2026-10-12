@@ -337,6 +337,15 @@ describe('POST /batch', () => {
       status: 400,
       body: { error: 'Item "odd": Unknown task "poem".', item: 'odd' },
     });
+    // A site plan (T230) is a live call; a batch has no reader for one.
+    const site = await refused({
+      version: 1,
+      items: [{ id: 'site', request: wire({ task: 'site-plan' }) }],
+    });
+    expect(site).toEqual({
+      status: 400,
+      body: { error: 'Item "site": A site plan is not batched.', item: 'site' },
+    });
     const model = await refused({
       version: 1,
       model: 'claude-mythos-5',

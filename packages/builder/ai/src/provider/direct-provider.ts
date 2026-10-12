@@ -230,5 +230,13 @@ export function createDirectPlanProvider(options: DirectAiPlanProviderOptions): 
             fallback,
           ) satisfies AiPlanProvider['enhancePrompt'],
         }),
+    // A site plan (T230) is never a catalog example either.
+    ...(fallback?.proposeSitePlan === undefined
+      ? {}
+      : {
+          proposeSitePlan: fallback.proposeSitePlan.bind(
+            fallback,
+          ) satisfies AiPlanProvider['proposeSitePlan'],
+        }),
   };
 }

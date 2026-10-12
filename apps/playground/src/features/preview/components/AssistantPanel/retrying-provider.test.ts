@@ -324,6 +324,34 @@ describe('createRetryingAiPlanProvider — page plans and rewrites', () => {
     expect(Object.hasOwn(provider, 'enhancePrompt')).toBe(false);
   });
 
+  it('mirrors a site plan (T230): absent stays absent, present is retried', async () => {
+    expect(
+      Object.hasOwn(
+        createRetryingAiPlanProvider({ propose: () => Promise.resolve(plan) }),
+        'proposeSitePlan',
+      ),
+    ).toBe(false);
+    let calls = 0;
+    const pages = [
+      { title: 'Home', request: 'The home page.' },
+      { title: 'About', request: 'The about page.' },
+    ];
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        proposeSitePlan: () => {
+          calls += 1;
+          return calls === 1 ? Promise.reject(httpError(529)) : Promise.resolve({ pages });
+        },
+      },
+      { random: () => 1 },
+    );
+    const proposal = provider.proposeSitePlan?.('Build a 2-page site');
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(proposal).resolves.toEqual({ pages });
+    expect(calls).toBe(2);
+  });
+
   it('retries a page plan over the same flaky wire, with the same options', async () => {
     let calls = 0;
     const seen: unknown[] = [];

@@ -10,6 +10,8 @@ import type {
   AiPromptEnhancement,
   AiProposeOptions,
   AiProposePagePlanOptions,
+  AiProposeSitePlanOptions,
+  AiSitePlanProposal,
   AssembledAiContext,
 } from '../types';
 import { canonicalJsonStringify } from '../internal/canonical-json';
@@ -138,9 +140,9 @@ async function remembered<T>(
  * because a repair exists precisely because the cached shape of an answer was
  * wrong.
  *
- * The optional capabilities are mirrored exactly: `proposePagePlan` and
- * `enhancePrompt` exist on the decorator only when the inner provider has
- * them, because their ABSENCE is a signal — the build falls back to its
+ * The optional capabilities are mirrored exactly: `proposePagePlan`,
+ * `proposeSitePlan` and `enhancePrompt` exist on the decorator only when the
+ * inner provider has them, because their ABSENCE is a signal — the build falls back to its
  * scaffold without `proposePagePlan`, and the panel hides Improve without
  * `enhancePrompt`. A decorator that dropped them made the page-plan path
  * unreachable from the playground (engine wave-2 verifier, 2026-09-28); one
@@ -158,6 +160,7 @@ export function createCachingAiPlanProvider(
   const innerRepair = inner.repair?.bind(inner);
   const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
   const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
+  const innerProposeSitePlan = inner.proposeSitePlan?.bind(inner);
 
   const provider: AiPlanProvider = {
     // async, so a key that cannot be computed rejects like every other failure.
@@ -242,6 +245,23 @@ export function createCachingAiPlanProvider(
         },
       );
     };
+  }
+  if (innerProposeSitePlan !== undefined) {
+    const sitePlans = lruMemory<AiSitePlanProposal>(capacity);
+    // A site plan (T230) reads only the words and the conversation: they are its key.
+    provider.proposeSitePlan = async (
+      request: string,
+      live?: AiProposeSitePlanOptions,
+    ): Promise<AiSitePlanProposal> =>
+      remembered(
+        sitePlans,
+        canonicalJsonStringify({ history: live?.history ?? [], request, task: 'site-plan' }),
+        live?.signal,
+        () => innerProposeSitePlan(request, live),
+        () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        },
+      );
   }
   if (innerEnhancePrompt !== undefined) {
     const rewrites = lruMemory<AiPromptEnhancement>(capacity);

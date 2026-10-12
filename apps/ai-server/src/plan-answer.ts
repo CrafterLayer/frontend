@@ -5,6 +5,7 @@ import { AI_PLAN_WIRE_VERSION } from '@craftkit/builder/wire';
 import { salvageJson } from './json-salvage';
 import { pagePlanShapeCheck, repairPagePlanAnswer } from './plan-shape';
 import { usageOf, type UsageReport } from './plan-params';
+import type { SitePlanOutcome } from './site-plan';
 
 /*
   What an answer IS, and what the wire says about it (2026-10-12: moved out of claude.ts and
@@ -41,7 +42,7 @@ export interface AnswerHooks {
 }
 
 /** The text of an answer, with thinking and every other block left out. */
-function answerText(message: Anthropic.Message): string {
+export function answerText(message: Anthropic.Message): string {
   return message.content
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')
     .map((block) => block.text)
@@ -268,7 +269,7 @@ export interface Answered {
  * is the call's usage when the outcome itself carries none (a refusal still cost tokens).
  */
 export function answerBody(
-  outcome: ClaudeOutcome | PagePlanOutcome,
+  outcome: ClaudeOutcome | PagePlanOutcome | SitePlanOutcome,
   measured: UsageReport | undefined,
 ): Answered {
   const usage = measured === undefined ? {} : { usage: measured };
@@ -276,6 +277,12 @@ export function answerBody(
   if (outcome.kind === 'invalid-output')
     return { body: invalidOutputBody(outcome.message), ...usage };
   if (outcome.kind === 'plan') return { body: outcome.plan, usage: outcome.usage };
+  if (outcome.kind === 'site-plan') {
+    // T230: the pages, for `readAiSitePlanWireResponse` (builder-ai site-plan-wire.ts).
+    const { pages, rationale } = outcome;
+    const said = rationale === undefined ? {} : { rationale };
+    return { body: { version: AI_PLAN_WIRE_VERSION, ...said, pages }, usage: outcome.usage };
+  }
   return {
     body: {
       version: AI_PLAN_WIRE_VERSION,
@@ -286,8 +293,8 @@ export function answerBody(
   };
 }
 
-/** Which call a usage line belongs to: a plan, a page plan, or an enhancement. */
-export type UsageTask = 'plan' | 'page-plan' | 'enhance';
+/** Which call a usage line belongs to: a plan, a page plan, a site plan, or an enhancement. */
+export type UsageTask = 'plan' | 'page-plan' | 'site-plan' | 'enhance';
 
 /** Where a call's usage line goes: `HandlerOptions.onUsage`. */
 export interface UsageSink {

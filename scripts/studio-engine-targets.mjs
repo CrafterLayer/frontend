@@ -16,12 +16,14 @@ export const ALLOWED_LICENCES = new Set([
   'CC0-1.0',
 ]);
 
+// Budgets (performance pass, 2026-10-12): the measured gzip size plus 5 %, rounded up to 100 bytes,
+// and never above the budget each target had before; studio-sources.test.ts holds the same numbers.
 export const TARGETS = {
   kit: {
     entry: 'src/studio/kit-entry.ts',
     factory: 'createKitLibrary',
     pixi: true,
-    budget: 16_000,
+    budget: 15_800,
     version: '1.1.0',
     vendored: [
       {
@@ -36,14 +38,14 @@ export const TARGETS = {
     entry: 'src/studio/libs/filters-entry.ts',
     factory: 'createFiltersLibrary',
     pixi: true,
-    budget: 30_000,
+    budget: 24_900,
     versionPackage: 'pixi-filters',
   },
   emitter: {
     entry: 'src/studio/libs/emitter-entry.ts',
     factory: 'createEmitterLibrary',
     pixi: true,
-    budget: 14_000,
+    budget: 12_000,
     version: '1.0.2',
     vendored: [
       {
@@ -58,14 +60,14 @@ export const TARGETS = {
     entry: 'src/studio/libs/physics-entry.ts',
     factory: 'createPhysicsLibrary',
     pixi: false,
-    budget: 30_000,
+    budget: 29_500,
     versionPackage: 'matter-js',
   },
   brush: {
     entry: 'src/studio/libs/brush-entry.ts',
     factory: 'createBrushLibrary',
     pixi: false,
-    budget: 4_000,
+    budget: 3_500,
     versionPackage: 'perfect-freehand',
   },
   rough: {
@@ -87,21 +89,21 @@ export const TARGETS = {
     entry: 'src/studio/libs/anim-entry.ts',
     factory: 'createAnimLibrary',
     pixi: false,
-    budget: 9_000,
+    budget: 6_500,
     version: '1.0.0',
   },
   fx: {
     entry: 'src/studio/libs/fx-entry.ts',
     factory: 'createFxLibrary',
     pixi: true,
-    budget: 9_000,
+    budget: 5_400,
     version: '1.0.0',
   },
   dialogue: {
     entry: 'src/studio/libs/dialogue-entry.ts',
     factory: 'createDialogueLibrary',
     pixi: false,
-    budget: 12_000,
+    budget: 9_700,
     version: '1.0.0',
   },
   ink: {
@@ -115,7 +117,7 @@ export const TARGETS = {
     entry: 'src/studio/libs/tilemap-entry.ts',
     factory: 'createTilemapLibrary',
     pixi: true,
-    budget: 14_000,
+    budget: 11_400,
     versionPackage: '@pixi/tilemap',
   },
   // game libraries (2026-10-12): audio (@pixi/sound + zzfx), game AI (yuka), in-canvas HUD (@pixi/ui).
@@ -123,14 +125,14 @@ export const TARGETS = {
     entry: 'src/studio/libs/audio-entry.ts',
     factory: 'createAudioLibrary',
     pixi: true,
-    budget: 18_000,
+    budget: 16_900,
     versionPackage: '@pixi/sound',
   },
   gameai: {
     entry: 'src/studio/libs/gameai-entry.ts',
     factory: 'createGameAiLibrary',
     pixi: false,
-    budget: 22_000,
+    budget: 21_800,
     versionPackage: 'yuka',
     // yuka ships one ES module whose module-scope scratch math objects carry no pure annotation,
     // so esbuild must keep every class they name (navmesh, goals, fuzzy logic, glTF…). They only
@@ -157,7 +159,7 @@ export const TARGETS = {
     entry: 'src/studio/libs/hud-entry.ts',
     factory: 'createHudLibrary',
     pixi: true,
-    budget: 27_000,
+    budget: 26_500,
     versionPackage: '@pixi/ui',
   },
   sound: {

@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/gameai-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 20744 bytes gzip (budget 22000).
+  Size: 20744 bytes gzip (budget 21800).
   Bundled/adapted packages: yuka@0.7.8 (MIT).
 */
 

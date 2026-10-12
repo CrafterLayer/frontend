@@ -73,11 +73,14 @@ the entry. It writes no `window.PIXI`.
 node scripts/build-scene-engine.mjs pixi     # → renderer/src/engines/pixi-full-source.ts (PIXI_FULL_*)
 ```
 
-`ck-pixi.js` is **268.5 kB gzip** on pixi.js 8.22.0 against a **300 kB** budget of its own (the 200
-kB scene budget is unchanged). The export ships it only when some page's `data-ck-js` code matches
-`/pixi|ck\.stage/i`; the canvas injects it into the frame head on the same condition.
-`node scripts/build-scene-engine.mjs` with no argument rebuilds both. Its bundled packages are the
-list below plus `@xmldom/xmldom` (MIT).
+`ck-pixi.js` is **244.6 kB gzip** on pixi.js 8.22.0 against a **256.9 kB** budget of its own
+(measured + 5 %; the 200 kB scene budget is unchanged). The export ships it only when some page's
+`data-ck-js` code matches `/pixi|ck\.stage/i`; the canvas injects it into the frame head on the same
+condition. `node scripts/build-scene-engine.mjs` with no argument rebuilds both. Its bundled
+packages are the list below. pixi.js imports `@xmldom/xmldom` only for `WebWorkerAdapter.parseXML`;
+`ck-pixi.js` is a page script, never a worker, so the build answers that import with the page's own
+`DOMParser` (performance pass, 2026-10-12: -23.8 kB gzip, and a published Studio scene's first frame
+289 -> 207 ms desktop, 2022 -> 1642 ms at 4x CPU and 10 Mbit/s, Chromium, median of 9).
 
 ## Creative scene kit (1.1.0)
 

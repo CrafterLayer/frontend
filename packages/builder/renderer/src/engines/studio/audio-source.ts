@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/audio-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 16040 bytes gzip (budget 18000).
+  Size: 16040 bytes gzip (budget 16900).
   Bundled/adapted packages: @pixi/sound@6.0.1 (MIT), zzfx@1.3.2 (MIT).
 */
 

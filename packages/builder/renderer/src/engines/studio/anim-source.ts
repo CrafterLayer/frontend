@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/anim-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 6160 bytes gzip (budget 9000).
+  Size: 6160 bytes gzip (budget 6500).
   Bundled/adapted packages: none (first-party source).
 */
 

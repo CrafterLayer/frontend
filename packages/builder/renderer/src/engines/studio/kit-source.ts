@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/kit-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 14980 bytes gzip (budget 16000).
+  Size: 14980 bytes gzip (budget 15800).
   Bundled/adapted packages: simplex-noise@4.0.3 (MIT), webgl-noise@git-22434e0 (MIT).
 */
 

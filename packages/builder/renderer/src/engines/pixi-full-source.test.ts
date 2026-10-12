@@ -22,8 +22,11 @@ function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-/** Its own budget, deliberately apart from the 200 kB scene engine (scripts/build-scene-engine.mjs). */
-const PIXI_FULL_BUDGET_GZIP_BYTES = 300_000;
+/**
+ * Its own budget, deliberately apart from the 200 kB scene engine (scripts/build-scene-engine.mjs):
+ * the measured 244.6 kB gzip plus 5 % (performance pass, 2026-10-12).
+ */
+const PIXI_FULL_BUDGET_GZIP_BYTES = 256_900;
 
 describe('generated full pixi.js source', () => {
   it('starts with its licence banner, which closes exactly once at its end', () => {
@@ -45,8 +48,11 @@ describe('generated full pixi.js source', () => {
     expect(PIXI_FULL_BANNER).toContain('Permission is hereby granted, free of charge');
     expect(PIXI_FULL_BANNER).toContain('node scripts/build-scene-engine.mjs pixi');
     // The whole library pulls in more packages than the scene subset: their notices travel too.
-    expect(PIXI_FULL_BANNER).toContain('@xmldom/xmldom@');
     expect(PIXI_FULL_BANNER).toContain('earcut@');
+    // performance pass (2026-10-12): xmldom served only WebWorkerAdapter.parseXML; this classic
+    // page script answers it with the page's own DOMParser, so xmldom is neither bundled nor named.
+    expect(PIXI_FULL_BANNER).not.toContain('@xmldom/xmldom@');
+    expect(PIXI_FULL_SOURCE).toContain('globalThis.DOMParser');
   });
 
   it('is one self-running script: it parses, loads no chunks, and registers the pixi engine', () => {

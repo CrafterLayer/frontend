@@ -27,7 +27,7 @@ import { WorkspaceCanvas } from './workspace-canvas';
 import { CanvasStatus } from './canvas-status';
 import { CodeSourceSelection } from './code-source-selection';
 import { PageInspector } from './page-inspector';
-import { useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { DirectionProvider } from '@radix-ui/react-direction';
 
 import {
@@ -220,6 +220,7 @@ export function App() {
     this file must not render a second set with the same names.
   */
   const codeOpen = railSection === 'code';
+  const agentPanelPending = <div className="pg-boot-panel" hidden={railSection !== 'assistant'} />;
   const showcaseOwnsLawSControls = codeOpen;
 
   if (preview && kernel !== undefined && codeSnapshot === undefined) {
@@ -373,16 +374,19 @@ export function App() {
                 of them owns work that outlives a glance.
               */
                   <>
-                    <AssistantRailPanel
-                      bootId={session.bootId}
-                      kernel={session.kernel}
-                      shelf={session.shelf}
-                      panes={panes}
-                      host={agentHost}
-                      code={code}
-                      settings={agentSettings}
-                      returnFocusToRailAgent={language.returnFocusToRailAgent}
-                    />
+                    {/* The agent panels' own chunk: until it lands, the quiet placeholder. */}
+                    <Suspense fallback={agentPanelPending}>
+                      <AssistantRailPanel
+                        bootId={session.bootId}
+                        kernel={session.kernel}
+                        shelf={session.shelf}
+                        panes={panes}
+                        host={agentHost}
+                        code={code}
+                        settings={agentSettings}
+                        returnFocusToRailAgent={language.returnFocusToRailAgent}
+                      />
+                    </Suspense>
                     <RailSectionPanel
                       railSection={railSection}
                       session={session}

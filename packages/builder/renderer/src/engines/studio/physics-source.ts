@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/physics-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 28048 bytes gzip (budget 30000).
+  Size: 28048 bytes gzip (budget 29500).
   Bundled/adapted packages: matter-js@0.20.0 (MIT).
 */
 

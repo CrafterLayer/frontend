@@ -9,13 +9,16 @@
   code-workspace). Importing them here, first, keeps the cascade — and every
   module's evaluation — exactly as it was. App.tsx imports this right after
   App.css. Do not sort these lines.
+
+  The agent panels (`features/agent`, the v1 AssistantPanel, SourceAgentPanel) are NOT
+  listed (performance pass, 2026-10-12): `assistant-rail-panel.tsx` loads them lazily, so
+  importing them here would put them back in the entry chunk. Their stylesheets arrive with
+  their chunk; the editor's computed styles were compared before and after and are identical.
 */
-import '../features/preview/components/AssistantPanel';
 import '../features/preview/components/SiteBuilderPanel';
 import '../features/preview/local-asset-library';
 import '../features/preview/components/AssistantPanel/use-site-run';
 import '../features/preview/components/AssistantPanel/planProviderFromEnv';
-import '../features/agent';
 import './agent-host';
 import './rail-section-notice';
 import './rail-sections';
@@ -53,7 +56,6 @@ import '../features/preview/source-agent-client';
 import '../features/preview/use-source-agent';
 import '../features/preview/use-component-schema-resolver';
 import '../features/preview/use-live-utilities';
-import '../features/preview/components/SourceAgentPanel';
 import '../features/vault/components/PersistenceStatus';
 import '../features/preview/feature-flags';
 import '../features/preview/artifact-archive';

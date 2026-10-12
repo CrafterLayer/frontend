@@ -4,7 +4,8 @@ import {
   planModelsFromEnv,
   planProviderFromEnv,
 } from '../features/preview/components/AssistantPanel/planProviderFromEnv';
-import { DEFAULT_EFFORT, effortLevel, type EffortLevel } from '../features/agent';
+import type { EffortLevel } from '../features/agent';
+import { DEFAULT_EFFORT, effortLevel } from '../features/agent/model/effort';
 import { editModelFromEnv, planModelChoice } from './agent-host';
 import { useOfferedModels } from './use-offered-models';
 

@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/hud-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 25143 bytes gzip (budget 27000).
+  Size: 25143 bytes gzip (budget 26500).
   Bundled/adapted packages: @pixi/ui@2.3.2 (MIT), tweedle.js@2.1.0 (MIT), typed-signals@2.5.0 (CC0-1.0).
 */
 

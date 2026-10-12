@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/filters-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 23628 bytes gzip (budget 30000).
+  Size: 23628 bytes gzip (budget 24900).
   Bundled/adapted packages: pixi-filters@6.1.5 (MIT).
 */
 

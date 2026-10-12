@@ -98,10 +98,21 @@ const TARGETS = {
     buildCommand: 'node scripts/build-scene-engine.mjs pixi',
     runnerFile: 'ck-pixi-runner.ts',
     runner: "import { installFullPixi } from './src/pixi-entry.ts';\ninstallFullPixi(window);\n",
+    /*
+      performance pass (2026-10-12): pixi.js imports @xmldom/xmldom for ONE line,
+      `WebWorkerAdapter.parseXML`, the XML parser a Web Worker lacks. ck-pixi.js is a classic
+      <script> on the page, never a worker, so the page's own DOMParser answers instead (the same
+      parser BrowserAdapter uses). Measured: -63.9 kB raw, -23.8 kB gzip, and xmldom's module
+      evaluation gone from the start-up path (first frame of a published Studio scene 289 -> 207 ms
+      desktop, 2022 -> 1642 ms at 4x CPU / 10 Mbit/s, Chromium, median of 9).
+    */
+    shims: { '@xmldom/xmldom': 'export const DOMParser = globalThis.DOMParser;' },
     outFile: join(enginesDir, 'pixi-full-source.ts'),
-    // Measured on pixi.js 8.22.0: 268.5 kB gzip, the whole library (the scene subset is ~4x smaller).
-    // The headroom is for a point release of Pixi, not for our own code (a 12-line handshake).
-    budgetGzipBytes: 300 * 1000,
+    // Measured on pixi.js 8.22.0: 268.5 kB gzip, the whole library (the scene subset is ~4x smaller);
+    // 244.6 kB once xmldom is shimmed (performance pass, 2026-10-12). The budget is that plus 5 %:
+    // room for a point release of Pixi, not for our own code (a 12-line handshake). A release that
+    // grows more is a decision to make on purpose, here and in pixi-full-source.test.ts.
+    budgetGzipBytes: 256_900,
     names: {
       version: 'PIXI_FULL_VERSION',
       sha: 'PIXI_FULL_SHA256',
@@ -132,6 +143,26 @@ const TARGETS = {
 */`,
   },
 };
+
+/** A target's `shims`: bare imports answered by a few lines of source instead of a package. */
+function shimPlugin(shims) {
+  // esbuild filters are Go regular expressions: no flags, and `/` needs no escape.
+  const filter = new RegExp(
+    `^(?:${Object.keys(shims)
+      .map((name) => name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'))
+      .join('|')})$`,
+  );
+  return {
+    name: 'craftkit-shims',
+    setup(build) {
+      build.onResolve({ filter }, (args) => ({ path: args.path, namespace: 'craftkit-shim' }));
+      build.onLoad({ filter: /.*/, namespace: 'craftkit-shim' }, (args) => ({
+        contents: shims[args.path],
+        loader: 'js',
+      }));
+    },
+  };
+}
 
 /* ── Licence helpers ───────────────────────────────────────────────────── */
 
@@ -202,6 +233,7 @@ async function buildTarget(target) {
     charset: 'utf8',
     tsconfig: join(packageDir, 'tsconfig.json'),
     logLevel: 'warning',
+    plugins: target.shims === undefined ? [] : [shimPlugin(target.shims)],
   });
 
   const outputFile = result.outputFiles?.[0];

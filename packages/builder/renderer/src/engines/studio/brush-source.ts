@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/brush-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 3279 bytes gzip (budget 4000).
+  Size: 3279 bytes gzip (budget 3500).
   Bundled/adapted packages: perfect-freehand@1.2.3 (MIT).
 */
 

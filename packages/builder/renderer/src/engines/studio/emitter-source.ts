@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/emitter-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 11364 bytes gzip (budget 14000).
+  Size: 11364 bytes gzip (budget 12000).
   Bundled/adapted packages: @spd789562/particle-emitter@1.0.2 (MIT).
 */
 

@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/dialogue-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 9151 bytes gzip (budget 12000).
+  Size: 9151 bytes gzip (budget 9700).
   Bundled/adapted packages: none (first-party source).
 */
 

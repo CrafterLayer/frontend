@@ -1,4 +1,4 @@
-import { lazy, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder';
 
@@ -8,6 +8,7 @@ import { AGENT_EDIT_EFFORT, AGENT_LOCALE, AGENT_PANEL } from './app-env';
 import type { AgentHost } from './use-agent-host';
 import type { AgentModelSettings } from './use-agent-model-settings';
 import type { CodeSession } from './use-code-session';
+import { lazyPanel } from './lazy-panel';
 import type { EditorPanes } from './use-editor-panes';
 
 export interface AssistantRailPanelProps {
@@ -50,20 +51,19 @@ export interface AssistantRailPanelProps {
   import starts when this destination first renders and App's Suspense boundary holds the panel
   column's quiet placeholder until it lands. Their stylesheets travel with their chunks; the
   editor's computed styles were compared before and after (light and dark, five rail
-  destinations, canvas included) and are identical.
+  destinations, canvas included) and are identical. A chunk that will not load is retried, then
+  leaves this column empty instead of the editor (lazy-panel.ts).
 */
-const LiveAgentPanel = lazy(() =>
-  import('../features/agent').then((module) => ({ default: module.LiveAgentPanel })),
+const LiveAgentPanel = lazyPanel(() =>
+  import('../features/agent').then((module) => module.LiveAgentPanel),
 );
-const AssistantPanel = lazy(() =>
-  import('../features/preview/components/AssistantPanel').then((module) => ({
-    default: module.AssistantPanel,
-  })),
+const AssistantPanel = lazyPanel(() =>
+  import('../features/preview/components/AssistantPanel').then((module) => module.AssistantPanel),
 );
-const SourceAgentPanel = lazy(() =>
-  import('../features/preview/components/SourceAgentPanel').then((module) => ({
-    default: module.SourceAgentPanel,
-  })),
+const SourceAgentPanel = lazyPanel(() =>
+  import('../features/preview/components/SourceAgentPanel').then(
+    (module) => module.SourceAgentPanel,
+  ),
 );
 
 /** This viewer's localStorage, or none where reading it throws (a sandboxed frame). */

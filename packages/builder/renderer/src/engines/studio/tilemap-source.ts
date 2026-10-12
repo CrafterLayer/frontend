@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/tilemap-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 10835 bytes gzip (budget 14000).
+  Size: 10835 bytes gzip (budget 11400).
   Bundled/adapted packages: @pixi/tilemap@5.0.2 (MIT).
 */
 

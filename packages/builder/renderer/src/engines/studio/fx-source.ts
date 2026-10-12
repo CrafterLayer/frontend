@@ -5,7 +5,7 @@
 
   Source: packages/builder/extensions/media-engines/src/studio/libs/fx-entry.ts.
   One minified browser IIFE, no splitting and no dynamic import.
-  Size: 5097 bytes gzip (budget 9000).
+  Size: 5097 bytes gzip (budget 5400).
   Bundled/adapted packages: none (first-party source).
 */
 

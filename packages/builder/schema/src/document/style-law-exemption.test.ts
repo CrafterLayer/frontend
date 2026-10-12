@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { defineBlockSchema } from '../blocks/define-block-schema';
 import { customCodeTree, customCss, emptyCustomCodeTree } from '../custom-code/custom-code-tree';
+import { customCodeJsMeta, customCodeJsParams } from '../studio/props';
 import type { BuilderDocument } from './types';
 import { validateDocument } from './validate';
 
@@ -23,6 +24,8 @@ const region = defineBlockSchema({
     styles: customCss(), // exempt by DECLARATION, whatever the prop is called
     tree: customCodeTree().default(emptyCustomCodeTree()),
     caption: z.string().default(''), // a plain string: still governed
+    jsParams: customCodeJsParams(),
+    jsMeta: customCodeJsMeta(),
   }),
   examples: [],
 });
@@ -61,6 +64,11 @@ describe('the raw-literal law and composed regions', () => {
     };
 
     expect(rawLiteralErrors({ tree })).toEqual([]);
+  });
+
+  // 2026-10-12: a scene's palette param is a hex; the door refused it, the kernel took it.
+  it("lets a script's data (jsParams) carry colour codes", () => {
+    expect(rawLiteralErrors({ jsParams: { palette: '#1e3a8a', speed: 2 } })).toEqual([]);
   });
 
   it('still governs every other prop — the law did not move, only its edge did', () => {

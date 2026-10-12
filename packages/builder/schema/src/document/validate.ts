@@ -9,6 +9,7 @@ import {
 } from '../custom-code/custom-code-tree';
 import { type BuilderError, builderError } from '../errors';
 import { RESERVED_JSON_KEYS, findJsonViolation, type JsonValue } from '../json/json-value';
+import { isScriptDataSchema } from '../studio/props';
 import { BREAKPOINTS, type BuilderDocument, type Node, type NodeId } from './types';
 
 export type BlockSchemaLookup = (type: string) => BlockSchema | undefined;
@@ -375,26 +376,16 @@ function validatePropsAgainstSchema(
 }
 
 /**
- * Props the intent-only law does not apply to.
- *
- * The law exists so a registered block's props hold ROLES the site can
- * re-theme — `bg-accent`, not `#1e3a8a`. Three kinds of prop are authored
- * values by their nature and were never meant to be governed by it:
- *
+ * Props the intent-only law does not apply to. The law keeps a block's props as ROLES the
+ * site can re-theme (`bg-accent`, not `#1e3a8a`); these props are authored values by nature:
  * - a stylesheet (`customCss()`): CSS is made of colour codes and lengths;
- *   a stylesheet with none of them is a stylesheet that cannot say anything;
- * - a region script (`customJs()`): code is not styling — a canvas scene
- *   writes `0x1e3a8a` and `16px` as ordinary literals;
- * - a composed region (`customCodeTree()`): its text may say "Ticket #ff0",
- *   and its classes are policed by the AI door's own vocabulary law.
- *
- * Recognised by the DECLARATION marker, never by prop name — the rule every
- * marker in this package follows — so a block that names its stylesheet
- * `styles` is exempt and one that names a plain string `css` is not.
- *
- * This was found on the first live run: the assistant's stylesheet held a hex
- * colour, this law refused the whole plan, and the assistant retreated to
- * tokens the person had not asked for.
+ * - a region script (`customJs()`): a canvas scene writes `0x1e3a8a` as a plain literal;
+ * - a script's data (`jsParams`/`jsMeta`, 2026-10-12): a scene's palette param is a hex;
+ * - a composed region (`customCodeTree()`): its text may say "Ticket #ff0", and its classes
+ *   are policed by the AI door's own vocabulary law.
+ * Recognised by the DECLARATION marker, never by prop name (every marker here works that
+ * way). Found on the first live run: a hex in the assistant's stylesheet refused the whole
+ * plan, and the assistant retreated to tokens the person had not asked for.
  */
 function stylePropsExemptFromLaw(schema: BlockSchema | undefined): ReadonlySet<string> {
   if (schema === undefined) return new Set();
@@ -404,7 +395,10 @@ function stylePropsExemptFromLaw(schema: BlockSchema | undefined): ReadonlySet<s
     Object.entries(shape)
       .filter(
         ([, field]) =>
-          isCustomCssSchema(field) || isCustomJsSchema(field) || isCustomCodeTreeSchema(field),
+          isCustomCssSchema(field) ||
+          isCustomJsSchema(field) ||
+          isCustomCodeTreeSchema(field) ||
+          isScriptDataSchema(field),
       )
       .map(([name]) => name),
   );

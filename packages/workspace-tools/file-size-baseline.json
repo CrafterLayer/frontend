@@ -124,7 +124,7 @@
     "packages/builder/renderer/src/tailwind/live-utilities.ts": 583,
     "packages/builder/schema/src/custom-code/custom-code-tree-ops.ts": 676,
     "packages/builder/schema/src/custom-code/custom-code-tree.ts": 2387,
-    "packages/builder/schema/src/document/validate.ts": 508,
+    "packages/builder/schema/src/document/validate.ts": 502,
     "packages/builder/schema/src/index.ts": 784,
     "packages/builder/schema/src/site/library.ts": 574,
     "packages/builder/schema/src/studio/params.ts": 548,

@@ -138,6 +138,8 @@ export const PIXI_V8_TEXT_ASSETS_SKILL: AiSkillDefinitionV1 = {
       'kinetic typography',
       'sprite',
       'spritesheet',
+      'assetpack',
+      'asset manifest',
       'image mural',
       'photo mural',
       'جدارية صور',
@@ -151,6 +153,7 @@ FONTS: the page loads its own fonts; wait before drawing: await document.fonts.l
 ARABIC: Text or HTMLText only — there the browser joins the letters. BitmapText, SplitText and SplitBitmapText place glyph by glyph, so Arabic falls apart into isolated letters: never use them for Arabic. Move an Arabic line as one object (alpha, scale, position, a mask wipe), align:'right' with its anchor on the right edge. Copy stays in the page tree; Pixi text is decoration — one word, a large numeral. Under ck.scene, s.text and s.words already follow this.
 SPLIT TEXT, Latin only: new PIXI.SplitText({text,style,autoSplit:true}) gives chars, words and lines to stagger.
 ASSETS: a texture comes from PIXI.Assets: const tex=await PIXI.Assets.load(url), then new PIXI.Sprite(tex). Texture.from(url) no longer fetches. Only addresses the request or the page gives: an image already in the region is ck.root.querySelector('img')?.currentSrc. A host without CORS fails the load: catch it and keep the page image. A spritesheet JSON loads the same way; its animations feed new PIXI.AnimatedSprite(frames). Assets.add takes {alias,src}.
+ASSETPACK: a manifest.json the request gives (an https address an AssetPack build wrote) names every asset; init once per page: const base=url.slice(0,url.lastIndexOf('/')+1);await PIXI.Assets.init({manifest:url,basePath:base,texturePreference:{resolution:matchMedia('(max-width:640px)').matches?.5:1,format:['avif','webp','png']}}), then await PIXI.Assets.loadBundle('<folder>') and PIXI.Sprite.from('<file name>'); a {tps} folder is one atlas whose frames go by their file names.
 SPRITES: anchor.set(.5) to turn around the centre; new PIXI.TilingSprite({texture,width,height}) with tilePosition for an endless drift; new PIXI.NineSliceSprite({texture,leftWidth,topHeight,rightWidth,bottomHeight}) for panels; a texture from a shape: app.renderer.generateTexture(graphics).
 DON'T (v7 → v8): new Text(str,style) → new Text({text,style}); new BitmapText(str,style) → the same object form; Texture.from(url) before a load → await PIXI.Assets.load(url); BaseTexture → TextureSource; NineSlicePlane → NineSliceSprite; SCALE_MODES.NEAREST → 'nearest'; Assets.add('key','url') → Assets.add({alias,src}).
 e.g. image mural from the region's photo: const {PIXI,app}=await ck.stage();const src=ck.root.querySelector('img')?.currentSrc;if(src){try{const tex=await PIXI.Assets.load(src);const tiles=new PIXI.Container();app.stage.addChild(tiles);for(let i=0;i<6;i++){const s=new PIXI.Sprite(tex);s.anchor.set(.5);s.scale.set(.25);s.alpha=.5;s.position.set((i+.5)*app.screen.width/6,app.screen.height/2);tiles.addChild(s)}if(!ck.reducedMotion)app.ticker.add(t=>tiles.children.forEach((s,i)=>{s.rotation+=.002*(i%2?1:-1)*t.deltaTime}))}catch{}}

@@ -1,0 +1,13 @@
+{
+  "extends": "@craftkit/typescript-config/node.json",
+  "compilerOptions": {
+    // Node 24 runs src/cli.ts as written (type stripping): relative imports name their .ts file.
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    // AssetPack's own declarations import an untyped module (@pixi/msdf-bmfont-xml), and the
+    // shared test config pulls @vitest/browser's DOM-typed context into a Node package: both are
+    // third-party declaration defects. Scoped exception here only, as in packages/test-config.
+    "skipLibCheck": true
+  },
+  "include": ["src", "vitest.config.ts"]
+}

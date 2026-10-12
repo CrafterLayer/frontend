@@ -139,6 +139,15 @@ catalog:
   yuka: 0.7.8
   zzfx: 1.3.2
   # end pixi-studio:engine-libs additions
+  # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
+  # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
+  # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json
+  # and the repository LICENSE, © 2022 PixiJS; the tarball carries no LICENSE file), read on
+  # 2026-10-12. Its native helpers come prebuilt (sharp Apache-2.0; ffmpeg through
+  # @ffmpeg-installer, LGPL-2.1 wrapper around a GPLv3 binary, run at build time only).
+  # 1.7.0 was published 2025-11-07.
+  '@assetpack/core': 1.7.0
+  # end pixi-assetpack additions
 
 sharedWorkspaceLockfile: true
 saveWorkspaceProtocol: rolling
@@ -159,6 +168,12 @@ trustPolicyExclude:
   - semver@6.3.1
 blockExoticSubdeps: true
 
+# pixi-assetpack (2026-10-12): AssetPack asks for chokidar ^4.0.3, and 4.0.2/4.0.3 were published
+# without the provenance 3.6.0-4.0.1 carry, so no-downgrade refuses them. Its watcher (watch mode
+# only) gets the last attested 4.x instead of an exception to the trust policy.
+overrides:
+  '@assetpack/core>chokidar': 4.0.1
+
 # Install scripts this workspace declines to run. promptfoo (apps/evals)
 # pulls optional native packages for local embeddings and image work no eval
 # here calls, plus a protobuf codegen step. Chromium is declined because the
@@ -171,3 +186,16 @@ allowBuilds:
   protobufjs: false
   sharp: false
   esbuild: true
+  # pixi-assetpack (2026-10-12): the ffmpeg binary package's only script is `chmod u+x ffmpeg`, so
+  # AssetPack's audio pipe can run it (a build-time tool; the GPLv3 binary never ships). Every
+  # platform is listed so an install on macOS or Windows meets the same decision. cpu-features is
+  # an optional node-gyp build the GPU texture encoder does without.
+  '@ffmpeg-installer/darwin-arm64': true
+  '@ffmpeg-installer/darwin-x64': true
+  '@ffmpeg-installer/linux-arm': true
+  '@ffmpeg-installer/linux-arm64': true
+  '@ffmpeg-installer/linux-ia32': true
+  '@ffmpeg-installer/linux-x64': true
+  '@ffmpeg-installer/win32-ia32': true
+  '@ffmpeg-installer/win32-x64': true
+  cpu-features: false

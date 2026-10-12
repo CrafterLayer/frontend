@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 
 import { t } from '../../copy';
 import { TickerPausedContext } from '../../hooks/use-ticker';
+import { useDataDrop } from '../../hooks/use-data-drop';
 import { useKnowledgeUi } from '../../hooks/use-knowledge-ui';
 import { headerStatusKey } from '../../model/header-status';
 import {
@@ -158,6 +159,7 @@ export function AgentPanel({
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const knowledgeUi = useKnowledgeUi(knowledge, locale);
+  useDataDrop(rootRef, { locale, draft: state.draft, setDraft: controller.setDraft, inputRef });
   const [scrolled, setScrolled] = useState(false);
   const [ownWidth, setOwnWidth] = useState(PANEL_WIDTH_DEFAULT);
   const panelWidth = clampPanelWidth(width ?? ownWidth);

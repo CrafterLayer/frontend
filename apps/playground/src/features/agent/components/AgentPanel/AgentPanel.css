@@ -159,7 +159,39 @@
   flex: 1 1 auto;
 }
 
+/* A data file dragged over the panel (useDataDrop): what it takes, or why it was refused. */
+.ck-agent-panel__root[data-drop] {
+  position: relative;
+}
+
+.ck-agent-panel__root[data-drop]::after {
+  content: attr(data-drop-label);
+  position: absolute;
+  inset: var(--bldr-space-sm);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--bldr-space-md);
+  border: var(--bldr-focus-ring-width) dashed var(--bldr-accent);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-medium) var(--bldr-font-size-read) / var(--bldr-line-height-read)
+    var(--bldr-font);
+  text-align: center;
+  pointer-events: none;
+}
+
+.ck-agent-panel__root[data-drop='refused']::after {
+  border-color: var(--bldr-danger);
+  background-color: var(--bldr-danger-soft);
+}
+
 @media (forced-colors: active) {
+  .ck-agent-panel__root[data-drop]::after {
+    border-color: Highlight;
+  }
+
   .ck-agent-panel__resize:hover::after,
   .ck-agent-panel__resize:focus-visible::after {
     background-color: Highlight;

@@ -76,6 +76,14 @@ clip its popups or controls.
   PanelSeparator           role=separator, 8px hit area on the edge toward the canvas
 ```
 
+## Dropping data
+
+A .csv, .tsv, .md or .txt file dragged over the panel shows a dashed hint ("Drop a CSV, TSV or
+Markdown table to chart it"). Dropped, its rows go into the draft under "Chart this:" (or under the
+person's own words), the line the zero-token chart path reads. Sent as it is, the rows become a
+Chart or Table block with no model (`data.show`). Any other file, or one over 20 KB, is refused in
+the same place for three seconds, and no dropped file ever opens in the tab (`useDataDrop`).
+
 ## Accessibility
 
 - One region, named by the header's `h2` (`aria-labelledby`). Exactly one `aria-live` element.

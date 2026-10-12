@@ -77,27 +77,44 @@
   gap: var(--bldr-space-md);
 }
 
+/*
+  Studio Indigo (2026-10-12): the four sections are one segmented control on a
+  sunken track — a single row where the panel is wide, two even rows where it is
+  not — instead of underlined tabs that wrapped onto a ragged second line.
+*/
 .bldr-design-system__tablist {
-  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
-  display: flex;
-  flex-wrap: wrap;
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  display: grid;
   gap: var(--bldr-space-2xs);
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  padding: var(--bldr-space-2xs);
 }
 
 .bldr-design-system__tab {
   background: transparent;
   border: none;
-  border-block-end: var(--bldr-border-thick) solid transparent;
-  color: var(--bldr-panel-muted);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
   cursor: pointer;
   font: inherit;
   font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
   min-block-size: var(--bldr-control-height-sm);
   padding-inline: var(--bldr-space-sm);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+  white-space: nowrap;
+}
+
+.bldr-design-system__tab:hover {
+  color: var(--bldr-panel-text);
 }
 
 .bldr-design-system__tab[data-state='active'] {
-  border-block-end-color: var(--bldr-accent);
+  background: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
   color: var(--bldr-panel-text);
 }
 
@@ -325,4 +342,10 @@
 
 .bldr-design-system__panel[hidden] {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-design-system__tab {
+    transition: none;
+  }
 }

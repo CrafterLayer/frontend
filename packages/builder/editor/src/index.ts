@@ -201,7 +201,7 @@ export {
   type BlogGridProps,
   type CarouselProps, type ChartProps,
   type ComparisonTableProps,
-  type ContactProps,
+  type ContactProps, type CountdownProps,
   type ContentSectionProps,
   type CtaProps,
   type FaqProps,
@@ -210,7 +210,7 @@ export {
   type RichTextBlockProps,
   type FeaturesProps,
   type HeroProps,
-  type LogoCloudProps,
+  type LocationProps, type LogoCloudProps, type MenuSectionProps,
   type NewsletterProps,
   type PricingProps,
   type PortfolioGridProps,
@@ -219,7 +219,7 @@ export {
   type ProcessStepsProps,
   type StatsProps, type TableProps,
   type TeamProps,
-  type TestimonialsProps,
+  type TestimonialsProps, type TimelineProps,
   type VideoSectionProps,
 } from '@craftkit/builder-blocks-marketing';
 

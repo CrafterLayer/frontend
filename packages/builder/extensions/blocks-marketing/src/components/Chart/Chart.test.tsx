@@ -226,6 +226,8 @@ describe('Chart', () => {
       description: 'Trend.',
     });
     expect(container.querySelector('figure')).not.toHaveClass('bg-surface');
+    expect(container.querySelector('[data-chart-body]')).not.toHaveClass('text-text');
+    expect(container.querySelector('figcaption')).not.toHaveClass('text-text');
     expect(container.querySelector('[data-chart-axis]')).toHaveClass('opacity-80');
     expect(container.querySelector('[data-chart-ring]')).toHaveClass('stroke-surface-inverse');
     expect(screen.getByText('Trend.')).toHaveClass('opacity-80');
@@ -242,6 +244,8 @@ describe('Chart', () => {
       'bg-surface',
       'shadow-soft',
     );
+    /* On a dark section the slab rules recolour the card's own ink, so its children carry it. */
+    expect(container.querySelector('[data-chart-body]')).toHaveClass('text-text');
     const section = container.querySelector('section')!;
     expect(section).toHaveClass('mkt-type--family-serif');
     expect(section.style.background).toBe('var(--t-accent)');

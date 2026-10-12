@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TimelineStories from './Timeline.stories';
+
+<Meta of={TimelineStories} />
+
+# Timeline
+
+Dated milestones on a rail: a company history, a product roadmap, or an event agenda. The list is a
+semantic `<ol>`, so the order is part of the meaning, and each milestone is a list item with an `h3`
+title.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Our story", edited in place), `body`.
+- Up to twenty `items`, each `{ date, title, description?, badge?, status }`. `date` is free text —
+  "2024", "Q3 2026", "09:30" — because a roadmap quarter and an agenda hour are not calendar dates.
+- `status: 'done' | 'upcoming' = 'done'`: a filled marker, or a hollow one; the connector INTO an
+  upcoming milestone is dashed.
+- `layout: 'vertical' | 'alternating' = 'vertical'`.
+- `doneLabel = 'Completed'`, `upcomingLabel = 'Upcoming'`: the words a screen reader hears for each
+  status (Accessibility, advanced tab).
+- The shared section props: `align`, `tone`, `spacing`, `width`, colour roles, motion, typography,
+  gutter, custom classes and `partStyles`.
+
+## Direction, layout and accessibility
+
+The rail sits at the inline start — the left in English, the right in Arabic — through logical
+utilities only, so one document serves both directions. **Alternating** takes effect from a 48rem
+container: even milestones sit at the inline start with their marker on their end, odd ones at the
+inline end with their marker on their start, and each is nudged half a marker column (`start-3` /
+`-start-3`) so every marker sits on one centre rail. Below 48rem the same list falls back to the
+single rail (the `Mobile` story).
+
+The marker column is `aria-hidden`: its fill is decoration. Each milestone's status is said in words
+(`doneLabel` / `upcomingLabel`, visually hidden), so it is never carried by colour alone. On a dark
+section the date and description switch to the section's own ink at reduced opacity.
+
+## Parts
+
+| name               | kind | bind                  | label (en / ar)                         |
+| ------------------ | ---- | --------------------- | --------------------------------------- |
+| `eyebrow`          | text | `eyebrow`             | Eyebrow / الشارة                        |
+| `heading`          | text | `heading`             | Heading / العنوان                       |
+| `body`             | text | `body`                | Body / الوصف (multiline)                |
+| `items`            | list | `items`               | Milestones / المحطات                    |
+| `item`             | item | `items.*`             | Milestone / المحطة                      |
+| `item.date`        | text | `items.*.date`        | Milestone date / تاريخ المحطة           |
+| `item.title`       | text | `items.*.title`       | Milestone title / عنوان المحطة          |
+| `item.description` | text | `items.*.description` | Milestone description / وصف المحطة (ml) |
+| `item.badge`       | text | `items.*.badge`       | Milestone badge / شارة المحطة           |

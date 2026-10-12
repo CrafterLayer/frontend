@@ -66,6 +66,13 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
         : 'text-text-muted',
   };
 
+  /*
+    A card is a light surface even on a dark section. The slab rules recolour
+    `text-text` on the card itself, but revert it on the card's descendants, so
+    the card's ink is set on its children (section-tone.ts).
+  */
+  const ink = props.variant === 'card' ? 'text-text' : undefined;
+
   let plot: ReactNode = null;
   if (!hasData) {
     /* Nothing to draw: the canvas shows where the chart will be; a published page shows nothing. */
@@ -109,7 +116,7 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
           data-chart={props.chartType}
         >
           {hasTitle || hasDescription ? (
-            <figcaption className="flex flex-col gap-gap-xs">
+            <figcaption className={cx('flex flex-col gap-gap-xs', ink)}>
               {hasTitle ? (
                 <h2
                   {...part('title', {
@@ -133,11 +140,13 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
               ) : null}
             </figcaption>
           ) : null}
-          {plot}
-          {hasData && !pie && props.showLegend && props.series.length > 1
-            ? seriesLegend(drawing)
-            : null}
-          {hasData ? dataTable(props, pie) : null}
+          <div className={cx('flex min-w-0 flex-col gap-gap', ink)} data-chart-body="">
+            {plot}
+            {hasData && !pie && props.showLegend && props.series.length > 1
+              ? seriesLegend(drawing)
+              : null}
+            {hasData ? dataTable(props, pie) : null}
+          </div>
         </figure>
       </div>
     </section>

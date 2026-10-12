@@ -113,6 +113,7 @@ describe('Table', () => {
     expect(firstRow).not.toHaveClass('last:border-b-0');
     expect(container.querySelector('tbody td')).toHaveClass('px-3', 'py-1.5');
     expect(container.querySelector('[data-table-scroll]')).not.toHaveClass('bg-surface');
+    expect(container.querySelector('table')).not.toHaveClass('text-text');
     expect(container.querySelector('thead')).toHaveClass('border-b-2');
     expect(container.querySelector('caption')).toHaveClass('opacity-80');
   });
@@ -122,6 +123,8 @@ describe('Table', () => {
     expect(container.querySelector('tbody tr')).toHaveClass('last:border-b-0');
     expect(container.querySelector('thead')).toHaveClass('bg-current/5');
     expect(container.querySelector('tbody td')).toHaveClass('px-4', 'py-3');
+    /* The box's ink sits on the table, a descendant of the surface, so a dark slab leaves it dark. */
+    expect(container.querySelector('table')).toHaveClass('text-text');
   });
 
   it('combines token-based colour, typography, and logical spacing controls', () => {

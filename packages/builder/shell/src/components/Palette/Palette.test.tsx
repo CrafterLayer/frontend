@@ -271,6 +271,10 @@ describe('Palette (006 contract §4)', () => {
           block('table', 'Data table'),
           block('chart', 'Data chart'),
           block('comparisonTable', 'Plan comparison table'),
+          block('timeline', 'Milestones'),
+          block('menuSection', 'Menu'),
+          block('location', 'Location'),
+          block('countdown', 'Countdown'),
         ],
       },
     });
@@ -311,6 +315,10 @@ describe('Palette (006 contract §4)', () => {
       ['Chart', 'chart'],
       // A comparison table keeps its plan-columns miniature, checked before `table`.
       ['Comparison Table', 'pricing'],
+      ['Timeline', 'timeline'],
+      ['Menu', 'menu'],
+      ['Location', 'location'],
+      ['Countdown', 'countdown'],
     ] as const;
 
     for (const [name, diagram] of expectedDiagrams) {
@@ -355,12 +363,13 @@ describe('Palette (006 contract §4)', () => {
       document.getElementById(
         screen.getByRole('button', { name: category }).getAttribute('aria-controls') ?? '',
       )!;
-    for (const name of ['Table', 'Chart']) {
+    for (const name of ['Table', 'Chart', 'Timeline', 'Menu', 'Location']) {
       expect(within(regionOf('Content')).getByRole('button', { name })).toBeInTheDocument();
     }
-    expect(
-      within(regionOf('Marketing')).getByRole('button', { name: 'Comparison Table' }),
-    ).toBeInTheDocument();
+    /* A menu section is content although its type names a "section"; a countdown is promotional. */
+    for (const name of ['Comparison Table', 'Countdown']) {
+      expect(within(regionOf('Marketing')).getByRole('button', { name })).toBeInTheDocument();
+    }
   });
 
   it('a selected CONTAINER receives the block inside it, not beside it', async () => {

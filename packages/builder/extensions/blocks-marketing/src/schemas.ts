@@ -24,6 +24,10 @@ import { testimonialsSchema } from './components/Testimonials/schema';
 import { comparisonTableSchema } from './components/ComparisonTable/schema';
 import { tableSchema } from './components/Table/schema';
 import { chartSchema } from './components/Chart/schema';
+import { timelineSchema } from './components/Timeline/schema';
+import { menuSectionSchema } from './components/MenuSection/schema';
+import { locationSchema } from './components/Location/schema';
+import { countdownSchema } from './components/Countdown/schema';
 import { faqSchema } from './components/Faq/schema';
 import { blogGridSchema } from './components/BlogGrid/schema';
 import { contactSchema } from './components/Contact/schema';
@@ -87,6 +91,10 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   comparisonTableSchema,
   tableSchema,
   chartSchema,
+  timelineSchema,
+  menuSectionSchema,
+  locationSchema,
+  countdownSchema,
   faqSchema,
   blogGridSchema,
   contactSchema,
@@ -124,6 +132,10 @@ export {
   comparisonTableSchema,
   tableSchema,
   chartSchema,
+  timelineSchema,
+  menuSectionSchema,
+  locationSchema,
+  countdownSchema,
   faqSchema,
   blogGridSchema,
   contactSchema,

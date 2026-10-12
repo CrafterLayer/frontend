@@ -11,6 +11,7 @@
 import { mountBgVideo } from './bg-video';
 import { mountCarousel } from './carousel';
 import { mountCompare } from './compare';
+import { mountCountdown } from './countdown';
 import { mountEmbedFacade } from './embed-facade';
 import { ENGINES_PACK_CSS, mountEngines } from './engines';
 import { CAROUSEL_PACK_CSS, GALLERY_PACK_CSS } from './gallery-css';
@@ -37,6 +38,8 @@ export const BEHAVIOR_PACKS: readonly BehaviorPack[] = [
   mountToggleGroup,
   mountMailtoForm,
   mountEngines,
+  // blocks (2026-10-12): the Countdown block's live clock (`countdown-clock`).
+  mountCountdown,
   // free-code mode (2026-10-09): a region's `js` (data-ck-js).
   mountScripts,
 ];
@@ -56,6 +59,7 @@ export {
   mountBgVideo,
   mountCarousel,
   mountCompare,
+  mountCountdown,
   mountEmbedFacade,
   mountEngines,
   mountGallery,

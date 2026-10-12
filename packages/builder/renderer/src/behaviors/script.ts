@@ -3,6 +3,7 @@ import {
   mountBgVideo,
   mountCarousel,
   mountCompare,
+  mountCountdown,
   mountEmbedFacade,
   mountEngines,
   mountGallery,
@@ -34,6 +35,7 @@ const PACK_MARKERS: ReadonlyMap<BehaviorPack, RegExp> = new Map<BehaviorPack, Re
   [mountCompare, behavior('compare')],
   [mountToggleGroup, behavior('toggle-group')],
   [mountMailtoForm, behavior('mailto-form')],
+  [mountCountdown, behavior('countdown-clock')],
   [mountEngines, /\sdata-ck-(?:scene|timeline|lottie)(?=[\s=>/])/u],
   // free-code mode (2026-10-09): a region's `js` is rendered as `data-ck-js="…"`.
   [mountScripts, /\sdata-ck-js(?=[\s=>/])/u],

@@ -11,15 +11,19 @@ type BlockDiagramKind =
   | 'action'
   | 'chart'
   | 'columns'
+  | 'countdown'
   | 'generic'
   | 'grid'
   | 'hero'
+  | 'location'
   | 'media'
+  | 'menu'
   | 'pricing'
   | 'section'
   | 'table'
   | 'testimonial'
-  | 'text';
+  | 'text'
+  | 'timeline';
 
 interface BlockDiagram {
   readonly kind: BlockDiagramKind;
@@ -131,6 +135,49 @@ function chartDiagram(): readonly DiagramPart[] {
   ];
 }
 
+function timelineDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'rail', x: 4.5, y: 3, width: 1, height: 18, opacity: 0.3 },
+    { key: 'dot-1', x: 3, y: 3, width: 4, height: 4, opacity: 0.9 },
+    { key: 'line-1', x: 10, y: 4, width: 18, height: 2, opacity: 0.5 },
+    { key: 'dot-2', x: 3, y: 10, width: 4, height: 4, opacity: 0.9 },
+    { key: 'line-2', x: 10, y: 11, width: 14, height: 2, opacity: 0.5 },
+    { key: 'dot-3', x: 3, y: 17, width: 4, height: 4, opacity: 0.4 },
+    { key: 'line-3', x: 10, y: 18, width: 20, height: 2, opacity: 0.35 },
+  ];
+}
+
+function menuDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 12, height: 3, opacity: 0.85 },
+    { key: 'name-1', x: 2, y: 10, width: 10, height: 2, opacity: 0.6 },
+    { key: 'leader-1', x: 13, y: 11.5, width: 12, height: 0.5, opacity: 0.35 },
+    { key: 'price-1', x: 27, y: 10, width: 5, height: 2, opacity: 0.85 },
+    { key: 'name-2', x: 2, y: 15, width: 13, height: 2, opacity: 0.6 },
+    { key: 'leader-2', x: 16, y: 16.5, width: 9, height: 0.5, opacity: 0.35 },
+    { key: 'price-2', x: 27, y: 15, width: 5, height: 2, opacity: 0.85 },
+  ];
+}
+
+function locationDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'map', x: 18, y: 3, width: 14, height: 18, opacity: 0.22 },
+    { key: 'pin', x: 23, y: 9, width: 4, height: 4, opacity: 0.9 },
+    { key: 'address', x: 2, y: 4, width: 13, height: 3, opacity: 0.75 },
+    { key: 'hours-1', x: 2, y: 11, width: 12, height: 2, opacity: 0.45 },
+    { key: 'hours-2', x: 2, y: 15, width: 10, height: 2, opacity: 0.45 },
+  ];
+}
+
+function countdownDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'unit-1', x: 2, y: 7, width: 6, height: 10, opacity: 0.85 },
+    { key: 'unit-2', x: 10, y: 7, width: 6, height: 10, opacity: 0.65 },
+    { key: 'unit-3', x: 18, y: 7, width: 6, height: 10, opacity: 0.45 },
+    { key: 'unit-4', x: 26, y: 7, width: 6, height: 10, opacity: 0.3 },
+  ];
+}
+
 function genericDiagram(): readonly DiagramPart[] {
   return [
     { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
@@ -156,6 +203,18 @@ export function diagramForBlockType(type: string): BlockDiagram {
   }
   if (key.includes('chart')) {
     return { kind: 'chart', parts: chartDiagram() };
+  }
+  if (key.includes('timeline')) {
+    return { kind: 'timeline', parts: timelineDiagram() };
+  }
+  if (key.includes('menusection')) {
+    return { kind: 'menu', parts: menuDiagram() };
+  }
+  if (key === 'location') {
+    return { kind: 'location', parts: locationDiagram() };
+  }
+  if (key.includes('countdown')) {
+    return { kind: 'countdown', parts: countdownDiagram() };
   }
   if (key.includes('testimonial') || key.includes('review') || key.includes('quote')) {
     return { kind: 'testimonial', parts: testimonialDiagram() };

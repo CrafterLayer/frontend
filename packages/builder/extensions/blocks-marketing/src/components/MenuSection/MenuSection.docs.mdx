@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as MenuSectionStories from './MenuSection.stories';
+
+<Meta of={MenuSectionStories} />
+
+# Menu Section
+
+A restaurant, café or services price list (`type: 'menuSection'`, named so it never clashes with
+navigation): categories of dishes, each with a price, an optional one-line description, tags and a
+photo. It is the block the agent's café and restaurant skill describes — categories as `h3`, dotted
+leaders to a price in the local currency — and it is built Arabic-first.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Our menu", edited in place), `body`, `note` (a footnote such as
+  "Prices include VAT").
+- Up to eight `categories`, each `{ name, description?, items }`; up to twenty-four `items` each
+  `{ name, description?, price, tags (up to four), imageSrc?, imageAlt? }`.
+- `price` is text ("4.50", «٤٢», "from 30"): the price is written as the place writes it.
+- `currency` (text, default empty) and `currencyPosition: 'after' | 'before' = 'after'`. The block
+  hard-codes no symbol: "SAR", «ر.س», "$" and "€" are the site's choice. A currency after the price,
+  or a word before it ("AED 30"), is joined with a no-break space; a symbol before it sits tight
+  ("$3.75").
+- `priceAlign: 'end' | 'inline' = 'end'` and `leaders: boolean = true`: a price at the row's inline
+  end behind a dotted leader, or right after the name.
+- `showImages = true`, `columns: '1' | '2' = '2'` (two columns from a 48rem container).
+
+## Direction and accessibility
+
+Each price, with its currency, sits in its own `<bdi>`: «٤٢ ر.س» reads correctly on an English page
+and "$3.75" on an Arabic one, and neither breaks across lines (`whitespace-nowrap`, tabular
+figures). Leaders are `aria-hidden` decoration. Dishes are list items under their category heading,
+tags are a list, and a photo is lazy-loaded with its own alt text (empty when the name already says
+it). Rules and tag outlines use the section's own ink, so the menu reads on a dark section too.
+
+## Parts
+
+| name                   | kind  | bind                                                                         | label (en / ar)                  |
+| ---------------------- | ----- | ---------------------------------------------------------------------------- | -------------------------------- |
+| `eyebrow`              | text  | `eyebrow`                                                                    | Eyebrow / الشارة                 |
+| `heading`              | text  | `heading`                                                                    | Heading / العنوان                |
+| `body`                 | text  | `body`                                                                       | Body / الوصف                     |
+| `categories`           | list  | `categories`                                                                 | Menu categories / أقسام القائمة  |
+| `category`             | item  | `categories.*`                                                               | Category / القسم                 |
+| `category.name`        | text  | `categories.*.name`                                                          | Category name / اسم القسم        |
+| `category.description` | text  | `categories.*.description`                                                   | Category description / وصف القسم |
+| `category.items`       | list  | `categories.*.items`                                                         | Dishes / الأصناف                 |
+| `dish`                 | item  | `categories.*.items.*`                                                       | Dish / الصنف                     |
+| `dish.name`            | text  | `categories.*.items.*.name`                                                  | Dish name / اسم الصنف            |
+| `dish.description`     | text  | `categories.*.items.*.description`                                           | Dish description / وصف الصنف     |
+| `dish.price`           | text  | `categories.*.items.*.price`                                                 | Price / السعر                    |
+| `dish.tag`             | text  | `categories.*.items.*.tags.*`                                                | Dish tag / وسم الصنف             |
+| `dish.image`           | image | `{ src: categories.*.items.*.imageSrc, alt: categories.*.items.*.imageAlt }` | Dish photo / صورة الصنف          |
+| `note`                 | text  | `note`                                                                       | Footnote / الحاشية               |
+
+A dish is addressed by category and position: `dish.price@1.2` is the second category's third dish.
+The currency is one prop printed beside every price, so it stays an Inspector row.

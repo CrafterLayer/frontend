@@ -12,6 +12,7 @@ import { Carousel, carouselSchema } from './components/Carousel';
 import { Chart, chartSchema } from './components/Chart';
 import { ComparisonTable, comparisonTableSchema } from './components/ComparisonTable';
 import { Contact, contactSchema } from './components/Contact';
+import { Countdown, countdownSchema } from './components/Countdown';
 import { ContentSection, contentSectionSchema } from './components/ContentSection';
 import { Faq, faqSchema } from './components/Faq';
 import { Features, featuresSchema } from './components/Features';
@@ -19,6 +20,8 @@ import { FormSection, formSectionSchema } from './components/FormSection';
 import { Gallery, gallerySchema } from './components/Gallery';
 import { Grid, gridSchema } from './components/Grid';
 import { Image, imageSchema } from './components/Image';
+import { Location, locationSchema } from './components/Location';
+import { MenuSection, menuSectionSchema } from './components/MenuSection';
 import { NavLinks, navLinksSchema } from './components/NavLinks';
 import { Newsletter, newsletterSchema } from './components/Newsletter';
 import { PageFooter, pageFooterSchema } from './components/PageFooter';
@@ -37,6 +40,7 @@ import { LogoCloud, logoCloudSchema } from './components/LogoCloud';
 import { Stats, statsSchema } from './components/Stats';
 import { Table, tableSchema } from './components/Table';
 import { Team, teamSchema } from './components/Team';
+import { Timeline, timelineSchema } from './components/Timeline';
 import { VideoSection, videoSectionSchema } from './components/VideoSection';
 
 export const blocksMarketing: TrustedExtensionManifest = {
@@ -76,6 +80,11 @@ export const blocksMarketing: TrustedExtensionManifest = {
       // Data: a rows-and-columns table and an SVG chart, both script-free when published.
       { schema: tableSchema, render: Table },
       { schema: chartSchema, render: Chart },
+      // Local business and events: milestones, a menu or price list, where to find it, and a countdown.
+      { schema: timelineSchema, render: Timeline },
+      { schema: menuSectionSchema, render: MenuSection },
+      { schema: locationSchema, render: Location },
+      { schema: countdownSchema, render: Countdown },
       { schema: faqSchema, render: Faq },
       { schema: blogGridSchema, render: BlogGrid },
       { schema: contactSchema, render: Contact },
@@ -117,6 +126,7 @@ export {
   type ComparisonTableProps,
 } from './components/ComparisonTable';
 export { Contact, contactSchema, type ContactProps } from './components/Contact';
+export { Countdown, countdownSchema, type CountdownProps } from './components/Countdown';
 export {
   ContentSection,
   contentSectionSchema,
@@ -127,6 +137,8 @@ export { Features, featuresSchema, type FeaturesProps } from './components/Featu
 export { FormSection, formSectionSchema, type FormSectionProps } from './components/FormSection';
 export { Gallery, gallerySchema, type GalleryProps } from './components/Gallery';
 export { Hero, heroSchema, type HeroProps } from './components/Hero';
+export { Location, locationSchema, type LocationProps } from './components/Location';
+export { MenuSection, menuSectionSchema, type MenuSectionProps } from './components/MenuSection';
 export { Pricing, pricingSchema, type PricingProps } from './components/Pricing';
 export {
   PortfolioGrid,
@@ -156,6 +168,7 @@ export {
 export { Stats, statsSchema, type StatsProps } from './components/Stats';
 export { Table, tableSchema, type TableProps } from './components/Table';
 export { Team, teamSchema, type TeamProps } from './components/Team';
+export { Timeline, timelineSchema, type TimelineProps } from './components/Timeline';
 export {
   VideoSection,
   videoSectionSchema,

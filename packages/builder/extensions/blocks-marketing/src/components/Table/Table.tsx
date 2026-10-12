@@ -130,7 +130,11 @@ export function Table({ node, props, isCanvas }: BlockRenderProps<TableProps>) {
           data-table-scroll=""
         >
           <table
-            className="w-full border-collapse text-start text-sm leading-normal"
+            /* The box's ink sits on the table, a descendant of the surface, so a dark section's slab rules leave it dark (section-tone.ts). */
+            className={cx(
+              'w-full border-collapse text-start text-sm leading-normal',
+              props.variant === 'boxed' ? 'text-text' : undefined,
+            )}
             aria-labelledby={hasTitle ? headingId : undefined}
             data-table-variant={props.variant}
           >

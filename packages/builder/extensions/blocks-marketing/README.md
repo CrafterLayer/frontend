@@ -22,6 +22,7 @@ or another extension.
 | Conversion                | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`, `formSection`            |
 | Education and contact     | `faq`, `blogGrid`, `contact`                                                               |
 | Data                      | `table` (semantic rows and columns), `chart` (script-free SVG bar, line, area, pie, donut) |
+| Local business and events | `timeline`, `menuSection`, `location`, `countdown`                                         |
 
 Every new component owns its implementation, zod schema, AI-ready examples, local export,
 behavior-focused test, Storybook story, and MDX documentation. Section schemas expose explicit

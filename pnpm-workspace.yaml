@@ -56,6 +56,8 @@ catalog:
   '@vitest/browser-playwright': 4.1.11
   '@vitest/coverage-v8': 4.1.11
   clsx: 2.1.1
+  # studio-indigo (2026-10-12): the editor's command palette (MIT, React 19 peer).
+  cmdk: 1.1.1
   codemirror: 6.0.2
   '@codemirror/state': 6.7.1
   '@codemirror/view': 6.43.11
@@ -87,6 +89,8 @@ catalog:
   react-colorful: 5.8.1
   react-dom: 19.2.8
   react-router: 8.3.0
+  # studio-indigo (2026-10-12): the editor's action feedback toasts (MIT, React 19 peer).
+  sonner: 2.0.8
   storybook: 10.5.10
   'tailwind-merge': 3.6.0
   tailwindcss: 4.3.3

@@ -34,3 +34,10 @@ nothing.
 - The name field is sized from `--bldr-hit-target-min`, like every other control in the editor.
 - Colours, spacing and radii are chrome tokens only, so the panel is legible in both themes; row
   hover motion is dropped under `prefers-reduced-motion`.
+
+## Language
+
+Every string comes from `labels` (`HistoryPanelLabels`, `HISTORY_PANEL_LABELS_EN` by default; the
+Arabic editor passes `HISTORY_PANEL_LABELS_AR`), ages and sizes included: «قبل دقيقتين», «1.2
+كيلوبايت», digits Latin. A storage or restore reason passed through from the vault is shown as it
+was given.

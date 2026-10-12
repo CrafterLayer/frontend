@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createPlaygroundKernel } from '../../create-playground-kernel';
 import { createMemoryVaultStore, createSnapshotShelf, type SnapshotShelf } from '../../../vault';
 import { HistoryPanel } from './HistoryPanel';
+import { HISTORY_PANEL_LABELS_AR } from './HistoryPanel.labels';
 
 /** A clock the test states, so "3 min ago" is an assertion and not a guess. */
 function clock(start: number): { now: () => number; advance: (ms: number) => void } {
@@ -206,6 +207,59 @@ describe('HistoryPanel', () => {
     // one; every other action in this panel already says what happened.
     await waitFor(() => {
       expect(within(region).getByText(/could not be read/i)).toBeInTheDocument();
+    });
+  });
+
+  it('reads in Arabic with the Arabic labels, ages agreeing in number', async () => {
+    const time = clock(1_700_000_000_000);
+    const user = userEvent.setup();
+    render(
+      <HistoryPanel
+        kernel={createPlaygroundKernel({ fixture: 'empty' })}
+        shelf={shelfFor()}
+        now={time.now}
+        labels={HISTORY_PANEL_LABELS_AR}
+      />,
+    );
+    const region = await screen.findByRole('region', { name: 'السجل' });
+    expect(within(region).getByRole('heading', { name: 'السجل' })).toBeVisible();
+    expect(region).toHaveTextContent('لا شيء محفوظ بعد.');
+    const name = within(region).getByRole('textbox', { name: 'الاسم' });
+    expect(name).toHaveAttribute('placeholder', 'قبل إعادة الكتابة');
+    expect(within(region).getByRole('button', { name: 'مسح السجل' })).toBeDisabled();
+
+    await user.click(within(region).getByRole('button', { name: 'حفظ نقطة استعادة' }));
+    await waitFor(() => {
+      expect(within(region).getAllByRole('listitem')).toHaveLength(1);
+    });
+    expect(within(region).getByRole('status', { name: 'حالة السجل' })).toHaveTextContent(
+      'حُفظت «نقطة استعادة 1».',
+    );
+    time.advance(2 * 60_000);
+    await user.type(name, 'المسودة الثانية');
+    await user.click(within(region).getByRole('button', { name: 'حفظ نقطة استعادة' }));
+    await waitFor(() => {
+      expect(within(region).getAllByRole('listitem')).toHaveLength(2);
+    });
+    const rows = within(region).getAllByRole('listitem');
+    expect(rows[0]?.textContent).toContain('الآن');
+    expect(rows[1]?.textContent).toContain('قبل دقيقتين');
+    expect(rows[1]?.textContent).toMatch(/\d+ (بايت|كيلوبايت)/);
+    expect(
+      within(region).getByRole('button', { name: 'استعادة نقطة استعادة 1' }),
+    ).toHaveTextContent('استعادة');
+    expect(rows[0]?.textContent ?? '').not.toMatch(/[A-Za-z]/);
+
+    expect(HISTORY_PANEL_LABELS_AR.minutesAgo(1)).toBe('قبل دقيقة');
+    expect(HISTORY_PANEL_LABELS_AR.minutesAgo(3)).toBe('قبل 3 دقائق');
+    expect(HISTORY_PANEL_LABELS_AR.minutesAgo(11)).toBe('قبل 11 دقيقة');
+    expect(HISTORY_PANEL_LABELS_AR.daysAgo(11)).toBe('قبل 11 يومًا');
+
+    await user.click(within(region).getByRole('button', { name: 'مسح السجل' }));
+    await waitFor(() => {
+      expect(within(region).getByRole('status', { name: 'حالة السجل' })).toHaveTextContent(
+        'مُسح السجل.',
+      );
     });
   });
 });

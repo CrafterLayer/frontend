@@ -12,6 +12,7 @@ import {
   type SourceImpact,
 } from '@craftkit/builder';
 
+import { CODE_WORKSPACE_LABELS_EN, type CodeWorkspaceLabels } from './code-workspace.labels';
 import './code-workspace.css';
 
 export interface CodeWorkspaceFile {
@@ -80,6 +81,8 @@ export interface CodeWorkspacePort {
 export interface CodeWorkspaceProps {
   port: CodeWorkspacePort;
   label?: string | undefined;
+  /** Every string the workspace shows; English unless the host passes its locale's set. */
+  labels?: CodeWorkspaceLabels | undefined;
 }
 
 function inputFor(file: CodeWorkspaceFile, source: string): CodeWorkspaceDraftInput {
@@ -93,7 +96,11 @@ function inputFor(file: CodeWorkspaceFile, source: string): CodeWorkspaceDraftIn
 }
 
 /** Source-only UI over a subscribed host port; every durable write remains SiteKernel-owned. */
-export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWorkspaceProps) {
+export function CodeWorkspace({
+  port,
+  labels = CODE_WORKSPACE_LABELS_EN,
+  label = labels.region,
+}: CodeWorkspaceProps) {
   const controllerRef = useRef<CodeEditorController | null>(null);
   const subscribe = useCallback((listener: () => void) => port.subscribe(listener), [port]);
   const getSnapshot = useCallback(() => port.getSnapshot(), [port]);
@@ -140,8 +147,8 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
         className="playground-code-workspace playground-code-workspace--empty"
         aria-label={label}
       >
-        <strong>No authored source is open</strong>
-        <span>Select a code-backed page or an element in its preview.</span>
+        <strong>{labels.emptyTitle}</strong>
+        <span>{labels.emptyHint}</span>
       </section>
     );
   }
@@ -161,11 +168,11 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
     <section className="playground-code-workspace" aria-label={label}>
       <header className="playground-code-workspace__header">
         <div>
-          <strong>Source</strong>
+          <strong>{labels.source}</strong>
           <span>{snapshot.pageId}</span>
         </div>
         <label>
-          <span>File</span>
+          <span>{labels.file}</span>
           <select
             value={file.modulePath}
             onChange={(event) => {
@@ -194,7 +201,7 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
                 }
               }}
             >
-              Reveal selected element
+              {labels.reveal}
             </button>
           )}
           <button
@@ -204,7 +211,7 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
               void port.saveDraft(inputFor(file, file.file.source));
             }}
           >
-            {snapshot.status === 'saving' ? 'Saving…' : 'Save source'}
+            {snapshot.status === 'saving' ? labels.saving : labels.save}
           </button>
         </div>
       </header>
@@ -232,7 +239,7 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
       <CodeEditor
         value={file.file.source}
         language={file.file.language}
-        label="Source code"
+        label={labels.editor}
         path={file.modulePath}
         busy={snapshot.status === 'saving'}
         diagnostics={snapshot.diagnostics}
@@ -279,10 +286,7 @@ export function CodeWorkspace({ port, label = 'Page source workspace' }: CodeWor
         data-status={snapshot.status}
         aria-live="polite"
       >
-        {snapshot.statusMessage ??
-          (file.dirty
-            ? 'Source has unsaved changes.'
-            : 'Source matches the saved project revision.')}
+        {snapshot.statusMessage ?? (file.dirty ? labels.unsaved : labels.matches)}
       </p>
     </section>
   );

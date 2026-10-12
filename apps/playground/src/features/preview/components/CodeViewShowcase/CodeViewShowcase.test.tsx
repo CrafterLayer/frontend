@@ -9,6 +9,7 @@ import { createLoopbackWorkerLike, createTransformWorkerClient } from '@craftkit
 
 import { createPlaygroundKernel } from '../../create-playground-kernel';
 import { CodeViewShowcase } from './CodeViewShowcase';
+import { CODE_VIEW_SHOWCASE_LABELS_AR } from './CodeViewShowcase.labels';
 
 const clients: TransformWorkerClient[] = [];
 
@@ -399,5 +400,24 @@ describe('CodeViewShowcase — failure and idempotence surfaces', () => {
     await user.keyboard('{Tab}');
     // Still open: only Escape closes.
     expect(screen.getByRole('textbox', { name: 'Document code' })).toBeInTheDocument();
+  });
+
+  it('reads in Arabic with the Arabic labels, open and closed', async () => {
+    const kernel = createPlaygroundKernel({ fixture: 'code-view' });
+    render(
+      <CodeViewShowcase
+        kernel={kernel}
+        workerClient={testClient()}
+        debounceMs={0}
+        labels={CODE_VIEW_SHOWCASE_LABELS_AR}
+      />,
+    );
+    const region = screen.getByRole('region', { name: 'تجربة عرض الشيفرة' });
+    expect(region).toHaveTextContent('تحديد كتلة · فتح عرض الشيفرة');
+    expect(screen.getByRole('button', { name: 'التراجع عن تعديل الشيفرة' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'المعاملات' })).toHaveTextContent('0');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'فتح عرض الشيفرة' }));
+    expect(await screen.findByRole('button', { name: 'إغلاق عرض الشيفرة' })).toBeEnabled();
   });
 });

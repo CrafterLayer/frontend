@@ -1356,7 +1356,7 @@ export function App() {
                   </div>}
                 </div>
                 {railSection === 'pages' ? (
-                  <PageWorkspace siteKernel={session.siteKernel} />
+                  <PageWorkspace siteKernel={session.siteKernel} labels={labels.pageWorkspace} />
                 ) : railSection === 'layers' ? (
                   /*
                     The pages ABOVE the layers, in the same panel. The layer tree
@@ -1445,7 +1445,7 @@ export function App() {
                   <div className="pg-panel-scroll">
                     {/* The session's labelled steps (click to jump), beside the vault's restore points. */}
                     <HistoryList kernel={session.kernel} labels={labels.historyList} />
-                    <HistoryPanel kernel={session.kernel} shelf={session.shelf} />
+                    <HistoryPanel kernel={session.kernel} shelf={session.shelf} labels={labels.historyPanel} />
                   </div>
                 ) : railSection === 'assets' ? (
                   <div className="pg-panel-scroll">
@@ -1476,6 +1476,7 @@ export function App() {
                     <SiteBuilderPanel
                       site={siteHost}
                       seam={siteSeam}
+                      locale={editorLocale}
                       onStop={() => {
                         siteSeam.stop();
                       }}
@@ -1524,7 +1525,7 @@ export function App() {
             session === undefined ? (
               <BootState state={vault} />
             ) : workspaceView === 'sitemap' ? (
-              <PageWorkspace siteKernel={session.siteKernel} view="map" />
+              <PageWorkspace siteKernel={session.siteKernel} view="map" labels={labels.pageWorkspace} />
             ) : codeSnapshot !== undefined ? (
               <section className="pg-code-runtime" aria-label="Authored code page">
                 <div
@@ -1579,7 +1580,7 @@ export function App() {
                 </div>
                 <div className="pg-code-runtime__stage">
                   {codeOpen && sourceWorkspace !== undefined ? (
-                    <CodeWorkspace port={sourceWorkspace} />
+                    <CodeWorkspace port={sourceWorkspace} labels={labels.codeWorkspace} />
                   ) : (
                     <CodePreviewFrame
                       artifact={visibleCompiledCodePage?.artifact}
@@ -1604,7 +1605,7 @@ export function App() {
                 </div>
               </section>
             ) : codeOpen ? (
-              <CodeViewShowcase key={fixture} kernel={session.kernel} />
+              <CodeViewShowcase key={fixture} kernel={session.kernel} labels={labels.codeViewShowcase} />
             ) : agentPreview !== null ? (
               <section
                 className="pg-agent-preview"

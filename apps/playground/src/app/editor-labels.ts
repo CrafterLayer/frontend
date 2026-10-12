@@ -1,5 +1,26 @@
 import { editorCatalogue } from '@craftkit/builder';
 
+import {
+  CODE_VIEW_SHOWCASE_LABELS_AR,
+  CODE_VIEW_SHOWCASE_LABELS_EN,
+  type CodeViewShowcaseLabels,
+} from '../features/preview/components/CodeViewShowcase';
+import {
+  HISTORY_PANEL_LABELS_AR,
+  HISTORY_PANEL_LABELS_EN,
+  type HistoryPanelLabels,
+} from '../features/preview/components/HistoryPanel';
+import {
+  CODE_WORKSPACE_LABELS_AR,
+  CODE_WORKSPACE_LABELS_EN,
+  type CodeWorkspaceLabels,
+} from '../features/preview/code-workspace.labels';
+import {
+  PAGE_WORKSPACE_LABELS_AR,
+  PAGE_WORKSPACE_LABELS_EN,
+  type PageWorkspaceLabels,
+} from '../features/preview/page-workspace.labels';
+
 /** The editor UI's language. The page's own language is the document's business. */
 export type EditorLocale = 'en' | 'ar';
 
@@ -258,13 +279,36 @@ export const CHROME_LABELS: Readonly<Record<EditorLocale, ChromeLabels>> = {
   ar: CHROME_LABELS_AR,
 };
 
+/** The playground's own panels (pages, restore points, source, code view), by locale. */
+export interface PanelLabels {
+  readonly pageWorkspace: PageWorkspaceLabels;
+  readonly historyPanel: HistoryPanelLabels;
+  readonly codeWorkspace: CodeWorkspaceLabels;
+  readonly codeViewShowcase: CodeViewShowcaseLabels;
+}
+
+export const PANEL_LABELS: Readonly<Record<EditorLocale, PanelLabels>> = {
+  en: {
+    pageWorkspace: PAGE_WORKSPACE_LABELS_EN,
+    historyPanel: HISTORY_PANEL_LABELS_EN,
+    codeWorkspace: CODE_WORKSPACE_LABELS_EN,
+    codeViewShowcase: CODE_VIEW_SHOWCASE_LABELS_EN,
+  },
+  ar: {
+    pageWorkspace: PAGE_WORKSPACE_LABELS_AR,
+    historyPanel: HISTORY_PANEL_LABELS_AR,
+    codeWorkspace: CODE_WORKSPACE_LABELS_AR,
+    codeViewShowcase: CODE_VIEW_SHOWCASE_LABELS_AR,
+  },
+};
+
 /**
  * Every editor surface's labels for one locale: the shell's typed catalogue
  * (`editorCatalogue`, one door for every surface's EN/AR set) plus this app's
- * own chrome. DESIGN §0.3: defaults live beside each component; the host picks.
+ * own chrome and panels. DESIGN §0.3: defaults live beside each component; the host picks.
  */
 export function editorLabels(locale: EditorLocale) {
-  return { ...editorCatalogue(locale), chrome: CHROME_LABELS[locale] };
+  return { ...editorCatalogue(locale), chrome: CHROME_LABELS[locale], ...PANEL_LABELS[locale] };
 }
 
 export type EditorLabels = ReturnType<typeof editorLabels>;

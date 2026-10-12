@@ -1,6 +1,7 @@
 import { ChromeButton } from '@craftkit/builder';
 import { useRef, useState, type KeyboardEvent } from 'react';
 
+import { PAGE_ACTIONS_MENU_LABELS_EN, type PageActionsMenuLabels } from './PageActionsMenu.labels';
 import './PageActionsMenu.css';
 
 export type PageMenuAction =
@@ -30,6 +31,8 @@ export interface PageActionsMenuProps {
   readonly canMoveDown?: boolean | undefined;
   readonly onAction: (action: PageMenuAction, pageId: string) => void;
   readonly onDelete: (request: PageDeleteRequest) => void;
+  /** Every string the menu shows; English unless the host passes its locale's set. */
+  readonly labels?: PageActionsMenuLabels | undefined;
 }
 
 /** Page commands with explicit scope and a confirmation for destructive work. */
@@ -43,6 +46,7 @@ export function PageActionsMenu({
   canMoveDown = true,
   onAction,
   onDelete,
+  labels = PAGE_ACTIONS_MENU_LABELS_EN,
 }: PageActionsMenuProps) {
   const summaryRef = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
@@ -90,8 +94,8 @@ export function PageActionsMenu({
         ref={summaryRef}
         role="button"
         aria-expanded={open}
-        aria-label={`Actions for ${page.title}`}
-        title="Page actions"
+        aria-label={labels.trigger(page.title)}
+        title={labels.triggerTitle}
         onClick={(event) => {
           event.preventDefault();
           setOpen((current) => !current);
@@ -104,7 +108,7 @@ export function PageActionsMenu({
         <div
           className="pg-page-actions__popover"
           role="menu"
-          aria-label={`${page.title} actions`}
+          aria-label={labels.menu(page.title)}
           onKeyDown={navigateMenu}
         >
           <p className="pg-page-actions__scope">
@@ -118,7 +122,7 @@ export function PageActionsMenu({
               run('open');
             }}
           >
-            Open page
+            {labels.open}
           </button>
           <button
             role="menuitem"
@@ -127,7 +131,7 @@ export function PageActionsMenu({
               run('rename');
             }}
           >
-            Rename
+            {labels.rename}
           </button>
           <button
             role="menuitem"
@@ -136,7 +140,7 @@ export function PageActionsMenu({
               run('change-route');
             }}
           >
-            Change route
+            {labels.changeRoute}
           </button>
           <button
             role="menuitem"
@@ -145,7 +149,7 @@ export function PageActionsMenu({
               run('duplicate');
             }}
           >
-            Duplicate
+            {labels.duplicate}
           </button>
           <button
             role="menuitem"
@@ -155,7 +159,7 @@ export function PageActionsMenu({
               run('move-up');
             }}
           >
-            Move up
+            {labels.moveUp}
           </button>
           <button
             role="menuitem"
@@ -165,7 +169,7 @@ export function PageActionsMenu({
               run('move-down');
             }}
           >
-            Move down
+            {labels.moveDown}
           </button>
           <button
             role="menuitem"
@@ -175,7 +179,7 @@ export function PageActionsMenu({
               run('make-home');
             }}
           >
-            {isHome ? 'Current home page' : 'Make home'}
+            {isHome ? labels.currentHome : labels.makeHome}
           </button>
           <button
             role="menuitem"
@@ -184,7 +188,7 @@ export function PageActionsMenu({
               run('settings');
             }}
           >
-            SEO and settings
+            {labels.settings}
           </button>
           <button
             role="menuitem"
@@ -193,7 +197,7 @@ export function PageActionsMenu({
               run('clear');
             }}
           >
-            Clear page
+            {labels.clear}
           </button>
           <button
             className="pg-page-actions__danger"
@@ -205,13 +209,11 @@ export function PageActionsMenu({
               setConfirmDelete(true);
             }}
           >
-            Delete page
+            {labels.deletePage}
           </button>
           {deleteBlocked ? (
             <p id={`page-delete-note-${page.id}`} className="pg-page-actions__note">
-              {isLastPage
-                ? 'The final page can be cleared, but not deleted.'
-                : 'Choose a new home page first.'}
+              {isLastPage ? labels.lastPage : labels.chooseHome}
             </p>
           ) : null}
         </div>
@@ -223,14 +225,12 @@ export function PageActionsMenu({
           role="alertdialog"
           aria-labelledby={`delete-title-${page.id}`}
         >
-          <strong id={`delete-title-${page.id}`}>Delete {page.title}?</strong>
+          <strong id={`delete-title-${page.id}`}>{labels.confirmTitle(page.title)}</strong>
           <p>
             {isHome && replacementHomePageId !== undefined
-              ? `Home will move to ${replacementHomeTitle ?? replacementHomePageId}. `
+              ? `${labels.homeMoves(replacementHomeTitle ?? replacementHomePageId)} `
               : ''}
-            {inboundLinkCount > 0
-              ? `${String(inboundLinkCount)} internal link${inboundLinkCount === 1 ? '' : 's'} will be removed in the same change.`
-              : 'This removes the page in one undoable change.'}
+            {inboundLinkCount > 0 ? labels.unlinks(inboundLinkCount) : labels.removesOnce}
           </p>
           <div>
             <ChromeButton
@@ -239,7 +239,7 @@ export function PageActionsMenu({
                 setConfirmDelete(false);
               }}
             >
-              Cancel
+              {labels.cancel}
             </ChromeButton>
             <ChromeButton
               variant="primary"
@@ -254,7 +254,7 @@ export function PageActionsMenu({
                 onDelete(request);
               }}
             >
-              {inboundLinkCount > 0 ? 'Delete and unlink' : 'Delete page'}
+              {inboundLinkCount > 0 ? labels.deleteAndUnlink : labels.deletePage}
             </ChromeButton>
           </div>
         </div>

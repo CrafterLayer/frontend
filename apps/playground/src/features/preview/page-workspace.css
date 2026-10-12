@@ -22,9 +22,41 @@
   font-size: var(--bldr-font-size-micro);
   margin: var(--bldr-space-2xs) 0 0;
 }
+/*
+  List / Sitemap is one segmented control: a sunken track whose chosen view is a
+  raised tile (the top bar's Canvas / Sitemap switch), not an Accent wash. The
+  selectors out-specify ChromeButton's own toggle states, hover and active included.
+*/
 .pg-page-workspace__switch {
-  display: flex;
-  gap: var(--bldr-space-xs);
+  align-items: center;
+  background-color: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: inline-flex;
+  gap: var(--bldr-space-2xs);
+  justify-self: start;
+  padding: var(--bldr-space-2xs);
+}
+.pg-page-workspace__switch .bldr-chrome-button[data-variant='toggle'][aria-pressed] {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--bldr-panel-muted);
+}
+.pg-page-workspace__switch .bldr-chrome-button[data-variant='toggle'][aria-pressed='true'],
+.pg-page-workspace__switch
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='true']:enabled:hover,
+.pg-page-workspace__switch
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='true']:enabled:active {
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+.pg-page-workspace__switch
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='false']:enabled:hover,
+.pg-page-workspace__switch
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='false']:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-panel-text);
 }
 .pg-page-workspace__status {
   color: var(--bldr-panel-text-soft);

@@ -16,6 +16,14 @@ surface with `initialView`. Both modes keep the supplied kernel as the only page
 <Canvas of={Stories.Sitemap} />
 <Canvas of={Stories.CodePageSettings} />
 
+Every string comes from `labels` (`PageWorkspaceLabels`, English by default). The set carries the
+site map's and the page menu's own sets, so the host passes one object: the playground picks
+`PAGE_WORKSPACE_LABELS_AR` for the Arabic editor through `editorLabels(locale).pageWorkspace`.
+Arabic page counts agree in number («صفحة واحدة»، «صفحتان»، «3 صفحات»، «11 صفحة»). The List /
+Sitemap switch is a segmented control: a sunken track whose chosen view is a raised tile.
+
+<Canvas of={Stories.Arabic} />
+
 Page actions dispatch deterministic site commands. Saving settings groups title, route, purpose,
 audience, code-page SEO, share image, and site direction into one transaction and therefore one
 Undo. The home route is changed through Make home rather than direct editing. Delete requires an

@@ -1,5 +1,6 @@
 import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, ELEMENT_RECIPE_IDS, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
 
+import { DATA_SHOW_AS } from '../../data-tools/data-show';
 import { agentToolsForLane } from './registry';
 import { AGENT_TOOL_COMMAND, type AgentTool, type AgentToolLane } from './types';
 
@@ -20,11 +21,12 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // bare names (all four had signatures before), and those are inputs a model cannot guess (`subject`,
 // `heading?:'h1'|'h2'`, a verified family), so a bare name costs a refusal and a repair round. The
 // lane is part of the frozen, cached system[0]: +200 characters is ~50 cached tokens per edit.
+// data (2026-10-12): +150 in build and edit, measured: data.show keeps its signature and data line.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
-  build: AGENT_TOOL_PROMPT_MAX_CHARS,
+  build: 1_050,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
   section: 1_200,
-  edit: 1_900,
+  edit: 2_050,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -58,6 +60,8 @@ const DETAILS: Readonly<Record<string, string>> = {
   'element.insert': `element.insert preset:${ELEMENT_RECIPE_IDS.join('|')} content:{title?,text?,value?,label?,href?,items?:[{title,text?}]}; markup OR preset`,
   'media.add': `media.add kinds: gallery{layout?:${GALLERY_LAYOUTS.join('|')},images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:${CUSTOM_CODE_SCENES.join('|')},behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}`,
   'motion.add': `motion.add recipe: ${CUSTOM_CODE_TIMELINE_RECIPES.join('|')}`,
+  // data (2026-10-12)
+  'data.show': `data.show data:'Month,Sales\\nJan,120' (CSV/TSV/markdown, row 1 = headings) as?:${DATA_SHOW_AS.join('|')}; id refills a chart/table`,
 };
 
 function details(tools: readonly AgentTool[]): readonly string[] {

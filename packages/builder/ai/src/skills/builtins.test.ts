@@ -105,6 +105,7 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.copywriting',
       'craftkit.craft-manual',
       'craftkit.cv-page',
+      'craftkit.data-viz',
       // design-code additions (2026-09-28): explicit, for section writers and the page plan.
       'craftkit.design-code',
       // end design-code additions
@@ -134,8 +135,7 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.pixi-v8-interaction-perf',
       'craftkit.pixi-v8-text-assets',
       // end pixi-skills additions
-      // Plan mode: explicit-only, and the only built-in whose command
-      // restriction is the EMPTY set.
+      // Plan mode: explicit-only, the only built-in whose command restriction is the EMPTY set.
       'craftkit.plan-mode',
       'craftkit.precise-edit',
       'craftkit.property-page',

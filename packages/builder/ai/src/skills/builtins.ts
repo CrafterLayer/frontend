@@ -5,6 +5,7 @@ import { PAGE_INTENTS } from './industry/shared';
 import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
+import { DATA_VIZ_SKILL } from './data-viz';
 import { createAiSkillRegistry } from './registry';
 import { CREATIVE_ENGINE_SKILLS } from './creative/creative-engines';
 import { PIXI_CREATIVE_SKILLS } from './creative/pixi-creative';
@@ -1145,6 +1146,7 @@ const MENU_PAGE = builtin(MENU_PAGE_SKILL);
 const PROPERTY_PAGE = builtin(PROPERTY_PAGE_SKILL);
 const CLINIC_PAGE = builtin(CLINIC_PAGE_SKILL);
 const SHOP_PAGE = builtin(SHOP_PAGE_SKILL);
+const DATA_VIZ = builtin(DATA_VIZ_SKILL);
 // design-code additions (2026-09-28): explicit, for section writers and the page plan.
 const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
 // end design-code additions
@@ -1156,10 +1158,7 @@ const PIXI_V8_EFFECTS = builtin(PIXI_V8_EFFECTS_SKILL);
 const PIXI_V8_INTERACTION_PERF = builtin(PIXI_V8_INTERACTION_PERF_SKILL);
 // end pixi-skills additions
 
-/**
- * Reviewed, data-only defaults, ordered by priority descending. Hosts opt in
- * by constructing this registry; the registry itself re-sorts by id.
- */
+/** Reviewed, data-only defaults by priority, descending (the registry re-sorts by id); hosts opt in. */
 export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Object.freeze([
   PLAN_MODE,
   PRECISE_EDIT,
@@ -1184,6 +1183,7 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   VISUAL_DIRECTION,
   DESIGN_DIRECTION,
   DESIGN_TOKENS,
+  DATA_VIZ,
   COPYWRITING,
   MOTION,
   SCROLL_CINEMATIC,

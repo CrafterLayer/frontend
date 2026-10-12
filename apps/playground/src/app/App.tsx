@@ -378,6 +378,7 @@ export function App() {
                     <Suspense fallback={agentPanelPending}>
                       <AssistantRailPanel
                         bootId={session.bootId}
+                        editorLocale={editorLocale}
                         kernel={session.kernel}
                         shelf={session.shelf}
                         panes={panes}

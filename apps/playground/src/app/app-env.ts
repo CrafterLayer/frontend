@@ -5,7 +5,7 @@ import { agentLocaleFromEnv, agentPanelFromEnv, editEffortFromEnv } from './agen
   AssistantPanel only as the rollback. Read once: a build ships one panel.
 */
 export const AGENT_PANEL = agentPanelFromEnv(import.meta.env);
-/* Arabic first (SPEC §3.15, §4.0); VITE_AGENT_LOCALE=en for an English reviewer. */
+/* VITE_AGENT_LOCALE=en|ar pins the panel's language; unset, it follows the editor's. */
 export const AGENT_LOCALE = agentLocaleFromEnv(import.meta.env);
 /* Google font previews in the design-system editor: never in tests (no network there). */
 export const LOAD_FONT_PREVIEWS = import.meta.env['MODE'] !== 'test';

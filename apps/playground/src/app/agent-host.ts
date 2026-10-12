@@ -28,12 +28,13 @@ export function agentPanelFromEnv(env: Env): 'v1' | 'v2' {
 }
 
 /**
- * The panel's language (`VITE_AGENT_LOCALE`): Arabic unless `en` is asked for. Arabic is
- * the default locale (SPEC §3.15, §4.0); English is for an English-speaking reviewer and
- * the English half of the live screenshots.
+ * The panel's language when the build pins one (`VITE_AGENT_LOCALE=en|ar`): the live
+ * screenshots' English and Arabic halves. Unset (2026-10-12), the panel speaks the
+ * editor's language, so one choice in Settings turns the whole editor, panel included.
  */
-export function agentLocaleFromEnv(env: Env): Locale {
-  return envString(env, 'VITE_AGENT_LOCALE').toLowerCase() === 'en' ? 'en' : 'ar';
+export function agentLocaleFromEnv(env: Env): Locale | undefined {
+  const value = envString(env, 'VITE_AGENT_LOCALE').toLowerCase();
+  return value === 'en' || value === 'ar' ? value : undefined;
 }
 
 /*

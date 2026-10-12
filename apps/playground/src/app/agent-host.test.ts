@@ -31,10 +31,11 @@ describe('agentPanelFromEnv', () => {
 });
 
 describe('agentLocaleFromEnv', () => {
-  it('is Arabic unless English is asked for', () => {
-    expect(agentLocaleFromEnv({})).toBe('ar');
+  it('pins a language only when the build names one; else the editor decides', () => {
+    expect(agentLocaleFromEnv({})).toBeUndefined();
     expect(agentLocaleFromEnv({ VITE_AGENT_LOCALE: 'en' })).toBe('en');
-    expect(agentLocaleFromEnv({ VITE_AGENT_LOCALE: 'fr' })).toBe('ar');
+    expect(agentLocaleFromEnv({ VITE_AGENT_LOCALE: ' AR ' })).toBe('ar');
+    expect(agentLocaleFromEnv({ VITE_AGENT_LOCALE: 'fr' })).toBeUndefined();
   });
 });
 

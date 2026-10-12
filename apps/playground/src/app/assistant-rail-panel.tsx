@@ -5,6 +5,7 @@ import type { BuilderKernel } from '@craftkit/builder';
 import type { SnapshotShelf } from '../features/vault/snapshots';
 import { createAgentCheckpoints } from './agent-checkpoints';
 import { AGENT_EDIT_EFFORT, AGENT_LOCALE, AGENT_PANEL } from './app-env';
+import type { EditorLocale } from './editor-labels';
 import type { AgentHost } from './use-agent-host';
 import type { AgentModelSettings } from './use-agent-model-settings';
 import type { CodeSession } from './use-code-session';
@@ -15,6 +16,8 @@ import type { EditorPanes } from './use-editor-panes';
 export interface AssistantRailPanelProps {
   /** This opening of the document: what the panel is keyed on. */
   readonly bootId: string;
+  /** The editor's language: the panel speaks it unless the build pins one. */
+  readonly editorLocale: EditorLocale;
   readonly kernel: BuilderKernel;
   /** The page's restore-point shelf: the agent keeps a checkpoint there before each request. */
   readonly shelf?: SnapshotShelf | undefined;
@@ -79,6 +82,7 @@ function viewerStorage(): Storage | undefined {
 /** The rail's Assistant destination: the agent panel (v2, or the v1 rollback) and the source agent. */
 export function AssistantRailPanel({
   bootId,
+  editorLocale,
   kernel,
   shelf,
   panes,
@@ -148,7 +152,7 @@ export function AssistantRailPanel({
             */
             key={bootId}
             kernel={kernel}
-            locale={AGENT_LOCALE}
+            locale={AGENT_LOCALE ?? editorLocale}
             provider={envPlanProvider}
             providerKind={envPlanProvider === undefined ? 'offline' : 'remote'}
             models={offeredModels}

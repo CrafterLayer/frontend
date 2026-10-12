@@ -14,9 +14,9 @@ function railAgentButton(name: string): HTMLElement | null {
  * `lang`/`dir`, and the rail items named in that language.
  */
 export function useEditorLanguage() {
-  // The chosen language survives a reload (per viewer; the env decides a first visit).
+  // The chosen language survives a reload (per viewer; the env, else the browser, decides a first visit).
   const [editorLocale, setEditorLocale] = useState<EditorLocale>(() =>
-    initialEditorLocale(import.meta.env, () => localStorage),
+    initialEditorLocale(import.meta.env, () => localStorage, navigator.languages),
   );
   const labels = useMemo(() => editorLabels(editorLocale), [editorLocale]);
   /*

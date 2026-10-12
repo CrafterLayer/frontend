@@ -48,6 +48,11 @@ describe('editor labels', () => {
       throw new Error('SecurityError');
     };
     expect(initialEditorLocale({ VITE_EDITOR_LOCALE: 'ar' }, blocked)).toBe('ar');
+    // Nothing chosen and nothing pinned: the browser's first Arabic or English preference.
+    expect(initialEditorLocale({}, blocked, ['fr-FR', 'ar-JO', 'en-US'])).toBe('ar');
+    expect(initialEditorLocale({}, blocked, ['en-GB', 'ar'])).toBe('en');
+    expect(initialEditorLocale({}, blocked, ['fr'])).toBe('en');
+    expect(initialEditorLocale({ VITE_EDITOR_LOCALE: 'en' }, blocked, ['ar'])).toBe('en');
     expect(() => {
       rememberEditorLocale('ar', blocked);
     }).not.toThrow();

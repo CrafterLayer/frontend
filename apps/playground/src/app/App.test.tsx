@@ -1018,20 +1018,18 @@ describe('scenario 10 (B4) — code view and the canvas in lockstep', () => {
 });
 
 describe('the agent panel (SPEC §8 WP-20)', () => {
-  it('mounts the v2 panel by default: one name, in Arabic, and none of the v1 header', async () => {
+  it('mounts the v2 panel by default, in the editor language, and none of the v1 header', async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Assistant' }));
 
-    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
-    expect(panel).toHaveAttribute('lang', 'ar');
-    expect(panel).toHaveAttribute('dir', 'rtl');
-    // The v1 header's English "Agent" name and its status line are gone with it.
-    expect(screen.queryByRole('heading', { name: 'Agent' })).toBeNull();
-    expect(screen.queryByText('Abu Ghadab')).toBeNull();
+    const panel = await screen.findByRole('region', { name: 'Abu Ghadab' });
+    expect(panel).toHaveAttribute('lang', 'en');
+    expect(panel).toHaveAttribute('dir', 'ltr');
+    expect(screen.queryByRole('heading', { name: 'Agent' })).toBeNull(); // the v1 header's name
     // One separator on the panel's edge: the agent's own, not the shell's as well.
     expect(screen.getAllByRole('separator')).toHaveLength(1);
-    expect(screen.getByRole('separator')).toHaveAccessibleName('تغيير عرض اللوحة');
+    expect(screen.getByRole('separator')).toHaveAccessibleName('Resize the panel');
   });
 
   /*
@@ -1081,7 +1079,7 @@ describe('the agent panel (SPEC §8 WP-20)', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Assistant' }));
-    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
+    const panel = await screen.findByRole('region', { name: 'Abu Ghadab' });
 
     await user.click(screen.getByRole('button', { name: 'Layers' }));
     // Hidden, not unmounted: the same element, still in the document.

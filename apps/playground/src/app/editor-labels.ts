@@ -40,12 +40,15 @@ export interface EditorLocaleStore {
 }
 
 /**
- * The language the editor opens in: the one this viewer chose last, else the
- * environment's. A private window or blocked storage throws; the env decides then.
+ * The language the editor opens in: the one this viewer chose last, else the one the
+ * environment pins, else the browser's first Arabic or English preference (2026-10-12: a
+ * global product greets an Arabic browser in Arabic), else English. A private window or
+ * blocked storage throws; the rest decide then.
  */
 export function initialEditorLocale(
   env: Readonly<Record<string, unknown>>,
   store: () => EditorLocaleStore,
+  browserLanguages: readonly string[] = [],
 ): EditorLocale {
   try {
     const stored = store().getItem(EDITOR_LOCALE_KEY);
@@ -53,7 +56,13 @@ export function initialEditorLocale(
   } catch {
     // No memory in this window; the environment's language applies.
   }
-  return editorLocaleFromEnv(env);
+  const pinned = env['VITE_EDITOR_LOCALE'];
+  if (typeof pinned === 'string' && pinned.trim() !== '') return editorLocaleFromEnv(env);
+  for (const tag of browserLanguages) {
+    const primary = tag.trim().toLowerCase().split('-')[0];
+    if (primary === 'ar' || primary === 'en') return primary;
+  }
+  return 'en';
 }
 
 /** Remembers the chosen language for the next visit; a window without storage forgets it. */

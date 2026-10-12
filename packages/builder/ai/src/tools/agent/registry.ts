@@ -5,6 +5,8 @@ import { STYLE_AGENT_TOOLS } from '../../style-tools';
 import { MEDIA_AGENT_TOOLS } from '../../media-tools';
 // data (2026-10-12): data.show
 import { DATA_AGENT_TOOLS } from '../../data-tools';
+// i18n (2026-10-12): page.translate
+import { I18N_AGENT_TOOLS } from '../../i18n-tools';
 import { BUILTIN_AGENT_TOOLS } from './builtin';
 import type { AgentTool, AgentToolLane } from './types';
 
@@ -23,6 +25,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   ...MEDIA_AGENT_TOOLS,
   // data (2026-10-12): numbers as a chart or a table
   ...DATA_AGENT_TOOLS,
+  // i18n (2026-10-12): a page in another language in one step
+  ...I18N_AGENT_TOOLS,
 ]);
 
 const BY_NAME: ReadonlyMap<string, AgentTool> = new Map(AGENT_TOOLS.map((tool) => [tool.name, tool]));

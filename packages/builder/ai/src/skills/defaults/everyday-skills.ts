@@ -32,7 +32,7 @@ const NATURAL_COPY = `Copy that reads as if a native writer wrote it, in every l
 EVERY LANGUAGE: short sentences with active verbs, one idea each; headlines of eight words or fewer; address the reader directly; calls to action are a verb and its result ("Book a table", «احجز طاولة»), never "Click here" or «اضغط هنا»; on a page in one language every string is in it: buttons, form labels, errors, alt text, the page title and description.
 ENGLISH: plain words over jargon; sentence case for headings and buttons; no exclamation marks in headings; spell numbers as digits with the person's own currency and date order, and stay consistent (one spelling, US or UK, per site).
 ARABIC: clear Modern Standard Arabic (فصحى مبسّطة), a dialect only when the person writes in it and asks; Arabic marks inside Arabic text («،» «؛» «؟» and «» quotes), no Latin comma or question mark between Arabic words; no tatweel (ـ) and no decorative diacritics; one digit system per page (Western digits by default, Arabic-Indic when the person writes them); Gregorian dates unless the context asks for Hijri.
-LANGUAGE VERSIONS: rewrite meaning, never translate idioms word by word; keep brand and product names as written; keep numbers, prices, phones and links identical across versions; expect one language to run longer than another and keep layouts flexible.`;
+LANGUAGE VERSIONS: rewrite meaning, never translate idioms word by word; keep brand and product names as written; keep numbers, prices, phones and links identical across versions; expect one language to run longer than another and keep layouts flexible. In an edit, put a whole page in another language with page.translate {"lang":"ar","texts":{"<each page text>":"<its translation>"}}.`;
 
 const TRUST_PROOF = `Trust is built from proof the person can stand behind; never invent it.
 TESTIMONIALS: a quote with a first name and role or city the person gave; without real ones, write clearly marked placeholders and list them in followUp. No stock face beside an invented name (use initials).
@@ -178,6 +178,10 @@ export const EVERYDAY_DEFAULT_SKILLS: readonly AiSkillDefinitionV1[] = [
       'صمم',
       'موقع',
       'صفحة',
+      'translate',
+      'language',
+      'ترجم',
+      'لغة',
     ],
     NATURAL_COPY,
     'Native phrasing in each language, never word-by-word; verb-first CTAs; English sentence case, Arabic «،» «؛» «؟» «»; one digit system; brand names kept; every string in the page’s language.',

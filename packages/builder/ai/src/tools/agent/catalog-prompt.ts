@@ -27,11 +27,13 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // data.show's `as` (+49), with every other tool keeping the shape it had (edit also absorbs the
 // `data-table` preset, +11). Below these, report.build drops out of the build lane entirely and
 // kit.section, fonts.set and image.set lose their signatures in edit.
+// i18n (2026-10-12): edit 2290 → 2460, measured (2,458): page.translate's signature and its texts
+// line (+171); below this palette.set or page.translate falls back to a bare name.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
   build: 1_270,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
   section: 1_200,
-  edit: 2_290,
+  edit: 2_460,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -69,6 +71,8 @@ const DETAILS: Readonly<Record<string, string>> = {
   'data.show': `data.show data:'Month,Sales\\nJan,120' (CSV/TSV/markdown, row 1 = headings) as?:${DATA_SHOW_AS.join('|')}; id refills a chart/table`,
   // data (2026-10-12): the report's KPI cards come from the numeric columns unless named.
   'report.build': `report.build data like data.show → title, KPI cards (last value + change vs previous row; kpis?:['Revenue']), chart, table`,
+  // i18n (2026-10-12): the texts are the page's own words, all of them, or the tool refuses.
+  'page.translate': 'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
 };
 
 function details(tools: readonly AgentTool[]): readonly string[] {

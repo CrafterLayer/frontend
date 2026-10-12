@@ -90,7 +90,7 @@ describe('CRAFTKIT_DEFAULT_SKILLS', () => {
         ({ instructions }) => instructions.match(/\b[a-z]+\.[a-z]+(?= \{)/gu) ?? [],
       ),
     );
-    expect([...named].sort()).toEqual(['fonts.set', 'theme.apply']);
+    expect([...named].sort()).toEqual(['fonts.set', 'page.translate', 'theme.apply']);
     for (const name of named) expect(agentTool(name)).toBeDefined();
   });
 

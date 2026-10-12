@@ -10,6 +10,34 @@ import type { UserSkill } from './user-skills';
 /** A request carries at most this many pinned skills (explicit skills are mandatory). */
 export const MAX_PINNED_SKILLS = 3;
 
+/**
+ * The commands the `/` list offers before the skills (2026-10-12): keep the message as a
+ * memory, save a checkpoint named by it, or start a skill from it. Each answers to its English
+ * and Arabic words.
+ */
+export const SLASH_COMMANDS = ['remember', 'checkpoint', 'skill'] as const;
+export type SlashCommand = (typeof SLASH_COMMANDS)[number];
+
+const COMMAND_WORDS: Readonly<Record<SlashCommand, readonly string[]>> = {
+  remember: ['remember', 'memory', 'تذكر', 'ذاكرة', 'احفظ'],
+  checkpoint: ['checkpoint', 'save', 'restore', 'نقطة', 'حفظ', 'استرجاع'],
+  skill: ['skill', 'new-skill', 'مهارة', 'مهارة-جديدة'],
+};
+
+/** The commands a query names: every one for no words, else those a word of theirs starts with. */
+export function slashCommands(query: string): readonly SlashCommand[] {
+  const wanted = fold(query.trim());
+  if (wanted === '') return SLASH_COMMANDS;
+  return SLASH_COMMANDS.filter((command) =>
+    COMMAND_WORDS[command].some((word) => fold(word).startsWith(wanted)),
+  );
+}
+
+/** The words before the `/`: what a command acts on ("Our colour is green /remember"). */
+export function textBeforeSlash(draft: string, token: SlashToken): string {
+  return draft.slice(0, token.start).trim();
+}
+
 export interface SlashToken {
   /** The words after the slash, as typed. */
   readonly query: string;

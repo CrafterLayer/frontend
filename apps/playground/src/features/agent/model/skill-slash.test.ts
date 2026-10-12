@@ -5,7 +5,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BuiltInSkillView } from './knowledge';
-import { commandOf, slashOptions, slashToken, withoutSlash } from './skill-slash';
+import {
+  commandOf,
+  slashCommands,
+  slashOptions,
+  slashToken,
+  textBeforeSlash,
+  withoutSlash,
+} from './skill-slash';
 import type { UserSkill } from './user-skills';
 
 const own = (id: string, name: string, description = '', enabled = true): UserSkill => ({
@@ -100,5 +107,23 @@ describe('slashOptions', () => {
     expect(slashOptions(SKILLS, BUILT_INS, 'اسلوب').map(({ id }) => id)).toEqual(['user.skill-2']);
     expect(slashOptions(SKILLS, BUILT_INS, 'BRAND').map(({ id }) => id)).toEqual(['user.skill-1']);
     expect(slashOptions(SKILLS, BUILT_INS, 'zzz')).toEqual([]);
+  });
+});
+
+describe('slashCommands', () => {
+  it('offers every command for no words, and those a word of theirs starts', () => {
+    expect(slashCommands('')).toEqual(['remember', 'checkpoint', 'skill']);
+    expect(slashCommands('rem')).toEqual(['remember']);
+    expect(slashCommands('sav')).toEqual(['checkpoint']);
+    expect(slashCommands('تذك')).toEqual(['remember']);
+    expect(slashCommands('مهار')).toEqual(['skill']);
+    expect(slashCommands('zzz')).toEqual([]);
+  });
+
+  it('reads the words before the slash', () => {
+    expect(textBeforeSlash('Green is ours /rem', { query: 'rem', start: 13 })).toBe(
+      'Green is ours',
+    );
+    expect(textBeforeSlash('/rem', { query: 'rem', start: 0 })).toBe('');
   });
 });

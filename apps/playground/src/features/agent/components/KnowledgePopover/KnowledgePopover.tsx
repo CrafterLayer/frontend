@@ -11,6 +11,7 @@ import {
 
 import { knowledgeLabels, type KnowledgeTab } from '../../copy/knowledge-labels';
 import type { AgentKnowledgeView } from '../../model/knowledge';
+import type { UserSkillDraft } from '../../model/user-skills';
 import { skillTemplates } from '../../model/skill-templates';
 import type { Locale } from '../../model/view-types';
 import { CheckpointsTab } from '../CheckpointsTab';
@@ -33,6 +34,11 @@ export interface KnowledgePopoverProps {
   readonly id?: string | undefined;
   /** The tab it opens on (default Skills). */
   readonly initialTab?: KnowledgeTab | undefined;
+  /** The tab shown, when the host decides it (the composer's commands); with `onTabChange`. */
+  readonly tab?: KnowledgeTab | undefined;
+  readonly onTabChange?: ((tab: KnowledgeTab) => void) | undefined;
+  /** Open Skills on New skill with this draft (the composer's `/skill`). */
+  readonly newSkill?: UserSkillDraft | undefined;
   /** Where "Copy as SKILL.md" writes (tests). */
   readonly clipboard?: ((text: string) => Promise<void>) | undefined;
 }
@@ -52,6 +58,9 @@ export function KnowledgePopover({
   presentation = 'popover',
   id,
   initialTab = 'skills',
+  tab: shownTab,
+  onTabChange,
+  newSkill,
   clipboard,
 }: KnowledgePopoverProps) {
   const generated = useId();
@@ -62,7 +71,12 @@ export function KnowledgePopover({
     knowledge.checkpoints === undefined
       ? ['skills', 'memory']
       : ['skills', 'memory', 'checkpoints'];
-  const [chosen, setChosen] = useState<KnowledgeTab>(initialTab);
+  const [ownChoice, setOwnChoice] = useState<KnowledgeTab>(initialTab);
+  const chosen = shownTab ?? ownChoice;
+  const setChosen = (next: KnowledgeTab) => {
+    setOwnChoice(next);
+    onTabChange?.(next);
+  };
   const tab = tabs.includes(chosen) ? chosen : 'skills';
   const tabRefs = useRef(new Map<KnowledgeTab, HTMLButtonElement>());
   const interactedOutside = useRef(false);
@@ -112,6 +126,7 @@ export function KnowledgePopover({
         labels={labels}
         clipboard={clipboard}
         templates={skillTemplates(locale)}
+        startWith={newSkill}
       />
     );
   }

@@ -38,20 +38,39 @@ use the Skills tab (KnowledgePopover), which "Manage skills & memory" opens.
 | `onDraftChange` | `(draft: string) => void`                | none    | a pick takes the `/words` out                        |
 | `inputRef`      | `RefObject<HTMLTextAreaElement \| null>` | none    | the composer's textarea: keys, focus, combobox state |
 | `onManage`      | `() => void`                             | none    | opens Skills & memory                                |
+| `commands`      | `readonly SlashCommand[]`                | all     | which commands to offer                              |
+| `onCommand`     | `(command, text) => Promise<string?>`    | none    | runs one; without it the list offers no commands     |
 
-The model is pure and table-tested: `slashToken`, `withoutSlash`, `commandOf`, `slashOptions` and
-`MAX_PINNED_SKILLS` (3) in `model/skill-slash.ts`.
+The model is pure and table-tested: `slashToken`, `withoutSlash`, `commandOf`, `slashOptions`,
+`slashCommands`, `textBeforeSlash` and `MAX_PINNED_SKILLS` (3) in `model/skill-slash.ts`.
+
+## Commands
+
+Above the skills, three commands act on the words typed before the slash. AgentPanel runs them
+through `useKnowledgeUi`:
+
+- **Remember** (`/remember`, `/تذكر`) keeps the words in the project memory as a preference. With no
+  words it opens the Memory tab. A repeat is refused, as the tab refuses it.
+- **Save a checkpoint** (`/checkpoint`, `/نقطة`) keeps the page under the words, or under the
+  default name. It is offered only when the host keeps pages.
+- **New skill** (`/skill`, `/مهارة`) opens New skill on the Skills tab with the words as its
+  instructions.
+
+The words leave the composer with the slash. What happened is said once in a `status` line under the
+list, which clears after four seconds.
 
 ## States
 
-| story                            | what it shows                                      |
-| -------------------------------- | -------------------------------------------------- |
-| `Open`, `Dark`                   | "/" typed: your skills, the built-ins, Manage last |
-| `RightToLeft`, `DarkRightToLeft` | Arabic skills and headings                         |
-| `Filtered`                       | "/brand": Brand voice first and active             |
-| `NoMatch`                        | "No skill by that name.", and Manage               |
-| `Pinned`, `PinnedRightToLeft`    | chips above the composer, each with ×              |
-| `Full`                           | a fourth pick: "A message takes up to 3 skills."   |
+| story                             | what it shows                                      |
+| --------------------------------- | -------------------------------------------------- |
+| `Open`, `Dark`                    | "/" typed: your skills, the built-ins, Manage last |
+| `RightToLeft`, `DarkRightToLeft`  | Arabic skills and headings                         |
+| `Filtered`                        | "/brand": Brand voice first and active             |
+| `NoMatch`                         | "No skill by that name.", and Manage               |
+| `Pinned`, `PinnedRightToLeft`     | chips above the composer, each with ×              |
+| `Full`                            | a fourth pick: "A message takes up to 3 skills."   |
+| `Commands`, `CommandsRightToLeft` | Remember, Save a checkpoint, New skill first       |
+| `Remembered`                      | "/remember" after words: "Remembered. …"           |
 
 AgentPanel's `SlashMenu` story types "/" into the real composer.
 

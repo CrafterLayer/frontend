@@ -17,12 +17,17 @@ export interface SkillsTabProps {
   readonly clipboard?: ((text: string) => Promise<void>) | undefined;
   /** Starter skills to add in one press (`skillTemplates(locale)`); none drawn when empty. */
   readonly templates?: readonly SkillTemplate[] | undefined;
+  /** Open on New skill with this draft (the composer's `/skill`). */
+  readonly startWith?: UserSkillDraft | undefined;
 }
 
 /** What "Upload" takes: Markdown and MDX skill files. */
 const SKILL_FILES = '.md,.mdx,.markdown,text/markdown,text/x-markdown';
 
-type Editing = { readonly kind: 'new' } | { readonly kind: 'edit'; readonly id: string } | null;
+type Editing =
+  | { readonly kind: 'new'; readonly draft?: UserSkillDraft | undefined }
+  | { readonly kind: 'edit'; readonly id: string }
+  | null;
 
 function writeClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
@@ -41,10 +46,13 @@ export function SkillsTab({
   labels,
   clipboard = writeClipboard,
   templates = [],
+  startWith,
 }: SkillsTabProps) {
   const id = useId();
   const words = labels.skills;
-  const [editing, setEditing] = useState<Editing>(null);
+  const [editing, setEditing] = useState<Editing>(
+    startWith === undefined ? null : { kind: 'new', draft: startWith },
+  );
   const [importing, setImporting] = useState(false);
   const [markdown, setMarkdown] = useState('');
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
@@ -70,7 +78,8 @@ export function SkillsTab({
   if (editing !== null) {
     const kept =
       editing.kind === 'edit' ? view.skills.find((skill) => skill.id === editing.id) : undefined;
-    const initial: UserSkillDraft = kept ?? EMPTY_SKILL_DRAFT;
+    const initial: UserSkillDraft =
+      kept ?? (editing.kind === 'new' ? editing.draft : undefined) ?? EMPTY_SKILL_DRAFT;
     return (
       <SkillEditor
         labels={labels}

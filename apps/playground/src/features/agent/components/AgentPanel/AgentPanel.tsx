@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 
 import { t } from '../../copy';
 import { TickerPausedContext } from '../../hooks/use-ticker';
+import { useKnowledgeUi } from '../../hooks/use-knowledge-ui';
 import { headerStatusKey } from '../../model/header-status';
 import {
   isAwaitingDecision,
@@ -24,7 +25,6 @@ import { AgentSheet, type SheetControls, type SheetDetent } from '../AgentSheet'
 import { AgentStatusPill, pillView } from '../AgentStatusPill';
 import { AgentThread, type AgentThreadHandle } from '../AgentThread';
 import { Composer, type ComposerActions } from '../Composer';
-import { knowledgeLabels } from '../../copy/knowledge-labels';
 import type { AgentKnowledgeView } from '../../model/knowledge';
 import { HistoryPopover } from '../HistoryPopover';
 import { AgentTooltipProvider } from '../IconButton';
@@ -157,7 +157,7 @@ export function AgentPanel({
   const caretToEnd = useRef(false);
 
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const knowledgeUi = useKnowledgeUi(knowledge, locale);
   const [scrolled, setScrolled] = useState(false);
   const [ownWidth, setOwnWidth] = useState(PANEL_WIDTH_DEFAULT);
   const panelWidth = clampPanelWidth(width ?? ownWidth);
@@ -297,7 +297,7 @@ export function AgentPanel({
           running={run !== null}
           conversationsOpen={historyOpen}
           onConversations={() => {
-            setKnowledgeOpen(false);
+            knowledgeUi.setOpen(false);
             setHistoryOpen((open) => !open);
           }}
           onNewConversation={controller.newConversation}
@@ -307,19 +307,9 @@ export function AgentPanel({
           onClose={sheet?.close}
           onShowPage={sheet?.showPage}
           status={t(locale, headerStatusKey(state))}
-          knowledge={
-            knowledge === undefined
-              ? undefined
-              : {
-                  label: knowledgeLabels(locale).title,
-                  open: knowledgeOpen,
-                  onToggle: () => {
-                    setHistoryOpen(false);
-                    setKnowledgeOpen((open) => !open);
-                  },
-                  controls: knowledgeId,
-                }
-          }
+          knowledge={knowledgeUi.header(knowledgeId, () => {
+            setHistoryOpen(false);
+          })}
           knowledgeRef={knowledgeRef}
         />
       </div>
@@ -361,8 +351,10 @@ export function AgentPanel({
             inputRef={inputRef}
             onManage={() => {
               setHistoryOpen(false);
-              setKnowledgeOpen(true);
+              knowledgeUi.show('skills');
             }}
+            commands={knowledgeUi.commands}
+            onCommand={knowledgeUi.onCommand}
           />
         )}
         <Composer
@@ -389,8 +381,11 @@ export function AgentPanel({
         <KnowledgePopover
           locale={locale}
           knowledge={knowledge}
-          open={knowledgeOpen}
-          onOpenChange={setKnowledgeOpen}
+          open={knowledgeUi.open}
+          onOpenChange={knowledgeUi.setOpen}
+          tab={knowledgeUi.tab}
+          onTabChange={knowledgeUi.setTab}
+          newSkill={knowledgeUi.newSkill}
           anchorRef={knowledgeRef}
           presentation={sheet === null ? 'popover' : 'sheet'}
           id={knowledgeId}

@@ -10,7 +10,15 @@ import {
 
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import type { UserSkillsView } from '../../model/knowledge';
-import { slashOptions, slashToken, withoutSlash, type SlashOption } from '../../model/skill-slash';
+import {
+  slashCommands,
+  slashOptions,
+  slashToken,
+  textBeforeSlash,
+  withoutSlash,
+  type SlashCommand,
+  type SlashOption,
+} from '../../model/skill-slash';
 import type { Locale } from '../../model/view-types';
 import { AgentIcon } from '../AgentIcon';
 
@@ -26,9 +34,24 @@ export interface SkillSlashProps {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
   /** "Manage skills & memory": opens the header's Skills & memory place. */
   readonly onManage: () => void;
+  /** Which commands to offer (all of them by default). */
+  readonly commands?: readonly SlashCommand[] | undefined;
+  /**
+   * Runs a command on the words before the slash; resolves with the line that says what
+   * happened (none when it opened a place instead). Without it the list offers no commands.
+   */
+  readonly onCommand?:
+    ((command: SlashCommand, text: string) => Promise<string | undefined>) | undefined;
 }
 
-type Row = { readonly kind: 'skill'; readonly option: SlashOption } | { readonly kind: 'manage' };
+type Row =
+  | { readonly kind: 'command'; readonly command: SlashCommand }
+  | { readonly kind: 'skill'; readonly option: SlashOption }
+  | { readonly kind: 'manage' };
+
+const COMMAND_ICON = { remember: 'book', checkpoint: 'history', skill: 'plus' } as const;
+/** How long "Remembered." stays under the list. */
+const DONE_MS = 4_000;
 
 /**
  * The composer's `/` (2026-10-12), as other agents have it: a slash at the start of the
@@ -37,6 +60,10 @@ type Row = { readonly kind: 'skill'; readonly option: SlashOption } | { readonly
  * focus and points at the active option, as it does for the `@` list. A picked skill leaves
  * the draft and is pinned above the composer for the next message, where the Agent must use
  * it; its × lets it go. The list ends with "Manage skills & memory".
+ *
+ * Above the skills, the commands act on the words typed before the slash: Remember keeps them
+ * in the project memory, Save a checkpoint keeps the page under that name, New skill starts a
+ * skill from them. What happened is said once in a status line under the composer.
  */
 export function SkillSlash({
   locale,
@@ -45,6 +72,8 @@ export function SkillSlash({
   onDraftChange,
   inputRef,
   onManage,
+  commands: offered,
+  onCommand,
 }: SkillSlashProps) {
   const id = useId();
   const labels = knowledgeLabels(locale).slash;
@@ -55,10 +84,25 @@ export function SkillSlash({
   const options = open
     ? slashOptions(skills.skills, skills.builtIns, token.query, skills.pinned)
     : [];
+  const commands =
+    open && onCommand !== undefined
+      ? slashCommands(token.query).filter((command) => offered?.includes(command) ?? true)
+      : [];
   const rows: readonly Row[] = [
+    ...commands.map((command): Row => ({ kind: 'command', command })),
     ...options.map((option): Row => ({ kind: 'skill', option })),
     { kind: 'manage' },
   ];
+  const [done, setDone] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (done === undefined) return undefined;
+    const timer = setTimeout(() => {
+      setDone(undefined);
+    }, DONE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [done]);
   const [active, setActive] = useState(0);
   const [activeFor, setActiveFor] = useState(token?.query);
   if (activeFor !== token?.query) {
@@ -76,6 +120,14 @@ export function SkillSlash({
     if (row.kind === 'manage') {
       onDraftChange(withoutSlash(draft, token));
       onManage();
+      return;
+    }
+    if (row.kind === 'command') {
+      const text = textBeforeSlash(draft, token);
+      // The words were the command's input: they leave the composer with the slash.
+      onDraftChange(text === '' ? withoutSlash(draft, token) : '');
+      void onCommand?.(row.command, text).then(setDone);
+      inputRef.current?.focus();
       return;
     }
     if (!skills.pin(row.option.id)) {
@@ -154,7 +206,10 @@ export function SkillSlash({
       name: own?.name ?? skills.builtIns.find((skill) => skill.id === pinnedId)?.name ?? pinnedId,
     };
   });
-  const firstBuiltIn = options.findIndex((option) => option.source === 'builtin');
+  const firstUser = rows.findIndex((row) => row.kind === 'skill' && row.option.source === 'user');
+  const firstBuiltIn = rows.findIndex(
+    (row) => row.kind === 'skill' && row.option.source === 'builtin',
+  );
 
   return (
     <div className="ck-agent-slash">
@@ -174,14 +229,22 @@ export function SkillSlash({
           >
             {rows.map((row, index) => {
               const heading =
-                row.kind === 'skill' && index === 0 && row.option.source === 'user'
-                  ? labels.yours
-                  : row.kind === 'skill' && index === firstBuiltIn
-                    ? labels.builtIn
-                    : undefined;
+                index === 0 && row.kind === 'command'
+                  ? labels.commandsHeading
+                  : index === firstUser
+                    ? labels.yours
+                    : index === firstBuiltIn
+                      ? labels.builtIn
+                      : undefined;
               const option = (
                 <li
-                  key={row.kind === 'skill' ? row.option.id : 'manage'}
+                  key={
+                    row.kind === 'skill'
+                      ? row.option.id
+                      : row.kind === 'command'
+                        ? `command-${row.command}`
+                        : 'manage'
+                  }
                   id={optionId(index)}
                   role="option"
                   aria-selected={index === activeIndex}
@@ -201,6 +264,21 @@ export function SkillSlash({
                     <>
                       <AgentIcon name="skills" className="ck-agent-slash__glyph" />
                       <span className="ck-agent-slash__name">{labels.manage}</span>
+                    </>
+                  ) : row.kind === 'command' ? (
+                    <>
+                      <AgentIcon
+                        name={COMMAND_ICON[row.command]}
+                        className="ck-agent-slash__glyph"
+                      />
+                      <span className="ck-agent-slash__text">
+                        <span className="ck-agent-slash__name">
+                          {labels.commands[row.command].name}
+                        </span>
+                        <span className="ck-agent-slash__description">
+                          {labels.commands[row.command].hint}
+                        </span>
+                      </span>
                     </>
                   ) : (
                     <>
@@ -235,7 +313,12 @@ export function SkillSlash({
             })}
           </ul>
         </div>
-      ) : null}
+      ) : (
+        // While the list is closed: the line a command's answer fills (the list has its own).
+        <p className="ck-agent-slash__done" role="status">
+          {done}
+        </p>
+      )}
       {pinned.length === 0 ? null : (
         <div className="ck-agent-slash__pinned" role="group" aria-label={labels.pinned}>
           <AgentIcon name="skills" className="ck-agent-slash__glyph" />

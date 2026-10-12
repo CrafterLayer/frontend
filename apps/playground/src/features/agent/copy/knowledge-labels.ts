@@ -82,6 +82,13 @@ export interface KnowledgeLabels {
     readonly pinned: string;
     readonly unpin: (name: string) => string;
     readonly full: string;
+    readonly commandsHeading: string;
+    readonly commands: Readonly<
+      Record<'remember' | 'checkpoint' | 'skill', { readonly name: string; readonly hint: string }>
+    >;
+    readonly remembered: string;
+    readonly checkpointSaved: (label: string) => string;
+    readonly checkpointFailed: string;
   };
   readonly templates: {
     readonly title: string;
@@ -192,6 +199,15 @@ const EN: KnowledgeLabels = {
     pinned: 'Skills for the next message',
     unpin: (name) => `Remove ${name}`,
     full: 'A message takes up to 3 skills.',
+    commandsHeading: 'Commands',
+    commands: {
+      remember: { name: 'Remember', hint: 'Keep this message in the project memory' },
+      checkpoint: { name: 'Save a checkpoint', hint: 'Keep the page as it is now' },
+      skill: { name: 'New skill', hint: 'Start a skill from this message' },
+    },
+    remembered: 'Remembered. The Agent reads it in every request.',
+    checkpointSaved: (label) => `Checkpoint saved: ${label}.`,
+    checkpointFailed: 'The checkpoint was not saved.',
   },
   templates: {
     title: 'Start from a template',
@@ -307,6 +323,15 @@ const AR: KnowledgeLabels = {
     pinned: 'مهارات الرسالة التالية',
     unpin: (name) => `أزل ${name}`,
     full: 'تأخذ الرسالة 3 مهارات على الأكثر.',
+    commandsHeading: 'الأوامر',
+    commands: {
+      remember: { name: 'تذكّر', hint: 'احفظ هذه الرسالة في ذاكرة المشروع' },
+      checkpoint: { name: 'احفظ نقطة', hint: 'احفظ الصفحة كما هي الآن' },
+      skill: { name: 'مهارة جديدة', hint: 'ابدأ مهارة من هذه الرسالة' },
+    },
+    remembered: 'حُفظت في الذاكرة. يقرؤها الوكيل في كل طلب.',
+    checkpointSaved: (label) => `حُفظت النقطة: ${label}.`,
+    checkpointFailed: 'لم تُحفظ النقطة.',
   },
   templates: {
     title: 'ابدأ من قالب',

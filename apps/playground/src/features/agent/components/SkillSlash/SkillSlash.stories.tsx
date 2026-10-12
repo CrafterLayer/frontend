@@ -12,12 +12,14 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
 import { t } from '../../copy';
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
+import { useKnowledgeUi } from '../../hooks/use-knowledge-ui';
 import type { Locale } from '../../model/view-types';
 import {
   SAMPLE_NOTES,
   SAMPLE_NOTES_AR,
   SAMPLE_SKILLS,
   SAMPLE_SKILLS_AR,
+  createFakeCheckpoints,
   seededStorage,
 } from '../../testing/knowledge-fixtures';
 
@@ -65,13 +67,15 @@ const inDock: Decorator = (Story, { args, parameters }) => {
 interface SlashProps {
   readonly locale: Locale;
   readonly onManage: () => void;
+  /** Offer the commands, run as the panel runs them (`useKnowledgeUi`, a fake page keeper). */
+  readonly commands?: boolean;
 }
 
 /**
  * The list over the real knowledge hook (`useAgentKnowledge`, seeded), above a textarea
  * wired as the Composer wires its own: the `@` list's combobox, which SkillSlash also uses.
  */
-function Slash({ locale, onManage }: SlashProps) {
+function Slash({ locale, onManage, commands = false }: SlashProps) {
   const arabic = locale === 'ar';
   const [storage] = useState(() =>
     seededStorage(
@@ -79,7 +83,9 @@ function Slash({ locale, onManage }: SlashProps) {
       arabic ? SAMPLE_NOTES_AR : SAMPLE_NOTES,
     ),
   );
-  const { view } = useAgentKnowledge({ storage });
+  const [checkpoints] = useState(() => createFakeCheckpoints([]));
+  const { view } = useAgentKnowledge({ storage, checkpoints });
+  const ui = useKnowledgeUi(view, locale);
   const [draft, setDraft] = useState('');
   const input = useRef<HTMLTextAreaElement | null>(null);
   return (
@@ -91,6 +97,8 @@ function Slash({ locale, onManage }: SlashProps) {
         onDraftChange={setDraft}
         inputRef={input}
         onManage={onManage}
+        commands={commands ? ui.commands : undefined}
+        onCommand={commands ? ui.onCommand : undefined}
       />
       <textarea
         ref={input}
@@ -246,5 +254,38 @@ export const PinnedRightToLeft: Story = {
     await expect(
       within(chips).getByRole('button', { name: AR.unpin('أسلوب المنزل') }),
     ).toBeVisible();
+  },
+};
+
+/** The commands: Remember, Save a checkpoint and New skill head the list. */
+export const Commands: Story = {
+  args: { commands: true },
+  play: async ({ canvasElement }) => {
+    await typeInto(canvasElement, 'en', '/');
+    const options = within(listOf(canvasElement, 'en')).getAllByRole('option');
+    await expect(options[0]).toHaveTextContent(EN.commands.remember.name);
+    await expect(options[1]).toHaveTextContent(EN.commands.checkpoint.name);
+    await expect(options[2]).toHaveTextContent(EN.commands.skill.name);
+  },
+};
+
+/** "/remember" after words: they go to the project memory, and the status line says so. */
+export const Remembered: Story = {
+  args: { commands: true },
+  play: async ({ canvasElement }) => {
+    const field = await typeInto(canvasElement, 'en', 'Our colour is forest green /rem');
+    await userEvent.keyboard('{Enter}');
+    await expect(field).toHaveValue('');
+    await expect(await within(canvasElement).findByRole('status')).toHaveTextContent(EN.remembered);
+  },
+};
+
+export const CommandsRightToLeft: Story = {
+  ...RTL,
+  args: { locale: 'ar', commands: true },
+  play: async ({ canvasElement }) => {
+    await typeInto(canvasElement, 'ar', 'لوننا أخضر /تذك');
+    const [first] = within(listOf(canvasElement, 'ar')).getAllByRole('option');
+    await expect(first).toHaveTextContent(AR.commands.remember.name);
   },
 };

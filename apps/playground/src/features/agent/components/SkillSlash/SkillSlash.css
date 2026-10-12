@@ -144,6 +144,18 @@
   display: none;
 }
 
+.ck-agent-slash__done {
+  margin: 0;
+  margin-block-end: var(--bldr-space-xs);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__done:empty {
+  display: none;
+}
+
 .ck-agent-slash__pinned {
   display: flex;
   flex-wrap: wrap;

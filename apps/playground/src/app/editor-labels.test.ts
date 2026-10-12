@@ -124,6 +124,7 @@ describe('editor labels', () => {
   it('phrases recent changes in Arabic when given the Arabic phrases', () => {
     const log = [{ id: 't1', author: 'user', command: 'insertTreeNode' }];
     expect(recentChangesOf(log, { phrases: CHROME_LABELS.ar.changes }).changes[0]?.label).toBe('إضافة عنصر');
-    expect(recentChangesOf(log).changes[0]?.label).toBe('add element');
+    // Sentence case, like every labelled change (use-recent-changes.ts `sentenceCase`).
+    expect(recentChangesOf(log).changes[0]?.label).toBe('Add element');
   });
 });

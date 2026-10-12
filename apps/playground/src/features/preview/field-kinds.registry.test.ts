@@ -20,6 +20,7 @@ import {
 } from '@craftkit/builder';
 
 import { createPlaygroundKernel } from './create-playground-kernel';
+import { landingCopy } from './landing-copy';
 
 /*
   block-parts P3 registry gate (DESIGN §2.10): for EVERY block the playground
@@ -173,7 +174,8 @@ describe('the rich-text row through the real extension (owner screenshot, 2026-1
     ).toBeInTheDocument();
     const surface = document.querySelector('.bldr-richtext-field__surface');
     expect(surface).not.toBeNull();
-    expect(surface?.textContent).toContain('Why it holds');
+    // The rtl landing reads its words in Arabic since c4fee26 (landing-copy.ts).
+    expect(surface?.textContent).toContain(landingCopy('rtl').story.heading);
     for (const block of surface?.querySelectorAll('p, h2, h3, h4') ?? []) {
       expect(block).toHaveAttribute('dir', 'auto');
     }

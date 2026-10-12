@@ -22,6 +22,8 @@ import { pricingSchema } from './components/Pricing/schema';
 import { pricingPlanSchema } from './components/PricingPlan/schema';
 import { testimonialsSchema } from './components/Testimonials/schema';
 import { comparisonTableSchema } from './components/ComparisonTable/schema';
+import { tableSchema } from './components/Table/schema';
+import { chartSchema } from './components/Chart/schema';
 import { faqSchema } from './components/Faq/schema';
 import { blogGridSchema } from './components/BlogGrid/schema';
 import { contactSchema } from './components/Contact/schema';
@@ -83,6 +85,8 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   pricingPlanSchema,
   testimonialsSchema,
   comparisonTableSchema,
+  tableSchema,
+  chartSchema,
   faqSchema,
   blogGridSchema,
   contactSchema,
@@ -118,6 +122,8 @@ export {
   pricingPlanSchema,
   testimonialsSchema,
   comparisonTableSchema,
+  tableSchema,
+  chartSchema,
   faqSchema,
   blogGridSchema,
   contactSchema,

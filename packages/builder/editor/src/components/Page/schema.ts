@@ -102,6 +102,8 @@ export const pageSchema = defineBlockSchema({
         'pricing',
         'testimonials',
         'comparisonTable',
+        'table',
+        'chart',
         'faq',
         'blogGrid',
         'contact',

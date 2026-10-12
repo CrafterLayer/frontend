@@ -43,6 +43,8 @@ const DOT_PATTERN_CHILDREN = [
   'pricingPlan',
   'testimonials',
   'comparisonTable',
+  'table',
+  'chart',
   'faq',
   'blogGrid',
   'contact',

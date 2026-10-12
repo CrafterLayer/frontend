@@ -36,6 +36,8 @@ describe('Grid', () => {
       'pricing',
       'testimonials',
       'comparisonTable',
+      'table',
+      'chart',
       'faq',
       'blogGrid',
       'contact',

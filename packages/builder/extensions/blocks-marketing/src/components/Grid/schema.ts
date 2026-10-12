@@ -40,6 +40,8 @@ const GRID_CHILDREN = [
   'pricing',
   'testimonials',
   'comparisonTable',
+  'table',
+  'chart',
   'faq',
   'blogGrid',
   'contact',

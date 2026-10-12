@@ -1,0 +1,88 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ChartStories from './Chart.stories';
+
+<Meta of={ChartStories} />
+
+# Chart
+
+A data chart drawn as hand-built, accessible SVG: bar, line, area, pie or donut. It needs no chart
+library and no client script, so the published page shows the same picture the canvas does.
+
+## Content model
+
+- `title` and `description` (both optional) form the `<figcaption>`. The title names the picture
+  (`role="img"`, `aria-labelledby`); the description is its accessible description. An untitled
+  chart is named by its series.
+- `chartType: 'bar' | 'line' | 'area' | 'pie' | 'donut' = 'bar'`.
+- `categories`: up to 24 labels — the x axis, or the slices of a pie.
+- `series`: up to six `{ name, values: number[] }`, one value per category. Values past the last
+  category are kept but not drawn; a missing value draws no bar and breaks a line. Pie and donut
+  plot the first series only.
+- `stacked: boolean = false` stacks bars (positives up, negatives down) and areas (negatives count
+  as zero).
+- `valuePrefix` / `valueSuffix` (for example `$`, `%`, ` ر.س`) frame every printed value; axis ticks
+  compact thousands (`12K`).
+- `showLegend = true`, `showValues = false`, `showGrid = true`.
+- `palette: 'accent' | 'mixed' | 'mono' | 'success' = 'accent'`, `height: 'sm' | 'md' | 'lg'`,
+  `variant: 'card' | 'plain' = 'card'`, plus the shared section props.
+- `otherLabel = 'Other'` names the slice a pie folds its smallest values into past eight slices.
+
+Inserted from the Library, the block starts as a four-quarter, two-series bar chart.
+
+## How it is drawn
+
+`chart-geometry.ts` (pure: nice ticks, bar paths, line and area paths, pie and donut arcs),
+`chart-format.ts` (how numbers print) and `chart-model.ts` (what to draw where) compute everything;
+`chart-plot.tsx`, `chart-pie.tsx` and `chart-keys.tsx` only map that model to elements, and
+`Chart.tsx` frames them. None of these is in `schema.ts`'s import chain.
+
+- **Size.** A bar, line or area plot is as wide as its column and as tall as `height` says (`h-48`,
+  `h-64`, `h-80`): the SVG stretches to that box (`preserveAspectRatio="none"`), so a chart in a
+  wide column does not grow tall. Everything that must stay thin or round is drawn with a
+  non-scaling stroke.
+- **Marks.** Bars are capped in width, rounded at their data end and square at the baseline, with a
+  2-unit gap between grouped bars and stacked segments. Lines are 2px, line markers are round dots
+  with a ring in the ground colour, area fills are a wash. Gridlines are hairlines in the section's
+  ink at low opacity, with a stronger zero line. A pie or donut keeps its square proportions.
+- **Text in HTML.** Tick labels, category labels, value labels and the legend are HTML laid over the
+  SVG by percentage, so they stay crisp at any size and never mirror. Text wears text tokens, never
+  the series colour; a swatch beside each name carries identity.
+- **RTL.** On an RTL page the SVG mirrors (`rtl:-scale-x-100`), so the first category sits at the
+  inline start; the HTML labels follow the page direction on their own. A negative number keeps its
+  minus sign in front through a left-to-right isolate.
+- **Colour.** A palette is an ordered list of theme roles — `accent`, `success`, `text-muted` and
+  `current` (the section's own ink) — with opacity steps. Adjacent slots alternate hue and neutral.
+  No hex value exists anywhere in the block; re-pointing the theme repaints every chart.
+- **Crowding.** Past 40 value labels only the last category is labelled; past eight categories the
+  axis keeps every second (past sixteen, every third) label once the container narrows; past eight
+  positive values a pie folds the smallest into one `otherLabel` slice.
+- **Hover without script.** Every bar, marker and slice carries an SVG `<title>` with its category,
+  series and value.
+
+## Accessibility
+
+The SVG is one named image. The numbers behind it are a visually hidden `<table>` — one row per
+category with a row header, one column per series with a column header — so a screen reader can read
+the data instead of a picture of it. The visual axis and value labels are `aria-hidden` because the
+table carries them. Legend items stay readable as a list.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1), editable on the canvas, styled through
+`partStyles` and addressable by the agent. The numbers are Inspector rows: a value is a number, not
+text to edit in place.
+
+| name           | kind | bind            | label (en / ar)                          |
+| -------------- | ---- | --------------- | ---------------------------------------- |
+| `title`        | text | `title`         | Title / العنوان                          |
+| `description`  | text | `description`   | Description / الوصف (multiline)          |
+| `categories`   | list | `categories`    | Categories / الفئات                      |
+| `category`     | text | `categories.*`  | Category / الفئة                         |
+| `series`       | list | `series`        | Data series / السلاسل                    |
+| `dataset`      | item | `series.*`      | Series / السلسلة                         |
+| `otherLabel`   | text | `otherLabel`    | Other slice label / تسمية الشريحة الأخرى |
+| `dataset.name` | text | `series.*.name` | Series name / اسم السلسلة                |
+
+Category labels sit on the x axis of a bar, line or area chart and in the legend of a pie or donut;
+series names sit in the legend, which a single-series chart does not draw.

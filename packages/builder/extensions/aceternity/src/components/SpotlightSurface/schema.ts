@@ -16,6 +16,8 @@ const SPOTLIGHT_CHILDREN = [
   'features',
   'bento-grid',
   'stats',
+  'table',
+  'chart',
   'testimonials',
   'pricing',
   'cta',

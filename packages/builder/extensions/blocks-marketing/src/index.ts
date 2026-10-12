@@ -9,6 +9,7 @@ import { AnnouncementBar, announcementBarSchema } from './components/Announcemen
 import { BentoGrid, bentoGridSchema } from './components/BentoGrid';
 import { BlogGrid, blogGridSchema } from './components/BlogGrid';
 import { Carousel, carouselSchema } from './components/Carousel';
+import { Chart, chartSchema } from './components/Chart';
 import { ComparisonTable, comparisonTableSchema } from './components/ComparisonTable';
 import { Contact, contactSchema } from './components/Contact';
 import { ContentSection, contentSectionSchema } from './components/ContentSection';
@@ -34,6 +35,7 @@ import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
 import { Testimonials, testimonialsSchema } from './components/Testimonials';
 import { LogoCloud, logoCloudSchema } from './components/LogoCloud';
 import { Stats, statsSchema } from './components/Stats';
+import { Table, tableSchema } from './components/Table';
 import { Team, teamSchema } from './components/Team';
 import { VideoSection, videoSectionSchema } from './components/VideoSection';
 
@@ -71,6 +73,9 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: pricingPlanSchema, render: PricingPlan },
       { schema: testimonialsSchema, render: Testimonials },
       { schema: comparisonTableSchema, render: ComparisonTable },
+      // Data: a rows-and-columns table and an SVG chart, both script-free when published.
+      { schema: tableSchema, render: Table },
+      { schema: chartSchema, render: Chart },
       { schema: faqSchema, render: Faq },
       { schema: blogGridSchema, render: BlogGrid },
       { schema: contactSchema, render: Contact },
@@ -105,6 +110,7 @@ export {
 export { BentoGrid, bentoGridSchema, type BentoGridProps } from './components/BentoGrid';
 export { BlogGrid, blogGridSchema, type BlogGridProps } from './components/BlogGrid';
 export { Carousel, carouselSchema, type CarouselProps } from './components/Carousel';
+export { Chart, chartSchema, type ChartProps } from './components/Chart';
 export {
   ComparisonTable,
   comparisonTableSchema,
@@ -148,6 +154,7 @@ export {
   type TestimonialsProps,
 } from './components/Testimonials';
 export { Stats, statsSchema, type StatsProps } from './components/Stats';
+export { Table, tableSchema, type TableProps } from './components/Table';
 export { Team, teamSchema, type TeamProps } from './components/Team';
 export {
   VideoSection,

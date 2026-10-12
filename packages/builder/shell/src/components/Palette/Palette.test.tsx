@@ -268,6 +268,9 @@ describe('Palette (006 contract §4)', () => {
           block('marquee', 'Marquee'),
           block('shimmerButton', 'Shimmer button'),
           block('dotPatternSurface', 'Dot pattern surface'),
+          block('table', 'Data table'),
+          block('chart', 'Data chart'),
+          block('comparisonTable', 'Plan comparison table'),
         ],
       },
     });
@@ -304,6 +307,10 @@ describe('Palette (006 contract §4)', () => {
       ['Marquee', 'grid'],
       ['Shimmer Button', 'action'],
       ['Dot Pattern Surface', 'hero'],
+      ['Table', 'table'],
+      ['Chart', 'chart'],
+      // A comparison table keeps its plan-columns miniature, checked before `table`.
+      ['Comparison Table', 'pricing'],
     ] as const;
 
     for (const [name, diagram] of expectedDiagrams) {
@@ -342,6 +349,18 @@ describe('Palette (006 contract §4)', () => {
     ]) {
       expect(within(primaryRegion!).getByRole('button', { name })).toBeInTheDocument();
     }
+
+    // Data blocks are content a person writes; the comparison table stays a marketing section.
+    const regionOf = (category: string) =>
+      document.getElementById(
+        screen.getByRole('button', { name: category }).getAttribute('aria-controls') ?? '',
+      )!;
+    for (const name of ['Table', 'Chart']) {
+      expect(within(regionOf('Content')).getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(
+      within(regionOf('Marketing')).getByRole('button', { name: 'Comparison Table' }),
+    ).toBeInTheDocument();
   });
 
   it('a selected CONTAINER receives the block inside it, not beside it', async () => {

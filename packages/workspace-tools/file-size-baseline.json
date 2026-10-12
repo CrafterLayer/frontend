@@ -144,7 +144,7 @@
     "packages/builder/shell/src/components/LayersTree/LayersTree.tsx": 929,
     "packages/builder/shell/src/components/LibraryPanel/library-presets.ts": 647,
     "packages/builder/shell/src/components/LibraryPanel/LibraryPanel.tsx": 595,
-    "packages/builder/shell/src/components/Palette/Palette.tsx": 740,
+    "packages/builder/shell/src/components/Palette/Palette.tsx": 665,
     "packages/builder/shell/src/custom-code/element-fields.ts": 515,
     "packages/builder/shell/src/inline/dom-range.ts": 573,
     "packages/builder/shell/src/inline/mark-range.test.ts": 1002,

@@ -1,0 +1,68 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TableStories from './Table.stories';
+
+<Meta of={TableStories} />
+
+# Table
+
+A semantic data table for anything that is rows and columns: schedules, opening hours, price lists,
+shipping rates, specifications. Use `comparisonTable` instead when the columns are plans or products
+competing with each other.
+
+## Content model
+
+- `title` (optional) is the visible `h2`; it names the section and the table through
+  `aria-labelledby`.
+- `caption` (optional) is a real `<caption>`, drawn under the table. Without a title it is the
+  table's name.
+- Up to eight `columns`, each `{ label, align: 'start' | 'center' | 'end' = 'start' }`.
+- Up to fifty `rows`, each `{ cells: string[] }` with up to eight cells. The columns decide how many
+  cells a row shows: a missing cell is drawn empty, a cell past the last column stays in the
+  document but is not drawn. A table with no columns falls back to its widest row and no header.
+- `headerRow: boolean = true` draws the column labels as `<th scope="col">`.
+- `firstColumnIsHeader: boolean = true` draws each row's first cell as `<th scope="row">`.
+- `striped: boolean = false`, `density: 'comfortable' | 'compact' = 'comfortable'`,
+  `variant: 'boxed' | 'minimal' = 'boxed'`.
+- `scrollLabel` localises the accessible name of the horizontal scroll region.
+- The shared section props: `align`, `tone`, `spacing`, `width`, colour roles, motion, typography,
+  gutter, custom classes and `partStyles`.
+
+Inserted from the Library, the block starts as a three-column, four-row sample (service, duration,
+price) so its shape is obvious before anything is typed.
+
+## Accessibility, direction and narrow screens
+
+Column labels are column headers and the first cell of each row is a row header, so every value is
+announced with both. The table sits in a `role="region"` scroll container that is keyboard-focusable
+and labelled by `scrollLabel`: on a phone, a wide table keeps its shape and scrolls instead of
+crushing its columns.
+
+Alignment is logical (`text-start`, `text-end`), so the same document reads correctly in Arabic and
+English. A cell's text gets its own direction through `<bdi>` rather than `dir="auto"` on the cell:
+an English product name in an Arabic table stays in its column's alignment instead of jumping to the
+left edge. Numbers use tabular figures so a column of prices lines up.
+
+Rules, the header band and stripes are drawn in the section's own ink (`current` at low opacity), so
+a minimal table on a dark section draws light rules rather than dark-on-dark ones. Nothing in the
+block holds a colour value; every class resolves through a theme token.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`row.cell` for every cell, `row.cell@2.1` for the third row's second
+cell), and addressable by the agent by name, alias or label.
+
+| name           | kind | bind              | label (en / ar)               |
+| -------------- | ---- | ----------------- | ----------------------------- |
+| `title`        | text | `title`           | Heading / العنوان             |
+| `caption`      | text | `caption`         | Caption / التعليق (multiline) |
+| `columns`      | list | `columns`         | Columns / الأعمدة             |
+| `column`       | item | `columns.*`       | Column / العمود               |
+| `column.label` | text | `columns.*.label` | Column heading / عنوان العمود |
+| `rows`         | list | `rows`            | Rows / الصفوف                 |
+| `row`          | item | `rows.*`          | Row / الصف                    |
+| `row.cell`     | text | `rows.*.cells.*`  | Cell / الخلية                 |
+
+A missing cell has no value to edit in place; add it from the Inspector's row editor. `scrollLabel`
+is read only by assistive technology, so it stays an Inspector row.

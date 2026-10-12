@@ -9,6 +9,7 @@ import '../../styles/visually-hidden.css';
 import './Palette.css';
 import { localBlockName } from '../../i18n/block-names';
 import { diagramForBlockType } from './diagrams';
+import { KNOWN_BLOCK_NAMES } from './known-block-names';
 import { PALETTE_LABELS_EN, type PaletteCategory, type PaletteLabels } from './Palette.labels';
 // library-playground additions (2026-10-08): photo template cards, ordered by the page language.
 import {
@@ -28,84 +29,6 @@ const PALETTE_CATEGORIES = [
   'Marketing',
   'Primary',
 ] as const satisfies readonly PaletteCategory[];
-
-const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
-  action: 'Action',
-  accordion: 'Accordion',
-  accordionitem: 'Accordion Item',
-  announcement: 'Announcement',
-  aurorabackground: 'Aurora Background',
-  banner: 'Banner',
-  bentogrid: 'Bento Grid',
-  badge: 'Badge',
-  breadcrumbs: 'Breadcrumbs',
-  bloggrid: 'Blog Grid',
-  button: 'Button',
-  card: 'Card',
-  carousel: 'Carousel',
-  columns: 'Columns',
-  container: 'Container',
-  contact: 'Contact',
-  contentsection: 'Content Section',
-  comparisontable: 'Comparison Table',
-  cloudshader: 'Cloud Shader',
-  cta: 'CTA',
-  divider: 'Divider',
-  dialog: 'Dialog',
-  dotpatternsurface: 'Dot Pattern Surface',
-  embed: 'Embed',
-  faq: 'FAQ',
-  feature: 'Feature',
-  features: 'Features',
-  footer: 'Footer',
-  form: 'Form',
-  formsection: 'Form Section',
-  gallery: 'Gallery',
-  grid: 'Grid',
-  heading: 'Heading',
-  hero: 'Hero',
-  image: 'Image',
-  logocloud: 'Logo Cloud',
-  marquee: 'Marquee',
-  media: 'Media',
-  navbar: 'Navigation',
-  navigation: 'Navigation',
-  page: 'Page',
-  pagefooter: 'Page Footer',
-  pageheader: 'Page Header',
-  paragraph: 'Paragraph',
-  pagination: 'Pagination',
-  processsteps: 'Process Steps',
-  portfoliogrid: 'Portfolio Grid',
-  productgrid: 'Product Grid',
-  progress: 'Progress',
-  promobanner: 'Promo Banner',
-  plan: 'Plan',
-  pricing: 'Pricing',
-  quote: 'Quote',
-  review: 'Review',
-  richtext: 'Rich Text',
-  row: 'Row',
-  section: 'Section',
-  separator: 'Separator',
-  shadcnalert: 'Alert',
-  shineborder: 'Shine Border',
-  shimmerbutton: 'Shimmer Button',
-  stats: 'Stats',
-  spacer: 'Spacer',
-  stack: 'Stack',
-  spotlightsurface: 'Spotlight Surface',
-  tabpanel: 'Tab Panel',
-  tabs: 'Tabs',
-  testimonial: 'Testimonial',
-  testimonials: 'Testimonials',
-  team: 'Team',
-  text: 'Text',
-  video: 'Video',
-  videosection: 'Video Section',
-  newsletter: 'Newsletter',
-  avatargroup: 'Avatar Group',
-};
 
 interface PaletteEntry {
   readonly category: PaletteCategory;
@@ -194,6 +117,8 @@ function categoryForBlock(type: string): PaletteCategory {
     key.includes('media') ||
     key.includes('video') ||
     key.includes('embed') ||
+    key.includes('table') ||
+    key.includes('chart') ||
     key.includes('form') ||
     /*
       A row of links is CONTENT — it is words a person writes. The marketing

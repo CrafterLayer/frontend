@@ -9,6 +9,7 @@ interface DiagramPart {
 
 type BlockDiagramKind =
   | 'action'
+  | 'chart'
   | 'columns'
   | 'generic'
   | 'grid'
@@ -16,6 +17,7 @@ type BlockDiagramKind =
   | 'media'
   | 'pricing'
   | 'section'
+  | 'table'
   | 'testimonial'
   | 'text';
 
@@ -110,6 +112,25 @@ function sectionDiagram(): readonly DiagramPart[] {
   ];
 }
 
+function tableDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
+    { key: 'row-1', x: 2, y: 9, width: 30, height: 3, opacity: 0.3 },
+    { key: 'row-2', x: 2, y: 13.5, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-3', x: 2, y: 18, width: 30, height: 3, opacity: 0.3 },
+  ];
+}
+
+function chartDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'bar-1', x: 4, y: 13, width: 4, height: 8, opacity: 0.45 },
+    { key: 'bar-2', x: 11, y: 8, width: 4, height: 13, opacity: 0.72 },
+    { key: 'bar-3', x: 18, y: 11, width: 4, height: 10, opacity: 0.45 },
+    { key: 'bar-4', x: 25, y: 4, width: 4, height: 17, opacity: 0.9 },
+    { key: 'axis', x: 2, y: 21, width: 30, height: 1, opacity: 0.35 },
+  ];
+}
+
 function genericDiagram(): readonly DiagramPart[] {
   return [
     { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
@@ -128,6 +149,13 @@ export function diagramForBlockType(type: string): BlockDiagram {
 
   if (key.includes('pricing') || key.includes('plan') || key.includes('comparison')) {
     return { kind: 'pricing', parts: pricingDiagram() };
+  }
+  // After pricing, so a comparison table keeps its plan-columns miniature.
+  if (key.includes('table')) {
+    return { kind: 'table', parts: tableDiagram() };
+  }
+  if (key.includes('chart')) {
+    return { kind: 'chart', parts: chartDiagram() };
   }
   if (key.includes('testimonial') || key.includes('review') || key.includes('quote')) {
     return { kind: 'testimonial', parts: testimonialDiagram() };

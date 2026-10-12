@@ -18,7 +18,7 @@
  */
 export const FREE_CODE_CARD = `FREE CODE MODE is ON: real page JavaScript and custom PixiJS scenes are allowed. It OVERRIDES any "needs a code page" or "cannot" answer above: write the code.
 WHERE: the "js" prop of a customCode block (max 32000 chars), beside "css": insertNode props.js, or setProp {id,key:"js",value}. No <script> tag.
-LAYOUT: size a stage by its width, never vh (editor and screens differ): .ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}. Text over the canvas: position:relative;z-index:1, short, at an edge.
+LAYOUT: size a stage by its width, never vh (editor and screens differ): .ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px}. Text over the canvas: position:relative;z-index:1, short, at an edge.
 RUNTIME: js is the BODY of an async function of one parameter ck, run once per mount in the page (window, document reachable); errors are logged.
 ck.root the region element: draw only inside it. ck.editor true on the editor canvas. ck.reducedMotion true when motion is unwanted. ck.onDispose(fn) cleanup: timers, listeners, observers, frames.
 await ck.pixi() the full pixi.js v8 namespace. await ck.stage({background?,pointer?,resolution?}) -> {PIXI,app,canvas}: a ready transparent PIXI.Application filling ck.root as it resizes (clicks only with pointer:true), destroyed on dispose; re-lay out on app.renderer.on('resize',fn).

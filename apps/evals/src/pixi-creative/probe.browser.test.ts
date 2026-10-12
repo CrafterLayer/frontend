@@ -43,9 +43,9 @@ const THEME = `html{--t-surface:#101525;--t-text:#f1f5f9;--t-accent:#67e8f9;--t-
 button{background:#f1f5f9;color:#172033;border:1px solid #94a3b8;border-radius:6px;padding:8px;margin:3px}`;
 /**
  * The free-code card's LAYOUT line — a 16:9 stage with a 320px floor, text over the canvas at
- * position:relative;z-index:1 — plus `width:100%`. Without it, Chromium transfers the min-height
- * through the aspect ratio into a min-width (320 × 16/9 ≈ 569px) and the section runs 179px past
- * a 390px phone: the probe's first real find, pinned in the broken corpus below.
+ * position:relative;z-index:1 — with `width:100%`. CARD_STAGE is the line before it had that:
+ * Chromium transfers the min-height through the aspect ratio into a min-width (320 × 16/9 ≈ 569px)
+ * and the section ran 179px past a 390px phone — the probe's first real find, now in the card.
  */
 const CARD_STAGE = '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}';
 const TAUGHT_CSS = `.ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px}.ck-text{position:relative;z-index:1;padding:12px}`;
@@ -143,14 +143,14 @@ function taughtRegion(js: string, controls: string): string {
 }
 
 /**
- * Real faults the probe found in the taught corpus (2026-10-12), kept visible until the example is
- * fixed — any OTHER finding fails the test. The "shader aurora" fragment shader declares
- * uInputSize/uOutputFrame without a precision, so Chromium refuses to link it ("Precisions of
- * uniform 'uInputSize' differ between VERTEX and FRAGMENT shaders") and the canvas stays empty;
- * starting it with 'precision highp float;' fixes it (probed clean).
+ * Real faults the probe found in the taught corpus, kept visible here until the example is fixed —
+ * any OTHER finding fails the test. Empty since 2026-10-12: the "shader aurora" fragment shader
+ * declared uInputSize/uOutputFrame without a precision, so Chromium refused to link it
+ * ("Precisions of uniform 'uInputSize' differ between VERTEX and FRAGMENT shaders") and the
+ * canvas stayed empty; it now starts with 'precision highp float;'.
  */
 const KNOWN_FINDINGS: readonly RegExp[] = [
-  /^craftkit\.pixi-v8-effects e\.g\. 1: scene-runtime: The scene threw "PixiJS Error: Could not initialize shader\."/u,
+  // (none)
 ];
 
 /* ── the broken corpus: written sections (trees), each wrong in one way a rule names ── */

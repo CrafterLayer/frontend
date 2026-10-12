@@ -80,7 +80,7 @@ const MAX_ID = 120;
 
 /** A new scene section: sized by its width, never by the viewport. */
 export const SCENE_SECTION_CSS =
-  '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320px;max-height:720px}';
+  '.ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px;max-height:720px}';
 /** A region hosting a scene behind its content: the content above the canvas, see-through. */
 export const SCENE_HOST_CSS =
   '.ck-scene-host{position:relative;z-index:1;background:transparent;min-height:320px}';

@@ -337,7 +337,7 @@ function heightFindings(source: SceneSource, section: LandedSection): readonly S
   return [
     finding(
       'scene-height',
-      "Give the region a height in its css — e.g. .ck-scene{position:relative;aspect-ratio:16/9;min-height:320px} on the section's element, or min-h-[420px] on it in the tree: the scene's canvas fills the region, and a region with no height draws a blank canvas.",
+      "Give the region a height in its css — e.g. .ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px} on the section's element, or min-h-[420px] on it in the tree: the scene's canvas fills the region, and a region with no height draws a blank canvas.",
       source,
       opens.index,
     ),

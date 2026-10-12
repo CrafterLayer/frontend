@@ -22,7 +22,7 @@ import type { LandedSection, SectionCheckCode } from './types';
 */
 
 /** What the region's css is taught to say (the free-code card's LAYOUT line). */
-const TAUGHT_CSS = '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}';
+const TAUGHT_CSS = '.ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px}';
 
 /** The free-code card's DOM example names its own tree: `<b data-count="250"> in the tree`. */
 const CARD_TREE = "<b data-count='250'>0</b>";

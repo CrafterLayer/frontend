@@ -1,0 +1,67 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as DefaultSkillsListStories from './DefaultSkillsList.stories';
+
+<Meta of={DefaultSkillsListStories} />
+
+# DefaultSkillsList
+
+The default skills every project starts with (2026-10-12), in the Skills tab of "Skills & memory".
+
+<Canvas of={DefaultSkillsListStories.Default} />
+
+## Purpose
+
+Other agents ship skills of their own; CraftKit ships seven, reviewed, on for every person:
+
+| skill                               | what it teaches                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| Design intelligence (UI UX Pro Max) | for 29 kinds of business: the pattern, colours, type, effects and must-haves    |
+| Landing patterns that convert       | 14 section orders, where the call to action goes, the rule that makes each work |
+| Interaction and UX rules            | touch targets, focus, feedback, layout, mobile first, motion                    |
+| Type pairing and colour             | verified font pairs by mood (Latin and Arabic), one accent, contrast            |
+| Forms people finish                 | few labelled fields, right input types, honest errors and submit states         |
+| Natural Arabic copy                 | clear MSA, verb-first calls to action, Arabic punctuation, one digit system     |
+| Honest trust and proof              | testimonials, numbers, credentials and guarantees, never invented               |
+
+The first four distil UI UX Pro Max's data (Next Level Builder, MIT). The text lives in the engine
+(`CRAFTKIT_DEFAULT_SKILLS` in `@craftkit/builder-ai`), where tests hold every font to the verified
+families, every class to the utility vocabulary and every tool to the agent's own. Each skill turns
+on by its own words in English and Arabic and ranks below the engine's built-ins.
+
+## When to use / not
+
+SkillsTab draws it between the person's own skills and the starter templates, with
+`knowledge.skills.defaults` and `setDefaultEnabled`. "Make it my own" opens New skill on a copy
+(`defaultSkillDraft`); saving it switches the default off, so the two never both apply.
+
+## Props
+
+| prop        | type                                     | notes                                        |
+| ----------- | ---------------------------------------- | -------------------------------------------- |
+| `skills`    | `readonly DefaultSkillView[]`            | `defaultSkillViews(locale, disabled)`        |
+| `labels`    | `KnowledgeLabels`                        | `knowledgeLabels(locale)`; uses `defaults.*` |
+| `onToggle`  | `(id: string, enabled: boolean) => void` | the knowledge view's `setDefaultEnabled`     |
+| `onMakeOwn` | `(skill: DefaultSkillView) => void`      | opens New skill on the copy                  |
+
+## States
+
+| story                    | what it shows                                      |
+| ------------------------ | -------------------------------------------------- |
+| `Default`, `Dark`        | all seven on, "7 of 7 on"                          |
+| `RightToLeft`, `DarkRTL` | Arabic names and descriptions                      |
+| `SomeOff`                | two off at reduced strength; a switch turns one on |
+| `Teaches`                | the exact instructions, open                       |
+| `MakeOwn`                | "Make it my own" hands the skill to New skill      |
+
+## Accessibility
+
+- The section is a region named by its heading; each switch is named "Use {name}".
+- "What it teaches the Agent" is a native disclosure; the instructions scroll on their own and take
+  a tab stop so a keyboard can scroll them.
+- "Make {name} my own" is a named icon button with a matching title.
+
+## RTL
+
+Logical properties only. Names and descriptions run in their own direction (`dir="auto"`); the
+instructions are English and stay left to right.

@@ -16,6 +16,8 @@ export {
   type ResolveAiCommandPolicyOptions,
 } from './command-policy';
 export { CRAFTKIT_AI_SKILL_DEFINITIONS, createCraftkitAiSkillRegistry } from './builtins';
+// default skills (2026-10-12): on for every person in a host that opts in, each switchable.
+export { CRAFTKIT_DEFAULT_SKILLS } from './defaults';
 export { AiCommandPolicyError, AiSkillRegistryError, AiSkillResolutionError } from './errors';
 export { AI_SKILL_MAX_REGISTRY_SIZE, createAiSkillRegistry } from './registry';
 export {

@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { defaultSkillViews } from './default-skills';
 import type { BuiltInSkillView } from './knowledge';
 import {
   commandOf,
@@ -125,5 +126,26 @@ describe('slashCommands', () => {
       'Green is ours',
     );
     expect(textBeforeSlash('/rem', { query: 'rem', start: 0 })).toBe('');
+  });
+});
+
+describe('slashOptions with the default skills', () => {
+  it('lists the enabled defaults after the person’s skills and before the built-ins', () => {
+    const defaults = defaultSkillViews('en', ['craftkit.trust-proof']);
+    const options = slashOptions(SKILLS, BUILT_INS, '', [], defaults);
+    expect(options.map(({ source }) => source)).toEqual([
+      'user',
+      'user',
+      ...Array.from({ length: defaults.length - 1 }, () => 'default'),
+      'builtin',
+      'builtin',
+    ]);
+    expect(options.find(({ id }) => id === 'craftkit.pro-max-design')?.command).toBe(
+      'pro-max-design',
+    );
+    expect(options.some(({ id }) => id === 'craftkit.trust-proof')).toBe(false);
+    expect(slashOptions(SKILLS, BUILT_INS, 'pro-max', [], defaults)[0]?.id).toBe(
+      'craftkit.pro-max-design',
+    );
   });
 });

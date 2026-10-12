@@ -118,8 +118,11 @@ function setup(props: LiveSkillsProps = {}) {
   return userEvent.setup();
 }
 
+/** The person's own skills' switches (the default skills have theirs in their own section). */
 function switches(): HTMLElement[] {
-  return screen.queryAllByRole('switch');
+  return screen
+    .queryAllByRole('switch')
+    .filter((element) => element.closest('.ck-agent-defaults') === null);
 }
 
 /** The hidden file input behind "Upload .md or .mdx". */
@@ -145,6 +148,28 @@ describe('SkillsTab', () => {
     expect(screen.getByText('3 of 24')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New skill' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument();
+  });
+
+  it('makes a default skill the person’s own: a copy to edit, and the default switched off', async () => {
+    const user = setup({ skills: [] });
+    const defaults = screen.getByRole('region', { name: EN.defaults.title });
+    await user.click(
+      within(defaults).getByRole('button', { name: 'Make Forms people finish my own' }),
+    );
+    expect(screen.getByRole('heading', { name: 'New skill' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Forms people finish');
+    expect(screen.getByDisplayValue(/FEWER FIELDS/u)).toBe(
+      screen.getByRole('textbox', { name: 'Instructions' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save skill' }));
+    expect(switches()).toHaveLength(1);
+    expect(switches()[0]).toHaveAccessibleName('Use Forms people finish');
+    expect(
+      within(screen.getByRole('region', { name: EN.defaults.title })).getByRole('switch', {
+        name: 'Use Forms people finish',
+      }),
+    ).not.toBeChecked();
+    expect(screen.getByText(EN.defaults.owned('Forms people finish'))).toBeInTheDocument();
   });
 
   it('writes a new skill: New skill opens the editor, Save adds the row', async () => {

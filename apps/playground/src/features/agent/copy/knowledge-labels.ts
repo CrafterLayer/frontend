@@ -76,6 +76,8 @@ export interface KnowledgeLabels {
   readonly slash: {
     readonly label: string;
     readonly yours: string;
+    /** Above the default skills in the list (2026-10-12). */
+    readonly defaults: string;
     readonly builtIn: string;
     readonly manage: string;
     readonly empty: string;
@@ -89,6 +91,16 @@ export interface KnowledgeLabels {
     readonly remembered: string;
     readonly checkpointSaved: (label: string) => string;
     readonly checkpointFailed: string;
+  };
+  /** The default skills every project starts with (2026-10-12). */
+  readonly defaults: {
+    readonly title: string;
+    readonly intro: string;
+    readonly count: (on: number, total: number) => string;
+    readonly use: (name: string) => string;
+    readonly teaches: string;
+    readonly own: (name: string) => string;
+    readonly owned: (name: string) => string;
   };
   readonly templates: {
     readonly title: string;
@@ -205,6 +217,7 @@ const EN: KnowledgeLabels = {
   slash: {
     label: 'Skills',
     yours: 'Your skills',
+    defaults: 'Default skills',
     builtIn: 'Built-in',
     manage: 'Manage skills & memory',
     empty: 'No skill by that name.',
@@ -220,6 +233,16 @@ const EN: KnowledgeLabels = {
     remembered: 'Remembered. The Agent reads it in every request.',
     checkpointSaved: (label) => `Checkpoint saved: ${label}.`,
     checkpointFailed: 'The checkpoint was not saved.',
+  },
+  defaults: {
+    title: 'Default skills',
+    intro:
+      'Every project starts with these. Switch one off, or make your own copy to change it.',
+    count: (on, total) => `${String(on)} of ${String(total)} on`,
+    use: (name) => `Use ${name}`,
+    teaches: 'What it teaches the Agent',
+    own: (name) => `Make ${name} my own`,
+    owned: (name) => `Your copy of ${name} is on; the default is off.`,
   },
   templates: {
     title: 'Start from a template',
@@ -340,6 +363,7 @@ const AR: KnowledgeLabels = {
   slash: {
     label: 'المهارات',
     yours: 'مهاراتك',
+    defaults: 'المهارات الافتراضية',
     builtIn: 'المدمجة',
     manage: 'إدارة المهارات والذاكرة',
     empty: 'لا مهارة بهذا الاسم.',
@@ -355,6 +379,15 @@ const AR: KnowledgeLabels = {
     remembered: 'حُفظت في الذاكرة. يقرؤها الوكيل في كل طلب.',
     checkpointSaved: (label) => `حُفظت النقطة: ${label}.`,
     checkpointFailed: 'لم تُحفظ النقطة.',
+  },
+  defaults: {
+    title: 'المهارات الافتراضية',
+    intro: 'يبدأ كل مشروع بهذه المهارات. أوقف ما لا تحتاجه، أو أنشئ نسختك منها لتعدّلها.',
+    count: (on, total) => `${String(on)} من ${String(total)} مفعّلة`,
+    use: (name) => `استخدم ${name}`,
+    teaches: 'ما تعلّمه للوكيل',
+    own: (name) => `اجعل ${name} مهارتي`,
+    owned: (name) => `نسختك من ${name} مفعّلة، والافتراضية متوقفة.`,
   },
   templates: {
     title: 'ابدأ من قالب',

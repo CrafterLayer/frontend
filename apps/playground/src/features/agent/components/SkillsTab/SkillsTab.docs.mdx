@@ -87,3 +87,11 @@ read from its raw file, and a folder link (`/tree/…`) from the SKILL.md inside
 the box, and a status line names the host it came from, so the person reads it before Add skill. A
 link never adds a skill on its own. Plain http, web pages, files over 64 KB, empty files and
 unanswered links are refused with the reason. The fetch sends no cookies.
+
+## Default skills
+
+Between the person's own skills and the starter templates sits DefaultSkillsList: the seven reviewed
+skills every project starts with (`CRAFTKIT_DEFAULT_SKILLS`, design intelligence from UI UX Pro Max
+among them). Each has a switch kept per viewer, its exact instructions behind "What it teaches the
+Agent", and "Make it my own", which opens New skill on a copy; saving the copy switches the default
+off and the status line says so.

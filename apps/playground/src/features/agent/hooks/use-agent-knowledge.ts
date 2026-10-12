@@ -3,6 +3,11 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { createCraftkitAiSkillRegistry, type AiSkillRegistry } from '@craftkit/builder';
 
 import type { AgentCheckpoint, AgentCheckpointPort } from '../model/checkpoints';
+import {
+  createDefaultSkillsStore,
+  defaultSkillViews,
+  enabledDefaultDefinitions,
+} from '../model/default-skills';
 import type { AgentKnowledgeView, BuiltInSkillView } from '../model/knowledge';
 import type { AgentStorage } from '../model/migrate-sessions';
 import { createProjectMemoryStore } from '../model/project-memory';
@@ -10,6 +15,7 @@ import { skillMarkdown } from '../model/skill-markdown';
 import { MAX_PINNED_SKILLS } from '../model/skill-slash';
 import { userSkillDefinitions, userSkillIdsFor } from '../model/user-skills';
 import { createUserSkillsStore } from '../model/user-skills-store';
+import type { Locale } from '../model/view-types';
 
 import type { UseAgentControllerOptions } from './use-agent-controller';
 
@@ -27,8 +33,13 @@ const BUILT_INS: readonly BuiltInSkillView[] = BUILT_IN_REGISTRY.list()
   .filter((skill) => skill.source !== 'host')
   .map(({ id, name, description }) => ({ id, name, description }));
 
-/** The built-ins plus the person's enabled skills; the built-ins alone if theirs cannot load. */
-function registryWith(definitions: ReturnType<typeof userSkillDefinitions>): AiSkillRegistry {
+/**
+ * The built-ins plus the enabled default skills and the person's enabled skills; the built-ins
+ * alone if those cannot load.
+ */
+function registryWith(
+  definitions: Parameters<typeof createCraftkitAiSkillRegistry>[0] = [],
+): AiSkillRegistry {
   if (definitions.length === 0) return BUILT_IN_REGISTRY;
   try {
     return createCraftkitAiSkillRegistry(definitions);
@@ -42,6 +53,8 @@ export interface UseAgentKnowledgeOptions {
   readonly storage?: AgentStorage | null | undefined;
   /** The host's page keeper; without it there is no Checkpoints tab and no Restore. */
   readonly checkpoints?: AgentCheckpointPort | undefined;
+  /** The panel's language, for the default skills' names (English when absent). */
+  readonly locale?: Locale | undefined;
 }
 
 export type KnowledgeControllerOptions = Pick<
@@ -62,10 +75,14 @@ export interface UseAgentKnowledgeResult {
  * every run reads) and the checkpoints the host keeps.
  */
 export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAgentKnowledgeResult {
-  const { checkpoints } = options;
+  const { checkpoints, locale = 'en' } = options;
   const [stores] = useState(() => {
     const storage = options.storage === null ? undefined : (options.storage ?? browserStorage());
-    return { skills: createUserSkillsStore(storage), memory: createProjectMemoryStore(storage) };
+    return {
+      skills: createUserSkillsStore(storage),
+      memory: createProjectMemoryStore(storage),
+      defaults: createDefaultSkillsStore(storage),
+    };
   });
   const skills = useSyncExternalStore(
     stores.skills.subscribe,
@@ -73,6 +90,11 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     stores.skills.get,
   );
   const notes = useSyncExternalStore(stores.memory.subscribe, stores.memory.get, stores.memory.get);
+  const disabledDefaults = useSyncExternalStore(
+    stores.defaults.subscribe,
+    stores.defaults.get,
+    stores.defaults.get,
+  );
 
   const [items, setItems] = useState<readonly AgentCheckpoint[] | undefined>(undefined);
   useEffect(() => {
@@ -96,7 +118,18 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     };
   }, [checkpoints]);
 
-  const registry = useMemo(() => registryWith(userSkillDefinitions(skills)), [skills]);
+  const registry = useMemo(
+    () =>
+      registryWith([
+        ...enabledDefaultDefinitions(disabledDefaults),
+        ...userSkillDefinitions(skills),
+      ]),
+    [skills, disabledDefaults],
+  );
+  const defaults = useMemo(
+    () => defaultSkillViews(locale, disabledDefaults),
+    [locale, disabledDefaults],
+  );
   // The composer's `/` pins: kept while they name a skill the registry holds (one turned off
   // or deleted drops out), sent as the request's explicit skills.
   const [pinned, setPinned] = useState<readonly string[]>([]);
@@ -108,13 +141,17 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     () => ({
       ...(registry === BUILT_IN_REGISTRY ? {} : { skillRegistry: registry }),
       hostSkillIdsFor: (request: string) => [
-        ...new Set([...activePins, ...userSkillIdsFor(registry, skills, request)]),
+        ...new Set([
+          ...activePins,
+          ...userSkillIdsFor(registry, skills, request),
+          ...defaultSkillIdsFor(registry, defaults, request),
+        ]),
       ],
       ...(activePins.length === 0 ? {} : { selectedSkillIds: activePins }),
       extraContextProviders: notes.length === 0 ? [] : [stores.memory.provider],
       ...(checkpoints === undefined ? {} : { checkpoints }),
     }),
-    [registry, skills, activePins, notes.length, stores.memory.provider, checkpoints],
+    [registry, skills, defaults, activePins, notes.length, stores.memory.provider, checkpoints],
   );
 
   const view = useMemo<AgentKnowledgeView>(
@@ -142,6 +179,8 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
         unpin: (id) => {
           setPinned((current) => current.filter((entry) => entry !== id));
         },
+        defaults,
+        setDefaultEnabled: stores.defaults.setEnabled,
       },
       memory: {
         notes,
@@ -160,10 +199,28 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
             },
           }),
     }),
-    [skills, notes, items, stores, checkpoints, activePins, registry],
+    [skills, defaults, notes, items, stores, checkpoints, activePins, registry],
   );
 
   return { controllerOptions, view };
+}
+
+/** The enabled default skills a request's words turn on, offered to builds as host skills. */
+function defaultSkillIdsFor(
+  registry: AiSkillRegistry,
+  defaults: readonly { readonly id: string; readonly enabled: boolean }[],
+  request: string,
+): readonly string[] {
+  const enabled = new Set(defaults.filter((skill) => skill.enabled).map((skill) => skill.id));
+  if (enabled.size === 0) return [];
+  try {
+    return registry
+      .prepare({ request })
+      .active.map((skill) => skill.id)
+      .filter((id) => enabled.has(id));
+  } catch {
+    return [];
+  }
 }
 
 /**

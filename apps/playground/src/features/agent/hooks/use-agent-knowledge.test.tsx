@@ -89,11 +89,44 @@ describe('useAgentKnowledge', () => {
     expect(result.current.controllerOptions.extraContextProviders).toEqual([]);
   });
 
-  it('keeps the built-in registry, and no checkpoints tab, when the person has neither', () => {
+  it('starts every person on the default skills, with no checkpoints tab without a page keeper', () => {
     const { result } = renderHook(() => useAgentKnowledge({ storage: null }));
-    expect(result.current.controllerOptions.skillRegistry).toBeUndefined();
+    const registry = result.current.controllerOptions.skillRegistry;
+    expect(registry?.get('craftkit.pro-max-design')).toBeDefined();
+    expect(result.current.view.skills.defaults.every((skill) => skill.enabled)).toBe(true);
     expect(result.current.view.checkpoints).toBeUndefined();
     expect(result.current.controllerOptions.hostSkillIdsFor?.('anything')).toEqual([]);
+  });
+
+  it('keeps the built-in registry when every default is off and the person has none', () => {
+    const { result } = renderHook(() => useAgentKnowledge({ storage: null }));
+    act(() => {
+      for (const skill of result.current.view.skills.defaults) {
+        result.current.view.skills.setDefaultEnabled(skill.id, false);
+      }
+    });
+    expect(result.current.controllerOptions.skillRegistry).toBeUndefined();
+  });
+
+  it('offers the defaults a request names to builds, and stops when one is switched off', () => {
+    const { result } = renderHook(() => useAgentKnowledge({ storage: null, locale: 'ar' }));
+    const ids = () =>
+      result.current.controllerOptions.hostSkillIdsFor?.('صمم موقع هبوط لمقهى') ?? [];
+    expect(ids()).toEqual(
+      expect.arrayContaining([
+        'craftkit.pro-max-design',
+        'craftkit.pro-max-landing',
+        'craftkit.arabic-copy',
+      ]),
+    );
+    expect(result.current.view.skills.defaults[0]?.name).toBe('ذكاء التصميم (UI UX Pro Max)');
+    act(() => {
+      result.current.view.skills.setDefaultEnabled('craftkit.pro-max-design', false);
+    });
+    expect(ids()).not.toContain('craftkit.pro-max-design');
+    expect(
+      result.current.controllerOptions.skillRegistry?.get('craftkit.pro-max-design'),
+    ).toBeUndefined();
   });
 
   it('sends the person’s skills and memory to the engine, and checkpoints the edit it restores', async () => {

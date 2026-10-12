@@ -4,6 +4,7 @@
  * `useAgentKnowledge`; stories and tests build it from fixtures.
  */
 import type { AgentCheckpoint, CheckpointRestore } from './checkpoints';
+import type { DefaultSkillView } from './default-skills';
 import type { MemoryNote, MemoryNoteKind, MemoryWrite } from './project-memory';
 import type { UserSkill, UserSkillDraft } from './user-skills';
 import type { UserSkillWrite } from './user-skills-store';
@@ -30,6 +31,10 @@ export interface UserSkillsView {
   /** Pin a skill; `false` when the message already holds `MAX_PINNED_SKILLS`. */
   readonly pin: (id: string) => boolean;
   readonly unpin: (id: string) => void;
+  /** The default skills every project starts with, in the panel's language (2026-10-12). */
+  readonly defaults: readonly DefaultSkillView[];
+  /** Switch a default skill on or off for this viewer. */
+  readonly setDefaultEnabled: (id: string, enabled: boolean) => void;
 }
 
 export interface ProjectMemoryView {

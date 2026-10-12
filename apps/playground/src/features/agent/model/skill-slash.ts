@@ -4,6 +4,7 @@
  * the `/words` out of the draft and pins the skill to the next message, where the engine must
  * use it (an explicit selection). Pure functions; `useSkillSlash` and SkillSlash draw it.
  */
+import type { DefaultSkillView } from './default-skills';
 import type { BuiltInSkillView } from './knowledge';
 import type { UserSkill } from './user-skills';
 
@@ -51,7 +52,7 @@ export interface SlashOption {
   readonly description: string;
   /** What follows the slash: `/brand-voice`, `/copywriting`. */
   readonly command: string;
-  readonly source: 'user' | 'builtin';
+  readonly source: 'user' | 'default' | 'builtin';
 }
 
 /** The `/words` the draft ends on, when it ends on one (start of the message or after a space). */
@@ -89,15 +90,16 @@ function fold(text: string): string {
 }
 
 /**
- * The options for a query: the person's enabled skills first, then the built-ins; a skill
- * already pinned is left out. A query matches the start of a command or any word of the name,
- * then anywhere in the name or description.
+ * The options for a query: the person's enabled skills first, then the enabled default skills,
+ * then the built-ins; a skill already pinned is left out. A query matches the start of a command
+ * or any word of the name, then anywhere in the name or description.
  */
 export function slashOptions(
   skills: readonly UserSkill[],
   builtIns: readonly BuiltInSkillView[],
   query: string,
   pinned: readonly string[] = [],
+  defaults: readonly DefaultSkillView[] = [],
 ): readonly SlashOption[] {
   const options: SlashOption[] = [
     ...skills
@@ -108,6 +110,15 @@ export function slashOptions(
         description: skill.description,
         command: commandOf(skill.name),
         source: 'user',
+      })),
+    ...defaults
+      .filter((skill) => skill.enabled)
+      .map((skill): SlashOption => ({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        command: skill.id.replace(/^craftkit\./u, ''),
+        source: 'default',
       })),
     ...builtIns.map((skill): SlashOption => ({
       id: skill.id,

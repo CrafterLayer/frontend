@@ -1,10 +1,12 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react';
 
 import type { KnowledgeLabels } from '../../copy/knowledge-labels';
+import { defaultSkillDraft } from '../../model/default-skills';
 import type { UserSkillsView } from '../../model/knowledge';
 import { fetchSkillMarkdown, skillLinkOf, type Fetcher } from '../../model/skill-link';
 import type { SkillTemplate } from '../../model/skill-templates';
 import { EMPTY_SKILL_DRAFT, type UserSkillDraft } from '../../model/user-skills';
+import { DefaultSkillsList } from '../DefaultSkillsList';
 import { SkillEditor } from '../SkillEditor';
 import { SkillRow } from '../SkillRow';
 
@@ -28,7 +30,12 @@ export interface SkillsTabProps {
 const SKILL_FILES = '.md,.mdx,.markdown,text/markdown,text/x-markdown';
 
 type Editing =
-  | { readonly kind: 'new'; readonly draft?: UserSkillDraft | undefined }
+  | {
+      readonly kind: 'new';
+      readonly draft?: UserSkillDraft | undefined;
+      /** "Make it my own": the default this copies, switched off once the copy is saved. */
+      readonly from?: { readonly id: string; readonly name: string } | undefined;
+    }
   | { readonly kind: 'edit'; readonly id: string }
   | null;
 
@@ -38,7 +45,8 @@ function writeClipboard(text: string): Promise<void> {
 
 /**
  * The Skills tab (2026-10-12): the person's own skills — each with its switch, Edit, Copy as
- * SKILL.md and Delete — then New skill, Import (paste, or a link it fetches to read first) and Upload (.md or .mdx files, several
+ * SKILL.md and Delete — the default skills every project starts with (switch, read, make
+ * one your own) — then New skill, Import (paste, or a link it fetches to read first) and Upload (.md or .mdx files, several
  * at once), the starter templates, and under them the skills the Agent already has, so the
  * person sees what to add rather than repeat. Writing or importing a skill replaces the list
  * in place; Save or Cancel brings it back. Uploads and templates say what happened in one
@@ -111,7 +119,14 @@ export function SkillsTab({
         editing={kept !== undefined}
         onSave={(draft) => {
           const written = kept === undefined ? view.add(draft) : view.update(kept.id, draft);
-          if (written.ok) setEditing(null);
+          if (written.ok) {
+            const from = editing.kind === 'new' ? editing.from : undefined;
+            if (from !== undefined) {
+              view.setDefaultEnabled(from.id, false);
+              setStatus(labels.defaults.owned(from.name));
+            }
+            setEditing(null);
+          }
           return written;
         }}
         onCancel={() => {
@@ -272,6 +287,18 @@ export function SkillsTab({
           ))}
         </ul>
       )}
+      <DefaultSkillsList
+        skills={view.defaults}
+        labels={labels}
+        onToggle={view.setDefaultEnabled}
+        onMakeOwn={(skill) => {
+          setEditing({
+            kind: 'new',
+            draft: defaultSkillDraft(skill),
+            from: { id: skill.id, name: skill.name },
+          });
+        }}
+      />
       {unusedTemplates.length === 0 ? null : (
         <details className="ck-agent-skills__builtins ck-agent-skills__templates">
           <summary className="ck-agent-skills__summary">{labels.templates.title}</summary>

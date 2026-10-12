@@ -143,8 +143,10 @@ const ARABIC = {
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByRole('switch')).toHaveLength(3);
+    // The person's three, then the seven default skills in their own section.
+    await expect(canvas.getAllByRole('switch')).toHaveLength(10);
     await expect(canvas.getByText('3 of 24')).toBeVisible();
+    await expect(canvas.getByRole('region', { name: EN.defaults.title })).toBeVisible();
   },
 };
 

@@ -82,7 +82,7 @@ export function SkillSlash({
   const [note, setNote] = useState<string | undefined>(undefined);
   const open = token !== null && dismissedFor !== draft;
   const options = open
-    ? slashOptions(skills.skills, skills.builtIns, token.query, skills.pinned)
+    ? slashOptions(skills.skills, skills.builtIns, token.query, skills.pinned, skills.defaults)
     : [];
   const commands =
     open && onCommand !== undefined
@@ -203,10 +203,17 @@ export function SkillSlash({
     const own = skills.skills.find((skill) => skill.id === pinnedId);
     return {
       id: pinnedId,
-      name: own?.name ?? skills.builtIns.find((skill) => skill.id === pinnedId)?.name ?? pinnedId,
+      name:
+        own?.name ??
+        skills.defaults.find((skill) => skill.id === pinnedId)?.name ??
+        skills.builtIns.find((skill) => skill.id === pinnedId)?.name ??
+        pinnedId,
     };
   });
   const firstUser = rows.findIndex((row) => row.kind === 'skill' && row.option.source === 'user');
+  const firstDefault = rows.findIndex(
+    (row) => row.kind === 'skill' && row.option.source === 'default',
+  );
   const firstBuiltIn = rows.findIndex(
     (row) => row.kind === 'skill' && row.option.source === 'builtin',
   );
@@ -233,9 +240,11 @@ export function SkillSlash({
                   ? labels.commandsHeading
                   : index === firstUser
                     ? labels.yours
-                    : index === firstBuiltIn
-                      ? labels.builtIn
-                      : undefined;
+                    : index === firstDefault
+                      ? labels.defaults
+                      : index === firstBuiltIn
+                        ? labels.builtIn
+                        : undefined;
               const option = (
                 <li
                   key={

@@ -36,7 +36,7 @@ export function LiveAgentPanel({
   ...options
 }: LiveAgentPanelProps) {
   // The person's skills, the project memory and the checkpoints (2026-10-12).
-  const knowledge = useAgentKnowledge({ storage: options.storage, checkpoints });
+  const knowledge = useAgentKnowledge({ storage: options.storage, checkpoints, locale: options.locale });
   const controller = useAgentController({ ...options, ...knowledge.controllerOptions });
   useReleasePinsAfterRun(controller.state.run !== null, knowledge.view);
   useSiteSeam(controller, onSiteSeam);

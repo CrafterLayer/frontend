@@ -11,6 +11,7 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
 
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
+import type { Fetcher } from '../../model/skill-link';
 import { skillTemplates, type SkillTemplate } from '../../model/skill-templates';
 import type { UserSkill } from '../../model/user-skills';
 import type { Locale } from '../../model/view-types';
@@ -58,10 +59,12 @@ interface LiveSkillsProps {
   readonly clipboard: (text: string) => Promise<void>;
   /** Starter skills, as KnowledgePopover passes them (`skillTemplates(locale)`). */
   readonly templates?: readonly SkillTemplate[];
+  /** What answers a skill link (a stand-in: stories never reach the network). */
+  readonly fetcher?: Fetcher;
 }
 
 /** The tab over the real stores (`useAgentKnowledge`), seeded as the browser would hold them. */
-function LiveSkills({ locale, skills, clipboard, templates }: LiveSkillsProps) {
+function LiveSkills({ locale, skills, clipboard, templates, fetcher }: LiveSkillsProps) {
   const [storage] = useState(() => seededStorage(skills));
   const { view } = useAgentKnowledge({ storage });
   return (
@@ -70,6 +73,7 @@ function LiveSkills({ locale, skills, clipboard, templates }: LiveSkillsProps) {
       labels={knowledgeLabels(locale)}
       clipboard={clipboard}
       templates={templates}
+      fetcher={fetcher}
     />
   );
 }
@@ -286,5 +290,29 @@ export const Uploaded: Story = {
     await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('broken.md'));
     await expect(canvas.getByRole('status')).toHaveTextContent(EN.upload.imported(1));
     await expect(canvas.getByRole('switch', { name: 'Use Tone of voice' })).toBeVisible();
+  },
+};
+
+/** A link pasted into Import: fetched into the box to read, then Add skill adds it. */
+export const ImportFromLink: Story = {
+  args: {
+    skills: [],
+    fetcher: (url) => {
+      const response = new Response(MDX, { headers: { 'content-type': 'text/plain' } });
+      Object.defineProperty(response, 'url', { value: url });
+      return Promise.resolve(response);
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: EN.skills.import }));
+    const box = canvas.getByRole('textbox', { name: EN.skills.importLabel });
+    await userEvent.click(box);
+    await userEvent.paste('https://github.com/acme/skills/blob/main/tone/SKILL.mdx');
+    await userEvent.click(canvas.getByRole('button', { name: EN.link.fetch }));
+    await waitFor(() => expect(box).toHaveValue(MDX));
+    await expect(canvas.getByRole('status')).toHaveTextContent(
+      EN.link.fetched('raw.githubusercontent.com'),
+    );
   },
 };

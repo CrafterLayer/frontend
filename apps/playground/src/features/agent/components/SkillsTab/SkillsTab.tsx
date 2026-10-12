@@ -2,6 +2,7 @@ import { useId, useRef, useState, type ChangeEvent } from 'react';
 
 import type { KnowledgeLabels } from '../../copy/knowledge-labels';
 import type { UserSkillsView } from '../../model/knowledge';
+import { fetchSkillMarkdown, skillLinkOf, type Fetcher } from '../../model/skill-link';
 import type { SkillTemplate } from '../../model/skill-templates';
 import { EMPTY_SKILL_DRAFT, type UserSkillDraft } from '../../model/user-skills';
 import { SkillEditor } from '../SkillEditor';
@@ -19,6 +20,8 @@ export interface SkillsTabProps {
   readonly templates?: readonly SkillTemplate[] | undefined;
   /** Open on New skill with this draft (the composer's `/skill`). */
   readonly startWith?: UserSkillDraft | undefined;
+  /** What fetches a skill link; the browser's `fetch` when absent. */
+  readonly fetcher?: Fetcher | undefined;
 }
 
 /** What "Upload" takes: Markdown and MDX skill files. */
@@ -35,7 +38,7 @@ function writeClipboard(text: string): Promise<void> {
 
 /**
  * The Skills tab (2026-10-12): the person's own skills — each with its switch, Edit, Copy as
- * SKILL.md and Delete — then New skill, Import (paste) and Upload (.md or .mdx files, several
+ * SKILL.md and Delete — then New skill, Import (paste, or a link it fetches to read first) and Upload (.md or .mdx files, several
  * at once), the starter templates, and under them the skills the Agent already has, so the
  * person sees what to add rather than repeat. Writing or importing a skill replaces the list
  * in place; Save or Cancel brings it back. Uploads and templates say what happened in one
@@ -47,6 +50,7 @@ export function SkillsTab({
   clipboard = writeClipboard,
   templates = [],
   startWith,
+  fetcher,
 }: SkillsTabProps) {
   const id = useId();
   const words = labels.skills;
@@ -57,7 +61,27 @@ export function SkillsTab({
   const [markdown, setMarkdown] = useState('');
   const [refusal, setRefusal] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const [fetched, setFetched] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
+  const link = skillLinkOf(markdown);
+
+  /** A link in the box: fetch it into the box, to read before Add skill. */
+  const fetchLink = async (url: string) => {
+    setFetching(true);
+    setRefusal(undefined);
+    setFetched('');
+    const got = await fetchSkillMarkdown(url, fetcher);
+    setFetching(false);
+    if (got.ok) {
+      setMarkdown(got.markdown);
+      setFetched(labels.link.fetched(got.host));
+    } else {
+      setRefusal(
+        got.reason === 'status' ? labels.link.status(got.status ?? 0) : labels.link[got.reason],
+      );
+    }
+  };
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
@@ -103,11 +127,18 @@ export function SkillsTab({
         className="ck-agent-skills__import"
         onSubmit={(event) => {
           event.preventDefault();
+          if (fetching) return;
+          if (link !== undefined) {
+            if (link.ok) void fetchLink(link.url);
+            else setRefusal(labels.link.insecure);
+            return;
+          }
           const written = view.importMarkdown(markdown);
           if (written.ok) {
             setImporting(false);
             setMarkdown('');
             setRefusal(undefined);
+            setFetched('');
           } else {
             setRefusal(labels.editor.refusals[written.reason]);
           }
@@ -124,15 +155,24 @@ export function SkillsTab({
             placeholder={words.importPlaceholder}
             onChange={(event) => {
               setMarkdown(event.target.value);
+              setFetched('');
             }}
           />
         </label>
         <p className="ck-agent-kn-refusal" role="alert">
           {refusal}
         </p>
+        <p className="ck-agent-kn-status" role="status">
+          {fetching ? labels.link.fetching : fetched}
+        </p>
         <div className="ck-agent-kn-actions">
-          <button type="submit" className="ck-agent-kn-button" data-variant="primary">
-            {words.importSave}
+          <button
+            type="submit"
+            className="ck-agent-kn-button"
+            data-variant="primary"
+            aria-disabled={fetching}
+          >
+            {link === undefined ? words.importSave : labels.link.fetch}
           </button>
           <button
             type="button"
@@ -141,6 +181,7 @@ export function SkillsTab({
             onClick={() => {
               setImporting(false);
               setRefusal(undefined);
+              setFetched('');
             }}
           >
             {labels.editor.cancel}

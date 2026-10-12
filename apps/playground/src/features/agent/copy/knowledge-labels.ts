@@ -100,6 +100,18 @@ export interface KnowledgeLabels {
     readonly imported: (count: number) => string;
     readonly failed: (name: string, reason: string) => string;
   };
+  /** Import from a link: the box fetches it, the person reads it, then Add skill. */
+  readonly link: {
+    readonly fetch: string;
+    readonly fetching: string;
+    readonly fetched: (host: string) => string;
+    readonly insecure: string;
+    readonly network: string;
+    readonly status: (code: number) => string;
+    readonly page: string;
+    readonly size: string;
+    readonly empty: string;
+  };
   readonly checkpoints: {
     readonly intro: string;
     readonly loading: string;
@@ -127,7 +139,7 @@ const EN: KnowledgeLabels = {
     empty: 'No skills of your own yet. Write one, or import a SKILL.md.',
     add: 'New skill',
     import: 'Import',
-    importLabel: 'SKILL.md to import',
+    importLabel: 'SKILL.md to import, or a link to one',
     importPlaceholder:
       '---\nname: Brand voice\nkeywords: copy, headline\n---\nWrite short, warm sentences…',
     importSave: 'Add skill',
@@ -219,6 +231,17 @@ const EN: KnowledgeLabels = {
     imported: (count) => (count === 1 ? '1 skill imported.' : `${String(count)} skills imported.`),
     failed: (name, reason) => `${name}: ${reason}`,
   },
+  link: {
+    fetch: 'Fetch skill',
+    fetching: 'Fetching…',
+    fetched: (host) => `Fetched from ${host}. Read it, then Add skill.`,
+    insecure: 'Use an https:// link.',
+    network: 'The link did not answer. Check it, or paste the SKILL.md itself.',
+    status: (code) => `The link answered ${String(code)}. Check it is public.`,
+    page: 'That link is a web page. Link to the raw SKILL.md file.',
+    size: 'That file is too large for a skill.',
+    empty: 'That file is empty.',
+  },
   checkpoints: {
     intro:
       'The page is kept before every request the Agent runs. Restore any point: a restore is one change, so Undo takes it back.',
@@ -252,7 +275,7 @@ const AR: KnowledgeLabels = {
     empty: 'لا مهارات خاصة بك بعد. اكتب واحدة، أو استورد ملف SKILL.md.',
     add: 'مهارة جديدة',
     import: 'استيراد',
-    importLabel: 'ملف SKILL.md للاستيراد',
+    importLabel: 'ملف SKILL.md للاستيراد، أو رابط إليه',
     importPlaceholder:
       '---\nname: نبرة العلامة\nkeywords: نص, عنوان\n---\nاكتب جملًا قصيرة ودافئة…',
     importSave: 'أضف المهارة',
@@ -343,6 +366,17 @@ const AR: KnowledgeLabels = {
     imported: (count) =>
       `استُوردت ${arabicCount(count, { one: 'مهارة واحدة', two: 'مهارتان', few: 'مهارات', many: 'مهارة' })}.`,
     failed: (name, reason) => `${name}: ${reason}`,
+  },
+  link: {
+    fetch: 'اجلب المهارة',
+    fetching: 'جارٍ الجلب…',
+    fetched: (host) => `جُلبت من ${host}. اقرأها، ثم أضف المهارة.`,
+    insecure: 'استخدم رابطًا يبدأ بـ https://.',
+    network: 'لم يستجب الرابط. تحقّق منه، أو الصق ملف SKILL.md نفسه.',
+    status: (code) => `أجاب الرابط بالرمز ${String(code)}. تأكّد أنه عام.`,
+    page: 'هذا الرابط صفحة ويب. ضع رابط ملف SKILL.md الخام.',
+    size: 'هذا الملف أكبر من أن يكون مهارة.',
+    empty: 'هذا الملف فارغ.',
   },
   checkpoints: {
     intro:

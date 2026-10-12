@@ -1,7 +1,8 @@
 /**
  * SkillsTab (2026-10-12): the person's own skills over the real stores (`useAgentKnowledge`
  * seeded from storage), so each assertion follows what the person sees after an action —
- * a new skill written, a SKILL.md imported, an unreadable one refused, a switch refused by
+ * a new skill written, a SKILL.md imported (pasted, or fetched from a link to read first), an
+ * unreadable one refused, a switch refused by
  * the every-request budget, a skill deleted or copied, .md and .mdx files uploaded, a
  * template added — and the built-ins behind a disclosure.
  */
@@ -17,6 +18,7 @@ import { createCraftkitAiSkillRegistry } from '@craftkit/builder';
 
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
+import type { Fetcher } from '../../model/skill-link';
 import { skillTemplates, type SkillTemplate } from '../../model/skill-templates';
 import type { UserSkill } from '../../model/user-skills';
 import type { Locale } from '../../model/view-types';
@@ -87,6 +89,7 @@ interface LiveSkillsProps {
   readonly skills?: readonly UserSkill[];
   readonly clipboard?: (text: string) => Promise<void>;
   readonly templates?: readonly SkillTemplate[];
+  readonly fetcher?: Fetcher;
 }
 
 /** The tab over real stores, seeded as the browser would hold them. */
@@ -95,6 +98,7 @@ function LiveSkills({
   skills = SAMPLE_SKILLS,
   clipboard,
   templates,
+  fetcher,
 }: LiveSkillsProps) {
   const [storage] = useState(() => seededStorage(skills));
   const { view } = useAgentKnowledge({ storage });
@@ -104,6 +108,7 @@ function LiveSkills({
       labels={knowledgeLabels(locale)}
       clipboard={clipboard}
       templates={templates}
+      fetcher={fetcher}
     />
   );
 }
@@ -212,6 +217,44 @@ describe('SkillsTab', () => {
     expect(screen.getByRole('textbox', { name: EN.skills.importLabel })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(switches()).toHaveLength(3);
+  });
+
+  it('fetches a link into the box to read first, then adds it', async () => {
+    const asked: string[] = [];
+    const fetcher: Fetcher = (url) => {
+      asked.push(url);
+      const response = new Response(IMPORTED, { headers: { 'content-type': 'text/plain' } });
+      Object.defineProperty(response, 'url', { value: url });
+      return Promise.resolve(response);
+    };
+    const user = setup({ skills: [], fetcher });
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    const box = screen.getByRole('textbox', { name: EN.skills.importLabel });
+    await user.click(box);
+    await user.paste('https://github.com/acme/skills/blob/main/booking/SKILL.md');
+    await user.click(screen.getByRole('button', { name: EN.link.fetch }));
+    expect(asked).toEqual(['https://raw.githubusercontent.com/acme/skills/main/booking/SKILL.md']);
+    expect(box).toHaveValue(IMPORTED);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      EN.link.fetched('raw.githubusercontent.com'),
+    );
+    expect(switches()).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Add skill' }));
+    expect(screen.getByRole('switch', { name: 'Use Booking band' })).toBeChecked();
+  });
+
+  it('says why a link gave no skill', async () => {
+    const user = setup({ fetcher: () => Promise.resolve(new Response('', { status: 404 })) });
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    const box = screen.getByRole('textbox', { name: EN.skills.importLabel });
+    await user.click(box);
+    await user.paste('https://example.com/missing/SKILL.md');
+    await user.click(screen.getByRole('button', { name: EN.link.fetch }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(EN.link.status(404));
+    await user.clear(box);
+    await user.paste('http://example.com/SKILL.md');
+    await user.click(screen.getByRole('button', { name: EN.link.fetch }));
+    expect(screen.getByRole('alert')).toHaveTextContent(EN.link.insecure);
   });
 
   it('lists the built-in skills behind a disclosure', async () => {

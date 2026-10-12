@@ -29,8 +29,10 @@ Executed as T189..T195 (feature 014):
 Verification: playground `tsc` and eslint clean on the changed files; the new components' unit tests
 (14) and Storybook interaction stories (9) pass in Chromium; `pnpm check:components` 227,
 `pnpm check:file-sizes` 3,515 files, `pnpm check:boundaries` clean; live editor screenshots in EN and
-AR (RTL) at 1440, 1024 and 390 px. Pre-existing failures unchanged (`editor-labels.test.ts` recent
-changes casing; App story "Default Preview Uses The Selected Breakpoint" fails at HEAD too).
+AR (RTL) at 1440, 1024 and 390 px. Full playground suite: 3275 of 3288 pass; the 13 failures are
+identical at 71e912d (before this increment): editor-labels ×1, copy-rules ×3, runs ×2,
+ai-context-cost ×2, assistant-agent-readiness ×2, field-kinds.registry ×2, tailwind-vocabulary ×1.
+The App story "Default Preview Uses The Selected Breakpoint" also fails at 71e912d.
 Open: the element quick bar still scales with canvas zoom (overlay system, separate work).
 
 ## Current continuation — Studio Indigo chat redesign in code, 2026-10-12

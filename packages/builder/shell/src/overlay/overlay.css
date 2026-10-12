@@ -115,9 +115,12 @@
   background: var(--bldr-hover, #6366f1);
 }
 
-/* Drag chrome (B2b) — same physical-geometry exception as the outlines. */
+/* Drag chrome (B2b) — same physical-geometry exception as the outlines. Its
+   strokes and its name chip keep chrome size under zoom, as the outlines do
+   (2026-10-12). */
 .bldr-drag-ghost {
-  border: var(--bldr-border-thick) dashed var(--bldr-selection, #4f46e5);
+  border: calc(var(--bldr-border-thick) / var(--bldr-canvas-zoom, 1)) dashed
+    var(--bldr-selection, #4f46e5);
   border-radius: var(--bldr-space-xs);
   left: 0;
   opacity: 0.6;
@@ -135,11 +138,22 @@
   visibility: hidden;
 }
 
+.bldr-drag-ghost > .bldr-outline__label {
+  inset-block-start: calc(-20px / var(--bldr-canvas-zoom, 1));
+  scale: calc(1 / var(--bldr-canvas-zoom, 1));
+  transform-origin: top left;
+}
+
+.bldr-drag-ghost > .bldr-outline__label:dir(rtl) {
+  transform-origin: top right;
+}
+
 .bldr-drop-parent {
   border-radius: var(--bldr-space-xs);
   left: 0;
-  outline: var(--bldr-border-hairline) dashed var(--bldr-drop, #16a34a);
-  outline-offset: var(--bldr-border-thick);
+  outline: calc(var(--bldr-border-hairline) / var(--bldr-canvas-zoom, 1)) dashed
+    var(--bldr-drop, #16a34a);
+  outline-offset: calc(var(--bldr-border-thick) / var(--bldr-canvas-zoom, 1));
   position: absolute;
   top: 0;
   visibility: hidden;

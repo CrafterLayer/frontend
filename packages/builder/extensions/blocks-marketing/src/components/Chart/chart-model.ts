@@ -59,7 +59,10 @@ type ChartData = Pick<
 
 export interface TickModel {
   readonly value: number;
+  /** The tick as printed, affixes included (it sizes the axis column). */
   readonly label: string;
+  /** The number alone; the prefix and suffix render around it as parts. */
+  readonly digits: string;
   readonly y: number;
   /** Distance from the top of the plot, in percent. */
   readonly top: number;
@@ -68,6 +71,8 @@ export interface TickModel {
 export interface ValueLabel {
   readonly key: string;
   readonly text: string;
+  /** The number alone; the prefix and suffix render around it as parts. */
+  readonly digits: string;
   /** Distance from the inline start of the plot, in percent (mirrors under RTL). */
   readonly start: number;
   readonly top: number;
@@ -216,7 +221,13 @@ export function cartesianModel(props: ChartData): CartesianModel {
   const format = valueFormatOf(props);
   const ticks = scale.ticks.map((value) => {
     const y = scaleY(value, scale, frame);
-    return { value, label: formatValue(value, format, 'compact'), y, top: percent(y, height) };
+    return {
+      value,
+      label: formatValue(value, format, 'compact'),
+      digits: formatValue(value, {}, 'compact'),
+      y,
+      top: percent(y, height),
+    };
   });
   const zeroY =
     scale.min <= 0 && scale.max >= 0 ? scaleY(baselineOf(scale), scale, frame) : undefined;
@@ -264,6 +275,7 @@ export function cartesianModel(props: ChartData): CartesianModel {
   const labels = shown.map((source) => ({
     key: source.key,
     text: formatValue(source.value, format),
+    digits: formatValue(source.value),
     start: percent(source.x, VIEW_WIDTH),
     top: percent(source.y, height),
     below: source.below,

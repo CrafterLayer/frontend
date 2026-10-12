@@ -43,13 +43,15 @@ describe('Timeline', () => {
     const items = container.querySelectorAll('li');
     expect(items[0]).toHaveAttribute('data-timeline-status', 'done');
     expect(items[3]).toHaveAttribute('data-timeline-status', 'upcoming');
-    expect(within(items[0] as HTMLElement).getByText('Completed')).toHaveClass('sr-only');
-    expect(within(items[3] as HTMLElement).getByText('Upcoming')).toHaveClass('sr-only');
-    const dots = container.querySelectorAll('[data-timeline-marker] > span:first-child');
-    expect(dots[0]).toHaveClass('bg-accent');
-    expect(dots[3]).toHaveClass('bg-transparent');
-    /* The marker column is decoration; the status words carry the meaning. */
-    expect(container.querySelector('[data-timeline-marker]')).toHaveAttribute(
+    /* The status is the dot's accessible name: never colour alone, never a second text node. */
+    expect(within(items[0] as HTMLElement).getByRole('img', { name: 'Completed' })).toHaveClass(
+      'bg-accent',
+    );
+    expect(within(items[3] as HTMLElement).getByRole('img', { name: 'Upcoming' })).toHaveClass(
+      'bg-transparent',
+    );
+    expect(within(items[0] as HTMLElement).queryByText('Completed')).toBeNull();
+    expect(container.querySelector('[data-timeline-connector]')).toHaveAttribute(
       'aria-hidden',
       'true',
     );

@@ -11,6 +11,8 @@ import { menuSectionSchema, type MenuSectionProps } from './schema';
   name, description, price, tags and photo are addressable on the canvas by
   category and position, carry nothing extra when published, take classes
   from `partStyles`, and render an inline editor swapped in exactly once.
+  The currency is one prop printed beside every price: each copy is its part,
+  and while it is edited in place only the first dish's copy hosts the editor.
 */
 const node: Node = { id: 'menu-parts', type: 'menuSection', props: {} };
 const PHOTO = 'data:image/png;base64,iVBORw0KGgo=';
@@ -80,6 +82,10 @@ describe('MenuSection parts', () => {
       'categories.1.items.0.description',
     );
     expect(partsNamed(container, 'note')[0]).toHaveTextContent('Prices include tax.');
+    const currencies = partsNamed(container, 'currency');
+    expect(currencies).toHaveLength(3);
+    expect(currencies.every((currency) => currency.textContent === 'ر.س')).toBe(true);
+    expect(currencies[2]).toHaveAttribute('data-ck-bind', 'currency');
   });
 
   it('publishes no part markers', () => {
@@ -109,6 +115,7 @@ describe('MenuSection parts', () => {
     const { container } = renderMenu({}, true, (props) => ({
       ...props,
       heading: swapped('heading'),
+      currency: swapped('currency'),
       categories: props.categories.map((category, at) => ({
         ...category,
         name: swapped(`categories.${String(at)}.name`),
@@ -125,6 +132,7 @@ describe('MenuSection parts', () => {
       'categories.1.name',
       'categories.1.items.1.name',
       'categories.0.items.0.price',
+      'currency',
     ]) {
       const found = [...container.querySelectorAll('[data-swap]')].filter(
         (element) => element.getAttribute('data-swap') === key,
@@ -132,5 +140,17 @@ describe('MenuSection parts', () => {
       expect(found, key).toHaveLength(1);
       expect(found[0]?.closest('[data-ck-bind]')).toHaveAttribute('data-ck-bind', key);
     }
+  });
+
+  it('hosts the currency editor at the first dish, past an empty category', () => {
+    const { container } = renderMenu(
+      { categories: [{ name: 'Soon', items: [] }, ...FULL.categories] },
+      true,
+      (props) => ({ ...props, currency: swapped('currency') }),
+    );
+    const found = container.querySelectorAll('[data-swap="currency"]');
+    expect(found).toHaveLength(1);
+    expect(found[0]?.closest('[data-ck-part="dish"]')).toHaveAttribute('data-ck-part-index', '1.0');
+    expect(partsNamed(container, 'currency')).toHaveLength(3);
   });
 });

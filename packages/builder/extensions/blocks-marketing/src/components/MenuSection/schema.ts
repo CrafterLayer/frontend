@@ -146,8 +146,8 @@ export const menuSectionSchema = defineBlockSchema({
     each category with its name and description, each dish with its name,
     description, price, tags and photo, and the footnote. A dish is addressed
     by category and position (`dish.price@1.2` is the second category's third
-    dish). The currency is one prop printed beside every price, so it stays an
-    Inspector row.
+    dish). The currency is one part printed beside every price, hosted by the
+    first dish while it is edited in place.
   */
   parts: {
     eyebrow: {
@@ -236,6 +236,12 @@ export const menuSectionSchema = defineBlockSchema({
       bind: { src: 'categories.*.items.*.imageSrc', alt: 'categories.*.items.*.imageAlt' },
       label: { en: 'Dish photo', ar: 'صورة الصنف' },
       aliases: ['photo', 'image', 'picture', 'صورة', 'الصورة'],
+    },
+    currency: {
+      kind: 'text',
+      bind: 'currency',
+      label: { en: 'Currency', ar: 'العملة' },
+      aliases: ['currency', 'symbol', 'SAR', 'ر.س', 'ريال', 'دينار', 'درهم'],
     },
     note: {
       kind: 'text',

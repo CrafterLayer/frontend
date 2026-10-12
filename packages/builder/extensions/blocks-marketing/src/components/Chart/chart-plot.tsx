@@ -2,6 +2,7 @@ import { cx } from '../section-classes';
 
 import { formatValue } from './chart-format';
 import { committed, tooltip, type Drawing } from './chart-drawing';
+import { valueText } from './chart-keys';
 import { valueFormatOf, type CartesianModel } from './chart-model';
 import { isTranslucent, toneOf } from './chart-palette';
 import type { ChartProps } from './schema';
@@ -14,10 +15,8 @@ const PLOT_HEIGHTS: Readonly<Record<ChartProps['height'], string>> = {
 };
 
 /** The plot of a bar, line or area chart: HTML axis and labels around a stretched SVG. */
-export function cartesianFigure(
-  model: CartesianModel,
-  { props, part, svgLabel, ring, muted }: Drawing,
-) {
+export function cartesianFigure(model: CartesianModel, drawing: Drawing) {
+  const { props, part, svgLabel, ring, muted, isCanvas } = drawing;
   const format = valueFormatOf(props);
   const count = model.categoryCount;
   /* Crowded axes keep every second or third label once their container narrows. */
@@ -35,13 +34,14 @@ export function cartesianFigure(
         aria-hidden="true"
         data-chart-axis=""
       >
-        {model.ticks.map((tick) => (
+        {model.ticks.map((tick, index) => (
           <span
             key={tick.value}
             className="absolute end-0 -translate-y-1/2 whitespace-nowrap"
             style={{ top: `${String(tick.top)}%` }}
           >
-            {tick.label}
+            {/* The lowest tick hosts the prefix and suffix while they are edited in place. */}
+            {valueText(tick.digits, drawing, index === 0)}
           </span>
         ))}
       </div>
@@ -81,7 +81,7 @@ export function cartesianFigure(
               fillOpacity={props.stacked ? 0.4 : 0.14}
               data-chart-area=""
             >
-              <title>{committed(nameOf(area.series))}</title>
+              {isCanvas ? null : <title>{committed(nameOf(area.series))}</title>}
             </path>
           ))}
           {model.bars.map((bar) => {
@@ -92,13 +92,15 @@ export function cartesianFigure(
                   <path d={bar.path} className="fill-surface" data-chart-underlay="" />
                 ) : null}
                 <path d={bar.path} className={tone.fill} data-chart-bar="">
-                  <title>
-                    {tooltip(
-                      props.categories[bar.category],
-                      nameOf(bar.series),
-                      formatValue(bar.value, format),
-                    )}
-                  </title>
+                  {isCanvas ? null : (
+                    <title>
+                      {tooltip(
+                        props.categories[bar.category],
+                        nameOf(bar.series),
+                        formatValue(bar.value, format),
+                      )}
+                    </title>
+                  )}
                 </path>
               </g>
             );
@@ -171,13 +173,15 @@ export function cartesianFigure(
                   vectorEffect="non-scaling-stroke"
                   data-chart-marker=""
                 >
-                  <title>
-                    {tooltip(
-                      props.categories[marker.category],
-                      nameOf(marker.series),
-                      formatValue(marker.value, format),
-                    )}
-                  </title>
+                  {isCanvas ? null : (
+                    <title>
+                      {tooltip(
+                        props.categories[marker.category],
+                        nameOf(marker.series),
+                        formatValue(marker.value, format),
+                      )}
+                    </title>
+                  )}
                 </path>
               </g>
             );
@@ -201,7 +205,7 @@ export function cartesianFigure(
                   top: `${String(label.top)}%`,
                 }}
               >
-                {label.text}
+                {valueText(label.digits, drawing, false)}
               </span>
             ))}
           </div>

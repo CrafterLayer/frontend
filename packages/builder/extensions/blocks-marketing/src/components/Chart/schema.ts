@@ -100,9 +100,10 @@ export const chartSchema = defineBlockSchema({
   /*
     The chart's inner elements (block-parts DESIGN §1): its title and
     description, each category label (on the x axis, or in a pie's legend), the
-    folded "other" slice's label, and each series with its name (in the
-    legend). The numbers are Inspector rows: a value is a number, not text to
-    edit in place.
+    folded "other" slice's label, each series with its name (in the legend),
+    and the value prefix and suffix — one part each, printed beside every
+    number, hosted by the first. The numbers are Inspector rows: a value is a
+    number, not text to edit in place.
   */
   parts: {
     title: {
@@ -142,6 +143,18 @@ export const chartSchema = defineBlockSchema({
       list: 'series',
       label: { en: 'Series', ar: 'السلسلة' },
       aliases: ['series', 'dataset', 'line', 'legend item', 'سلسلة', 'مجموعة بيانات'],
+    },
+    valuePrefix: {
+      kind: 'text',
+      bind: 'valuePrefix',
+      label: { en: 'Value prefix', ar: 'بادئة القيمة' },
+      aliases: ['prefix', 'currency', 'unit', 'البادئة', 'العملة'],
+    },
+    valueSuffix: {
+      kind: 'text',
+      bind: 'valueSuffix',
+      label: { en: 'Value suffix', ar: 'لاحقة القيمة' },
+      aliases: ['suffix', 'unit', 'percent', 'اللاحقة', 'الوحدة'],
     },
     otherLabel: {
       kind: 'text',

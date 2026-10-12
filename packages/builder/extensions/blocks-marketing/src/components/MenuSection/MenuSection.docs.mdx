@@ -52,7 +52,9 @@ it). Rules and tag outlines use the section's own ink, so the menu reads on a da
 | `dish.price`           | text  | `categories.*.items.*.price`                                                 | Price / السعر                    |
 | `dish.tag`             | text  | `categories.*.items.*.tags.*`                                                | Dish tag / وسم الصنف             |
 | `dish.image`           | image | `{ src: categories.*.items.*.imageSrc, alt: categories.*.items.*.imageAlt }` | Dish photo / صورة الصنف          |
+| `currency`             | text  | `currency`                                                                   | Currency / العملة                |
 | `note`                 | text  | `note`                                                                       | Footnote / الحاشية               |
 
 A dish is addressed by category and position: `dish.price@1.2` is the second category's third dish.
-The currency is one prop printed beside every price, so it stays an Inspector row.
+The currency is one part printed beside every price: the first dish hosts its in-place editor, and
+every other price shows the committed text.

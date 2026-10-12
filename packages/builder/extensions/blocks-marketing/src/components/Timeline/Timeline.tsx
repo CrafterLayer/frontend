@@ -130,25 +130,29 @@ export function Timeline({ node, props, isCanvas }: BlockRenderProps<TimelinePro
                 })}
                 data-timeline-status={item.status}
               >
-                <div
-                  aria-hidden="true"
-                  className="flex w-6 shrink-0 flex-col items-center"
-                  data-timeline-marker=""
-                >
+                <div className="flex w-6 shrink-0 flex-col items-center" data-timeline-marker="">
+                  {/*
+                    The status in words, as the marker's accessible name, so it
+                    is never carried by the fill alone. A name, not a hidden
+                    text node: the words are a11y-only copy, and a second text
+                    node would read as an unbound value on the canvas.
+                  */}
                   <span
+                    role="img"
+                    aria-label={done ? props.doneLabel : props.upcomingLabel}
                     className={cx(
                       'mt-1 size-4 shrink-0 rounded-full border-2 border-accent',
                       done ? 'bg-accent' : 'bg-transparent',
                     )}
+                    data-timeline-dot=""
                   />
                   <span
+                    aria-hidden="true"
                     className={connectorClasses(props.items[index + 1])}
                     data-timeline-connector=""
                   />
                 </div>
                 <div className={cx('min-w-0 flex-1', index === last ? 'pb-0' : 'pb-gap-lg')}>
-                  {/* The status in words, so it is never carried by the marker's fill alone. */}
-                  <span className="sr-only">{done ? props.doneLabel : props.upcomingLabel}</span>
                   <p
                     {...part('item.date', {
                       index: at,

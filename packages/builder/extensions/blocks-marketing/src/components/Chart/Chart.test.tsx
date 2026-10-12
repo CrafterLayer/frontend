@@ -90,7 +90,7 @@ describe('Chart', () => {
     expect(container.querySelector('[data-chart-grid]')).toBeNull();
     const values = container.querySelector('[data-chart-values]');
     expect(values).toHaveAttribute('aria-hidden', 'true');
-    const labels = [...(values?.querySelectorAll('span') ?? [])];
+    const labels = [...(values?.querySelectorAll<HTMLElement>(':scope > span') ?? [])];
     expect(labels.map((label) => label.textContent)).toEqual(['$1,200', '$⁦−300⁩', '$900']);
     expect(labels[1]).toHaveClass('mt-1');
     expect(labels[0]).toHaveClass('-translate-y-full', 'rtl:translate-x-1/2');

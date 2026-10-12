@@ -49,18 +49,21 @@ Arabic-Indic digits; the units follow the page direction, days first at the inli
 
 ## Parts
 
-| name            | kind | bind                                      | label (en / ar)               |
-| --------------- | ---- | ----------------------------------------- | ----------------------------- |
-| `eyebrow`       | text | `eyebrow`                                 | Eyebrow / الشارة              |
-| `heading`       | text | `heading`                                 | Heading / العنوان             |
-| `body`          | text | `body`                                    | Body / الوصف                  |
-| `startsLabel`   | text | `startsLabel`                             | Date lead-in / تمهيد التاريخ  |
-| `timezoneLabel` | text | `timezoneLabel`                           | Time zone / المنطقة الزمنية   |
-| `daysLabel`     | text | `daysLabel`                               | Days label / تسمية الأيام     |
-| `hoursLabel`    | text | `hoursLabel`                              | Hours label / تسمية الساعات   |
-| `minutesLabel`  | text | `minutesLabel`                            | Minutes label / تسمية الدقائق |
-| `secondsLabel`  | text | `secondsLabel`                            | Seconds label / تسمية الثواني |
-| `action`        | link | `{ text: actionLabel, href: actionHref }` | Button / الزر                 |
+| name            | kind | bind                                      | label (en / ar)                |
+| --------------- | ---- | ----------------------------------------- | ------------------------------ |
+| `eyebrow`       | text | `eyebrow`                                 | Eyebrow / الشارة               |
+| `heading`       | text | `heading`                                 | Heading / العنوان              |
+| `body`          | text | `body`                                    | Body / الوصف                   |
+| `startsLabel`   | text | `startsLabel`                             | Date lead-in / تمهيد التاريخ   |
+| `timezoneLabel` | text | `timezoneLabel`                           | Time zone / المنطقة الزمنية    |
+| `daysLabel`     | text | `daysLabel`                               | Days label / تسمية الأيام      |
+| `hoursLabel`    | text | `hoursLabel`                              | Hours label / تسمية الساعات    |
+| `minutesLabel`  | text | `minutesLabel`                            | Minutes label / تسمية الدقائق  |
+| `secondsLabel`  | text | `secondsLabel`                            | Seconds label / تسمية الثواني  |
+| `endedMessage`  | text | `endedMessage`                            | Ended message / رسالة الانتهاء |
+| `action`        | link | `{ text: actionLabel, href: actionHref }` | Button / الزر                  |
 
-The target is a date-time, not text to edit in place, and the ended message shows only after the
-moment: both stay Inspector rows.
+The ended message is a part from the start, hidden until the moment passes (edit it in the Inspector
+before then). The target is a date-time, not text to edit in place, so it stays an Inspector row. On
+the canvas the polite summary stays empty: it repeats the unit labels, and there it would be a
+second, unbound copy of them.

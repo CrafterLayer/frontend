@@ -64,6 +64,7 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
       props.variant === 'plain' && props.tone === 'dark'
         ? 'text-inherit opacity-80'
         : 'text-text-muted',
+    isCanvas,
   };
 
   /*
@@ -145,7 +146,8 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
             {hasData && !pie && props.showLegend && props.series.length > 1
               ? seriesLegend(drawing)
               : null}
-            {hasData ? dataTable(props, pie) : null}
+            {/* Published only: on the canvas it would repeat every label the person edits in place. */}
+            {hasData && !isCanvas ? dataTable(props, pie) : null}
           </div>
         </figure>
       </div>

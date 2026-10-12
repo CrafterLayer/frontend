@@ -43,7 +43,7 @@ export const CompanyHistory: Story = {
 export const Roadmap: Story = {
   args: story('timeline-roadmap', exampleProps(1)),
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getAllByText('Upcoming')).toHaveLength(2);
+    await expect(within(canvasElement).getAllByRole('img', { name: 'Upcoming' })).toHaveLength(2);
   },
 };
 

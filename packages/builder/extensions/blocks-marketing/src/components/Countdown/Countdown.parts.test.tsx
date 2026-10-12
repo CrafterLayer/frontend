@@ -8,9 +8,11 @@ import { countdownSchema, type CountdownProps } from './schema';
 
 /*
   Block parts (DESIGN §4.3): the introduction, the "Starts" lead-in and the
-  time zone beside the date, each unit's label and the action are addressable
-  on the canvas, carry nothing extra when published, take classes from
-  `partStyles`, and render an inline editor swapped in exactly once.
+  time zone beside the date, each unit's label, the ended message and the
+  action are addressable on the canvas, carry nothing extra when published,
+  take classes from `partStyles`, and render an inline editor swapped in
+  exactly once. The canvas leaves the polite summary empty: it would repeat
+  the unit labels being edited.
 */
 const node: Node = { id: 'countdown-parts', type: 'countdown', props: {} };
 const FULL = {
@@ -61,6 +63,10 @@ describe('Countdown parts', () => {
       expect(partsNamed(container, name), name).toHaveLength(1);
     }
     expect(partsNamed(container, 'action')[0]).toHaveAttribute('data-ck-bind', 'actionLabel');
+    const ended = partsNamed(container, 'endedMessage')[0];
+    expect(ended).toHaveAttribute('data-ck-bind', 'endedMessage');
+    expect(ended).toHaveAttribute('hidden');
+    expect(container.querySelector('[data-ck-countdown-summary]')?.textContent).toBe('');
     expect(partsNamed(container, 'secondsLabel')[0]).toHaveAttribute(
       'data-ck-countdown-label',
       'seconds',
@@ -90,9 +96,17 @@ describe('Countdown parts', () => {
       timezoneLabel: swapped('timezoneLabel'),
       daysLabel: swapped('daysLabel'),
       actionLabel: swapped('actionLabel'),
+      endedMessage: swapped('endedMessage'),
     }));
     expect(container.innerHTML).not.toContain('[object Object]');
-    for (const key of ['heading', 'startsLabel', 'timezoneLabel', 'daysLabel', 'actionLabel']) {
+    for (const key of [
+      'heading',
+      'startsLabel',
+      'timezoneLabel',
+      'daysLabel',
+      'actionLabel',
+      'endedMessage',
+    ]) {
       const found = [...container.querySelectorAll('[data-swap]')].filter(
         (element) => element.getAttribute('data-swap') === key,
       );

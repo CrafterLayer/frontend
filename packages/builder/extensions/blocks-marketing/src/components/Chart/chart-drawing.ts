@@ -27,6 +27,12 @@ export interface Drawing {
   readonly ring: string;
   /** Secondary text (ticks, category labels, shares) that stays legible on the section's ground. */
   readonly muted: string;
+  /*
+    On the canvas the screen-reader table and the SVG tooltips are left out:
+    each would be a second, unbound copy of a label the person edits in place
+    (block-parts gate). The published page keeps both.
+  */
+  readonly isCanvas: boolean;
 }
 
 /*
@@ -36,6 +42,16 @@ export interface Drawing {
 */
 export function committed(value: ReactNode): string {
   return typeof value === 'string' ? value : '';
+}
+
+/*
+  The value prefix and suffix are ONE part each, shown beside every printed
+  number. While one is edited in place its value is the editor element, which
+  must render once: the host occurrence shows it, the others show committed
+  text only.
+*/
+export function sharedText(value: ReactNode, host: boolean): ReactNode {
+  return host || typeof value === 'string' ? value : null;
 }
 
 export function tooltip(category: ReactNode, series: ReactNode, value: string): string {

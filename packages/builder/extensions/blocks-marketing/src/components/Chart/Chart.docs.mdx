@@ -83,6 +83,12 @@ text to edit in place.
 | `dataset`      | item | `series.*`      | Series / السلسلة                         |
 | `otherLabel`   | text | `otherLabel`    | Other slice label / تسمية الشريحة الأخرى |
 | `dataset.name` | text | `series.*.name` | Series name / اسم السلسلة                |
+| `valuePrefix`  | text | `valuePrefix`   | Value prefix / بادئة القيمة              |
+| `valueSuffix`  | text | `valueSuffix`   | Value suffix / لاحقة القيمة              |
 
 Category labels sit on the x axis of a bar, line or area chart and in the legend of a pie or donut;
-series names sit in the legend, which a single-series chart does not draw.
+series names sit in the legend, which a single-series chart does not draw. The value prefix and
+suffix are one part each, printed beside every number: the lowest axis tick (for a pie, the legend's
+first value, else the donut total) hosts the in-place editor. On the canvas the screen-reader table
+and the SVG tooltips are left out — each would be a second, unbound copy of a label being edited —
+and the published page keeps both.

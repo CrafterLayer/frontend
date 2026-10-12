@@ -4,7 +4,7 @@ import { formatShare, formatValue } from './chart-format';
 import { tooltip, type Drawing } from './chart-drawing';
 import { PIE_VIEW, valueFormatOf, type PieModel } from './chart-model';
 import { isTranslucent, toneOf } from './chart-palette';
-import { swatch } from './chart-keys';
+import { swatch, valueText } from './chart-keys';
 import type { ChartProps } from './schema';
 
 const PIE_SIZES: Readonly<Record<ChartProps['height'], string>> = {
@@ -13,8 +13,16 @@ const PIE_SIZES: Readonly<Record<ChartProps['height'], string>> = {
   lg: 'max-w-72',
 };
 
-function sliceLegend(model: PieModel, { props, part, muted }: Drawing) {
-  const format = valueFormatOf(props);
+/*
+  The value prefix and suffix are hosted (shown while edited in place) by the
+  legend's first value when the legend prints values, else by the donut total.
+*/
+function legendHostsAffixes(props: Drawing['props']): boolean {
+  return props.showLegend && props.showValues;
+}
+
+function sliceLegend(model: PieModel, drawing: Drawing) {
+  const { props, part, muted } = drawing;
   return (
     <ul
       {...part('categories', {
@@ -33,7 +41,12 @@ function sliceLegend(model: PieModel, { props, part, muted }: Drawing) {
             </span>
           )}
           <span className={cx('ms-auto whitespace-nowrap tabular-nums', muted)}>
-            {props.showValues ? `${formatValue(slice.value, format)} · ` : ''}
+            {props.showValues ? (
+              <>
+                {valueText(formatValue(slice.value), drawing, position === 0)}
+                {' · '}
+              </>
+            ) : null}
             {formatShare(slice.fraction)}
           </span>
         </li>
@@ -71,13 +84,15 @@ export function pieFigure(model: PieModel, drawing: Drawing) {
                 strokeLinejoin="round"
                 data-chart-slice=""
               >
-                <title>
-                  {tooltip(
-                    nameOf(slice.index),
-                    undefined,
-                    `${formatValue(slice.value, format)} (${formatShare(slice.fraction)})`,
-                  )}
-                </title>
+                {drawing.isCanvas ? null : (
+                  <title>
+                    {tooltip(
+                      nameOf(slice.index),
+                      undefined,
+                      `${formatValue(slice.value, format)} (${formatShare(slice.fraction)})`,
+                    )}
+                  </title>
+                )}
               </path>
             </g>
           ))}
@@ -90,7 +105,7 @@ export function pieFigure(model: PieModel, drawing: Drawing) {
             data-chart-total=""
           >
             <span className="w-1/2 text-center text-base leading-tight font-bold break-words tabular-nums @md:text-lg">
-              {formatValue(model.total, format)}
+              {valueText(formatValue(model.total), drawing, !legendHostsAffixes(props))}
             </span>
           </span>
         ) : null}

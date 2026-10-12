@@ -1,10 +1,25 @@
 import { cx } from '../section-classes';
 
 import { formatValue } from './chart-format';
-import { committed, type Drawing } from './chart-drawing';
+import { committed, sharedText, type Drawing } from './chart-drawing';
 import { valueFormatOf } from './chart-model';
 import { isTranslucent, toneOf, type SeriesTone } from './chart-palette';
 import type { ChartProps } from './schema';
+
+/** A printed number between the prefix and suffix parts; `host` shows them while they are edited in place. */
+export function valueText(digits: string, { props, part }: Drawing, host: boolean) {
+  return (
+    <>
+      {props.valuePrefix === undefined ? null : (
+        <span {...part('valuePrefix')}>{sharedText(props.valuePrefix, host)}</span>
+      )}
+      {digits}
+      {props.valueSuffix === undefined ? null : (
+        <span {...part('valueSuffix')}>{sharedText(props.valueSuffix, host)}</span>
+      )}
+    </>
+  );
+}
 
 /* A legend key. A translucent tone sits on the surface, exactly as its marks do. */
 export function swatch(tone: SeriesTone, shape: string) {

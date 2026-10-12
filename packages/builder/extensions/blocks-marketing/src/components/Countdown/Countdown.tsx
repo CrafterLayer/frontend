@@ -131,8 +131,13 @@ export function Countdown({ node, props, isCanvas }: BlockRenderProps<CountdownP
   const units = UNITS.filter(
     (unit) => unit !== 'seconds' || (props.showSeconds && !(isLive && reduced)),
   );
+  /*
+    The polite summary repeats the unit labels, so on the canvas it stays
+    empty: there it would be a second, unbound copy of a label the person
+    edits in place. Preview and the published page announce it.
+  */
   const summary =
-    left === undefined
+    left === undefined || isCanvas
       ? ''
       : summaryOf(
           left,
@@ -269,7 +274,9 @@ export function Countdown({ node, props, isCanvas }: BlockRenderProps<CountdownP
           role="status"
           data-ck-countdown-ended=""
         >
-          <span hidden={!ended}>{props.endedMessage}</span>
+          <span {...part('endedMessage')} hidden={!ended}>
+            {props.endedMessage}
+          </span>
         </p>
 
         {props.actionLabel === undefined || props.actionHref === undefined ? null : (

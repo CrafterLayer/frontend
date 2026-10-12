@@ -8,11 +8,12 @@ import { chartSchema, type ChartProps } from './schema';
 
 /*
   Block parts (DESIGN §4.3): the title, the description, every category label,
-  the "other" slice label and every series name in the legend are addressable
-  on the canvas, carry nothing extra when published, take classes and
-  direction from `partStyles`, and render an inline editor swapped in at its
-  bind exactly once — never inside an attribute, a tooltip or the
-  screen-reader table.
+  the "other" slice label, every series name in the legend and the value
+  prefix and suffix are addressable on the canvas, carry nothing extra when
+  published, take classes and direction from `partStyles`, and render an
+  inline editor swapped in at its bind exactly once — never inside an
+  attribute. The canvas leaves out the tooltips and the screen-reader table,
+  which would only repeat the labels being edited.
 */
 const node: Node = { id: 'chart-parts', type: 'chart', props: {} };
 
@@ -40,6 +41,8 @@ function swapEverything(props: ChartProps): ChartProps {
     title: swapped('title'),
     description: swapped('description'),
     otherLabel: swapped('otherLabel'),
+    valuePrefix: props.valuePrefix === undefined ? undefined : swapped('valuePrefix'),
+    valueSuffix: props.valueSuffix === undefined ? undefined : swapped('valueSuffix'),
     categories: props.categories.map((_, index) => swapped(`categories.${String(index)}`)),
     series: props.series.map((entry, index) => ({
       ...entry,
@@ -124,7 +127,11 @@ describe('Chart parts', () => {
   });
 
   it('renders an element swapped in at each text bind exactly once, never in an attribute', () => {
-    const { container } = renderChart({}, true, swapEverything);
+    const { container } = renderChart(
+      { showValues: true, valuePrefix: '$', valueSuffix: 'k' },
+      true,
+      swapEverything,
+    );
     expectOnce(container, [
       'title',
       'description',
@@ -132,14 +139,47 @@ describe('Chart parts', () => {
       'categories.3',
       'series.0.name',
       'series.1.name',
+      'valuePrefix',
+      'valueSuffix',
     ]);
-    /* Mid-edit, the picture is still named by the title element; tooltips fall back to the value. */
+    /* Mid-edit, the picture is still named by the title element. */
     expect(container.querySelector('svg')).toHaveAttribute('aria-labelledby', 'chart-parts-title');
-    expect(container.querySelector('[data-chart-table] caption')).toBeNull();
-    expect(container.querySelector('[data-chart-bar] title')?.textContent).toBe('42');
+    expect(container.querySelector('[data-chart-table]')).toBeNull();
+    expect(container.querySelector('[data-chart-bar] title')).toBeNull();
   });
 
-  it('keeps a pie swapped in once, its tooltips and table on committed text only', () => {
+  it('wraps every committed prefix and suffix on the canvas in its part', () => {
+    const { container } = renderChart(
+      { showValues: true, valuePrefix: '$', valueSuffix: 'k' },
+      true,
+    );
+    const prefixes = partsNamed(container, 'valuePrefix');
+    /* Six axis ticks and eight value labels. */
+    expect(prefixes).toHaveLength(14);
+    expect(prefixes.every((prefix) => prefix.textContent === '$')).toBe(true);
+    expect(prefixes[0]).toHaveAttribute('data-ck-bind', 'valuePrefix');
+    expect(partsNamed(container, 'valueSuffix')[0]).toHaveTextContent('k');
+  });
+
+  it('lets the donut total host the affixes when there is no legend', () => {
+    const { container } = renderChart(
+      {
+        chartType: 'donut',
+        title: undefined,
+        showLegend: false,
+        showValues: true,
+        valueSuffix: '%',
+      },
+      true,
+      swapEverything,
+    );
+    expectOnce(container, ['valueSuffix']);
+    expect(
+      container.querySelector('[data-swap="valueSuffix"]')?.closest('[data-chart-total]'),
+    ).not.toBeNull();
+  });
+
+  it('keeps a pie swapped in once, the legend hosting the prefix, with no tooltips', () => {
     const categories = Array.from({ length: 9 }, (_, index) => `C${String(index)}`);
     const { container } = renderChart(
       {
@@ -147,12 +187,15 @@ describe('Chart parts', () => {
         title: undefined,
         categories,
         series: [{ name: 'S', values: categories.map((_, at) => at + 1) }],
+        showValues: true,
+        valuePrefix: '$',
       },
       true,
       (props) => ({ ...swapEverything(props), title: undefined }),
     );
-    expectOnce(container, ['otherLabel', 'categories.8', 'categories.2']);
+    expectOnce(container, ['otherLabel', 'categories.8', 'categories.2', 'valuePrefix']);
+    expect(container.querySelector('[data-swap="valuePrefix"]')?.closest('ul')).not.toBeNull();
     expect(container.querySelector('svg')).toHaveAttribute('aria-label', 'donut');
-    expect(container.querySelector('[data-chart-slice] title')?.textContent).toMatch(/^\d/u);
+    expect(container.querySelector('[data-chart-slice] title')).toBeNull();
   });
 });

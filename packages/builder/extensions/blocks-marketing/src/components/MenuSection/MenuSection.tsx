@@ -1,5 +1,7 @@
 import '../section-layout.css';
 
+import type { ReactNode } from 'react';
+
 import { blockPartProps, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import {
@@ -18,20 +20,23 @@ import { menuSectionSchema, type MenuSectionProps } from './schema';
 
 const NBSP = ' ';
 
+/*
+  The currency is ONE part shown beside every price. While it is edited in
+  place its value is the editor element, which must render once: the first
+  dish hosts it, the others show the committed text.
+*/
+function sharedText(value: ReactNode, host: boolean): ReactNode {
+  return host || typeof value === 'string' ? value : null;
+}
+
 /**
- * The currency on either side of a price, joined by a no-break space so the
- * two never wrap apart — except a symbol written before the number ("$4",
- * "£4"), which sits against it. A word or code ("SAR", «ر.س») always keeps
- * its space.
+ * Whether a currency written BEFORE the number sits against it: a symbol
+ * ("$4", "£4") does; a word or code ("SAR 4", «ر.س ٤») keeps a no-break
+ * space, as every currency written after the number does. Mid-edit (an
+ * editor element) it keeps its space.
  */
-function currencyParts(
-  currency: string,
-  position: MenuSectionProps['currencyPosition'],
-): { readonly before: string; readonly after: string } {
-  const symbol = currency.trim();
-  if (symbol === '') return { before: '', after: '' };
-  if (position === 'after') return { before: '', after: `${NBSP}${symbol}` };
-  return { before: /\p{L}/u.test(symbol) ? `${symbol}${NBSP}` : symbol, after: '' };
+function tightBefore(currency: ReactNode): boolean {
+  return typeof currency === 'string' && !/\p{L}/u.test(currency);
 }
 
 /** A menu or price list: categories of dishes with prices, tags and photos. */
@@ -47,7 +52,11 @@ export function MenuSection({ node, props, isCanvas }: BlockRenderProps<MenuSect
       ? undefined
       : { ...colorStyle, ...spacingStyle };
   const muted = props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted';
-  const { before, after } = currencyParts(props.currency, props.currencyPosition);
+  /* A currency mid-edit (an element) still shows, so its editor has a place to render. */
+  const hasCurrency = typeof props.currency !== 'string' || props.currency.trim() !== '';
+  const before = hasCurrency && props.currencyPosition === 'before';
+  const after = hasCurrency && props.currencyPosition === 'after';
+  const firstDishCategory = props.categories.findIndex((category) => category.items.length > 0);
   const atEnd = props.priceAlign === 'end';
 
   return (
@@ -145,6 +154,14 @@ export function MenuSection({ node, props, isCanvas }: BlockRenderProps<MenuSect
                 >
                   {category.items.map((item, itemIndex) => {
                     const dish = [categoryIndex, itemIndex];
+                    const currency = (
+                      <span {...part('currency')}>
+                        {sharedText(
+                          props.currency,
+                          categoryIndex === firstDishCategory && itemIndex === 0,
+                        )}
+                      </span>
+                    );
                     const photo = props.showImages && item.imageSrc !== undefined;
                     return (
                       <li
@@ -203,9 +220,19 @@ export function MenuSection({ node, props, isCanvas }: BlockRenderProps<MenuSect
                               data-menu-price=""
                             >
                               <bdi>
-                                {before}
+                                {before ? (
+                                  <>
+                                    {currency}
+                                    {tightBefore(props.currency) ? null : NBSP}
+                                  </>
+                                ) : null}
                                 <span {...part('dish.price', { index: dish })}>{item.price}</span>
-                                {after}
+                                {after ? (
+                                  <>
+                                    {NBSP}
+                                    {currency}
+                                  </>
+                                ) : null}
                               </bdi>
                             </span>
                           </div>

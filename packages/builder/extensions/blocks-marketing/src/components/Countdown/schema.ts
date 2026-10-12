@@ -102,9 +102,10 @@ export const countdownSchema = defineBlockSchema({
   inlineEditable: 'heading',
   /*
     The section's inner elements (block-parts DESIGN §1): the introduction, the
-    "Starts" word and the timezone label beside the date, each unit's label, and
-    the action. The target is a date-time, not text to edit in place, and the
-    ended message shows only once the moment has passed: both stay Inspector rows.
+    "Starts" word and the timezone label beside the date, each unit's label, the
+    ended message (on the page from the start, shown once the moment passes),
+    and the action. The target is a date-time, not text to edit in place, so it
+    stays an Inspector row.
   */
   parts: {
     eyebrow: {
@@ -161,6 +162,13 @@ export const countdownSchema = defineBlockSchema({
       bind: 'secondsLabel',
       label: { en: 'Seconds label', ar: 'تسمية الثواني' },
       aliases: ['seconds', 'الثواني'],
+    },
+    endedMessage: {
+      kind: 'text',
+      bind: 'endedMessage',
+      label: { en: 'Ended message', ar: 'رسالة الانتهاء' },
+      aliases: ['ended', 'live', 'started', 'انتهى', 'بدأ'],
+      multiline: true,
     },
     action: {
       kind: 'link',

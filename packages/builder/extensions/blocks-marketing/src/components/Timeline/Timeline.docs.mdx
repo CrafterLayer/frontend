@@ -32,9 +32,10 @@ inline end with their marker on their start, and each is nudged half a marker co
 `-start-3`) so every marker sits on one centre rail. Below 48rem the same list falls back to the
 single rail (the `Mobile` story).
 
-The marker column is `aria-hidden`: its fill is decoration. Each milestone's status is said in words
-(`doneLabel` / `upcomingLabel`, visually hidden), so it is never carried by colour alone. On a dark
-section the date and description switch to the section's own ink at reduced opacity.
+Each marker dot is an image named by its status (`doneLabel` / `upcomingLabel`), so the status is
+never carried by the fill alone; the connectors are `aria-hidden`. The words are the dot's name, not
+a hidden text node, so the canvas shows no second, unbound copy of them. On a dark section the date
+and description switch to the section's own ink at reduced opacity.
 
 ## Parts
 

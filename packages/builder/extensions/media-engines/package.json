@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "@craftkit/builder-schema": "workspace:*",
+    "@pixi/sound": "catalog:",
     "@pixi/tilemap": "catalog:",
+    "@pixi/ui": "catalog:",
     "embla-carousel": "catalog:",
     "inkjs": "catalog:",
     "matter-js": "catalog:",
@@ -35,13 +37,16 @@
     "pixi-viewport": "catalog:",
     "pixi.js": "catalog:",
     "roughjs": "catalog:",
-    "simplex-noise": "catalog:"
+    "simplex-noise": "catalog:",
+    "yuka": "catalog:",
+    "zzfx": "catalog:"
   },
   "devDependencies": {
     "@craftkit/eslint-config": "workspace:*",
     "@craftkit/test-config": "workspace:*",
     "@craftkit/typescript-config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/yuka": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "catalog:",
     "jsdom": "catalog:",

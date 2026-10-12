@@ -22,11 +22,16 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // `heading?:'h1'|'h2'`, a verified family), so a bare name costs a refusal and a repair round. The
 // lane is part of the frozen, cached system[0]: +200 characters is ~50 cached tokens per edit.
 // data (2026-10-12): +150 in build and edit, measured: data.show keeps its signature and data line.
+// data (2026-10-12, charts and reports): build 1050 → 1270, edit 2050 → 2290, measured (1,269 and
+// 2,286): report.build's signature and data line (~185 characters) and seven more chart types in
+// data.show's `as` (+49), with every other tool keeping the shape it had (edit also absorbs the
+// `data-table` preset, +11). Below these, report.build drops out of the build lane entirely and
+// kit.section, fonts.set and image.set lose their signatures in edit.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
-  build: 1_050,
+  build: 1_270,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
   section: 1_200,
-  edit: 2_050,
+  edit: 2_290,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -62,6 +67,8 @@ const DETAILS: Readonly<Record<string, string>> = {
   'motion.add': `motion.add recipe: ${CUSTOM_CODE_TIMELINE_RECIPES.join('|')}`,
   // data (2026-10-12)
   'data.show': `data.show data:'Month,Sales\\nJan,120' (CSV/TSV/markdown, row 1 = headings) as?:${DATA_SHOW_AS.join('|')}; id refills a chart/table`,
+  // data (2026-10-12): the report's KPI cards come from the numeric columns unless named.
+  'report.build': `report.build data like data.show → title, KPI cards (last value + change vs previous row; kpis?:['Revenue']), chart, table`,
 };
 
 function details(tools: readonly AgentTool[]): readonly string[] {

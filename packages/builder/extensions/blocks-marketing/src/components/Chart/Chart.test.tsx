@@ -300,11 +300,12 @@ describe('Chart schema', () => {
     ).toBe(false);
     expect(parse({ series: [{ name: 'S', values: ['12'] }] })).toBe(false);
     expect(parse({ series: [{ name: 'S', values: [Number.NaN] }] })).toBe(false);
-    expect(parse({ chartType: 'radar' })).toBe(false);
+    expect(parse({ chartType: 'bubble' })).toBe(false);
+    expect(parse({ chartType: 'gauge', maxValue: 100, targetValue: 90 })).toBe(true);
     expect(parse({ series: [{ name: 'S' }] })).toBe(true);
   });
 
-  it('ships model-facing examples for every chart type, one of them in Arabic', () => {
+  it('ships model-facing examples for the chart types, in English and Arabic', () => {
     const types = new Set<string>();
     for (const example of chartExamples) {
       const exampleNode = example.node as { type: string; props: unknown };
@@ -312,7 +313,20 @@ describe('Chart schema', () => {
       const parsed = chartSchema.props.parse(exampleNode.props);
       types.add(parsed.chartType);
     }
-    expect([...types].sort()).toEqual(['area', 'bar', 'donut', 'line']);
-    expect(chartExamples.some((example) => /[؀-ۿ]/u.test(example.prompt))).toBe(true);
+    expect([...types].sort()).toEqual([
+      'area',
+      'bar',
+      'combo',
+      'donut',
+      'funnel',
+      'gauge',
+      'hbar',
+      'line',
+      'radar',
+      'scatter',
+      'sparkline',
+    ]);
+    const arabic = chartExamples.filter((example) => /[؀-ۿ]/u.test(example.prompt));
+    expect(arabic.length).toBeGreaterThanOrEqual(4);
   });
 });

@@ -55,10 +55,11 @@ describe('data.show on the landing page', () => {
       'Put this in a table\n| Service | Duration | Price |\n|---|---|---:|\n| Consultation | 30 min | $40 |',
     );
     expect(node?.type).toBe('table');
+    // `sortAs` is the Table schema's default (2026-10-12: sortable tables read it).
     expect(node?.props['columns']).toEqual([
-      { label: 'Service', align: 'start' },
-      { label: 'Duration', align: 'end' },
-      { label: 'Price', align: 'end' },
+      { label: 'Service', align: 'start', sortAs: 'auto' },
+      { label: 'Duration', align: 'end', sortAs: 'auto' },
+      { label: 'Price', align: 'end', sortAs: 'auto' },
     ]);
   });
 });

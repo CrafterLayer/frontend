@@ -18,6 +18,7 @@ const SPOTLIGHT_CHILDREN = [
   'stats',
   'table',
   'chart',
+  'report',
   'timeline',
   'menuSection',
   'location',

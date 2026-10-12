@@ -17,11 +17,11 @@ import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
 import { committed, type Drawing, type SvgLabel } from './chart-drawing';
+import { chartPlot } from './chart-figure';
 import { dataTable, seriesLegend } from './chart-keys';
-import { cartesianModel, hasChartData, pieModel } from './chart-model';
+import { drawnType, hasSeriesLegend } from './chart-kind';
+import { hasChartData } from './chart-model';
 import { groundStroke } from './chart-palette';
-import { pieFigure } from './chart-pie';
-import { cartesianFigure } from './chart-plot';
 import { chartSchema, type ChartProps } from './schema';
 
 const FIGURE_CLASSES: Readonly<Record<ChartProps['variant'], string>> = {
@@ -29,7 +29,7 @@ const FIGURE_CLASSES: Readonly<Record<ChartProps['variant'], string>> = {
   plain: '',
 };
 
-/** An accessible SVG chart — bar, line, area, pie or donut — that renders without client script. */
+/** An accessible SVG chart — bars, lines, areas, points, a web, a funnel, dials, trends or slices — with no client script. */
 export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
   const titleId = `${node.id}-title`;
   const descriptionId = `${node.id}-description`;
@@ -44,7 +44,7 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
       : { ...colorStyle, ...spacingStyle };
   const hasTitle = props.title !== undefined;
   const hasDescription = props.description !== undefined;
-  const pie = props.chartType === 'pie' || props.chartType === 'donut';
+  const kind = drawnType(props);
   const hasData = hasChartData(props);
   const names = props.series.map((entry) => committed(entry.name)).filter((name) => name !== '');
   /* Named by the visible title; without one, by its series, so the picture always has a name. */
@@ -84,10 +84,8 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
         data-chart-empty=""
       />
     ) : null;
-  } else if (pie) {
-    plot = pieFigure(pieModel(props), drawing);
   } else {
-    plot = cartesianFigure(cartesianModel(props), drawing);
+    plot = chartPlot(drawing);
   }
 
   return (
@@ -115,6 +113,7 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
         <figure
           className={cx('m-0 flex w-full min-w-0 flex-col gap-gap', FIGURE_CLASSES[props.variant])}
           data-chart={props.chartType}
+          data-chart-drawn={kind === props.chartType ? undefined : kind}
         >
           {hasTitle || hasDescription ? (
             <figcaption className={cx('flex flex-col gap-gap-xs', ink)}>
@@ -143,11 +142,9 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
           ) : null}
           <div className={cx('flex min-w-0 flex-col gap-gap', ink)} data-chart-body="">
             {plot}
-            {hasData && !pie && props.showLegend && props.series.length > 1
-              ? seriesLegend(drawing)
-              : null}
+            {hasData && hasSeriesLegend(kind, props) ? seriesLegend(drawing) : null}
             {/* Published only: on the canvas it would repeat every label the person edits in place. */}
-            {hasData && !isCanvas ? dataTable(props, pie) : null}
+            {hasData && !isCanvas ? dataTable(props) : null}
           </div>
         </figure>
       </div>

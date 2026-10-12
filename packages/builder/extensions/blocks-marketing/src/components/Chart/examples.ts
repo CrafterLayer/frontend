@@ -79,4 +79,117 @@ export const chartExamples: { prompt: string; node: JsonValue }[] = [
       },
     },
   },
+  {
+    prompt: 'horizontal bar chart of survey answers with long labels',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'Most customers book for the location',
+        chartType: 'hbar',
+        categories: [
+          'Close to home or work',
+          'Recommended by a friend',
+          'Online reviews and ratings',
+          'Price compared with others',
+        ],
+        series: [{ name: 'Share of answers', values: [41, 27, 19, 13] }],
+        valueSuffix: '%',
+        showValues: true,
+        showGrid: false,
+      },
+    },
+  },
+  {
+    prompt: 'combo chart: monthly orders as bars and returns as a line',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'Orders grew while returns stayed flat',
+        chartType: 'combo',
+        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        series: [
+          { name: 'Orders', values: [320, 360, 410, 455, 490, 540] },
+          { name: 'Returns', values: [40, 42, 39, 44, 41, 43] },
+        ],
+        palette: 'mixed',
+      },
+    },
+  },
+  {
+    prompt: 'scatter plot of ad spend against revenue',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'Revenue rises with ad spend',
+        description: 'Each point is one campaign; the x axis is its spend in dollars.',
+        chartType: 'scatter',
+        categories: ['500', '800', '1200', '1500', '2100', '2600', '3000'],
+        series: [{ name: 'Revenue', values: [2100, 2900, 4300, 4800, 6900, 7400, 8800] }],
+        valuePrefix: '$',
+      },
+    },
+  },
+  {
+    prompt: 'مخطط راداري يقارن منتجنا بالمنافس',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'منتجنا يتفوق في الدعم والضمان',
+        chartType: 'radar',
+        categories: ['السعر', 'الجودة', 'الدعم', 'السرعة', 'التصميم', 'الضمان'],
+        series: [
+          { name: 'منتجنا', values: [7, 8, 9, 7, 8, 9] },
+          { name: 'المنافس', values: [8, 7, 5, 8, 7, 6] },
+        ],
+        maxValue: 10,
+        palette: 'mixed',
+      },
+    },
+  },
+  {
+    prompt: 'sales funnel from visitors to paying customers',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'One in twenty visitors becomes a customer',
+        chartType: 'funnel',
+        categories: ['Visitors', 'Sign-ups', 'Trials', 'Paying customers'],
+        series: [{ name: 'People', values: [12000, 3100, 1400, 600] }],
+      },
+    },
+  },
+  {
+    prompt: 'مؤشر رضا العملاء مقابل الهدف',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'رضا العملاء هذا الربع',
+        chartType: 'gauge',
+        categories: ['رضا العملاء'],
+        series: [{ name: 'النتيجة', values: [86] }],
+        maxValue: 100,
+        targetValue: 90,
+        targetLabel: 'الهدف',
+        valueSuffix: '%',
+        palette: 'success',
+      },
+    },
+  },
+  {
+    prompt: 'خطوط اتجاه مصغرة للمبيعات والزيارات خلال الأسبوع',
+    node: {
+      type: 'chart',
+      props: {
+        title: 'اتجاه الأسبوع',
+        chartType: 'sparkline',
+        categories: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'],
+        series: [
+          { name: 'المبيعات', values: [42, 45, 51, 49, 58, 63, 70] },
+          { name: 'الزيارات', values: [900, 870, 950, 1010, 980, 1100, 1240] },
+        ],
+        height: 'sm',
+        palette: 'mixed',
+      },
+    },
+  },
 ];

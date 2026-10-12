@@ -54,8 +54,71 @@ const DATA_BLOCKS: readonly { readonly type: string; readonly props: Record<stri
     },
   },
   { type: 'chart', props: { chartType: 'area', stacked: true, palette: 'success' } },
-  { type: 'chart', props: { chartType: 'donut', showValues: true, palette: 'mono', variant: 'plain', tone: 'dark' } },
+  {
+    type: 'chart',
+    props: {
+      chartType: 'donut',
+      showValues: true,
+      palette: 'mono',
+      variant: 'plain',
+      tone: 'dark',
+    },
+  },
   { type: 'chart', props: { chartType: 'pie', height: 'lg' } },
+  // 2026-10-12: the added chart types and the report.
+  {
+    type: 'chart',
+    props: {
+      chartType: 'hbar',
+      showValues: true,
+      stacked: true,
+      categories: ['Close to home or work', 'Recommended by a friend'],
+    },
+  },
+  {
+    type: 'chart',
+    props: {
+      chartType: 'hbar',
+      showValues: true,
+      series: [{ name: 'Net', values: [5, -3, 2, 1] }],
+    },
+  },
+  { type: 'chart', props: { chartType: 'combo', showValues: true, palette: 'mixed' } },
+  {
+    type: 'chart',
+    props: { chartType: 'scatter', categories: ['10', '20', '35', '50'], showValues: true },
+  },
+  { type: 'chart', props: { chartType: 'radar', maxValue: 100, height: 'lg' } },
+  { type: 'chart', props: { chartType: 'funnel', palette: 'accent' } },
+  {
+    type: 'chart',
+    props: {
+      chartType: 'gauge',
+      categories: ['Uptime', 'Speed', 'Care', 'Quality'],
+      series: [{ name: 'Score', values: [99, 82, 71, 64] }],
+      maxValue: 100,
+      targetValue: 80,
+      valueSuffix: '%',
+    },
+  },
+  {
+    type: 'chart',
+    props: {
+      chartType: 'gauge',
+      series: [{ name: 'NPS', values: [72] }],
+      categories: ['NPS'],
+      height: 'sm',
+    },
+  },
+  { type: 'chart', props: { chartType: 'sparkline', height: 'lg', palette: 'mixed' } },
+  {
+    type: 'report',
+    props: { summary: 'Revenue rose every quarter.', valuePrefix: '$', chartType: 'combo' },
+  },
+  {
+    type: 'report',
+    props: { variant: 'plain', tone: 'dark', showTable: false, chartType: 'funnel' },
+  },
 ];
 
 describe('publishing the data blocks', () => {
@@ -73,7 +136,15 @@ describe('publishing the data blocks', () => {
       siteVersion: LATEST_SITE_VERSION,
       dir: kernel.getDocument().dir,
       pages: [
-        { id: 'home', address: '/', title: 'Home', purpose: '', audience: '', document: kernel.getDocument(), regions: [] },
+        {
+          id: 'home',
+          address: '/',
+          title: 'Home',
+          purpose: '',
+          audience: '',
+          document: kernel.getDocument(),
+          regions: [],
+        },
       ],
       sharedRegions: {},
       designSystem: defaultDesignSystem(),
@@ -94,7 +165,11 @@ describe('publishing the data blocks', () => {
     expect(html).toContain('<th scope="col"');
     expect(html).toContain('<th scope="row"');
     expect(html).toContain('<caption');
-    expect((html.match(/<svg[^>]*role="img"/gu) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((html.match(/<svg[^>]*role="img"/gu) ?? []).length).toBeGreaterThanOrEqual(12);
+    /* A gauge's dials and a sparkline's rows are one named image around their small SVGs. */
+    expect((html.match(/<div[^>]*role="img"/gu) ?? []).length).toBe(3);
+    expect(html).toContain('data-report-kpis');
+    expect(html).toContain('data-report-change');
     expect(html).toContain('data-chart-table');
     expect(html).toContain('preserveAspectRatio="none"');
     expect(html).not.toMatch(/data-ck-(part|bind)/u);
@@ -102,11 +177,18 @@ describe('publishing the data blocks', () => {
     /* Every utility the data blocks render has a rule. */
     const blocks = [...html.matchAll(/<section[^>]*>[\s\S]*?<\/section>/gu)]
       .map((match) => match[0])
-      .filter((markup) => markup.includes('data-chart') || markup.includes('data-table-scroll'));
+      .filter(
+        (markup) =>
+          markup.includes('data-chart') ||
+          markup.includes('data-table-scroll') ||
+          markup.includes('data-report-content'),
+      );
     expect(blocks.length).toBe(DATA_BLOCKS.length);
     const classes = new Set(
       blocks.flatMap((markup) =>
-        [...markup.matchAll(/class="([^"]*)"/gu)].flatMap((match) => (match[1] ?? '').split(/\s+/u)),
+        [...markup.matchAll(/class="([^"]*)"/gu)].flatMap((match) =>
+          (match[1] ?? '').split(/\s+/u),
+        ),
       ),
     );
     const utilities = [...classes].filter((name) => name !== '' && compiler.isUtilityClass(name));
@@ -124,6 +206,13 @@ describe('publishing the data blocks', () => {
       '@max-3xl:invisible',
       'even:bg-current/5',
       'sr-only',
+      'rtl:translate-x-full',
+      '-translate-x-full',
+      'max-w-28',
+      '@sm:grid-cols-2',
+      '@4xl:grid-cols-4',
+      'text-success',
+      'border-s-2',
     ]) {
       expect(utilities, expected).toContain(expected);
     }

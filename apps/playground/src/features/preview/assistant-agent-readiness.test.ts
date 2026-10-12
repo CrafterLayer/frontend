@@ -27,7 +27,8 @@ const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
 */
 // 56 since 9521efa (2026-10-05) registered the symbol-instance block beside customCode.
 // 56 → 62 on 2026-10-12: table, chart, timeline, menuSection, location and countdown.
-const LANDING_BLOCK_COUNT = 62;
+// 62 → 63 on 2026-10-12: report (one dataset as KPI cards, a chart and a table).
+const LANDING_BLOCK_COUNT = 63;
 // 27 → 28 since c4fee26 (2026-10-09), which gave the landing one more node.
 const LANDING_NODE_COUNT = 28;
 /*
@@ -38,7 +39,8 @@ const LANDING_NODE_COUNT = 28;
   path sends no catalog and keeps the default (ai-context-cost.test.ts).
 */
 const FULL_CATALOG = catalogPolicyFor('offline', []);
-const FULL_CATALOG_BUDGET = FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
+const FULL_CATALOG_BUDGET =
+  FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
 
 async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'empty'>) {
   const kernel = createPlaygroundKernel({ fixture });

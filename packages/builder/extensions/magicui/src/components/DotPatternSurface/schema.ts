@@ -45,6 +45,7 @@ const DOT_PATTERN_CHILDREN = [
   'comparisonTable',
   'table',
   'chart',
+  'report',
   'timeline',
   'menuSection',
   'location',

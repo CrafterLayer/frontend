@@ -62,6 +62,7 @@ export const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
   plan: 'Plan',
   pricing: 'Pricing',
   quote: 'Quote',
+  report: 'Report',
   review: 'Review',
   richtext: 'Rich Text',
   row: 'Row',

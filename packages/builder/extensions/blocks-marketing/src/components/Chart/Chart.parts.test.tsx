@@ -41,6 +41,7 @@ function swapEverything(props: ChartProps): ChartProps {
     title: swapped('title'),
     description: swapped('description'),
     otherLabel: swapped('otherLabel'),
+    targetLabel: swapped('targetLabel'),
     valuePrefix: props.valuePrefix === undefined ? undefined : swapped('valuePrefix'),
     valueSuffix: props.valueSuffix === undefined ? undefined : swapped('valueSuffix'),
     categories: props.categories.map((_, index) => swapped(`categories.${String(index)}`)),
@@ -197,5 +198,51 @@ describe('Chart parts', () => {
     expect(container.querySelector('[data-swap="valuePrefix"]')?.closest('ul')).not.toBeNull();
     expect(container.querySelector('svg')).toHaveAttribute('aria-label', 'donut');
     expect(container.querySelector('[data-chart-slice] title')).toBeNull();
+  });
+
+  it.each([
+    ['hbar', {}],
+    ['combo', {}],
+    ['scatter', { categories: ['1', '2', '3', '4'] }],
+    ['radar', { categories: ['A', 'B', 'C', 'D'] }],
+    ['funnel', {}],
+    ['sparkline', {}],
+  ] as const)('swaps every visible label of a %s in once, in its bind', (chartType, extra) => {
+    const { container } = renderChart(
+      { chartType, showValues: true, valuePrefix: '$', valueSuffix: 'k', ...extra },
+      true,
+      swapEverything,
+    );
+    expectOnce(container, ['title', 'description', 'valuePrefix', 'valueSuffix']);
+    const visible = [...container.querySelectorAll('[data-swap]')].map((element) =>
+      element.getAttribute('data-swap'),
+    );
+    expect(new Set(visible).size).toBe(visible.length);
+    for (const element of container.querySelectorAll('[data-swap]')) {
+      expect(element.closest('[data-ck-bind]')).toHaveAttribute(
+        'data-ck-bind',
+        element.getAttribute('data-swap'),
+      );
+    }
+  });
+
+  it('puts a gauge’s label and its target label in their parts, the first dial hosting', () => {
+    const { container } = renderChart(
+      {
+        chartType: 'gauge',
+        categories: ['Speed', 'Care'],
+        series: [{ name: 'Score', values: [70, 90] }],
+        maxValue: 100,
+        targetValue: 80,
+        valueSuffix: '%',
+      },
+      true,
+      swapEverything,
+    );
+    expectOnce(container, ['categories.0', 'categories.1', 'targetLabel', 'valueSuffix']);
+    expect(partsNamed(container, 'targetLabel')).toHaveLength(2);
+    expect(container.querySelector('[data-swap="targetLabel"]')?.closest('[data-chart-dial]')).toBe(
+      container.querySelector('[data-chart-dial]'),
+    );
   });
 });

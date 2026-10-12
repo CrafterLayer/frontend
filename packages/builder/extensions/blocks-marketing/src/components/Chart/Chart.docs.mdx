@@ -6,21 +6,41 @@ import * as ChartStories from './Chart.stories';
 
 # Chart
 
-A data chart drawn as hand-built, accessible SVG: bar, line, area, pie or donut. It needs no chart
-library and no client script, so the published page shows the same picture the canvas does.
+A data chart drawn as hand-built, accessible SVG: bar, horizontal bar, line, area, combo, scatter,
+radar, funnel, gauge, sparkline, pie or donut. It needs no chart library and no client script, so
+the published page shows the same picture the canvas does.
 
 ## Content model
 
 - `title` and `description` (both optional) form the `<figcaption>`. The title names the picture
   (`role="img"`, `aria-labelledby`); the description is its accessible description. An untitled
   chart is named by its series.
-- `chartType: 'bar' | 'line' | 'area' | 'pie' | 'donut' = 'bar'`.
+- `chartType = 'bar'`, one of:
+
+  | type        | use it for                                 | draws                                                                 |
+  | ----------- | ------------------------------------------ | --------------------------------------------------------------------- |
+  | `bar`       | comparing items                            | grouped (or stacked) columns                                          |
+  | `hbar`      | comparing items with long labels           | bars across, each label beside its row (stacks too)                   |
+  | `line`      | change over time                           | lines with ringed markers                                             |
+  | `area`      | change over time when the total matters    | washed bands (stacks too)                                             |
+  | `combo`     | a volume and a rate on one axis            | the first series as bars, the rest as lines                           |
+  | `scatter`   | how two measures move together             | points; categories that read as numbers are the x axis                |
+  | `radar`     | one profile over 3-12 criteria             | a web with one closed shape per series; outside 3-12 it draws as bars |
+  | `funnel`    | stages that narrow                         | centred stages of the first series with each one's share of the first |
+  | `gauge`     | one value against a maximum (and a target) | a half dial per category of the first series (at most six)            |
+  | `sparkline` | a compact trend                            | one small line per series with its name and last value, no axes       |
+  | `pie`       | shares of one whole                        | slices of the first series                                            |
+  | `donut`     | shares of one whole, with the total        | a ring of the first series                                            |
+
 - `categories`: up to 24 labels — the x axis, or the slices of a pie.
 - `series`: up to six `{ name, values: number[] }`, one value per category. Values past the last
   category are kept but not drawn; a missing value draws no bar and breaks a line. Pie and donut
   plot the first series only.
-- `stacked: boolean = false` stacks bars (positives up, negatives down) and areas (negatives count
-  as zero).
+- `stacked: boolean = false` stacks bars and horizontal bars (positives one way, negatives the
+  other) and areas (negatives count as zero). A combo never stacks.
+- `maxValue` sets the top of a gauge's dial (or a radar's outer ring); left out, it is a round
+  number above the largest value. `targetValue` marks a gauge's goal across every dial, named by
+  `targetLabel = 'Target'`.
 - `valuePrefix` / `valueSuffix` (for example `$`, `%`, ` ر.س`) frame every printed value; axis ticks
   compact thousands (`12K`).
 - `showLegend = true`, `showValues = false`, `showGrid = true`.
@@ -33,9 +53,13 @@ Inserted from the Library, the block starts as a four-quarter, two-series bar ch
 ## How it is drawn
 
 `chart-geometry.ts` (pure: nice ticks, bar paths, line and area paths, pie and donut arcs),
-`chart-format.ts` (how numbers print) and `chart-model.ts` (what to draw where) compute everything;
-`chart-plot.tsx`, `chart-pie.tsx` and `chart-keys.tsx` only map that model to elements, and
-`Chart.tsx` frames them. None of these is in `schema.ts`'s import chain.
+`chart-format.ts` (how numbers print), `chart-kind.ts` (which type is drawn, which legend it gets)
+and the models — `chart-model.ts` (bar, line, area, combo), `chart-scatter.ts`, `chart-rows.ts`
+(horizontal bars and the funnel, a vertical bar chart turned on its side), `chart-polar.ts` (radar
+and gauge) and `chart-spark.ts` — compute everything. `chart-plot.tsx`, `chart-hbar.tsx`,
+`chart-funnel.tsx`, `chart-radar.tsx`, `chart-gauge.tsx`, `chart-sparkline.tsx`, `chart-pie.tsx` and
+`chart-keys.tsx` only map those models to elements, and `Chart.tsx` frames them. None of these is in
+`schema.ts`'s import chain.
 
 - **Size.** A bar, line or area plot is as wide as its column and as tall as `height` says (`h-48`,
   `h-64`, `h-80`): the SVG stretches to that box (`preserveAspectRatio="none"`), so a chart in a
@@ -49,8 +73,12 @@ Inserted from the Library, the block starts as a four-quarter, two-series bar ch
   SVG by percentage, so they stay crisp at any size and never mirror. Text wears text tokens, never
   the series colour; a swatch beside each name carries identity.
 - **RTL.** On an RTL page the SVG mirrors (`rtl:-scale-x-100`), so the first category sits at the
-  inline start; the HTML labels follow the page direction on their own. A negative number keeps its
-  minus sign in front through a left-to-right isolate.
+  inline start, horizontal bars grow from the inline start, a radar runs anticlockwise and a gauge
+  fills from the right; the HTML labels follow the page direction on their own
+  (`inset-inline-start`, never `left`). A funnel is symmetric. A negative number keeps its minus
+  sign in front through a left-to-right isolate.
+- **Rows.** Horizontal bars and funnel stages sit in equal rows (`1fr` rows size to the tallest
+  label), so a long label wraps and every row grows together; the SVG stretches over them.
 - **Colour.** A palette is an ordered list of theme roles — `accent`, `success`, `text-muted` and
   `current` (the section's own ink) — with opacity steps. Adjacent slots alternate hue and neutral.
   No hex value exists anywhere in the block; re-pointing the theme repaints every chart.
@@ -62,10 +90,11 @@ Inserted from the Library, the block starts as a four-quarter, two-series bar ch
 
 ## Accessibility
 
-The SVG is one named image. The numbers behind it are a visually hidden `<table>` — one row per
-category with a row header, one column per series with a column header — so a screen reader can read
-the data instead of a picture of it. The visual axis and value labels are `aria-hidden` because the
-table carries them. Legend items stay readable as a list.
+The SVG is one named image (a gauge's or sparkline's row of small pictures is one `role="img"`
+element around them). The numbers behind it are a visually hidden `<table>` — one row per category
+with a row header, one column per series with a column header — so a screen reader can read the data
+instead of a picture of it. The visual axis and value labels are `aria-hidden` because the table
+carries them. Legend items stay readable as a list.
 
 ## Parts
 
@@ -85,10 +114,23 @@ text to edit in place.
 | `dataset.name` | text | `series.*.name` | Series name / اسم السلسلة                |
 | `valuePrefix`  | text | `valuePrefix`   | Value prefix / بادئة القيمة              |
 | `valueSuffix`  | text | `valueSuffix`   | Value suffix / لاحقة القيمة              |
+| `targetLabel`  | text | `targetLabel`   | Target label / تسمية الهدف               |
 
-Category labels sit on the x axis of a bar, line or area chart and in the legend of a pie or donut;
-series names sit in the legend, which a single-series chart does not draw. The value prefix and
-suffix are one part each, printed beside every number: the lowest axis tick (for a pie, the legend's
-first value, else the donut total) hosts the in-place editor. On the canvas the screen-reader table
-and the SVG tooltips are left out — each would be a second, unbound copy of a label being edited —
-and the published page keeps both.
+Category labels sit on the x axis of a bar, line, area or combo chart, beside the rows of a
+horizontal bar chart or funnel, around a radar, under each gauge and in the legend of a pie or
+donut; series names sit in the legend (which a single-series chart does not draw) or beside each
+sparkline. A scatter whose categories are numbers shows them as its x axis instead, and a gauge's
+target label is one part shown on every dial, hosted by the first. The value prefix and suffix are
+one part each, printed beside every number: the lowest axis tick (for a pie, the legend's first
+value, else the donut total; for a funnel, gauge or sparkline, the first value; for a radar, its
+innermost ring) hosts the in-place editor. On the canvas the screen-reader table and the SVG
+tooltips are left out — each would be a second, unbound copy of a label being edited — and the
+published page keeps both.
+
+## Limitations
+
+- A gauge's dial starts at zero; a negative value draws an empty dial. It draws at most six dials.
+- Sparklines are each scaled to their own range: they compare shapes, not sizes.
+- A radar plots a missing or negative value at its centre.
+- A scatter's x values come from its category labels; labels that are not all numbers place the
+  points over the category bands instead.

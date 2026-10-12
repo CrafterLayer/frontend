@@ -216,7 +216,7 @@ export {
   type PortfolioGridProps,
   type ProductGridProps,
   type PromoBannerProps,
-  type ProcessStepsProps,
+  type ProcessStepsProps, type ReportProps,
   type StatsProps, type TableProps,
   type TeamProps,
   type TestimonialsProps, type TimelineProps,

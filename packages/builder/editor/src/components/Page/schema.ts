@@ -104,6 +104,7 @@ export const pageSchema = defineBlockSchema({
         'comparisonTable',
         'table',
         'chart',
+        'report',
         'timeline',
         'menuSection',
         'location',

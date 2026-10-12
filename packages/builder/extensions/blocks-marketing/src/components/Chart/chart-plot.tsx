@@ -14,9 +14,9 @@ const PLOT_HEIGHTS: Readonly<Record<ChartProps['height'], string>> = {
   lg: 'h-80',
 };
 
-/** The plot of a bar, line or area chart: HTML axis and labels around a stretched SVG. */
+/** The plot of a bar, line, area, combo or scatter chart: HTML axes and labels around a stretched SVG. */
 export function cartesianFigure(model: CartesianModel, drawing: Drawing) {
-  const { props, part, svgLabel, ring, muted, isCanvas } = drawing;
+  const { props, svgLabel, ring, muted, isCanvas } = drawing;
   const format = valueFormatOf(props);
   const count = model.categoryCount;
   /* Crowded axes keep every second or third label once their container narrows. */
@@ -70,6 +70,23 @@ export function cartesianFigure(model: CartesianModel, drawing: Drawing) {
                   strokeWidth={1}
                   vectorEffect="non-scaling-stroke"
                   data-chart-grid=""
+                />
+              ))
+            : null}
+          {/* A numeric x axis (a scatter of numbers) draws its own hairlines across. */}
+          {props.showGrid
+            ? model.xTicks?.map((tick) => (
+                <line
+                  key={`x-${String(tick.value)}`}
+                  x1={tick.x}
+                  x2={tick.x}
+                  y1={0}
+                  y2={model.height}
+                  className="stroke-current"
+                  strokeOpacity={0.08}
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
+                  data-chart-grid="x"
                 />
               ))
             : null}
@@ -212,28 +229,54 @@ export function cartesianFigure(model: CartesianModel, drawing: Drawing) {
         )}
       </div>
       <div aria-hidden="true" />
-      <div
-        {...part('categories', { className: cx('grid text-center text-xs leading-tight', muted) })}
-        style={{ gridTemplateColumns: `repeat(${String(Math.max(count, 1))}, minmax(0, 1fr))` }}
-        aria-hidden="true"
-        data-chart-categories=""
-      >
-        {props.categories.map((category, index) => (
-          /* Keyed by position: a bound value may be an inline editor element. */
-          <span
-            key={index}
-            {...part('category', {
-              index: [index],
-              className: cx(
-                'min-w-0 px-0.5 break-words',
-                thin > 1 && index % thin !== 0 ? '@max-3xl:invisible' : undefined,
-              ),
-            })}
-          >
-            {category}
-          </span>
-        ))}
-      </div>
+      {model.xTicks === undefined ? (
+        categoryRow(drawing, count, thin)
+      ) : (
+        <div
+          className={cx('relative h-4 text-xs leading-none tabular-nums', muted)}
+          aria-hidden="true"
+          data-chart-x-axis=""
+        >
+          {model.xTicks.map((tick) => (
+            <span
+              key={tick.value}
+              className="absolute top-0 -translate-x-1/2 whitespace-nowrap rtl:translate-x-1/2"
+              style={{ insetInlineStart: `${String(tick.start)}%` }}
+            >
+              {tick.digits}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* The category labels under the plot, one column per band. */
+function categoryRow(drawing: Drawing, count: number, thin: number) {
+  const { props, part, muted } = drawing;
+  return (
+    <div
+      {...part('categories', { className: cx('grid text-center text-xs leading-tight', muted) })}
+      style={{ gridTemplateColumns: `repeat(${String(Math.max(count, 1))}, minmax(0, 1fr))` }}
+      aria-hidden="true"
+      data-chart-categories=""
+    >
+      {props.categories.map((category, index) => (
+        /* Keyed by position: a bound value may be an inline editor element. */
+        <span
+          key={index}
+          {...part('category', {
+            index: [index],
+            className: cx(
+              'min-w-0 px-0.5 break-words',
+              thin > 1 && index % thin !== 0 ? '@max-3xl:invisible' : undefined,
+            ),
+          })}
+        >
+          {category}
+        </span>
+      ))}
     </div>
   );
 }

@@ -15,7 +15,21 @@ import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { chartExamples } from './examples';
 
-export const chartTypes = ['bar', 'line', 'area', 'pie', 'donut'] as const;
+export const chartTypes = [
+  'bar',
+  'line',
+  'area',
+  'pie',
+  'donut',
+  /* 2026-10-12: bars across for long labels, bars with lines, x-y points, a spider web, stages, a dial and a trend. */
+  'hbar',
+  'combo',
+  'scatter',
+  'radar',
+  'funnel',
+  'gauge',
+  'sparkline',
+] as const;
 /*
   Colour schemes, never colours: each names an ordered set of theme roles
   (chart-palette.ts), so a re-themed site repaints every chart it holds.
@@ -34,7 +48,7 @@ const defaultSeries = [
 export const chartSchema = defineBlockSchema({
   type: 'chart',
   description:
-    'An accessible data chart drawn as SVG with no script: bar, line, area, pie or donut. `categories` label the x axis (or the slices); each of up to six `series` has a name and one number per category. Supports stacked bars and areas, legend, gridlines, value labels, a value prefix or suffix (such as $ or %), theme-colour palettes, and a screen-reader data table. Pie and donut plot the first series only.',
+    'An accessible SVG chart with no script. `chartType`: bar, hbar (long labels), line, area, combo (first series as bars, the rest as lines), scatter (numeric categories are the x), radar (3-12 categories), funnel, gauge (each value against `maxValue`, optional `targetValue`), sparkline, pie or donut. `categories` label the x axis (or slices, stages, spokes); each of up to six `series` has a name and one number per category. Stacked bars and areas, legend, gridlines, value labels, `valuePrefix`/`valueSuffix` ($, %), theme palettes and a screen-reader table. Pie, donut, funnel and gauge plot the first series.',
   surfaces: ['site', 'store', 'docs'],
   props: z.object({
     title: z.string().min(1).max(90).optional(),
@@ -55,6 +69,11 @@ export const chartSchema = defineBlockSchema({
     valueSuffix: z.string().min(1).max(12).optional(),
     /* The slice a pie folds its smallest values into past eight slices. */
     otherLabel: z.string().min(1).max(24).default('Other'),
+    /* A gauge's (or radar's) top of scale; left out, a round number above the largest value. */
+    maxValue: z.number().optional(),
+    /* A gauge's goal, marked across its dial with `targetLabel`. */
+    targetValue: z.number().optional(),
+    targetLabel: z.string().min(1).max(24).default('Target'),
     showLegend: z.boolean().default(true),
     showValues: z.boolean().default(false),
     showGrid: z.boolean().default(true),
@@ -81,6 +100,9 @@ export const chartSchema = defineBlockSchema({
     valuePrefix: { tab: 'content', section: 'Values' },
     valueSuffix: { tab: 'content', section: 'Values' },
     otherLabel: { tab: 'content', section: 'Values' },
+    maxValue: { tab: 'content', section: 'Values' },
+    targetValue: { tab: 'content', section: 'Values' },
+    targetLabel: { tab: 'content', section: 'Values' },
     showLegend: { tab: 'design', section: 'Display' },
     showValues: { tab: 'design', section: 'Display' },
     showGrid: { tab: 'design', section: 'Display' },
@@ -167,6 +189,12 @@ export const chartSchema = defineBlockSchema({
       bind: 'series.*.name',
       label: { en: 'Series name', ar: 'اسم السلسلة' },
       aliases: ['series name', 'legend label', 'name', 'اسم', 'الاسم'],
+    },
+    targetLabel: {
+      kind: 'text',
+      bind: 'targetLabel',
+      label: { en: 'Target label', ar: 'تسمية الهدف' },
+      aliases: ['target', 'goal', 'الهدف', 'المستهدف'],
     },
   },
   examples: chartExamples,

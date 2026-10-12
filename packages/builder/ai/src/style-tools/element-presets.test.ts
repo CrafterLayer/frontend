@@ -40,4 +40,28 @@ describe('element.insert shared presets', () => {
     }
     expect(kernel.transactions()).toHaveLength(0);
   });
+  it('inserts a data table from items and a | separated label, as one Undo', () => {
+    const kernel = styleKernel({ locale: 'ar', kit: false });
+    const content = {
+      title: 'مواعيد العيادة',
+      label: 'اليوم | الصباح | المساء',
+      items: [{ title: 'الأحد', text: '٩:٠٠ – ١:٠٠ | ٤:٠٠ – ٩:٠٠' }, { title: 'الجمعة', text: 'مغلق | مغلق' }],
+    };
+    const result = runStyleTool(kernel, elementInsertTool, { id: 'r-story', parent: [0], index: 0, preset: 'data-table', content });
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    const outer = treeOf(kernel, 'r-story').children[0];
+    const inserted = outer?.kind === 'element' ? outer.children?.[0] : undefined;
+    expect(inserted).toEqual(buildElementRecipe('data-table', 'ar', content));
+    expect(inserted?.kind === 'element' ? inserted.attributes : undefined).toMatchObject({ role: 'region', 'aria-label': 'مواعيد العيادة' });
+    const json = JSON.stringify(inserted);
+    expect(json).toContain('"scope":"col"');
+    expect(json).toContain('"scope":"row"');
+    expect(json).toContain('"text":"الجمعة"');
+    expect(kernel.transactions()).toHaveLength(1);
+  });
+  it('names data-table among the presets the tool accepts', () => {
+    const kernel = styleKernel();
+    const refused = runStyleTool(kernel, elementInsertTool, { id: 'r-story', parent: [0], preset: 'table' });
+    expect(JSON.stringify(refused)).toContain('data-table');
+  });
 });

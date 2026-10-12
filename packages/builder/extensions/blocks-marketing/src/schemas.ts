@@ -24,6 +24,7 @@ import { testimonialsSchema } from './components/Testimonials/schema';
 import { comparisonTableSchema } from './components/ComparisonTable/schema';
 import { tableSchema } from './components/Table/schema';
 import { chartSchema } from './components/Chart/schema';
+import { reportSchema } from './components/Report/schema';
 import { timelineSchema } from './components/Timeline/schema';
 import { menuSectionSchema } from './components/MenuSection/schema';
 import { locationSchema } from './components/Location/schema';
@@ -91,6 +92,7 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   comparisonTableSchema,
   tableSchema,
   chartSchema,
+  reportSchema,
   timelineSchema,
   menuSectionSchema,
   locationSchema,
@@ -132,6 +134,7 @@ export {
   comparisonTableSchema,
   tableSchema,
   chartSchema,
+  reportSchema,
   timelineSchema,
   menuSectionSchema,
   locationSchema,

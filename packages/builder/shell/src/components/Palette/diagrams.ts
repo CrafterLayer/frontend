@@ -201,7 +201,8 @@ export function diagramForBlockType(type: string): BlockDiagram {
   if (key.includes('table')) {
     return { kind: 'table', parts: tableDiagram() };
   }
-  if (key.includes('chart')) {
+  // A report's miniature is its chart.
+  if (key.includes('chart') || key === 'report') {
     return { kind: 'chart', parts: chartDiagram() };
   }
   if (key.includes('timeline')) {

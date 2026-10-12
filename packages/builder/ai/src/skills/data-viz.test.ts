@@ -17,6 +17,10 @@ describe('craftkit.data-viz', () => {
     'اعرض هذه البيانات في مخطط',
     'أضف رسم بياني للمبيعات',
     'ضع الإحصائيات في جدول',
+    'Make a dashboard from these sales figures',
+    'Draw a sales funnel',
+    'اعمل تقرير من هذه البيانات',
+    'أضف قمع المبيعات',
   ])('activates on %s', (request) => {
     expect(active(request)).toContain('craftkit.data-viz');
   });
@@ -25,8 +29,12 @@ describe('craftkit.data-viz', () => {
     expect(active('Make the hero warmer and add a Book a table button')).not.toContain('craftkit.data-viz');
   });
 
-  it('teaches the tool and the honesty rule', () => {
+  it('teaches the tools, the added chart types and the honesty rule', () => {
     expect(DATA_VIZ_SKILL.instructions).toContain('"name":"data.show"');
+    expect(DATA_VIZ_SKILL.instructions).toContain('"name":"report.build"');
+    for (const type of ['hbar', 'combo', 'scatter', 'radar', 'funnel', 'gauge', 'sparkline']) {
+      expect(DATA_VIZ_SKILL.instructions).toContain(type);
+    }
     expect(DATA_VIZ_SKILL.instructions).toContain('never present invented statistics as real');
   });
 });

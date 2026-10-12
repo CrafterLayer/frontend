@@ -9,9 +9,13 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { CHART_TYPES } from './data-chart';
+import { REPORT_CHART_TYPES } from './report-build';
+
 /*
-  Test-only (2026-10-12): data.show over the real door — a page whose chart and table blocks declare the props the
-  marketing blocks declare (with their limits), a stats block that holds no data, a plan
+  Test-only (2026-10-12): data.show and report.build over the real door — a page whose chart,
+  report and table blocks declare the props the marketing blocks declare (with their limits), a
+  stats block that holds no data, a plan
   comparison (columns and rows, but not a table) and a footer.
 */
 
@@ -32,7 +36,9 @@ export const dataFixtureBlocks: TrustedExtensionManifest = {
             lang: z.string().max(12).default(''),
           }),
           slots: {
-            default: { allow: ['chart', 'table', 'stats', 'comparisonTable', 'pageFooter'] },
+            default: {
+              allow: ['chart', 'report', 'table', 'stats', 'comparisonTable', 'pageFooter'],
+            },
           },
           examples: [],
         }),
@@ -45,7 +51,7 @@ export const dataFixtureBlocks: TrustedExtensionManifest = {
           props: z.object({
             title: z.string().min(1).max(90).optional(),
             description: z.string().min(1).max(240).optional(),
-            chartType: z.enum(['bar', 'line', 'area', 'pie', 'donut']).default('bar'),
+            chartType: z.enum(CHART_TYPES).default('bar'),
             categories: z.array(z.string().min(1).max(40)).max(24).default([]),
             series: z
               .array(
@@ -58,6 +64,44 @@ export const dataFixtureBlocks: TrustedExtensionManifest = {
               .default([]),
             valuePrefix: z.string().min(1).max(12).optional(),
             valueSuffix: z.string().min(1).max(12).optional(),
+            maxValue: z.number().optional(),
+            targetValue: z.number().optional(),
+          }),
+          examples: [],
+        }),
+        render: NullRender,
+      },
+      {
+        schema: defineBlockSchema({
+          type: 'report',
+          description: 'One dataset as KPI cards, a chart and a table.',
+          props: z.object({
+            title: z.string().min(1).max(90).default('Report'),
+            summary: z.string().min(1).max(320).optional(),
+            categories: z.array(z.string().min(1).max(40)).max(24).default([]),
+            series: z
+              .array(
+                z.object({
+                  name: z.string().min(1).max(40),
+                  values: z.array(z.number()).max(24).default([]),
+                }),
+              )
+              .max(6)
+              .default([]),
+            valuePrefix: z.string().min(1).max(12).optional(),
+            valueSuffix: z.string().min(1).max(12).optional(),
+            kpis: z
+              .array(
+                z.object({
+                  label: z.string().min(1).max(40),
+                  series: z.number().int().min(0).max(5).default(0),
+                  measure: z.enum(['last', 'total', 'average', 'max', 'min']).default('last'),
+                  better: z.enum(['up', 'down']).default('up'),
+                }),
+              )
+              .max(4)
+              .default([]),
+            chartType: z.enum(REPORT_CHART_TYPES).default('bar'),
           }),
           examples: [],
         }),

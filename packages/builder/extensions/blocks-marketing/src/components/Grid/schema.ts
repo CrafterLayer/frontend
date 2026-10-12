@@ -42,6 +42,7 @@ const GRID_CHILDREN = [
   'comparisonTable',
   'table',
   'chart',
+  'report',
   'timeline',
   'menuSection',
   'location',

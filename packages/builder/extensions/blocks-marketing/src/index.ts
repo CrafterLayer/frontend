@@ -33,6 +33,7 @@ import { PricingPlan, pricingPlanSchema } from './components/PricingPlan';
 import { ProductGrid, productGridSchema } from './components/ProductGrid';
 import { ProcessSteps, processStepsSchema } from './components/ProcessSteps';
 import { PromoBanner, promoBannerSchema } from './components/PromoBanner';
+import { Report, reportSchema } from './components/Report';
 import { PortfolioGrid, portfolioGridSchema } from './components/PortfolioGrid';
 import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
 import { Testimonials, testimonialsSchema } from './components/Testimonials';
@@ -80,6 +81,8 @@ export const blocksMarketing: TrustedExtensionManifest = {
       // Data: a rows-and-columns table and an SVG chart, both script-free when published.
       { schema: tableSchema, render: Table },
       { schema: chartSchema, render: Chart },
+      // One dataset as a report: KPI cards, a chart and the table (2026-10-12).
+      { schema: reportSchema, render: Report },
       // Local business and events: milestones, a menu or price list, where to find it, and a countdown.
       { schema: timelineSchema, render: Timeline },
       { schema: menuSectionSchema, render: MenuSection },
@@ -147,6 +150,7 @@ export {
 } from './components/PortfolioGrid';
 export { ProductGrid, productGridSchema, type ProductGridProps } from './components/ProductGrid';
 export { PromoBanner, promoBannerSchema, type PromoBannerProps } from './components/PromoBanner';
+export { Report, reportSchema, type ReportProps } from './components/Report';
 export { LogoCloud, logoCloudSchema, type LogoCloudProps } from './components/LogoCloud';
 export { Newsletter, newsletterSchema, type NewsletterProps } from './components/Newsletter';
 export { PricingPlan, pricingPlanSchema, type PricingPlanProps } from './components/PricingPlan';

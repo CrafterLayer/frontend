@@ -55,7 +55,9 @@ describe('data.show', () => {
       const prompt = agentToolPrompt(lane);
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));
       expect(prompt).toContain('data.show {data,as?,id?,after?,title?,caption?}');
-      expect(prompt).toContain('as?:auto|table|bar|line|area|pie|donut');
+      expect(prompt).toContain(
+        'as?:auto|table|bar|hbar|line|area|combo|scatter|radar|funnel|gauge|sparkline|pie|donut',
+      );
     }
   });
 
@@ -176,7 +178,12 @@ describe('data.show', () => {
     [{ id: 'table-1', data: 'A,B\nx,1', as: 'bar' }, 'is a table'],
     [{ after: 'nope', data: 'A,B\nx,1' }, '"after": no section "nope"'],
     [{ id: 'chart-1', after: 'stats-1', data: 'A,B\nx,1' }, 'send one of them'],
-    [{ data: 'A,B\nx,1', as: 'radar' }, '"as" is one of'],
+    [{ data: 'A,B\nx,1', as: 'bubble' }, '"as" is one of'],
+    [{ data: 'A,B\nx,1', as: 'radar' }, 'a radar needs 3 to 12 categories'],
+    [
+      { data: 'Name,Score\nAda,1\nGrace,2', as: 'scatter' },
+      'a scatter needs numbers in the first column',
+    ],
     [{ data: 'A,B\nx,1', colour: 'red' }, 'unknown keys colour'],
     [{ data: 'Name,Role\nAda,Engineer', as: 'bar' }, 'no column after the first holds numbers'],
     [

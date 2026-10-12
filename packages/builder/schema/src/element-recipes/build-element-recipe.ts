@@ -1,4 +1,5 @@
 import type { CustomCodeElement, CustomCodeNode } from '../custom-code/custom-code-tree';
+import { buildDataTable } from './build-data-table';
 import type { ElementRecipeContent, ElementRecipeId, ElementRecipePalette } from './catalog';
 
 /** Existing page-kit classes preserve a planned page's palette; otherwise use the site tokens. */
@@ -78,5 +79,7 @@ export function buildElementRecipe(
         items.map((item, index) => el('article', `min-w-0 p-6 flex flex-col gap-4 ${card}${index === 0 ? ' col-span-2 max-md:col-span-1' : ''}`, undefined, [
           icon(index === 0 ? 'sparkles' : 'check'), el('div', 'min-w-0', undefined, itemCopy(item)),
         ])));
+    case 'data-table':
+      return buildDataTable(locale, content, palette);
   }
 }

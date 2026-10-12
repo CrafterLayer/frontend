@@ -2,7 +2,9 @@ import { cx } from '../section-classes';
 
 import { formatValue } from './chart-format';
 import { committed, sharedText, type Drawing } from './chart-drawing';
+import { drawnType, firstSeriesOnly, swatchShape } from './chart-kind';
 import { valueFormatOf } from './chart-model';
+import { gaugeEnds } from './chart-polar';
 import { isTranslucent, toneOf, type SeriesTone } from './chart-palette';
 import type { ChartProps } from './schema';
 
@@ -50,10 +52,7 @@ export function seriesLegend({ props, part }: Drawing) {
             className: 'inline-flex min-w-0 items-center gap-gap-xs',
           })}
         >
-          {swatch(
-            toneOf(props.palette, index),
-            props.chartType === 'line' ? 'h-0.5 w-4 rounded-full' : 'size-3 rounded-sm',
-          )}
+          {swatch(toneOf(props.palette, index), swatchShape(drawnType(props), index))}
           <span {...part('dataset.name', { index: [index] })}>{entry.name}</span>
         </li>
       ))}
@@ -61,10 +60,16 @@ export function seriesLegend({ props, part }: Drawing) {
   );
 }
 
-/* The numbers behind the picture, for a screen reader: one row per category, one column per series. */
-export function dataTable(props: ChartProps, pie: boolean) {
+/*
+  The numbers behind the picture, for a screen reader: one row per category,
+  one column per series (the first only where only it is drawn). A gauge adds
+  its dial's end ("72 / 100") and a column for its target.
+*/
+export function dataTable(props: ChartProps) {
   const format = valueFormatOf(props);
-  const series = pie ? props.series.slice(0, 1) : props.series;
+  const kind = drawnType(props);
+  const series = firstSeriesOnly(kind) ? props.series.slice(0, 1) : props.series;
+  const dial = kind === 'gauge' ? gaugeEnds(props) : undefined;
   const caption = committed(props.title);
   return (
     <table className="sr-only" data-chart-table="">
@@ -77,6 +82,7 @@ export function dataTable(props: ChartProps, pie: boolean) {
               {committed(entry.name)}
             </th>
           ))}
+          {dial?.target === undefined ? null : <th scope="col">{committed(props.targetLabel)}</th>}
         </tr>
       </thead>
       <tbody>
@@ -85,8 +91,16 @@ export function dataTable(props: ChartProps, pie: boolean) {
             <th scope="row">{committed(category)}</th>
             {series.map((entry, index) => {
               const value = entry.values[categoryIndex];
-              return <td key={index}>{value === undefined ? '' : formatValue(value, format)}</td>;
+              const text = value === undefined ? '' : formatValue(value, format);
+              return (
+                <td key={index}>
+                  {dial === undefined || text === ''
+                    ? text
+                    : `${text} / ${formatValue(dial.max, format)}`}
+                </td>
+              );
             })}
+            {dial?.target === undefined ? null : <td>{formatValue(dial.target, format)}</td>}
           </tr>
         ))}
       </tbody>

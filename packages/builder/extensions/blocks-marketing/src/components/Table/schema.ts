@@ -14,6 +14,7 @@ import {
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { tableExamples } from './examples';
+import { tableSortKinds } from './table-tools';
 
 export const tableColumnAligns = ['start', 'center', 'end'] as const;
 export const tableDensities = ['comfortable', 'compact'] as const;
@@ -25,9 +26,9 @@ export const tableVariants = ['boxed', 'minimal'] as const;
   table that inserts empty teaches nothing about what it is for.
 */
 const defaultColumns = [
-  { label: 'Service', align: 'start' as const },
-  { label: 'Duration', align: 'start' as const },
-  { label: 'Price', align: 'end' as const },
+  { label: 'Service', align: 'start' as const, sortAs: 'auto' as const },
+  { label: 'Duration', align: 'start' as const, sortAs: 'auto' as const },
+  { label: 'Price', align: 'end' as const, sortAs: 'auto' as const },
 ];
 
 const defaultRows = [
@@ -40,7 +41,7 @@ const defaultRows = [
 export const tableSchema = defineBlockSchema({
   type: 'table',
   description:
-    'A semantic data table: column headers, optional row headers in the first column, an optional heading and caption, per-column text alignment, striped or compact rows, and a labelled horizontal scroll region on narrow screens. Use it for schedules, price lists, specifications, opening hours and any rows-and-columns data; use comparisonTable for plan-versus-plan pricing.',
+    'A semantic data table: column headers, optional row headers in the first column, an optional heading and caption, per-column text alignment, striped or compact rows, and a labelled horizontal scroll region on narrow screens. Use it for schedules, price lists, specifications, opening hours and any rows-and-columns data; use comparisonTable for plan-versus-plan pricing. For longer data turn on `sortable` (numbers, dates and Arabic or English text sort correctly), `searchable` (a filter box with a live row count) and `pageSize` (rows per page, 0 = all); the published page runs them with a tiny script and still shows the whole table without it. Write the tool words (`searchLabel`, `countLabel` with {shown} and {total}, `pageLabel` with {page} and {pages}, `previousLabel`, `nextLabel`) in the page language.',
   surfaces: ['site', 'store', 'docs'],
   props: z.object({
     title: z.string().min(1).max(90).optional(),
@@ -50,6 +51,8 @@ export const tableSchema = defineBlockSchema({
         z.object({
           label: z.string().min(1).max(60),
           align: z.enum(tableColumnAligns).default('start'),
+          /* How a sortable column orders its rows; `auto` reads dates, then numbers, else text. */
+          sortAs: z.enum(tableSortKinds).default('auto'),
         }),
       )
       .max(8)
@@ -68,6 +71,19 @@ export const tableSchema = defineBlockSchema({
     density: z.enum(tableDensities).default('comfortable'),
     variant: z.enum(tableVariants).default('boxed'),
     scrollLabel: z.string().min(1).max(80).default('Scrollable table'),
+    /* The interactive tools: all off by default, so a table stays exactly as it was. */
+    sortable: z.boolean().default(false),
+    searchable: z.boolean().default(false),
+    pageSize: z.number().int().min(0).max(50).default(0),
+    stickyHeader: z.boolean().default(false),
+    searchLabel: z.string().min(1).max(60).default('Search the table'),
+    searchPlaceholder: z.string().min(1).max(80).default('Type to filter rows'),
+    countLabel: z.string().min(1).max(80).default('{shown} of {total} rows'),
+    noResultsLabel: z.string().min(1).max(120).default('No matching rows'),
+    previousLabel: z.string().min(1).max(40).default('Previous'),
+    nextLabel: z.string().min(1).max(40).default('Next'),
+    pageLabel: z.string().min(1).max(60).default('Page {page} of {pages}'),
+    paginationLabel: z.string().min(1).max(80).default('Table pages'),
     align: z.enum(sectionAlignments).default('start'),
     tone: z.enum(sectionTones).default('transparent'),
     spacing: z.enum(sectionSpacings).default('md'),
@@ -89,6 +105,18 @@ export const tableSchema = defineBlockSchema({
     density: { tab: 'design', section: 'Table' },
     variant: { tab: 'design', section: 'Table' },
     scrollLabel: { tab: 'advanced', section: 'Accessibility' },
+    sortable: { tab: 'content', section: 'Interaction' },
+    searchable: { tab: 'content', section: 'Interaction' },
+    pageSize: { tab: 'content', section: 'Interaction' },
+    stickyHeader: { tab: 'design', section: 'Table' },
+    searchLabel: { tab: 'content', section: 'Interaction' },
+    searchPlaceholder: { tab: 'content', section: 'Interaction' },
+    countLabel: { tab: 'content', section: 'Interaction' },
+    noResultsLabel: { tab: 'content', section: 'Interaction' },
+    previousLabel: { tab: 'content', section: 'Interaction' },
+    nextLabel: { tab: 'content', section: 'Interaction' },
+    pageLabel: { tab: 'content', section: 'Interaction' },
+    paginationLabel: { tab: 'advanced', section: 'Accessibility' },
     align: { tab: 'design', section: 'Alignment' },
     tone: { tab: 'design', section: 'Colour' },
     spacing: { tab: 'design', section: 'Spacing' },
@@ -103,8 +131,11 @@ export const tableSchema = defineBlockSchema({
     The table's inner elements (block-parts DESIGN §1): the heading, the
     caption, each column header and its label, each row and every cell. A cell
     is addressed by row and column (`row.cell@2.1` is the third row's second
-    cell). The scroll region's label is read only by assistive technology, so
-    it stays an Inspector row.
+    cell). The tools' visible words — the search label, the row count, the
+    no-match message, previous, next and the page status — are parts too. The
+    scroll region's and the pager's names and the search placeholder are read
+    only by assistive technology or shown inside the field, so they stay
+    Inspector rows.
   */
   parts: {
     title: {
@@ -157,6 +188,42 @@ export const tableSchema = defineBlockSchema({
       bind: 'rows.*.cells.*',
       label: { en: 'Cell', ar: 'الخلية' },
       aliases: ['cell', 'value', 'td', 'خلية', 'القيمة'],
+    },
+    searchLabel: {
+      kind: 'text',
+      bind: 'searchLabel',
+      label: { en: 'Search label', ar: 'تسمية البحث' },
+      aliases: ['search', 'filter', 'search box', 'بحث', 'تصفية', 'مربع البحث'],
+    },
+    countLabel: {
+      kind: 'text',
+      bind: 'countLabel',
+      label: { en: 'Row count', ar: 'عدد الصفوف' },
+      aliases: ['count', 'results', 'matches', 'العدد', 'النتائج'],
+    },
+    noResultsLabel: {
+      kind: 'text',
+      bind: 'noResultsLabel',
+      label: { en: 'No results message', ar: 'رسالة عدم وجود نتائج' },
+      aliases: ['no results', 'empty', 'nothing found', 'لا نتائج', 'لا توجد نتائج'],
+    },
+    previousLabel: {
+      kind: 'text',
+      bind: 'previousLabel',
+      label: { en: 'Previous button', ar: 'زر السابق' },
+      aliases: ['previous', 'prev', 'back', 'السابق'],
+    },
+    pageLabel: {
+      kind: 'text',
+      bind: 'pageLabel',
+      label: { en: 'Page status', ar: 'حالة الصفحة' },
+      aliases: ['page', 'page number', 'pagination', 'الصفحة', 'رقم الصفحة'],
+    },
+    nextLabel: {
+      kind: 'text',
+      bind: 'nextLabel',
+      label: { en: 'Next button', ar: 'زر التالي' },
+      aliases: ['next', 'forward', 'more', 'التالي'],
     },
   },
   examples: tableExamples,

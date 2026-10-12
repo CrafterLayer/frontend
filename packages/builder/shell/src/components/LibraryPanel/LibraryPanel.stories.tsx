@@ -47,7 +47,8 @@ export const ReadyPatterns: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.selectOptions(canvas.getByRole('combobox', { name: 'Element category' }), 'professional');
-    await expect(canvas.getAllByRole('button', { name: /^Insert / })).toHaveLength(8);
+    await expect(canvas.getAllByRole('button', { name: /^Insert / })).toHaveLength(9);
+    await expect(canvas.getByText('A captioned table with row and column headers that scrolls on phones.')).toBeVisible();
     await expect(canvas.getByText('A real number with its label and context.')).toBeVisible();
   },
 };

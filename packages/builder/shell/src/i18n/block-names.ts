@@ -86,6 +86,7 @@ export const BLOCK_NAMES_AR: Readonly<Record<string, string>> = {
   progress: 'شريط التقدم',
   promobanner: 'لافتة ترويجية',
   quote: 'اقتباس',
+  report: 'تقرير',
   review: 'مراجعة',
   richtext: 'نص منسّق',
   row: 'صف',

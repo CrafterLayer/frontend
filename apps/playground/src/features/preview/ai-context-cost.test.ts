@@ -52,8 +52,14 @@ describe('AI context cost', () => {
 
       The ceiling leaves room for the registry to roughly double, and still
       fails loudly if a mode regression put per-block schemas back.
+
+      2026-10-12: 12,000 → 12,500. Measured 12,243 with the 63rd block (report,
+      ~120 tokens of description), the chart's seven added types (+~45) and
+      the Table tools' longer description (+~110): registry growth, one
+      description line each, not schemas. Per-block schemas would add tens of
+      thousands, which this still catches.
     */
-    expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(12_000);
+    expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(12_500);
   });
 
   it("none mode — what the playground actually sends — is the document, the escape hatch, and the page's own blocks by name", () => {

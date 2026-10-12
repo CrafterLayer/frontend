@@ -18,6 +18,7 @@ import { CAROUSEL_PACK_CSS, GALLERY_PACK_CSS } from './gallery-css';
 import { mountGallery } from './gallery';
 import { mountMailtoForm } from './mailto-form';
 import { mountScripts } from './scripts';
+import { mountTableTools } from './table-tools';
 import { mountToggleGroup } from './toggle-group';
 import { VIDEO_PACK_CSS } from './video-css';
 import { mountVideoPlayer } from './video-player';
@@ -40,6 +41,8 @@ export const BEHAVIOR_PACKS: readonly BehaviorPack[] = [
   mountEngines,
   // blocks (2026-10-12): the Countdown block's live clock (`countdown-clock`).
   mountCountdown,
+  // blocks (2026-10-12): the Table block's sort, search and pages (`table-tools`).
+  mountTableTools,
   // free-code mode (2026-10-09): a region's `js` (data-ck-js).
   mountScripts,
 ];
@@ -65,6 +68,7 @@ export {
   mountGallery,
   mountMailtoForm,
   mountScripts,
+  mountTableTools,
   mountToggleGroup,
   mountVideoPlayer,
 };

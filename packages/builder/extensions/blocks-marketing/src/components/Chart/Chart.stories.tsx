@@ -14,6 +14,16 @@ const exampleProps = (index: number, overrides: Record<string, unknown> = {}) =>
     ...overrides,
   });
 
+/* The example of a chart type, so a story never depends on the examples' order. */
+const typeProps = (chartType: string, overrides: Record<string, unknown> = {}) =>
+  exampleProps(
+    chartExamples.findIndex(
+      (example) =>
+        (example.node as { props: { chartType?: string } }).props.chartType === chartType,
+    ),
+    overrides,
+  );
+
 const meta = {
   title: 'Builder/Blocks/Chart',
   component: Chart,
@@ -201,5 +211,154 @@ export const Mobile: Story = {
   play: async ({ canvasElement }) => {
     const plot = canvasElement.querySelector('svg');
     await expect(plot?.getBoundingClientRect().width).toBeLessThan(390);
+  },
+};
+
+/* Long labels: each category gets its whole row, and the bars run along the inline axis. */
+export const HorizontalBars: Story = {
+  args: {
+    node: { ...node, id: 'chart-hbar' },
+    props: typeProps('hbar'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-chart-bar]')).toHaveLength(4);
+    await expect(
+      within(canvasElement).getByRole('img', { name: 'Most customers book for the location' }),
+    ).toBeVisible();
+  },
+};
+
+export const StackedHorizontalBarsArabic: Story = {
+  globals: { direction: 'rtl' },
+  args: {
+    node: { ...node, id: 'chart-hbar-ar' },
+    props: chartSchema.props.parse({
+      title: 'الطلبات حسب القناة في كل فرع',
+      chartType: 'hbar',
+      stacked: true,
+      showValues: true,
+      categories: ['فرع الرياض الرئيسي', 'فرع جدة على الكورنيش', 'فرع الدمام'],
+      series: [
+        { name: 'داخل المطعم', values: [420, 310, 180] },
+        { name: 'توصيل', values: [260, 290, 140] },
+      ],
+      palette: 'mixed',
+    }),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+};
+
+export const ComboOrdersAndReturns: Story = {
+  args: {
+    node: { ...node, id: 'chart-combo' },
+    props: typeProps('combo', { showValues: true }),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-chart-bar]')).toHaveLength(6);
+    await expect(canvasElement.querySelectorAll('[data-chart-line]')).toHaveLength(1);
+  },
+};
+
+export const ScatterSpendAndRevenue: Story = {
+  args: {
+    node: { ...node, id: 'chart-scatter' },
+    props: typeProps('scatter'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-chart-marker]')).toHaveLength(7);
+    await expect(canvasElement.querySelector('[data-chart-x-axis]')).toBeVisible();
+  },
+};
+
+/* RTL: the web mirrors, so the spokes run anticlockwise in reading order; the labels never mirror. */
+export const ArabicRadar: Story = {
+  globals: { direction: 'rtl' },
+  args: {
+    node: { ...node, id: 'chart-radar' },
+    props: typeProps('radar'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    /* The label around the web; the screen-reader table repeats it, hidden. */
+    await expect(within(canvasElement).getAllByText('الضمان')[0]).toBeVisible();
+    await expect(canvasElement.querySelectorAll('[data-chart-line]')).toHaveLength(2);
+  },
+};
+
+export const SalesFunnel: Story = {
+  args: {
+    node: { ...node, id: 'chart-funnel' },
+    props: typeProps('funnel'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-chart-stage]')).toHaveLength(4);
+    await expect(within(canvasElement).getByText('5%')).toBeVisible();
+  },
+};
+
+export const ArabicGaugeWithTarget: Story = {
+  globals: { direction: 'rtl' },
+  args: {
+    node: { ...node, id: 'chart-gauge' },
+    props: typeProps('gauge'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('img', { name: 'رضا العملاء هذا الربع' }),
+    ).toBeVisible();
+    await expect(canvasElement.querySelector('[data-chart-target]')).not.toBeNull();
+  },
+};
+
+/* Several dials share one maximum and one target. */
+export const ServiceGauges: Story = {
+  args: {
+    node: { ...node, id: 'chart-gauges' },
+    props: chartSchema.props.parse({
+      title: 'Service levels this month',
+      chartType: 'gauge',
+      categories: ['Uptime', 'First reply in an hour', 'Solved on first contact'],
+      series: [{ name: 'Score', values: [99, 82, 71] }],
+      maxValue: 100,
+      targetValue: 80,
+      valueSuffix: '%',
+    }),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+};
+
+export const ArabicSparklines: Story = {
+  globals: { direction: 'rtl' },
+  args: {
+    node: { ...node, id: 'chart-spark' },
+    props: typeProps('sparkline'),
+    slots: {},
+    data: {},
+    isCanvas: false,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByRole('listitem')).toHaveLength(2);
+    await expect(canvasElement.querySelector('[data-chart-axis]')).toBeNull();
   },
 };

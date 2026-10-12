@@ -24,6 +24,7 @@ import {
   type PlotFrame,
 } from './chart-geometry';
 import { formatValue, type ValueFormat } from './chart-format';
+import { drawnType } from './chart-kind';
 import { MAX_PIE_SLICES } from './chart-palette';
 import type { ChartProps } from './schema';
 
@@ -43,7 +44,7 @@ export const VIEW_HEIGHTS: Readonly<Record<ChartProps['height'], number>> = {
 export const PIE_VIEW = 200;
 
 /* Past this many marks, value labels go on the last category only: a number on every point goes unread. */
-const MAX_VALUE_LABELS = 40;
+export const MAX_VALUE_LABELS = 40;
 
 type ChartData = Pick<
   ChartProps,
@@ -88,8 +89,19 @@ export interface MarkerModel {
   readonly y: number;
 }
 
+/** A tick on a horizontal value axis (a scatter's x, a horizontal bar's values). */
+export interface AxisTick {
+  readonly value: number;
+  /** The number alone. */
+  readonly digits: string;
+  /** Distance from the inline start of the plot, in percent (mirrors under RTL). */
+  readonly start: number;
+  /** The tick's x in viewBox units, for its gridline. */
+  readonly x: number;
+}
+
 export interface CartesianModel {
-  readonly kind: 'bar' | 'line' | 'area';
+  readonly kind: 'bar' | 'line' | 'area' | 'combo' | 'scatter';
   readonly width: number;
   readonly height: number;
   readonly categoryCount: number;
@@ -104,6 +116,8 @@ export interface CartesianModel {
   readonly labels: readonly ValueLabel[];
   /** The y-axis column's width in `ch`, from its longest tick label. */
   readonly axisWidth: number;
+  /** A numeric x axis (a scatter of numbers); without one, the categories label the x axis. */
+  readonly xTicks?: readonly AxisTick[];
 }
 
 export function valueFormatOf(props: Pick<ChartProps, 'valuePrefix' | 'valueSuffix'>): ValueFormat {
@@ -120,19 +134,21 @@ export function hasChartData(
   props: Pick<ChartProps, 'chartType' | 'categories' | 'series'>,
 ): boolean {
   const grid = valueGrid(props);
-  if (props.chartType === 'pie' || props.chartType === 'donut') {
+  const kind = drawnType(props);
+  if (kind === 'pie' || kind === 'donut' || kind === 'funnel') {
     return (grid[0] ?? []).some((value) => value > 0);
   }
+  if (kind === 'gauge') return (grid[0] ?? []).length > 0;
   return props.categories.length > 0 && grid.some((values) => values.length > 0);
 }
 
-function percent(value: number, whole: number): number {
+export function percent(value: number, whole: number): number {
   return Number(((value / whole) * 100).toFixed(3));
 }
 
 function scaleFor(props: ChartData, grid: number[][]): NiceScale {
   const count = props.categories.length;
-  const stacked = props.stacked && props.chartType !== 'line';
+  const stacked = props.stacked && (props.chartType === 'bar' || props.chartType === 'area');
   const extent = valueExtent(grid, count, {
     stacked,
     clampNegative: stacked && props.chartType === 'area',
@@ -185,17 +201,16 @@ function labelSources(
       ];
     });
   }
-  if (props.chartType === 'bar') {
-    return bars.map((bar) => ({
-      key: `${String(bar.series)}-${String(bar.category)}`,
-      category: bar.category,
-      value: bar.value,
-      x: bar.x + bar.width / 2,
-      y: bar.value > 0 ? bar.y : bar.y + bar.height,
-      below: bar.value < 0,
-    }));
-  }
-  return markers.map((marker) => ({
+  const fromBars = bars.map((bar) => ({
+    key: `${String(bar.series)}-${String(bar.category)}`,
+    category: bar.category,
+    value: bar.value,
+    x: bar.x + bar.width / 2,
+    y: bar.value > 0 ? bar.y : bar.y + bar.height,
+    below: bar.value < 0,
+  }));
+  if (props.chartType === 'bar') return fromBars;
+  const fromMarkers = markers.map((marker) => ({
     key: `${String(marker.series)}-${String(marker.category)}`,
     category: marker.category,
     value: marker.value,
@@ -203,11 +218,40 @@ function labelSources(
     y: marker.y,
     below: false,
   }));
+  return [...fromBars, ...fromMarkers];
 }
 
-/** Everything a bar, line or area chart draws. */
+/** The value axis' ticks, top to bottom of the scale, positioned in the frame. */
+export function tickModels(scale: NiceScale, frame: PlotFrame, format: ValueFormat): TickModel[] {
+  return scale.ticks.map((value) => {
+    const y = scaleY(value, scale, frame);
+    return {
+      value,
+      label: formatValue(value, format, 'compact'),
+      digits: formatValue(value, {}, 'compact'),
+      y,
+      top: percent(y, frame.height),
+    };
+  });
+}
+
+/** The zero line's y, when zero is inside the scale. */
+export function zeroLine(scale: NiceScale, frame: PlotFrame): number | undefined {
+  return scale.min <= 0 && scale.max >= 0 ? scaleY(baselineOf(scale), scale, frame) : undefined;
+}
+
+/** The y-axis column's width in `ch`: its longest tick label and a little air. */
+export function axisWidthOf(ticks: readonly TickModel[]): number {
+  return ticks.reduce((widest, tick) => Math.max(widest, tick.label.length), 1) + 1;
+}
+
+function kindOf(chartType: ChartProps['chartType']): 'bar' | 'line' | 'area' | 'combo' {
+  return chartType === 'line' || chartType === 'area' || chartType === 'combo' ? chartType : 'bar';
+}
+
+/** Everything a bar, line, area or combo chart draws (a combo: bars for the first series, lines for the rest). */
 export function cartesianModel(props: ChartData): CartesianModel {
-  const kind = props.chartType === 'line' || props.chartType === 'area' ? props.chartType : 'bar';
+  const kind = kindOf(props.chartType);
   const grid = valueGrid(props);
   const count = props.categories.length;
   const scale = scaleFor({ ...props, chartType: kind }, grid);
@@ -219,39 +263,34 @@ export function cartesianModel(props: ChartData): CartesianModel {
     bottom: props.showValues && scale.min < 0 ? 24 : 4,
   };
   const format = valueFormatOf(props);
-  const ticks = scale.ticks.map((value) => {
-    const y = scaleY(value, scale, frame);
-    return {
-      value,
-      label: formatValue(value, format, 'compact'),
-      digits: formatValue(value, {}, 'compact'),
-      y,
-      top: percent(y, height),
-    };
-  });
-  const zeroY =
-    scale.min <= 0 && scale.max >= 0 ? scaleY(baselineOf(scale), scale, frame) : undefined;
+  const ticks = tickModels(scale, frame, format);
+  const zeroY = zeroLine(scale, frame);
 
-  const bars =
-    kind === 'bar'
-      ? barMarks(grid, count, scale, frame, {
-          stacked: props.stacked,
-          maxWidth: 28,
-          gap: 2,
-          radius: 3,
-        })
-      : [];
+  const barGrid = kind === 'bar' ? grid : kind === 'combo' ? grid.slice(0, 1) : [];
+  const bars = barMarks(barGrid, count, scale, frame, {
+    stacked: kind === 'bar' && props.stacked,
+    maxWidth: 28,
+    gap: 2,
+    radius: 3,
+  });
   const areas = kind === 'area' ? areaLayers(grid, count, scale, frame, props.stacked) : [];
-  const lines =
+  /* A combo's lines are its second series onwards, keeping their own palette slots. */
+  const lineGrid: [number[], number][] =
     kind === 'line'
-      ? grid.map((values, series) => ({
+      ? grid.map((values, series) => [values, series])
+      : kind === 'combo'
+        ? grid.slice(1).map((values, index) => [values, index + 1])
+        : [];
+  const lines =
+    kind === 'area'
+      ? areas.map((area) => ({ series: area.series, path: area.line }))
+      : lineGrid.map(([values, series]) => ({
           series,
           path: linePath(linePoints(values, count, scale, frame)),
-        }))
-      : areas.map((area) => ({ series: area.series, path: area.line }));
+        }));
   const markers: MarkerModel[] =
-    kind === 'line'
-      ? grid.flatMap((values, series) =>
+    kind !== 'area'
+      ? lineGrid.flatMap(([values, series]) =>
           linePoints(values, count, scale, frame).flatMap((point, category) =>
             point === undefined
               ? []
@@ -267,7 +306,9 @@ export function cartesianModel(props: ChartData): CartesianModel {
           })),
         );
 
-  const sources = props.showValues ? labelSources(props, grid, bars, markers) : [];
+  const sources = props.showValues
+    ? labelSources({ ...props, chartType: kind }, grid, bars, markers)
+    : [];
   const shown =
     sources.length > MAX_VALUE_LABELS
       ? sources.filter((source) => source.category === count - 1)
@@ -280,8 +321,6 @@ export function cartesianModel(props: ChartData): CartesianModel {
     top: percent(source.y, height),
     below: source.below,
   }));
-  const longest = ticks.reduce((widest, tick) => Math.max(widest, tick.label.length), 1);
-
   return {
     kind,
     width: VIEW_WIDTH,
@@ -296,7 +335,7 @@ export function cartesianModel(props: ChartData): CartesianModel {
     /* An area's points are drawn only when there is a single category and so no band to see. */
     markers: kind === 'area' && count > 1 ? [] : markers,
     labels,
-    axisWidth: longest + 1,
+    axisWidth: axisWidthOf(ticks),
   };
 }
 

@@ -35,6 +35,7 @@ describe('Stack', () => {
       'comparisonTable',
       'table',
       'chart',
+      'report',
       'timeline',
       'menuSection',
       'location',

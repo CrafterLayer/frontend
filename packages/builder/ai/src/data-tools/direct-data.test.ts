@@ -18,8 +18,35 @@ describe('readDataRequest', () => {
     ['ارسم مخطط دائري', 'pie'],
     ['حط هذول في جدول', 'table'],
     ['اعرض البيانات كرسم بياني خطي', 'line'],
+    ['Show this as a horizontal bar chart', 'hbar'],
+    ['Make a funnel chart', 'funnel'],
+    ['Draw a gauge of this', 'gauge'],
+    ['Plot a scatter of spend against revenue', 'scatter'],
+    ['Make a radar chart', 'radar'],
+    ['Add sparklines for these', 'sparkline'],
+    ['Make a combo chart', 'combo'],
+    ['ارسم قمع المبيعات', 'funnel'],
+    ['اعمل مخطط راداري', 'radar'],
+    ['اعرضها كأعمدة أفقية', 'hbar'],
   ] as const)('reads %j as %s', (instruction, as) => {
-    expect(readDataRequest(`${instruction}\n${ROWS}`)?.input).toEqual({ data: ROWS, as });
+    expect(readDataRequest(`${instruction}\n${ROWS}`)).toMatchObject({
+      tool: 'data.show',
+      input: { data: ROWS, as },
+    });
+  });
+
+  it.each([
+    'Make a report from this:',
+    'Build a dashboard from these rows',
+    'اعمل تقرير من هذه البيانات:',
+    'اعمل لوحة من هذه البيانات:',
+    'اعمل تقرير/لوحة من هذه البيانات:',
+  ])('reads %j as a report', (instruction) => {
+    expect(readDataRequest(`${instruction}\n${ROWS}`)).toEqual({
+      tool: 'report.build',
+      input: { data: ROWS },
+      label: { ar: 'إضافة تقرير من البيانات', en: 'Add a report from the data' },
+    });
   });
 
   it.each([
@@ -76,6 +103,24 @@ describe('tryDirectTool with pasted rows', () => {
           { label: 'السعر', align: 'end' },
         ],
       },
+    });
+  });
+
+  it('builds a report from pasted rows with no model, in English and Arabic', () => {
+    const english = tryDirectTool(`Make a dashboard from this:\n${ROWS}`, dataKernel());
+    expect(english?.label).toBe('Add a report from the data');
+    expect(english?.plan.commands[0]?.args).toMatchObject({
+      type: 'report',
+      props: { chartType: 'line', kpis: [{ label: 'Bookings', series: 0 }] },
+    });
+    const arabic = tryDirectTool(
+      'اعمل تقرير من هذه البيانات:\nالفرع,الإيرادات\nالشمال,١٢٠٠\nالجنوب,٩٠٠',
+      dataKernel(),
+    );
+    expect(arabic?.label).toBe('إضافة تقرير من البيانات');
+    expect(arabic?.plan.commands[0]?.args).toMatchObject({
+      type: 'report',
+      props: { chartType: 'bar', series: [{ name: 'الإيرادات', values: [1200, 900] }] },
     });
   });
 

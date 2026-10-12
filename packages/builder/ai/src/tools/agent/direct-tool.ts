@@ -280,7 +280,8 @@ export function tryDirectTool(
   kernel: BuilderKernel,
 ): DirectToolResult | undefined {
   const trimmed = request.trim();
-  // data (2026-10-12): an instruction line over pasted rows («اعمل مخطط:» + a CSV) is data.show, multi-line.
+  // data (2026-10-12): an instruction line over pasted rows («اعمل مخطط:» + a CSV) is data.show, multi-line;
+  // «اعمل تقرير:» / "make a dashboard from this:" over rows is report.build.
   const data = readDataRequest(trimmed);
   if (data === undefined && (trimmed === '' || trimmed.length > MAX_REQUEST_CHARS || /[\r\n]/u.test(trimmed)))
     return undefined;
@@ -288,7 +289,7 @@ export function tryDirectTool(
   // colour-target fix: a colour that names an element («سارة», «العنوان», "the button") is that element's, read first.
   const element = data === undefined ? readElementColour(text, kernel) : undefined;
   const reading: Reading | undefined =
-    (data === undefined ? undefined : { calls: [{ name: 'data.show', input: { ...data.input } }], label: data.label }) ??
+    (data === undefined ? undefined : { calls: [{ name: data.tool, input: { ...data.input } }], label: data.label }) ??
     (element === undefined ? undefined : { calls: [], steps: element.steps, label: element.label }) ??
     readColour(text) ??
     readFont(text) ??

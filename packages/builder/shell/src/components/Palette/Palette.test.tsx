@@ -270,6 +270,7 @@ describe('Palette (006 contract §4)', () => {
           block('dotPatternSurface', 'Dot pattern surface'),
           block('table', 'Data table'),
           block('chart', 'Data chart'),
+          block('report', 'Data report'),
           block('comparisonTable', 'Plan comparison table'),
           block('timeline', 'Milestones'),
           block('menuSection', 'Menu'),
@@ -313,6 +314,7 @@ describe('Palette (006 contract §4)', () => {
       ['Dot Pattern Surface', 'hero'],
       ['Table', 'table'],
       ['Chart', 'chart'],
+      ['Report', 'chart'],
       // A comparison table keeps its plan-columns miniature, checked before `table`.
       ['Comparison Table', 'pricing'],
       ['Timeline', 'timeline'],
@@ -363,7 +365,7 @@ describe('Palette (006 contract §4)', () => {
       document.getElementById(
         screen.getByRole('button', { name: category }).getAttribute('aria-controls') ?? '',
       )!;
-    for (const name of ['Table', 'Chart', 'Timeline', 'Menu', 'Location']) {
+    for (const name of ['Table', 'Chart', 'Report', 'Timeline', 'Menu', 'Location']) {
       expect(within(regionOf('Content')).getByRole('button', { name })).toBeInTheDocument();
     }
     /* A menu section is content although its type names a "section"; a countdown is promotional. */

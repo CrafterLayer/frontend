@@ -12,17 +12,17 @@ or another extension.
 
 ## Block vocabulary
 
-| Family                    | Registered types                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------ |
-| Page chrome               | `pageHeader`, `pageFooter`, `navLinks`                                                     |
-| Layout and media          | `stack`, `grid`, `image`, `richText`, `gallery`, `videoSection`                            |
-| Opening, motion and trust | `announcementBar`, `promoBanner`, `hero`, `carousel`, `logoCloud`, `stats`, `testimonials` |
-| Product story             | `features`, `bento-grid`, `content-section`, `processSteps`, `team`                        |
-| Work and commerce         | `portfolioGrid`, `productGrid`                                                             |
-| Conversion                | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`, `formSection`            |
-| Education and contact     | `faq`, `blogGrid`, `contact`                                                               |
-| Data                      | `table` (semantic rows and columns), `chart` (script-free SVG bar, line, area, pie, donut) |
-| Local business and events | `timeline`, `menuSection`, `location`, `countdown`                                         |
+| Family                    | Registered types                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| Page chrome               | `pageHeader`, `pageFooter`, `navLinks`                                                             |
+| Layout and media          | `stack`, `grid`, `image`, `richText`, `gallery`, `videoSection`                                    |
+| Opening, motion and trust | `announcementBar`, `promoBanner`, `hero`, `carousel`, `logoCloud`, `stats`, `testimonials`         |
+| Product story             | `features`, `bento-grid`, `content-section`, `processSteps`, `team`                                |
+| Work and commerce         | `portfolioGrid`, `productGrid`                                                                     |
+| Conversion                | `pricing`, `pricingPlan`, `comparisonTable`, `cta`, `newsletter`, `formSection`                    |
+| Education and contact     | `faq`, `blogGrid`, `contact`                                                                       |
+| Data                      | `table` (rows and columns), `chart` (script-free SVG, twelve types), `report` (KPIs, chart, table) |
+| Local business and events | `timeline`, `menuSection`, `location`, `countdown`                                                 |
 
 Every new component owns its implementation, zod schema, AI-ready examples, local export,
 behavior-focused test, Storybook story, and MDX documentation. Section schemas expose explicit

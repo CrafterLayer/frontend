@@ -81,6 +81,8 @@ export function categoryForBlock(type: string): PaletteCategory {
     key.includes('embed') ||
     key.includes('table') ||
     key.includes('chart') ||
+    /* A report is one dataset as cards, a chart and a table: data a person writes. */
+    key === 'report' ||
     key.includes('form') ||
     /*
       A row of links is CONTENT — it is words a person writes. The marketing

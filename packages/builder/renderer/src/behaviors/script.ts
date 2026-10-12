@@ -9,6 +9,7 @@ import {
   mountGallery,
   mountMailtoForm,
   mountScripts,
+  mountTableTools,
   mountToggleGroup,
   mountVideoPlayer,
   type BehaviorPack,
@@ -36,6 +37,7 @@ const PACK_MARKERS: ReadonlyMap<BehaviorPack, RegExp> = new Map<BehaviorPack, Re
   [mountToggleGroup, behavior('toggle-group')],
   [mountMailtoForm, behavior('mailto-form')],
   [mountCountdown, behavior('countdown-clock')],
+  [mountTableTools, behavior('table-tools')],
   [mountEngines, /\sdata-ck-(?:scene|timeline|lottie)(?=[\s=>/])/u],
   // free-code mode (2026-10-09): a region's `js` is rendered as `data-ck-js="…"`.
   [mountScripts, /\sdata-ck-js(?=[\s=>/])/u],

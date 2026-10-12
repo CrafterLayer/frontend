@@ -116,4 +116,28 @@ describe('Table parts', () => {
       expect(found[0]?.closest('[data-ck-bind]')).toHaveAttribute('data-ck-bind', key);
     }
   });
+
+  it('makes the tools’ words parts, edits a template in place as written, and publishes no markers', () => {
+    const tools = { sortable: true, searchable: true, pageSize: 1 };
+    const { container } = renderTable(tools, true, (props) => ({
+      ...props,
+      countLabel: swapped('countLabel'),
+      pageLabel: swapped('pageLabel'),
+      searchLabel: swapped('searchLabel'),
+    }));
+    for (const key of ['countLabel', 'pageLabel', 'searchLabel']) {
+      const found = container.querySelectorAll(`[data-swap="${key}"]`);
+      expect(found, key).toHaveLength(1);
+      expect(found[0]?.closest('[data-ck-bind]')).toHaveAttribute('data-ck-bind', key);
+    }
+    expect(container.innerHTML).not.toContain('[object Object]');
+    expect(partsNamed(container, 'noResultsLabel')[0]).toHaveAttribute('hidden');
+    for (const name of ['previousLabel', 'nextLabel']) {
+      expect(partsNamed(container, name)[0]?.closest('button'), name).not.toBeNull();
+    }
+    const published = renderTable(tools, false);
+    expect(
+      published.container.querySelectorAll('[data-ck-part],[data-ck-part-index],[data-ck-bind]'),
+    ).toHaveLength(0);
+  });
 });

@@ -7,3 +7,4 @@ export {
   tableVariants,
   type TableProps,
 } from './schema';
+export { tableSortKinds, type TableSortAs } from './table-tools';

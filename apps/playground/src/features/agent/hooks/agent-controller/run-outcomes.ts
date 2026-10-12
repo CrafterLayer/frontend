@@ -5,9 +5,11 @@
 import {
   type AiRunFailure,
   type AiValidatedProposal,
+  BLOCK_NAMES_AR,
   type BuilderDocument,
   type BuilderKernel,
   classifyAiRunFailure,
+  localBlockName,
   previewAiPlan,
 } from '@craftkit/builder';
 
@@ -20,13 +22,21 @@ import type { CopyParams } from '../../model/view-types';
 
 import { type Flow, offline } from './controller-state';
 
-/** A ChangeLines naming in the panel's locale, from the registry's own names. */
+/**
+ * A ChangeLines naming in the panel's locale, from the registry's own names; an Arabic panel
+ * names a block as the Arabic library does («مخطط بياني», not "Chart") where it has a name.
+ */
 function namingFor(flow: Flow, kernel: BuilderKernel) {
   const { locale } = flow.env().options;
-  return schemaImpactNaming(
+  const naming = schemaImpactNaming(
     (key) => t(locale, key),
     (type) => kernel.context.registry.block(type)?.schema,
   );
+  if (locale !== 'ar') return naming;
+  return {
+    ...naming,
+    blockType: (type: string) => localBlockName(type, BLOCK_NAMES_AR) ?? naming.blockType(type),
+  };
 }
 
 export interface Changes {

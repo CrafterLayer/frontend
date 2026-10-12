@@ -702,10 +702,13 @@ describe('impactLines names a block by its words, never by a token, an enum or a
         website: z.url().optional(),
         className: z.string().optional(),
         count: z.number(),
+        // The block's own fallback wording (a chart's folded slice): never its name.
+        otherLabel: z.string().default('Other'),
+        caption: z.string().default(''),
       }),
       examples: [],
     });
-    expect(textPropsOf(schema)).toEqual(['eyebrow', 'heading']);
+    expect(textPropsOf(schema)).toEqual(['eyebrow', 'heading', 'caption']);
   });
 
   it('never names a block by a value it cannot vouch is words', () => {

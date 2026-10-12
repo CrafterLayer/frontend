@@ -10,6 +10,7 @@ import { subscriptionEnv } from './api-models';
 import type { CliWarmPool } from './cli-warm-pool';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
+import { turnText as messageText } from './prompt-cache';
 
 /**
  * DEV-ONLY fallback, gated by `CRAFTKIT_AI_BACKEND=cli`.
@@ -143,10 +144,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function boundedCliText(text: string): string {
   const flat = text.replace(/\s+/gu, ' ').trim();
   return flat.length > 300 ? `${flat.slice(0, 300)}…` : flat;
-}
-
-function messageText(content: unknown): string {
-  return typeof content === 'string' ? content : JSON.stringify(content);
 }
 
 /**

@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
+import { SHARED_CACHE_GATE, cacheShape, opened, type CacheGate } from './cache-gate';
 import { salvageJson } from './json-salvage';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
 import {
@@ -11,6 +12,7 @@ import {
   repairPagePlanAnswer,
 } from './plan-shape';
 import { buildPrompt } from './prompt';
+import { cachedPrompt } from './prompt-cache';
 
 /**
  * The Claude call, and the translation of its failures into the wire contract.
@@ -87,6 +89,8 @@ export interface ClaudeOptions {
   readonly onDraft?: (draft: AnswerDraft) => void;
   /** One line per thing this server did to an answer, for the owner's terminal. */
   readonly onLog?: (line: string) => void;
+  /** Staggers same-prefix calls so they read one cache write (cache-gate.ts); the server's own by default. */
+  readonly cacheGate?: CacheGate;
 }
 
 /** One piece of an answer being written, or the word that it started over. */
@@ -242,43 +246,62 @@ async function ask(
   options: ClaudeOptions,
   schema: Readonly<Record<string, unknown>>,
 ): Promise<Anthropic.Message> {
-  const { system, messages } = buildPrompt(request);
+  // Breakpoints for the catalog, the skills and the conversation so far (prompt-cache.ts).
+  const { system, messages } = cachedPrompt(buildPrompt(request));
   const effort = API_EFFORT_LEVELS.find((level) => level === options.effort);
+  const model = options.model ?? DEFAULT_MODEL;
+  // Thinking earns its cost here: choosing a parent and slot that the
+  // schema actually permits is the difference between a plan and a retry.
+  // Callers that already have a decided design may turn it off (`thinkingOff`).
+  const thinking: Anthropic.ThinkingConfigParam = options.thinkingOff
+    ? { type: 'disabled' }
+    : { type: 'adaptive', display: 'summarized' };
 
   options.onProgress?.('Understanding the request…');
-  const stream = options.client.messages.stream(
-    {
-      model: options.model ?? DEFAULT_MODEL,
-      max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-      // Thinking earns its cost here: choosing a parent and slot that the
-      // schema actually permits is the difference between a plan and a retry.
-      // Callers that already have a decided design may turn it off (`thinkingOff`).
-      thinking: options.thinkingOff
-        ? { type: 'disabled' }
-        : { type: 'adaptive', display: 'summarized' },
-      system: system as Anthropic.TextBlockParam[],
-      messages: messages as Anthropic.MessageParam[],
-      output_config: {
-        format: { type: 'json_schema', schema },
-        /*
+  // A same-prefix call already writing the cache: wait until it streams, then read it.
+  const shape = cacheShape([model, thinking, effort ?? null, system, schema]);
+  const release = await (options.cacheGate ?? SHARED_CACHE_GATE).enter(shape, options.signal);
+  const stream = opened(release, () =>
+    options.client.messages.stream(
+      {
+        model,
+        max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+        thinking,
+        system,
+        messages,
+        output_config: {
+          format: { type: 'json_schema', schema },
+          /*
           Where the Messages API reads a per-call budget. The header below is
           only ever read by this server's own shims — the real API ignores it,
           so on the `sdk` backend a section writer's `low` used to change
           nothing. A model that does not know the level answers 400 naming it,
           which is louder than a budget silently not applied.
         */
-        ...(effort === undefined ? {} : { effort }),
+          ...(effort === undefined ? {} : { effort }),
+        },
       },
-    },
-    {
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-      // Kept for the CLI shim, which reads the budget from here and nowhere else.
-      ...(options.effort === undefined
-        ? {}
-        : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
-    },
+      {
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        // Kept for the CLI shim, which reads the budget from here and nowhere else.
+        ...(options.effort === undefined
+          ? {}
+          : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
+      },
+    ),
   );
 
+  // The first streamed event means the prefix is cached: same-shape calls may go.
+  stream.on('thinking', () => {
+    release(true);
+  });
+  // `streamEvent` is the SDK's message_start, the earliest such moment; the shims emit `thinking`.
+  (stream as unknown as { on: (event: 'streamEvent', listener: () => void) => unknown }).on(
+    'streamEvent',
+    () => {
+      release(true);
+    },
+  );
   // Drain private summaries while emitting only the first observable planning signal.
   let planning = false;
   stream.on('thinking', () => {
@@ -320,7 +343,9 @@ async function ask(
     stream.on('text', reportWriting);
   }
 
-  const message = await stream.finalMessage();
+  const message = await opened(release, () => stream.finalMessage()).finally(() => {
+    release(false);
+  });
   options.onUsage?.(usageOf(message));
   options.onProgress?.('Checking the generated result…');
   return message;

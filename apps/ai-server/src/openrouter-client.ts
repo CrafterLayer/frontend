@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import { parsesAsJson, unwrapJson } from './json-salvage';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
+import { turnText as messageText } from './prompt-cache';
 
 /**
  * The OpenRouter backend, gated by `CRAFTKIT_AI_BACKEND=openrouter`.
@@ -139,10 +140,6 @@ function isAbort(cause: unknown): boolean {
   return isRecord(cause) && cause['name'] === 'AbortError';
 }
 
-function messageText(content: unknown): string {
-  return typeof content === 'string' ? content : JSON.stringify(content);
-}
-
 /** OpenRouter's own words, on one line and bounded — never a stack, never a page. */
 function boundedText(text: string): string {
   const flat = text.replace(/\s+/gu, ' ').trim();
@@ -177,7 +174,7 @@ function chatMessages(
     text: block.text,
     ...(block.cache_control === undefined || !explicitPromptCache
       ? {}
-      : { cache_control: block.cache_control }),
+      : { cache_control: { type: 'ephemeral' } }), // OpenRouter's default lifetime, not ours
   }));
   if (schema !== undefined) system.push({ type: 'text', text: schemaAsText(schema) });
   const turns = (params.messages ?? []).map((turn) => ({

@@ -753,6 +753,7 @@ export type { AiAgentScriptSite } from './agent/types';
 // script-host additions (2026-10-08): code mode (agent-script DESIGN §A) — the engine plus the host side:
 // element index, call → tool-step mapping, coalescing, expandScriptSteps, SCRIPT_CARD, prefersScript, directScript.
 export * from './script';
+export * from './i18n-tools'; // i18n (2026-10-12): page.translate, language intent, language pages
 // end script-host additions
 // library-playground additions (2026-10-08): the page kit as data (agent-script DESIGN §B.5) — a
 // host writes a Library section's page kit with the SAME function the skeleton writes it with.
@@ -764,8 +765,7 @@ export {
   type PageKitState,
 } from './tools/agent/page-kit';
 // end library-playground additions
-// free-code additions (2026-10-09): free code mode — the card the model reads for a customCode block's `js`
-// (the ai-server carries a verbatim copy), the line a request for code gets while the switch is off, the door's limit.
+// free-code additions (2026-10-09): free code mode — the card the model reads for a customCode block's `js` (the ai-server carries a verbatim copy), the line a request for code gets while the switch is off, the door's limit.
 export {
   FREE_CODE_CARD,
   FREE_CODE_CARD_MAX_CHARS,

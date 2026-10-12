@@ -12,7 +12,9 @@ import {
   IDLE_SITE_RUN_SEAM,
   type SiteRunSeam,
 } from '../features/preview/components/AssistantPanel/use-site-run';
-import { usePhoneLayout, type ProposalPreview } from '../features/agent';
+import type { ProposalPreview } from '../features/agent';
+import { usePhoneLayout } from '../features/agent/components/AgentPanel/use-phone-layout';
+import { createLanguageVersions } from '../features/agent/model/language-versions';
 import {
   playgroundExtensions,
   type PlaygroundFixture,
@@ -74,6 +76,11 @@ export function useAgentHost({ siteKernel, fixture, railSection }: AgentHostOpti
     () => (siteKernel === undefined ? undefined : pageOpener(siteKernel)),
     [siteKernel],
   );
+  /* «اعمل الموقع بالعربي والإنجليزي»: a page per language, linked, then translated. */
+  const languageVersions = useMemo(
+    () => (siteKernel === undefined ? undefined : createLanguageVersions(siteKernel)),
+    [siteKernel],
+  );
   const assetLibrary = useMemo(() => createLocalAssetLibrary(), []);
   const siteHost = useMemo(
     () =>
@@ -105,6 +112,7 @@ export function useAgentHost({ siteKernel, fixture, railSection }: AgentHostOpti
     setAgentPreview,
     agentAsSheet,
     openAgentPage,
+    languageVersions,
     assetLibrary,
     siteHost,
   };

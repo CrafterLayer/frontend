@@ -39,6 +39,8 @@ const PHRASE_BY_COMMAND: Readonly<Record<string, string>> = {
   applyPatches: 'code edit',
   // Site commands (fix pass: the strip read "Canvas: setSiteDirection").
   setSiteDirection: 'page direction',
+  duplicatePage: 'duplicate page',
+  languageVersions: 'language versions',
   setDesignToken: 'design token',
   setDesignSystem: 'design system',
   setSharedRegion: 'header or footer',

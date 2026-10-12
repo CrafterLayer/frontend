@@ -1,4 +1,5 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
+import { languageSetDirection } from '@craftkit/builder-schema';
 
 import { treeWritesOf } from '../../style-tools';
 import type { AiPlanValidationIssue } from '../../types';
@@ -37,9 +38,9 @@ function issue(step: number, name: string, message: string): AiPlanValidationIss
 }
 
 function allowed(lanes: readonly AgentToolLane[] | undefined): readonly string[] {
-  return AGENT_TOOLS.filter((tool) => lanes === undefined || tool.lanes.some((lane) => lanes.includes(lane))).map(
-    ({ name }) => name,
-  );
+  return AGENT_TOOLS.filter(
+    (tool) => lanes === undefined || tool.lanes.some((lane) => lanes.includes(lane)),
+  ).map(({ name }) => name);
 }
 
 function isToolStep(step: unknown): step is JsonRecord {
@@ -52,7 +53,8 @@ export function expandAgentTools(
   kernel: BuilderKernel,
   options: AgentToolExpansionOptions = {},
 ): AgentToolExpansion {
-  if (!isRecord(candidate) || !Array.isArray(candidate['commands'])) return { plan: candidate, issues: [] };
+  if (!isRecord(candidate) || !Array.isArray(candidate['commands']))
+    return { plan: candidate, issues: [] };
   const commands = candidate['commands'] as unknown[];
   if (!commands.some(isToolStep)) return { plan: candidate, issues: [] };
 
@@ -72,21 +74,34 @@ export function expandAgentTools(
   const remember = (step: unknown): void => {
     if (!isRecord(step) || !isRecord(step['args'])) return;
     const args = step['args'];
-    if (step['command'] === 'setProp' && typeof args['id'] === 'string' && typeof args['key'] === 'string') {
+    if (
+      step['command'] === 'setProp' &&
+      typeof args['id'] === 'string' &&
+      typeof args['key'] === 'string'
+    ) {
       written.set(slot(args['id'], args['key']), args['value']);
     }
     // Tree commands (setTreeNode, insertTreeNode…): a later tool reads the tree they leave.
-    for (const [id, tree] of treeWritesOf(step, (id) => readProp(id, 'tree'))) written.set(slot(id, 'tree'), tree);
-    if (step['command'] === 'setDocMeta' && (args['dir'] === 'rtl' || args['dir'] === 'ltr')) dir = args['dir'];
+    for (const [id, tree] of treeWritesOf(step, (id) => readProp(id, 'tree')))
+      written.set(slot(id, 'tree'), tree);
+    if (step['command'] === 'setDocMeta' && (args['dir'] === 'rtl' || args['dir'] === 'ltr'))
+      dir = args['dir'];
   };
   const context = (): AgentToolContext => {
     const lang = readProp(document.rootId, 'lang');
+    // A version in a language set reads in its own language's direction (the site keeps one).
+    const own = languageSetDirection({ lang, seo: readProp(document.rootId, 'seo') });
     return {
       kernel,
       readProp,
       locale: {
-        lang: typeof lang === 'string' && lang.trim() !== '' ? lang.trim().toLowerCase() : dir === 'rtl' ? 'ar' : 'en',
-        dir,
+        lang:
+          typeof lang === 'string' && lang.trim() !== ''
+            ? lang.trim().toLowerCase()
+            : dir === 'rtl'
+              ? 'ar'
+              : 'en',
+        dir: own ?? dir,
       },
       sampleValues: options.sampleValues ?? [],
     };
@@ -131,7 +146,11 @@ export function expandAgentTools(
       const out: JsonRecord = {
         command: produced.command,
         args: produced.args,
-        ...(at === 0 && title !== undefined ? { title } : produced.title === undefined ? {} : { title: produced.title }),
+        ...(at === 0 && title !== undefined
+          ? { title }
+          : produced.title === undefined
+            ? {}
+            : { title: produced.title }),
       };
       remember(out);
       expanded.push(out);

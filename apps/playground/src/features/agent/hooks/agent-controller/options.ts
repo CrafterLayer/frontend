@@ -17,6 +17,7 @@ import type {
 
 import type { ProviderKind } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
 import type { AgentCheckpointPort } from '../../model/checkpoints';
+import type { LanguageVersionsPort } from '../../model/language-versions';
 import type { PromptEnhancer } from '../../model/enhance';
 import type { AgentStorage } from '../../model/migrate-sessions';
 import type {
@@ -61,6 +62,12 @@ export interface UseAgentControllerOptions {
    * lands there. Absent: the page is built below this one, and the thread says so.
    */
   readonly addPage?: ((title: string) => Promise<{ readonly kernel: BuilderKernel }>) | undefined;
+  /**
+   * The site's language versions (2026-10-12): a request for the site in several languages
+   * adds a page per language through it, then each is translated. Absent: no site, and such a
+   * request takes the ordinary path.
+   */
+  readonly languageVersions?: LanguageVersionsPort | undefined;
   /** Where the canvas selection lives; the kernel's own when absent. */
   readonly selection?: SelectionSource | undefined;
   /**

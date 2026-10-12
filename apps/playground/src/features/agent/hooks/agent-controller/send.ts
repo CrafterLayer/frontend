@@ -17,6 +17,7 @@ import type { PagePlanTurn, SentContext } from '../../model/turns';
 
 import { type Flow, NO_SELECTION, selectionKey, type UiState } from './controller-state';
 import { dispatchRequest } from './dispatch';
+import { languageWork } from './language-flow';
 import type { Outgoing } from './exchange';
 import { track } from './run-lease';
 import { say } from './run-outcomes';
@@ -212,15 +213,15 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
       ? { ...ui, draft: '', mentions: [], clarify: null }
       : { ...ui, clarify: null },
   );
+  // A site in several languages, or a whole site translated: a page at a time (2026-10-12).
+  const placement = { sessionId: sessionsState.activeId };
+  const language = planOnly ? undefined : languageWork(flow, outgoing, placement, route, mode);
+  if (language !== undefined) {
+    await track(flow, language);
+    return;
+  }
   await track(
     flow,
-    dispatchRequest(
-      flow,
-      outgoing,
-      route,
-      { sessionId: sessionsState.activeId },
-      planOnly ? 'plan' : mode,
-      planOnly,
-    ),
+    dispatchRequest(flow, outgoing, route, placement, planOnly ? 'plan' : mode, planOnly),
   );
 }

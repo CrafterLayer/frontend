@@ -72,9 +72,11 @@ export async function runEdit(
   placement: Placement,
   apply: 'auto' | 'never',
   route?: IntentRoute,
+  /** The page to edit, when not the open one (a language version, `language-flow.ts`). */
+  on?: BuilderKernel,
 ): Promise<void> {
   const env = flow.env();
-  const kernel = env.options.kernel;
+  const kernel = on ?? env.options.kernel;
   const turnId = placement.recordTurnId ?? env.sessions.nextId('turn');
   const history = historyFor(flow, placement);
   const target = targetOf(outgoing);

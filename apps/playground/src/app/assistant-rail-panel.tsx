@@ -1,10 +1,7 @@
-import { useMemo } from 'react';
+import { lazy, useMemo } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder';
 
-import { AssistantPanel } from '../features/preview/components/AssistantPanel';
-import { LiveAgentPanel } from '../features/agent';
-import { SourceAgentPanel } from '../features/preview/components/SourceAgentPanel';
 import type { SnapshotShelf } from '../features/vault/snapshots';
 import { createAgentCheckpoints } from './agent-checkpoints';
 import { AGENT_EDIT_EFFORT, AGENT_LOCALE, AGENT_PANEL } from './app-env';
@@ -32,7 +29,12 @@ export interface AssistantRailPanelProps {
   >;
   readonly host: Pick<
     AgentHost,
-    'openAgentPage' | 'setAgentPreview' | 'agentAsSheet' | 'agentPillHost' | 'setSiteSeam'
+    | 'openAgentPage'
+    | 'languageVersions'
+    | 'setAgentPreview'
+    | 'agentAsSheet'
+    | 'agentPillHost'
+    | 'setSiteSeam'
   >;
   /** The authored code page, when one is open: the source agent speaks instead. */
   readonly code: Pick<CodeSession, 'codeSnapshot' | 'sourceAgent'>;
@@ -40,6 +42,29 @@ export interface AssistantRailPanelProps {
   /** The rail's own agent button: where focus returns when the phone sheet closes. */
   readonly returnFocusToRailAgent: () => HTMLElement | null;
 }
+
+/*
+  The agent panels load in their own chunks (performance pass, 2026-10-12). They are mounted at
+  boot, hidden, but none of them is part of the first paint: kept in the entry they were most of
+  it (the agent feature and every builder-ai module the panel reaches through the facade). The
+  import starts when this destination first renders and App's Suspense boundary holds the panel
+  column's quiet placeholder until it lands. Their stylesheets travel with their chunks; the
+  editor's computed styles were compared before and after (light and dark, five rail
+  destinations, canvas included) and are identical.
+*/
+const LiveAgentPanel = lazy(() =>
+  import('../features/agent').then((module) => ({ default: module.LiveAgentPanel })),
+);
+const AssistantPanel = lazy(() =>
+  import('../features/preview/components/AssistantPanel').then((module) => ({
+    default: module.AssistantPanel,
+  })),
+);
+const SourceAgentPanel = lazy(() =>
+  import('../features/preview/components/SourceAgentPanel').then((module) => ({
+    default: module.SourceAgentPanel,
+  })),
+);
 
 /** This viewer's localStorage, or none where reading it throws (a sandboxed frame). */
 function viewerStorage(): Storage | undefined {
@@ -71,7 +96,14 @@ export function AssistantRailPanel({
     panelWidth,
     setPanelWidth,
   } = panes;
-  const { openAgentPage, setAgentPreview, agentAsSheet, agentPillHost, setSiteSeam } = host;
+  const {
+    openAgentPage,
+    languageVersions,
+    setAgentPreview,
+    agentAsSheet,
+    agentPillHost,
+    setSiteSeam,
+  } = host;
   const { codeSnapshot, sourceAgent } = code;
   const {
     envPlanProvider,
@@ -125,6 +157,7 @@ export function AssistantRailPanel({
             editModel={agentEditModel}
             editEffort={AGENT_EDIT_EFFORT}
             addPage={openAgentPage}
+            languageVersions={languageVersions}
             /*
               A person who asks for a page gets the page: every section
               lands as its own undoable entry. Ask and Plan are one menu away.

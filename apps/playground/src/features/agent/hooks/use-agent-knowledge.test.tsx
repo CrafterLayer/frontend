@@ -72,8 +72,9 @@ describe('useAgentKnowledge', () => {
     expect(controllerOptions.skillRegistry?.get('user.skill-1')?.name).toBe('Brand voice');
     // A skill that is off is not in the registry at all.
     expect(controllerOptions.skillRegistry?.get('user.skill-3')).toBeUndefined();
+    // The person's two, and the default copy skill the same words turn on.
     expect([...(controllerOptions.hostSkillIdsFor?.('Rewrite the headline') ?? [])].sort()).toEqual(
-      ['user.skill-1', 'user.skill-2'],
+      ['craftkit.natural-copy', 'user.skill-1', 'user.skill-2'],
     );
     expect(controllerOptions.extraContextProviders).toHaveLength(1);
     expect(view.skills.builtIns.length).toBeGreaterThan(10);
@@ -116,7 +117,7 @@ describe('useAgentKnowledge', () => {
       expect.arrayContaining([
         'craftkit.pro-max-design',
         'craftkit.pro-max-landing',
-        'craftkit.arabic-copy',
+        'craftkit.natural-copy',
       ]),
     );
     expect(result.current.view.skills.defaults[0]?.name).toBe('ذكاء التصميم Pro Max');

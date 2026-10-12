@@ -321,13 +321,13 @@ export const DESIGN_ROWS: readonly DesignRow[] = [
     avoid: 'hidden safety info',
   },
   {
-    kind: 'mosque, community centre',
+    kind: 'place of worship, community',
     pattern: 'hero > times > events, lessons > donate > location',
     accent: '#A16207',
     ground: '#F8FAFC',
     type: 'editorial',
     effect: 'times highlight',
-    show: 'prayer times, location',
+    show: 'service times, location',
     avoid: 'outdated info',
   },
   {

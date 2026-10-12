@@ -25,7 +25,7 @@ describe('CRAFTKIT_DEFAULT_SKILLS', () => {
       'craftkit.pro-max-ux',
       'craftkit.type-colour',
       'craftkit.forms-convert',
-      'craftkit.arabic-copy',
+      'craftkit.natural-copy',
       'craftkit.trust-proof',
     ]);
     const builtIns = new Set(CRAFTKIT_AI_SKILL_DEFINITIONS.map(({ id }) => id));
@@ -114,9 +114,11 @@ describe('default skill activation', () => {
       'Build a landing page for my dental clinic',
       ['craftkit.pro-max-design', 'craftkit.pro-max-landing'],
     ],
-    ['صمم لي موقع لمطعم في الرياض', ['craftkit.pro-max-design', 'craftkit.arabic-copy']],
+    ['صمم لي موقع لمطعم في الرياض', ['craftkit.pro-max-design', 'craftkit.natural-copy']],
     ['Add a contact form under the hero', ['craftkit.forms-convert']],
-    ['أضف نموذج حجز', ['craftkit.forms-convert', 'craftkit.arabic-copy']],
+    ['أضف نموذج حجز', ['craftkit.forms-convert']],
+    ['Rewrite the headline in a warmer tone', ['craftkit.natural-copy']],
+    ['اكتب نصوص الصفحة بالإنجليزي', ['craftkit.natural-copy']],
     ['Change the fonts to something elegant', ['craftkit.type-colour']],
     ['غير ألوان الموقع', ['craftkit.type-colour']],
     ['Add testimonials from our clients', ['craftkit.trust-proof']],
@@ -125,7 +127,7 @@ describe('default skill activation', () => {
     expect(active(request)).toEqual(expect.arrayContaining(expected));
   });
 
-  it.each(['Make the headline shorter', 'Translate the hero to French', 'Undo that'])(
+  it.each(['Move the hero above the gallery', 'Make the hero darker', 'Undo that'])(
     '«%s» turns none of them on',
     (request) => {
       const defaults = new Set(CRAFTKIT_DEFAULT_SKILLS.map(({ id }) => id));

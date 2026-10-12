@@ -19,7 +19,7 @@ export interface DefaultSkillsListProps {
 /**
  * The default skills (2026-10-12): the reviewed pack every project starts with, as other agents
  * ship their own skills: design intelligence from UI UX Pro Max, landing patterns, UX rules, type
- * and colour, forms, natural Arabic, honest proof. Each row has a switch (on until switched off,
+ * and colour, forms, natural copy in English and Arabic, honest proof. Each row has a switch (on until switched off,
  * kept per viewer), a two-line description, "What it teaches the Agent" (the exact instructions,
  * to read before trusting it), and "Make it my own", which opens New skill on a copy.
  */

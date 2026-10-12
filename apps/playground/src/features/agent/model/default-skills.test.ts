@@ -49,13 +49,13 @@ describe('default skills', () => {
     store.subscribe(() => {
       calls += 1;
     });
-    store.setEnabled('craftkit.arabic-copy', false);
-    store.setEnabled('craftkit.arabic-copy', false);
+    store.setEnabled('craftkit.natural-copy', false);
+    store.setEnabled('craftkit.natural-copy', false);
     store.setEnabled('not.a-default', false);
-    expect(store.get()).toEqual(['craftkit.arabic-copy']);
+    expect(store.get()).toEqual(['craftkit.natural-copy']);
     expect(calls).toBe(1);
-    expect(createDefaultSkillsStore(storage).get()).toEqual(['craftkit.arabic-copy']);
-    store.setEnabled('craftkit.arabic-copy', true);
+    expect(createDefaultSkillsStore(storage).get()).toEqual(['craftkit.natural-copy']);
+    store.setEnabled('craftkit.natural-copy', true);
     expect(createDefaultSkillsStore(storage).get()).toEqual([]);
     storage.setItem(DEFAULT_SKILLS_KEY, '["craftkit.pro-max-ux", 7, "gone.skill"]');
     expect(createDefaultSkillsStore(storage).get()).toEqual(['craftkit.pro-max-ux']);

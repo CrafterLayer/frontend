@@ -60,12 +60,16 @@ describe('DefaultSkillsList', () => {
   it('shows exactly what a default teaches, and makes it the person’s own', async () => {
     const { user, onMakeOwn } = setup();
     const row = screen
-      .getByRole('switch', { name: 'Use Natural Arabic copy' })
+      .getByRole('switch', { name: 'Use Natural copy in English and Arabic' })
       .closest('li') as HTMLElement;
     await user.click(within(row).getByText('What it teaches the Agent'));
-    expect(within(row).getByText(/English idioms/u)).toBeVisible();
-    await user.click(within(row).getByRole('button', { name: 'Make Natural Arabic copy my own' }));
-    expect(onMakeOwn).toHaveBeenCalledWith(expect.objectContaining({ id: 'craftkit.arabic-copy' }));
+    expect(within(row).getByText(/idioms word by word/u)).toBeVisible();
+    await user.click(
+      within(row).getByRole('button', { name: 'Make Natural copy in English and Arabic my own' }),
+    );
+    expect(onMakeOwn).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'craftkit.natural-copy' }),
+    );
   });
 
   it('speaks Arabic', () => {
@@ -73,7 +77,7 @@ describe('DefaultSkillsList', () => {
     const section = screen.getByRole('region', { name: 'المهارات الافتراضية' });
     expect(within(section).getByText('7 من 7 مفعّلة')).toBeInTheDocument();
     expect(
-      within(section).getByRole('switch', { name: 'استخدم عربية طبيعية' }),
+      within(section).getByRole('switch', { name: 'استخدم نصوص طبيعية بالعربية والإنجليزية' }),
     ).toBeInTheDocument();
     expect(within(section).getAllByRole('button', { name: /^اجعل .+ مهارتي$/u })).toHaveLength(7);
   });

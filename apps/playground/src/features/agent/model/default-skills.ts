@@ -1,7 +1,7 @@
 /**
  * The default skills (2026-10-12): the engine's reviewed pack (`CRAFTKIT_DEFAULT_SKILLS`: design
  * intelligence from UI UX Pro Max, landing patterns, UX rules, type and colour, forms, natural
- * Arabic, honest proof) is on for every person, as other agents ship their own skills. Each one
+ * copy in English and Arabic, honest proof) is on for every person, as other agents ship their own skills. Each one
  * can be switched off (the choice is kept per viewer) or copied into the person's own skills to
  * change. Names and descriptions are shown in the panel's language; the instructions the Agent
  * reads stay as written.
@@ -51,10 +51,10 @@ const ARABIC: Readonly<Record<string, { readonly name: string; readonly descript
     description:
       'حقول قليلة بعناوين ظاهرة، وأنواع إدخال صحيحة، وأخطاء بجانب الحقل، وزر إرسال صادق، وبديل مباشر للتواصل.',
   },
-  'craftkit.arabic-copy': {
-    name: 'عربية طبيعية',
+  'craftkit.natural-copy': {
+    name: 'نصوص طبيعية بالعربية والإنجليزية',
     description:
-      'فصحى مبسّطة بجمل قصيرة، وأزرار تبدأ بفعل، وترقيم عربي، ونظام أرقام واحد، وكل نصوص الصفحة بالعربية.',
+      'نصوص تُقرأ كأن كاتبها من أهل اللغة، بالعربية والإنجليزية: جمل قصيرة، وأزرار تبدأ بفعل، وترقيم كل لغة وأرقامها، وكل نصوص الصفحة بلغتها.',
   },
   'craftkit.trust-proof': {
     name: 'ثقة وأدلة صادقة',

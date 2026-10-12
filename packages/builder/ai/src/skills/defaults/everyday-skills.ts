@@ -4,7 +4,7 @@ import { TYPE_MOODS } from './design-intelligence';
 /**
  * Five everyday default skills (2026-10-12): interaction and UX rules (UI UX Pro Max's
  * high-severity `ux-guidelines.csv` rows for the web, Next Level Builder, MIT), type and
- * colour, forms people finish, natural Arabic copy, and honest trust and proof. Each turns on
+ * colour, forms people finish, natural copy in English and Arabic, and honest trust and proof. Each turns on
  * by its own words in English and Arabic and stays small, so several can share a request.
  */
 
@@ -28,14 +28,11 @@ ERRORS: say exactly what to fix, under the field, linked with aria-describedby; 
 SUBMIT: the button says the result ("Send my request", «أرسل طلبي»); while sending it shows progress and cannot be pressed twice; after, a clear success message says what happens next and when.
 ALTERNATIVES: beside a contact form offer a direct path: a tel: link, mailto: or a WhatsApp link (https://wa.me/number). Privacy: one short line on how the details are used.`;
 
-const ARABIC_COPY = `For Arabic pages and Arabic text anywhere.
-LANGUAGE: clear Modern Standard Arabic that reads naturally (فصحى مبسّطة); use a dialect only when the person writes in it and asks. Rewrite meaning, never translate English idioms word by word.
-SENTENCES: short, active verbs, one idea each; headlines eight words or fewer; address the reader directly.
-CALLS TO ACTION: an imperative verb with its object («احجز موعدك»، «اطلب الآن»، «تواصل معنا»), never «اضغط هنا».
-PUNCTUATION: Arabic marks inside Arabic text: «،» «؛» «؟» and «» quotes; no Latin comma or question mark between Arabic words; no tatweel (ـ) and no decorative diacritics, except to prevent a real ambiguity.
-NUMBERS AND DATES: one digit system per page (Western digits by default for prices, phones and times unless the person writes Arabic-Indic); currency as the person writes it («45 ر.س»، «٤٥ د.إ»); Gregorian dates by default («12 أكتوبر 2026»), Hijri when the context asks for it.
-NAMES: a brand or product name written in Latin stays in Latin; do not transliterate it unless asked.
-EVERY STRING: on an Arabic page the buttons, form labels, errors, alt text, page title and description are Arabic too.`;
+const NATURAL_COPY = `Copy that reads as if a native writer wrote it, in every language the page uses.
+EVERY LANGUAGE: short sentences with active verbs, one idea each; headlines of eight words or fewer; address the reader directly; calls to action are a verb and its result ("Book a table", «احجز طاولة»), never "Click here" or «اضغط هنا»; on a page in one language every string is in it: buttons, form labels, errors, alt text, the page title and description.
+ENGLISH: plain words over jargon; sentence case for headings and buttons; no exclamation marks in headings; spell numbers as digits with the person's own currency and date order, and stay consistent (one spelling, US or UK, per site).
+ARABIC: clear Modern Standard Arabic (فصحى مبسّطة), a dialect only when the person writes in it and asks; Arabic marks inside Arabic text («،» «؛» «؟» and «» quotes), no Latin comma or question mark between Arabic words; no tatweel (ـ) and no decorative diacritics; one digit system per page (Western digits by default, Arabic-Indic when the person writes them); Gregorian dates unless the context asks for Hijri.
+LANGUAGE VERSIONS: rewrite meaning, never translate idioms word by word; keep brand and product names as written; keep numbers, prices, phones and links identical across versions; expect one language to run longer than another and keep layouts flexible.`;
 
 const TRUST_PROOF = `Trust is built from proof the person can stand behind; never invent it.
 TESTIMONIALS: a quote with a first name and role or city the person gave; without real ones, write clearly marked placeholders and list them in followUp. No stock face beside an invented name (use initials).
@@ -156,28 +153,34 @@ export const EVERYDAY_DEFAULT_SKILLS: readonly AiSkillDefinitionV1[] = [
     'Only needed fields; visible labels with type and autocomplete; specific errors under fields; a result-named submit with progress and success; a phone, mail or WhatsApp alternative.',
   ),
   skill(
-    'craftkit.arabic-copy',
-    'Natural Arabic copy',
-    'Clear Modern Standard Arabic: short sentences, verb-first calls to action, Arabic punctuation, one digit system, every string in Arabic.',
+    'craftkit.natural-copy',
+    'Natural copy in English and Arabic',
+    'Copy that reads native in English and Arabic: short sentences, verb-first calls to action, each language’s punctuation and numbers, every string in the page’s language.',
     36,
     [
+      'copy',
+      'text',
+      'headline',
+      'wording',
+      'rewrite',
+      'write',
+      'tone',
+      'english',
       'arabic',
       'عربي',
       'بالعربي',
-      'العربية',
-      'عربية',
+      'إنجليزي',
+      'بالإنجليزي',
       'محتوى',
       'نصوص',
       'صياغة',
       'اكتب',
       'صمم',
-      'اعمل',
-      'أضف',
       'موقع',
       'صفحة',
     ],
-    ARABIC_COPY,
-    'Natural MSA, no literal translation; short sentences; imperative CTAs; «،» «؛» «؟» «»; one digit system; Latin brand names kept; every string Arabic on an Arabic page.',
+    NATURAL_COPY,
+    'Native phrasing in each language, never word-by-word; verb-first CTAs; English sentence case, Arabic «،» «؛» «؟» «»; one digit system; brand names kept; every string in the page’s language.',
   ),
   skill(
     'craftkit.trust-proof',

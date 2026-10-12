@@ -661,8 +661,12 @@ Evidence:
 - [x] T211 Context cost: `jsMeta` summarised by declaration, template `blockTypes` with the full
       catalog only; none mode 13,183 → 11,794 wire tokens.
 - [x] T212 Repairs: AI vocabulary generator and its two missing utilities; stale test pins.
-- [ ] T213 Inspector "Scene settings" for customCode `jsParams` from the `jsMeta.params` spec;
+- [x] T213 Inspector "Scene settings" for customCode `jsParams` from the `jsMeta.params` spec;
       `jsMeta` hidden (field-kinds gate).
+- [x] T214 Default skills for every person (`CRAFTKIT_DEFAULT_SKILLS`): design intelligence from
+      UI UX Pro Max's data (29 kinds of business), landing patterns, UX rules, type and colour,
+      forms, natural Arabic, honest proof; Skills tab "Default skills" (switch, read, make my own),
+      `/` listing, host skills for builds.
 
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above

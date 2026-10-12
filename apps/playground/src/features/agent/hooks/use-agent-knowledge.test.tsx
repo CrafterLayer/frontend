@@ -119,7 +119,7 @@ describe('useAgentKnowledge', () => {
         'craftkit.arabic-copy',
       ]),
     );
-    expect(result.current.view.skills.defaults[0]?.name).toBe('ذكاء التصميم (UI UX Pro Max)');
+    expect(result.current.view.skills.defaults[0]?.name).toBe('ذكاء التصميم Pro Max');
     act(() => {
       result.current.view.skills.setDefaultEnabled('craftkit.pro-max-design', false);
     });

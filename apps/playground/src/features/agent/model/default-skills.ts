@@ -26,9 +26,10 @@ export interface DefaultSkillView {
 
 const ARABIC: Readonly<Record<string, { readonly name: string; readonly description: string }>> = {
   'craftkit.pro-max-design': {
-    name: 'ذكاء التصميم (UI UX Pro Max)',
+    // No Latin in brackets: a truncated RTL row cut "(UI UX Pro Max)" mid-word.
+    name: 'ذكاء التصميم Pro Max',
     description:
-      'نمط الصفحة وألوانها وخطوطها وتأثيراتها وما يجب أن تعرضه لتسعة وعشرين نوعًا من الأعمال، يُحسم قبل أي قسم.',
+      'من بيانات UI UX Pro Max: نمط الصفحة وألوانها وخطوطها وتأثيراتها وما يجب أن تعرضه لتسعة وعشرين نوعًا من الأعمال، يُحسم قبل أي قسم.',
   },
   'craftkit.pro-max-landing': {
     name: 'صفحات هبوط تحقق التحويل',

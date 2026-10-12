@@ -26,13 +26,18 @@ Executed as T204..T213 (feature 014):
 - Repairs: the AI vocabulary generator (extensionless TS imports) and the two utilities it had
   stopped generating; stale pins in runs, readiness, copy rules, editor labels, field kinds.
 
+Then (T213, T214): the Inspector's "Scene settings" edits a scene's `jsParams` from its
+`jsMeta.params` spec (custom-code field types found by marker; `jsMeta` hidden); and seven default
+skills ship on for every person, led by "Design intelligence (UI UX Pro Max)" — 29 kinds of business
+with pattern, `theme.apply` colours, verified font pairs, effects, must-haves and anti-patterns,
+distilled from the MIT data files — each switchable, readable and copyable in the Skills tab.
+
 Verification: builder-ai 5642/5643 (pre-existing plan-page repair test); playground 3509/3510;
 blocks-marketing 970; media-engines 197; schema 834; renderer behaviours/engines/export/studio 403
 (all-packs budget 16 → 21 kB, measured; packs ship only where used); creative-engines browser 6/6
 (the engine-examples fixture can time out under a parallel load and passes alone); storybook
 SkillSlash 12, SkillsTab 16, four blocks 33; check:components 240; check:file-sizes. Open: the one
-playground failure is real — customCode's Studio props (`jsParams`, `jsMeta`) have no Inspector
-editor (T213, in progress); Countdown has no date-time picker, Menu no price grid, Location no
+playground failure (Studio props without an editor) is fixed by T213; Countdown has no date-time picker, Menu no price grid, Location no
 geocoding; music by project asset reference needs an export change.
 
 ## Current continuation — agent skills, memory, checkpoints; Table and Chart; canvas chrome, 2026-10-12

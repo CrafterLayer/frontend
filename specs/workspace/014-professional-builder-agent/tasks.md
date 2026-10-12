@@ -671,3 +671,57 @@ Evidence:
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.
+
+## Increment 2026-10-12 (b) — agent power, batches, creative production
+
+Requested (Arabic): Arabic and English everywhere; a modern compact agent chat; cache reads that
+are not 0; context handled like Claude's own agent chat; background batches AND smarter live
+workers; "high power" for stories, murals, games and websites; any package needed; 10/10.
+
+- [x] T215 `page.translate` registered (edit lane cap 2290 → 2460, measured); natural-copy default
+      skill teaches it. One language for the whole editor: the panel follows the editor locale
+      (VITE_AGENT_LOCALE pins), the editor defaults to the browser's Arabic/English preference.
+- [x] T216 Agent panel: one-row compact composer (workers/effort/mode/model chips, free code),
+      Skills & memory as a centred settings modal, telemetry only when reported, the shared column
+      pinned while Assistant shows; compact 44px rail tiles (the rail fits 760px).
+- [x] T217 Speed: entry chunk 1,520 → 870 kB gzip; Add page paints in ~30 ms at any page count
+      (site validation reuses untouched frozen pages; `isAssetRef` prefilter; memoised page list);
+      page ids skip every id the site holds (Add page after a reload was refused).
+- [x] T218 Prompt cache: one-hour breakpoints on rules, catalog, skills and the conversation;
+      same-prefix calls staggered behind the first stream (`cache-gate.ts`); the routing client
+      forwards the API's stream start.
+- [x] T219 Thinking off in the form each model takes (Opus/Sonnet 5.5 refuse `disabled`: every
+      build and «Improve» failed on `api:claude-*-5-5`); a failure after the stream began reaches
+      the client as its status (`error` frame), not as an invalid answer.
+- [x] T220 Context: history opens on a user turn; over budget the oldest exchanges go, then entries
+      are capped, before failing; Arabic counted at 2 chars/token; a context meter; the chip names
+      the sections the engine focused on.
+- [x] T221 Stories/games scale and stack the same in canvas, Preview and published (`--ck-vh`,
+      `ck.stage` follows its region); the free-code card teaches width-sized stages and `ck.scene`.
+- [x] T222 Message Batches: `/batch` routes (Messages API only), shared `plan-params` /
+      `plan-answer` / `plan-request` / `plan-errors`, `createRemoteBatchClient`,
+      `createAiBatchRunner` (one Undo per page, resumable apply).
+- [x] T223 Creative activation from GENRES (bedtime, picture book, fairy tale… AR/EN, business
+      negatives kept); every scene section gets the page's cast and setting; playbooks
+      `craftkit.pixi-physics`, `pixi-scroll-murals`, `pixi-page-shapes`; bedtime read-aloud; scene
+      writers keep thinking at medium with a 48k output budget.
+- [x] T224 Scene code checked before it lands (`check-scene.ts`: syntax, libs, DOM lookups, height,
+      lifecycle, guards, forbidden), one repair with "js line N"; the door refuses unparseable js;
+      scene writers start first and get 420 s.
+- [x] T225 The 30 curated scene presets: frozen catalogue, unit + Chromium tests, seven fixed;
+      `s.shader` promotes vertex-stage uniforms to highp; rough's reference corrected.
+- [x] T226 Single-run edits of a scene get its playbooks, the director and a creative brief.
+- [ ] T227 Background jobs panel (start, list, poll, apply, retry live; EN/AR) — in progress.
+- [ ] T228 Run-check-fix: probe each scene in an off-screen frame (errors, blank, coverage, hidden
+      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wire the playground.
+- [ ] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
+- [ ] T230 Real multi-page sites (up to 8 pages) with one writer pool shared across pages; language
+      versions and translations through the batch queue.
+- [ ] T231 Parallel creative units: story chapters, game levels (reachability checked in code),
+      mural panels; dialogue read from the DOM; scene text translatable.
+- [ ] T232 Vision review of a rendered scene (one extra call per scene) — owner's decision.
+- [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
+- [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing
+      `prettier --check` (both pre-existing on builder-core) — owner's decision.
+- [ ] T235 Page plans still fail hard on context overflow (`agent/plan-page.ts` ~595): fit history
+      with `fitAiPlanWireHistory` as `generateAiPlan` now does.

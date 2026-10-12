@@ -1,5 +1,26 @@
 # Active Work Handoff
 
+## Current continuation — agent power, batches, creative production, 2026-10-12 (b)
+
+Requested increment: **in progress, pushed in slices** (T215..T235, feature 014). The user asked
+(Arabic) for Arabic/English everywhere, a modern compact agent chat, cache reads that are not 0,
+context handled like Claude's agent chat, background batches and smarter live workers, and "high
+power" for stories, murals, games and websites, installing any package needed (10/10).
+
+- Done and pushed: T215..T226 (see feature 014 tasks). Highlights: one-hour cache breakpoints +
+  same-prefix staggering; per-model thinking-off (the 5.5 models refused `disabled`); stream error
+  frames; history trimming + context meter; story/game preview scale fix; Message Batches end to
+  end; creative activation, briefs, physics/scroll-mural/page-shape playbooks; static scene checks
+  with one repair; 30 tested scene presets; single-run scene edits get playbooks and a brief.
+- In flight (background helpers): T227 jobs panel, T228 run-check-fix probe, T229 `scene.preset`.
+- Next: T230 multi-page sites with one shared writer pool; T231 parallel creative units.
+- Owner decisions open: T232 vision review, T233 CC0 art packs, T234 CI workflow + formatting.
+- No new npm package was needed so far (the runtime already ships pixi.js 8, matter-js, inkjs,
+  @pixi/tilemap, pixi-filters, pixi-viewport, roughjs, perfect-freehand, simplex-noise,
+  @pixi/sound, zzfx, yuka, @pixi/ui); Spine (proprietary) and Rive (5.6 MB) were rejected.
+- Rules learned this session: stage only the files a helper names; stage the shared
+  `file-size-baseline.json` per line (`git hash-object` + `update-index`), never the whole file.
+
 ## Current continuation — agent tools, data, four blocks, Studio game libraries, 2026-10-12
 
 Requested increment: **locally verified**. The user asked (Arabic) to keep improving the agent and

@@ -48,8 +48,8 @@ The model is pure and table-tested: `slashToken`, `withoutSlash`, `commandOf`, `
 
 ## Commands
 
-Above the skills, three commands act on the words typed before the slash. AgentPanel runs them
-through `useKnowledgeUi`:
+Above the skills, the commands act on the words typed before the slash. AgentPanel runs them through
+`useKnowledgeUi`:
 
 - **Remember** (`/remember`, `/تذكر`) keeps the words in the project memory as a preference. With no
   words it opens the Memory tab. A repeat is refused, as the tab refuses it.
@@ -57,6 +57,10 @@ through `useKnowledgeUi`:
   default name. It is offered only when the host keeps pages.
 - **New skill** (`/skill`, `/مهارة`) opens New skill on the Skills tab with the words as its
   instructions.
+- **Run in the background** (`/batch`, `/خلفية`) opens the Background jobs form with the words as
+  the request: the same request on several pages, at half price. It is offered only when the host
+  keeps background jobs. Sent typed out in full (`/batch Translate every page`), the composer opens
+  the same form on the words after it instead of running them.
 
 The words leave the composer with the slash. What happened is said once in a `status` line under the
 list, which clears after four seconds.

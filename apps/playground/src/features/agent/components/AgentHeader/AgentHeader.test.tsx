@@ -227,6 +227,44 @@ describe('AgentHeader', () => {
     render(<AgentHeader {...props()} />);
     expect(screen.getAllByRole('button')).toHaveLength(2);
   });
+
+  it('draws Background jobs after Skills & memory when the host keeps jobs, with what waits', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    const { container } = render(
+      <AgentHeader
+        {...props({
+          knowledge: { label: 'Skills & memory', open: false, onToggle: vi.fn() },
+          jobs: {
+            label: 'Background jobs',
+            hint: '1 ready to apply',
+            badge: 'ready',
+            open: true,
+            onToggle,
+            controls: 'jobs-dialog',
+          },
+        })}
+      />,
+    );
+    const names = screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'));
+    expect(names).toEqual([
+      'Skills & memory',
+      'Background jobs',
+      t('en', 'header.conversations'),
+      t('en', 'header.new'),
+    ]);
+    const jobs = screen.getByRole('button', { name: 'Background jobs' });
+    expect(jobs).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(jobs).toHaveAttribute('aria-expanded', 'true');
+    expect(jobs).toHaveAttribute('aria-controls', 'jobs-dialog');
+    expect(jobs).toHaveAccessibleDescription('1 ready to apply');
+    expect(container.querySelector('.ck-agent-header__jobs')).toHaveAttribute(
+      'data-badge',
+      'ready',
+    );
+    await user.click(jobs);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('AgentHeader.css', () => {

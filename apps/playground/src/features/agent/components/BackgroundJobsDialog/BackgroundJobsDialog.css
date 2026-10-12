@@ -1,0 +1,202 @@
+/*
+  BackgroundJobsDialog (2026-10-12): the "Skills & memory" window's single-column sibling.
+  Centred over the editor by `inset: 0; margin: auto` (no transform, so RTL needs nothing),
+  min(600px, the screen less 32) wide and as tall as its content up to the screen less 48.
+  A bar with the glyph (or Back on the form), the title, a Half price tag and Close at the
+  inline end; under it the body scrolls alone. Under 640px of screen it takes the whole
+  width less 16 on each side. Builder tokens only; logical properties only.
+*/
+
+.ck-agent-jobs__scrim {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--bldr-panel) 84%, transparent);
+  backdrop-filter: blur(var(--bldr-space-2xs));
+}
+
+.ck-agent-jobs {
+  position: fixed;
+  z-index: 51;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  inline-size: min(600px, calc(100vw - var(--bldr-space-6xl)));
+  block-size: fit-content;
+  max-block-size: min(720px, calc(100dvh - var(--bldr-space-6xl) - var(--bldr-space-xl)));
+  margin: auto;
+  overflow: hidden;
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-overlay);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-jobs:focus-visible {
+  outline: none;
+}
+
+.ck-agent-jobs__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  padding-block: var(--bldr-space-xl) var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-3xl) var(--bldr-space-xl);
+}
+
+.ck-agent-jobs[data-view='new'] .ck-agent-jobs__bar {
+  padding-inline-start: var(--bldr-space-md);
+}
+
+.ck-agent-jobs__glyph {
+  flex: none;
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-jobs__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title, var(--bldr-font-size-read));
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Half price": a small Accent pill beside the title and the start button. */
+.ck-agent-jobs__tag {
+  flex: none;
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  white-space: nowrap;
+}
+
+.ck-agent-jobs__body {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: var(--bldr-space-md);
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block: var(--bldr-space-xs) var(--bldr-space-3xl);
+  padding-inline: var(--bldr-space-3xl);
+  overscroll-behavior: contain;
+}
+
+.ck-agent-jobs__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+}
+
+.ck-agent-jobs__refresh {
+  margin-inline-start: auto;
+}
+
+.ck-agent-jobs__offline {
+  margin: 0;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-warning-soft);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-jobs__empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--bldr-space-2xs);
+  padding-block: var(--bldr-space-3xl);
+  text-align: center;
+}
+
+.ck-agent-jobs__empty .ck-agent-kn-empty {
+  padding-block: 0;
+}
+
+.ck-agent-jobs__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-jobs__list > li:last-child .ck-agent-job {
+  border-block-end: 0;
+}
+
+/* ── Motion: the veil fades; the window fades and rises 4px ─────────────────── */
+
+.ck-agent-jobs__scrim[data-state='open'] {
+  animation: ck-agent-jobs-fade var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-jobs[data-state='open'] {
+  animation: ck-agent-jobs-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+@keyframes ck-agent-jobs-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-jobs-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+@media (max-width: 640px) {
+  .ck-agent-jobs {
+    inline-size: calc(100vw - var(--bldr-space-3xl));
+  }
+
+  .ck-agent-jobs__bar,
+  .ck-agent-jobs__body {
+    padding-inline: var(--bldr-space-xl);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-jobs__scrim[data-state='open'],
+  .ck-agent-jobs[data-state='open'] {
+    animation: ck-agent-jobs-fade var(--bldr-duration-state) linear;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .ck-agent-jobs__scrim {
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-jobs {
+    border-color: CanvasText;
+  }
+
+  .ck-agent-jobs__tag,
+  .ck-agent-jobs__offline {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

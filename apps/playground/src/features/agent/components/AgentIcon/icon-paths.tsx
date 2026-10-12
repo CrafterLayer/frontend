@@ -329,6 +329,17 @@ export const ICONS = {
     ),
     mirror: false,
   },
+  /** Background jobs (2026-10-12): pages stacked, sent as one batch (Lucide `layers`). */
+  layers: {
+    shapes: (
+      <>
+        <path d="M8 2.5 13.5 5.25 8 8 2.5 5.25Z" />
+        <path d="M2.5 8 8 10.75 13.5 8" />
+        <path d="M2.5 10.75 8 13.5l5.5-2.75" />
+      </>
+    ),
+    mirror: false,
+  },
   /** Settings: the knowledge modal's general section (Lucide `settings-2`). */
   sliders: {
     shapes: (

@@ -36,6 +36,7 @@ export interface AssistantRailPanelProps {
     AgentHost,
     | 'openAgentPage'
     | 'languageVersions'
+    | 'backgroundJobs'
     | 'setAgentPreview'
     | 'agentAsSheet'
     | 'agentPillHost'
@@ -104,6 +105,7 @@ export function AssistantRailPanel({
   const {
     openAgentPage,
     languageVersions,
+    backgroundJobs,
     setAgentPreview,
     agentAsSheet,
     agentPillHost,
@@ -171,6 +173,7 @@ export function AssistantRailPanel({
             editEffort={AGENT_EDIT_EFFORT}
             addPage={openAgentPage}
             languageVersions={languageVersions}
+            backgroundJobs={backgroundJobs}
             /*
               A person who asks for a page gets the page: every section
               lands as its own undoable entry. Ask and Plan are one menu away.

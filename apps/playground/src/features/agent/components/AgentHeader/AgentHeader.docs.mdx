@@ -33,21 +33,24 @@ text, never a live region, and carries no count, clock or title: those stay the 
 
 ## Props
 
-| prop                    | type                     | default   | notes                                                       |
-| ----------------------- | ------------------------ | --------- | ----------------------------------------------------------- |
-| `locale`                | `'ar' \| 'en'`           | none      | the name and every label follow it                          |
-| `face`                  | `AgentHeaderFace`        | none      | `{ mood, variant?, outcome?, typing? }` from `useAgentMood` |
-| `scrolled`              | `boolean`                | none      | AgentThread's `onScrolledChange`: draws the Hairline        |
-| `running`               | `boolean`                | none      | New conversation becomes `aria-disabled` and says why       |
-| `conversationsOpen`     | `boolean`                | none      | Conversations' `aria-expanded`                              |
-| `onConversations`       | `() => void`             | none      | open or close HistoryPopover                                |
-| `onNewConversation`     | `() => void`             | none      | `controller.newConversation`; not called while running      |
-| `conversationsRef`      | `Ref<HTMLButtonElement>` | none      | for the popover's anchor and its focus return               |
-| `conversationsControls` | `string`                 | none      | the open popover's id, set as `aria-controls` while open    |
-| `headingId`             | `string`                 | generated | the `h2`'s id, so AgentPanel can name its region by it      |
-| `onClose`               | `() => void`             | none      | phone sheet only: adds Close at the inline start            |
-| `onShowPage`            | `() => void`             | none      | phone sheet only: adds Show the page after New conversation |
-| `status`                | `string`                 | none      | the word-status line under the name, Meta in Slate          |
+| prop                    | type                                                  | default   | notes                                                       |
+| ----------------------- | ----------------------------------------------------- | --------- | ----------------------------------------------------------- |
+| `locale`                | `'ar' \| 'en'`                                        | none      | the name and every label follow it                          |
+| `face`                  | `AgentHeaderFace`                                     | none      | `{ mood, variant?, outcome?, typing? }` from `useAgentMood` |
+| `scrolled`              | `boolean`                                             | none      | AgentThread's `onScrolledChange`: draws the Hairline        |
+| `running`               | `boolean`                                             | none      | New conversation becomes `aria-disabled` and says why       |
+| `conversationsOpen`     | `boolean`                                             | none      | Conversations' `aria-expanded`                              |
+| `onConversations`       | `() => void`                                          | none      | open or close HistoryPopover                                |
+| `onNewConversation`     | `() => void`                                          | none      | `controller.newConversation`; not called while running      |
+| `conversationsRef`      | `Ref<HTMLButtonElement>`                              | none      | for the popover's anchor and its focus return               |
+| `conversationsControls` | `string`                                              | none      | the open popover's id, set as `aria-controls` while open    |
+| `headingId`             | `string`                                              | generated | the `h2`'s id, so AgentPanel can name its region by it      |
+| `onClose`               | `() => void`                                          | none      | phone sheet only: adds Close at the inline start            |
+| `onShowPage`            | `() => void`                                          | none      | phone sheet only: adds Show the page after New conversation |
+| `status`                | `string`                                              | none      | the word-status line under the name, Meta in Slate          |
+| `knowledge`             | `{ label, open, … }`                                  | none      | "Skills & memory", drawn first among the actions            |
+| `jobs`                  | `{ label, hint?, badge?, open, onToggle, controls? }` | none      | "Background jobs", after Skills & memory                    |
+| `jobsRef`               | `Ref<HTMLButtonElement>`                              | none      | where focus returns when the jobs dialog closes             |
 
 ## States
 
@@ -61,6 +64,10 @@ text, never a live region, and carries no count, clock or title: those stay the 
   button, and its tooltip steps aside for the popover.
 - **Widths** (`Narrow288`, `Wide480Arabic`): under a 320px panel the gutter narrows to 12px and the
   face follows it.
+- **Background jobs** (`WithBackgroundJobs`, `WithBackgroundJobsArabicDark`): the stacked-pages
+  button after Skills & memory opens BackgroundJobsDialog (`aria-haspopup="dialog"`). A 6px dot at
+  its corner says answers wait to be applied (Ink) or a batch still answers (Graphite); the button's
+  second tooltip line, also its description, says how many. Never Indigo.
 - **Phone sheet** (`PhoneSheet`, `PhoneSheetArabic`): Close, the face and the name; Conversations,
   New and Show the page. 56px tall (AgentSheet sets `--bldr-agent-header-height`), 44px targets 8px
   apart.

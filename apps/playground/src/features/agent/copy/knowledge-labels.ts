@@ -90,7 +90,10 @@ export interface KnowledgeLabels {
     readonly full: string;
     readonly commandsHeading: string;
     readonly commands: Readonly<
-      Record<'remember' | 'checkpoint' | 'skill', { readonly name: string; readonly hint: string }>
+      Record<
+        'remember' | 'checkpoint' | 'skill' | 'batch',
+        { readonly name: string; readonly hint: string }
+      >
     >;
     readonly remembered: string;
     readonly checkpointSaved: (label: string) => string;
@@ -240,6 +243,7 @@ const EN: KnowledgeLabels = {
       remember: { name: 'Remember', hint: 'Keep this message in the project memory' },
       checkpoint: { name: 'Save a checkpoint', hint: 'Keep the page as it is now' },
       skill: { name: 'New skill', hint: 'Start a skill from this message' },
+      batch: { name: 'Run in the background', hint: 'On several pages, at half price' },
     },
     remembered: 'Remembered. The Agent reads it in every request.',
     checkpointSaved: (label) => `Checkpoint saved: ${label}.`,
@@ -393,6 +397,7 @@ const AR: KnowledgeLabels = {
       remember: { name: 'تذكّر', hint: 'احفظ هذه الرسالة في ذاكرة المشروع' },
       checkpoint: { name: 'احفظ نقطة', hint: 'احفظ الصفحة كما هي الآن' },
       skill: { name: 'مهارة جديدة', hint: 'ابدأ مهارة من هذه الرسالة' },
+      batch: { name: 'شغّل في الخلفية', hint: 'على عدة صفحات، بنصف السعر' },
     },
     remembered: 'حُفظت في الذاكرة. يقرؤها الوكيل في كل طلب.',
     checkpointSaved: (label) => `حُفظت النقطة: ${label}.`,

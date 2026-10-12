@@ -203,6 +203,44 @@ export const Dark: Story = {
   parameters: { panel: { theme: 'dark' } },
 };
 
+/**
+ * Background jobs (2026-10-12): drawn after Skills & memory when the host keeps jobs. The dot
+ * says answers wait to be applied; the button's second tooltip line says how many.
+ */
+export const WithBackgroundJobs: Story = {
+  args: {
+    knowledge: { label: 'Skills & memory', open: false, onToggle: fn() },
+    jobs: {
+      label: 'Background jobs',
+      hint: '1 ready to apply',
+      badge: 'ready',
+      open: false,
+      onToggle: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const jobs = within(canvasElement).getByRole('button', { name: 'Background jobs' });
+    await expect(jobs).toHaveAccessibleDescription('1 ready to apply');
+    await expect(jobs).toHaveAttribute('aria-haspopup', 'dialog');
+  },
+};
+
+export const WithBackgroundJobsArabicDark: Story = {
+  args: {
+    locale: 'ar',
+    knowledge: { label: 'المهارات والذاكرة', open: false, onToggle: fn() },
+    jobs: {
+      label: 'المهام في الخلفية',
+      hint: 'قيد التنفيذ: 2',
+      badge: 'active',
+      open: false,
+      onToggle: fn(),
+    },
+  },
+  globals: { direction: 'rtl' },
+  parameters: { panel: { theme: 'dark' } },
+};
+
 export const DarkRunning: Story = {
   args: { running: true, face: { mood: 'working' } },
   parameters: { panel: { theme: 'dark' } },

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultSkillViews } from './default-skills';
 import type { BuiltInSkillView } from './knowledge';
 import {
+  batchCommandText,
   commandOf,
   slashCommands,
   slashOptions,
@@ -113,12 +114,28 @@ describe('slashOptions', () => {
 
 describe('slashCommands', () => {
   it('offers every command for no words, and those a word of theirs starts', () => {
-    expect(slashCommands('')).toEqual(['remember', 'checkpoint', 'skill']);
+    expect(slashCommands('')).toEqual(['remember', 'checkpoint', 'skill', 'batch']);
     expect(slashCommands('rem')).toEqual(['remember']);
     expect(slashCommands('sav')).toEqual(['checkpoint']);
     expect(slashCommands('تذك')).toEqual(['remember']);
     expect(slashCommands('مهار')).toEqual(['skill']);
     expect(slashCommands('zzz')).toEqual([]);
+  });
+
+  it('names the background-jobs command in both languages', () => {
+    expect(slashCommands('ba')).toEqual(['batch']);
+    expect(slashCommands('خلف')).toEqual(['batch']);
+  });
+
+  it('reads a sent `/batch <request>` as the request, and nothing else as one', () => {
+    expect(batchCommandText('/batch Translate every page')).toBe('Translate every page');
+    expect(batchCommandText('  /Batch   Add an FAQ\nto each page ')).toBe(
+      'Add an FAQ\nto each page',
+    );
+    expect(batchCommandText('/خلفية ترجم كل الصفحات')).toBe('ترجم كل الصفحات');
+    expect(batchCommandText('/batch')).toBe('');
+    expect(batchCommandText('/batches of cookies')).toBeUndefined();
+    expect(batchCommandText('Run /batch later')).toBeUndefined();
   });
 
   it('reads the words before the slash', () => {

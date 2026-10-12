@@ -10,9 +10,11 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
 import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
 
 import { t } from '../../copy';
+import { jobsLabels } from '../../copy/jobs-labels';
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
 import type { Locale } from '../../model/view-types';
+import { fakeJobsView, SAMPLE_JOBS_AR, SAMPLE_PAGES_AR } from '../../testing/batch-fixtures';
 import {
   fakeViewState,
   useFakeController,
@@ -368,6 +370,8 @@ export const PhoneSheet: Story = {
 interface KnowledgePanelStoryProps {
   readonly scenario: FakeScenario;
   readonly locale: Locale;
+  /** Give the panel background jobs too (a hand-built view over the sample jobs). */
+  readonly withJobs?: boolean;
 }
 
 /**
@@ -375,7 +379,7 @@ interface KnowledgePanelStoryProps {
  * project memory over the real stores (seeded), and an in-memory checkpoint port. The
  * header then draws Skills & memory, which opens KnowledgePopover inside the panel.
  */
-function KnowledgePanelStory({ scenario, locale }: KnowledgePanelStoryProps) {
+function KnowledgePanelStory({ scenario, locale, withJobs = false }: KnowledgePanelStoryProps) {
   const arabic = locale === 'ar';
   const [initial] = useState(() => fakeViewState(scenario, locale, { now: Date.now() }));
   const controller = useFakeController(initial, { locale, onCall: logCall });
@@ -389,12 +393,18 @@ function KnowledgePanelStory({ scenario, locale }: KnowledgePanelStoryProps) {
     createFakeCheckpoints(arabic ? SAMPLE_CHECKPOINTS_AR : SAMPLE_CHECKPOINTS),
   );
   const { view } = useAgentKnowledge({ storage, checkpoints });
+  const [jobs] = useState(() =>
+    withJobs
+      ? fakeJobsView(arabic ? { jobs: SAMPLE_JOBS_AR, pages: SAMPLE_PAGES_AR } : {})
+      : undefined,
+  );
   const [panelWidth, setPanelWidth] = useState(320);
   return (
     <div style={{ display: 'grid', justifyItems: 'start', blockSize: 720, minInlineSize: 480 }}>
       <AgentPanel
         controller={controller}
         knowledge={view}
+        jobs={jobs}
         width={panelWidth}
         onWidthChange={setPanelWidth}
       />
@@ -424,6 +434,31 @@ function withKnowledge(locale: Locale, extra: Partial<Pick<Story, 'parameters'>>
 export const WithKnowledge: Story = withKnowledge('en');
 export const WithKnowledgeRightToLeft: Story = withKnowledge('ar');
 export const WithKnowledgeDark: Story = withKnowledge('en', { parameters: DARK });
+
+function withJobs(locale: Locale, extra: Partial<Pick<Story, 'parameters'>> = {}): Story {
+  return {
+    args: { scenario: 'built', locale },
+    ...extra,
+    render: (args) => (
+      <KnowledgePanelStory scenario={args.scenario} locale={args.locale} withJobs />
+    ),
+    play: async ({ canvasElement }) => {
+      // Not `expectShell`: with knowledge the composer's `/` status line is a second live region.
+      const panel = panelOf(canvasElement, locale);
+      const title = jobsLabels(locale).title;
+      await userEvent.click(within(panel).getByRole('button', { name: title }));
+      const dialog = await within(panel).findByRole('dialog', { name: title });
+      // It fades in: visible once its enter animation has run.
+      await waitFor(() => expect(dialog).toBeVisible());
+      await expect(within(dialog).getAllByRole('article')).toHaveLength(4);
+    },
+  };
+}
+
+/** Background jobs (2026-10-12): the header's button opens the jobs list inside the panel. */
+export const WithBackgroundJobs: Story = withJobs('en');
+export const WithBackgroundJobsRightToLeft: Story = withJobs('ar');
+export const WithBackgroundJobsDark: Story = withJobs('en', { parameters: DARK });
 
 /** "/" in the real composer opens the skills list above it; Enter pins the first skill. */
 export const SlashMenu: Story = {

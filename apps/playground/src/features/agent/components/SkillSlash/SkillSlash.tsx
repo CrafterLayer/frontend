@@ -49,7 +49,12 @@ type Row =
   | { readonly kind: 'skill'; readonly option: SlashOption }
   | { readonly kind: 'manage' };
 
-const COMMAND_ICON = { remember: 'book', checkpoint: 'history', skill: 'plus' } as const;
+const COMMAND_ICON = {
+  remember: 'book',
+  checkpoint: 'history',
+  skill: 'plus',
+  batch: 'layers',
+} as const;
 /** How long "Remembered." stays under the list. */
 const DONE_MS = 4_000;
 

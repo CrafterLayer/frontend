@@ -39,11 +39,13 @@ export interface KnowledgeUi {
  * The panel's "Skills & memory" state and the composer's `/` commands (2026-10-12):
  * `/remember` keeps the words in the project memory (or opens Memory when there are none),
  * `/checkpoint` keeps the page under their name, `/skill` opens New skill with them as the
- * instructions. Kept out of AgentPanel, which only places what this decides.
+ * instructions, and `/batch` hands them to `onBatch` (the background-jobs form), offered
+ * only when the host has one. Kept out of AgentPanel, which only places what this decides.
  */
 export function useKnowledgeUi(
   knowledge: AgentKnowledgeView | undefined,
   locale: Locale,
+  onBatch?: (text: string) => void,
 ): KnowledgeUi {
   const [open, setOpenState] = useState(false);
   const [tab, setTab] = useState<KnowledgeTab>('skills');
@@ -58,13 +60,18 @@ export function useKnowledgeUi(
     setNewSkill(draft);
     setOpenState(true);
   };
-  const commands =
-    knowledge?.checkpoints === undefined
-      ? SLASH_COMMANDS.filter((command) => command !== 'checkpoint')
-      : SLASH_COMMANDS;
+  const commands = SLASH_COMMANDS.filter(
+    (command) =>
+      (command !== 'checkpoint' || knowledge?.checkpoints !== undefined) &&
+      (command !== 'batch' || onBatch !== undefined),
+  );
 
   const onCommand = async (command: SlashCommand, text: string): Promise<string | undefined> => {
     if (knowledge === undefined) return undefined;
+    if (command === 'batch') {
+      onBatch?.(text);
+      return undefined;
+    }
     const labels = knowledgeLabels(locale);
     if (command === 'remember') {
       if (text === '') {

@@ -1,0 +1,126 @@
+/*
+  BatchJobForm (2026-10-12): the request, the pages (all, or a checklist), the price note on
+  the Accent wash, the server's sentence when it cannot batch on the Warning wash, and the
+  actions. One column; every field's label above it. Builder tokens only; logical properties.
+*/
+
+.ck-agent-batch-form {
+  display: grid;
+  gap: var(--bldr-space-xl);
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.ck-agent-batch-form__request {
+  min-block-size: calc(3 * var(--bldr-control-md));
+}
+
+.ck-agent-batch-form__scope {
+  display: grid;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ck-agent-batch-form__legend {
+  margin-block-end: var(--bldr-space-2xs);
+  padding: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-batch-form__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs) var(--bldr-space-3xl);
+}
+
+.ck-agent-batch-form__choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-batch-form__choice input {
+  inline-size: var(--bldr-space-2xl);
+  block-size: var(--bldr-space-2xl);
+  margin: 0;
+  accent-color: var(--bldr-accent);
+  cursor: pointer;
+}
+
+.ck-agent-batch-form__choice input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-batch-form__price {
+  display: flex;
+  align-items: start;
+  gap: var(--bldr-space-sm);
+  margin: 0;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-batch-form__price-glyph {
+  flex: none;
+  margin-block-start: var(--bldr-space-2xs);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-batch-form__tag {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-batch-form__blocked {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-warning-soft);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-batch-form__blocked p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.ck-agent-batch-form__blocked-lead {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-batch-form__actions {
+  padding-block-start: var(--bldr-space-xs);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-batch-form__choice {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-batch-form__price,
+  .ck-agent-batch-form__blocked {
+    border: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

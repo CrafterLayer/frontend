@@ -7,6 +7,7 @@ import {
   type BuilderSiteKernel,
 } from '@craftkit/builder';
 
+import { createBackgroundJobsHost } from '../features/jobs';
 import { createLocalAssetLibrary } from '../features/preview/local-asset-library';
 import {
   IDLE_SITE_RUN_SEAM,
@@ -19,8 +20,18 @@ import {
   playgroundExtensions,
   type PlaygroundFixture,
 } from '../features/preview/create-playground-kernel';
+import { vaultDocId } from '../features/vault/use-vault';
 import { pageOpener } from './agent-host';
 import { AGENT_PANEL } from './app-env';
+
+/** This viewer's localStorage, or none where reading it throws (a sandboxed frame). */
+function viewerStorage(): Storage | undefined {
+  try {
+    return typeof window === 'undefined' ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
 
 export interface AgentHostOptions {
   readonly siteKernel: BuilderSiteKernel | undefined;
@@ -81,6 +92,23 @@ export function useAgentHost({ siteKernel, fixture, railSection }: AgentHostOpti
     () => (siteKernel === undefined ? undefined : createLanguageVersions(siteKernel)),
     [siteKernel],
   );
+  /*
+    Background jobs (2026-10-12): the same request on several pages, sent as one batch at half
+    price through the assistant server's batch routes. Records are kept per document in this
+    browser, so a job sent before a reload is found again after it.
+  */
+  const backgroundJobs = useMemo(
+    () =>
+      siteKernel === undefined
+        ? undefined
+        : createBackgroundJobsHost({
+            site: siteKernel,
+            env: import.meta.env,
+            storage: viewerStorage(),
+            siteKey: vaultDocId(fixture),
+          }),
+    [siteKernel, fixture],
+  );
   const assetLibrary = useMemo(() => createLocalAssetLibrary(), []);
   const siteHost = useMemo(
     () =>
@@ -113,6 +141,7 @@ export function useAgentHost({ siteKernel, fixture, railSection }: AgentHostOpti
     agentAsSheet,
     openAgentPage,
     languageVersions,
+    backgroundJobs,
     assetLibrary,
     siteHost,
   };

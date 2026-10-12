@@ -13,17 +13,27 @@ export const MAX_PINNED_SKILLS = 3;
 
 /**
  * The commands the `/` list offers before the skills (2026-10-12): keep the message as a
- * memory, save a checkpoint named by it, or start a skill from it. Each answers to its English
- * and Arabic words.
+ * memory, save a checkpoint named by it, start a skill from it, or run it on several pages
+ * as a background job (`batch`). Each answers to its English and Arabic words.
  */
-export const SLASH_COMMANDS = ['remember', 'checkpoint', 'skill'] as const;
+export const SLASH_COMMANDS = ['remember', 'checkpoint', 'skill', 'batch'] as const;
 export type SlashCommand = (typeof SLASH_COMMANDS)[number];
 
 const COMMAND_WORDS: Readonly<Record<SlashCommand, readonly string[]>> = {
   remember: ['remember', 'memory', 'تذكر', 'ذاكرة', 'احفظ'],
   checkpoint: ['checkpoint', 'save', 'restore', 'نقطة', 'حفظ', 'استرجاع'],
   skill: ['skill', 'new-skill', 'مهارة', 'مهارة-جديدة'],
+  batch: ['batch', 'background', 'jobs', 'خلفية', 'دفعة', 'مهام'],
 };
+
+/** `/batch Translate every page`: the command typed out in full, then sent. */
+const BATCH_SENT = /^\s*\/(?:batch|background|خلفية|دفعة)(?:\s+([\s\S]*))?$/iu;
+
+/** The request of a sent `/batch <request>` (empty for a bare `/batch`), or none. */
+export function batchCommandText(draft: string): string | undefined {
+  const match = BATCH_SENT.exec(draft);
+  return match === null ? undefined : (match[1] ?? '').trim();
+}
 
 /** The commands a query names: every one for no words, else those a word of theirs starts with. */
 export function slashCommands(query: string): readonly SlashCommand[] {

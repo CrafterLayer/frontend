@@ -13,18 +13,20 @@ import { t } from '../../copy';
 import { TickerPausedContext } from '../../hooks/use-ticker';
 import { useDataDrop } from '../../hooks/use-data-drop';
 import { useKnowledgeUi } from '../../hooks/use-knowledge-ui';
+import { useJobsUi } from '../../hooks/use-jobs-ui';
+import type { BackgroundJobsView } from '../../model/background-jobs';
 import { headerStatusKey } from '../../model/header-status';
-import {
-  isAwaitingDecision,
-  type AgentController,
-  type FaceView,
-  type SuggestionView,
-  type TurnView as TurnViewData,
+import type {
+  AgentController,
+  FaceView,
+  SuggestionView,
+  TurnView as TurnViewData,
 } from '../../model/view-types';
 import { AgentHeader } from '../AgentHeader';
-import { AgentSheet, type SheetControls, type SheetDetent } from '../AgentSheet';
-import { AgentStatusPill, pillView } from '../AgentStatusPill';
+import { AgentSheet, type SheetControls } from '../AgentSheet';
+import { AgentStatusPill } from '../AgentStatusPill';
 import { AgentThread, type AgentThreadHandle } from '../AgentThread';
+import { BackgroundJobsDialog } from '../BackgroundJobsDialog';
 import { Composer, type ComposerActions } from '../Composer';
 import type { AgentKnowledgeView } from '../../model/knowledge';
 import { HistoryPopover } from '../HistoryPopover';
@@ -39,24 +41,15 @@ import { StoryBiblePanel } from '../StoryBiblePanel';
 import { TurnView } from '../TurnView';
 
 import './AgentPanel.css';
+import { panelStateOf, showBible } from './panel-state';
 import { clampPanelWidth, PANEL_WIDTH_DEFAULT } from './panel-width';
 import { PanelSeparator } from './PanelSeparator';
+import { useHiddenPill } from './use-hidden-pill';
 import { usePhoneLayout } from './use-phone-layout';
+import { useSheetDetent } from './use-sheet-detent';
 
 /** Docked beside the canvas, the phone sheet, or whichever the viewport calls for. */
 export type AgentPanelPresentation = 'auto' | 'dock' | 'sheet';
-
-/**
- * The story bible shows once it can matter (creative agent, 2026-10-12): when free code is on
- * — the only mode that writes game and story scenes — or once the bible holds anything.
- */
-function showBible(controller: AgentController): boolean {
-  const bible = controller.storyBible;
-  if (bible === undefined) return false;
-  const { characters, assets, locations, facts } = bible.memory;
-  const entries = characters.length + assets.length + locations.length + facts.length;
-  return entries > 0 || controller.state.freeCode?.enabled === true;
-}
 
 export interface AgentPanelProps {
   /** The panel's one door to behaviour: `useAgentController`, or the fake one in stories. */
@@ -66,6 +59,11 @@ export interface AgentPanelProps {
    * checkpoints (`useAgentKnowledge`). Given, the header draws "Skills & memory".
    */
   readonly knowledge?: AgentKnowledgeView | undefined;
+  /**
+   * Background jobs (2026-10-12): one request on several pages at half price
+   * (`useBackgroundJobs`). Given, the header draws "Background jobs" and `/batch` opens its form.
+   */
+  readonly jobs?: BackgroundJobsView | undefined;
   /**
    * Whether anyone is looking. Hidden keeps the panel mounted, so the run, the
    * conversation and the draft survive a visit to Layers, and pauses its clocks (SPEC §4.1).
@@ -97,8 +95,6 @@ export interface AgentPanelProps {
 
 const IDLE_FACE: FaceView = { mood: 'idle', typing: false };
 
-type PanelState = 'hidden' | 'stopping' | 'running' | 'checking' | 'awaiting-decision' | 'idle';
-
 /**
  * The agent panel's composition root (SPEC §4.1, §7.2 #51). Three rows on a grid: the
  * 44px header, the thread (the only scroller) and the dock with the composer, whose
@@ -122,6 +118,7 @@ type PanelState = 'hidden' | 'stopping' | 'running' | 'checking' | 'awaiting-dec
 export function AgentPanel({
   controller,
   knowledge,
+  jobs,
   visible = true,
   width,
   onWidthChange,
@@ -139,6 +136,7 @@ export function AgentPanel({
   const headingId = useId();
   const historyId = useId();
   const knowledgeId = useId();
+  const jobsId = useId();
 
   const phoneViewport = usePhoneLayout();
   const phone = presentation === 'sheet' || (presentation === 'auto' && phoneViewport);
@@ -155,10 +153,16 @@ export function AgentPanel({
   const threadRef = useRef<AgentThreadHandle | null>(null);
   const conversationsRef = useRef<HTMLButtonElement | null>(null);
   const knowledgeRef = useRef<HTMLButtonElement | null>(null);
+  const jobsRef = useRef<HTMLButtonElement | null>(null);
   const caretToEnd = useRef(false);
 
   const [historyOpen, setHistoryOpen] = useState(false);
-  const knowledgeUi = useKnowledgeUi(knowledge, locale);
+  const jobsUi = useJobsUi(jobs, locale);
+  const knowledgeUi = useKnowledgeUi(
+    knowledge,
+    locale,
+    jobs === undefined ? undefined : jobsUi.start,
+  );
   useDataDrop(rootRef, { locale, draft: state.draft, setDraft: controller.setDraft, inputRef });
   const [scrolled, setScrolled] = useState(false);
   const [ownWidth, setOwnWidth] = useState(PANEL_WIDTH_DEFAULT);
@@ -168,37 +172,11 @@ export function AgentPanel({
     onWidthChange?.(next);
   };
 
-  /* ── The phone sheet's detent: the host decides, the sheet only asks ────────── */
+  // The phone sheet's detent: the host decides, the sheet only asks; an edit in Auto drops it.
+  const { detent, changeDetent } = useSheetDetent(state, visible, phone, onClose);
 
-  const [detent, setDetent] = useState<SheetDetent>(visible ? 'full' : 'closed');
-  const [shownFor, setShownFor] = useState(visible);
-  if (shownFor !== visible) {
-    setShownFor(visible);
-    setDetent(visible ? 'full' : 'closed');
-  }
-  // Sending an edit in Auto drops the sheet to mini, once per run, so the change is seen.
-  const editRun = run?.activity === 'edit' ? run.turnId : null;
-  const [droppedFor, setDroppedFor] = useState<string | null>(null);
-  if (phone && editRun !== null && editRun !== droppedFor) {
-    setDroppedFor(editRun);
-    if (state.mode === 'auto' && detent === 'full') setDetent('mini');
-  }
-  const changeDetent = (next: SheetDetent): void => {
-    setDetent(next);
-    if (next === 'closed') onClose?.();
-  };
-
-  /* ── The pill: a run that ended while hidden keeps its line until the panel shows ── */
-
-  const runTurn = run?.turnId ?? null;
-  const [lastRun, setLastRun] = useState<string | null>(runTurn);
-  const [finished, setFinished] = useState<string | null>(null);
-  if (lastRun !== runTurn) {
-    setLastRun(runTurn);
-    setFinished(runTurn === null && !visible ? lastRun : null);
-  }
-  if (visible && finished !== null) setFinished(null);
-  const pill = visible ? null : pillView(state, finished);
+  // The pill: a run that ended while hidden keeps its line until the panel shows.
+  const pill = useHiddenPill(state, visible);
 
   /* ── Focus destinations ──────────────────────────────────────────────────────── */
 
@@ -235,6 +213,11 @@ export function AgentPanel({
   const composerActions: ComposerActions = {
     ...controller,
     send: () => {
+      // `/batch <request>` opens the background-jobs form on the request instead.
+      if (jobsUi.takeDraft(draft)) {
+        controller.setDraft('');
+        return;
+      }
       // The person's own action: a reader scrolled up is taken to the newest line.
       threadRef.current?.scrollToBottom();
       if (run === null && !enhancing) setSent(true);
@@ -263,17 +246,11 @@ export function AgentPanel({
   const awaitingPlan = turns.some(
     (turn) => turn.kind === 'page-plan' && turn.view.status === 'ready',
   );
-  const panelState: PanelState = !visible
-    ? 'hidden'
-    : run?.stopping === true
-      ? 'stopping'
-      : run !== null
-        ? 'running'
-        : checking
-          ? 'checking'
-          : turns.some(isAwaitingDecision)
-            ? 'awaiting-decision'
-            : 'idle';
+  const panelState = panelStateOf(controller, visible, checking);
+  const closeOthers = (): void => {
+    setHistoryOpen(false);
+    knowledgeUi.setOpen(false);
+  };
 
   /* ── The parts, shared by the dock and the sheet ─────────────────────────────── */
 
@@ -313,6 +290,8 @@ export function AgentPanel({
             setHistoryOpen(false);
           })}
           knowledgeRef={knowledgeRef}
+          jobs={jobsUi.header(jobsId, closeOthers)}
+          jobsRef={jobsRef}
         />
       </div>
       <AgentThread
@@ -391,6 +370,25 @@ export function AgentPanel({
           anchorRef={knowledgeRef}
           presentation={sheet === null ? 'modal' : 'sheet'}
           id={knowledgeId}
+        />
+      )}
+      {jobs === undefined ? null : (
+        <BackgroundJobsDialog
+          locale={locale}
+          jobs={jobs}
+          open={jobsUi.open}
+          onOpenChange={jobsUi.setOpen}
+          view={jobsUi.view}
+          onViewChange={jobsUi.setView}
+          request={jobsUi.request}
+          fromDraft={jobsUi.fromDraft}
+          opening={jobsUi.opening}
+          onStart={() => {
+            jobsUi.start(draft.trim().startsWith('/') ? '' : draft, true);
+          }}
+          visible={visible}
+          returnFocusRef={jobsRef}
+          id={jobsId}
         />
       )}
     </div>

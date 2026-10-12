@@ -73,6 +73,23 @@ export interface AgentHeaderProps {
   /** The Skills & memory button, for KnowledgePopover to anchor to and return focus to. */
   readonly knowledgeRef?: Ref<HTMLButtonElement> | undefined;
   /**
+   * "Background jobs" (2026-10-12): one request on several pages at half price. Drawn after
+   * Skills & memory when the host can keep jobs; `badge` puts a dot on it while answers wait
+   * to be applied (`ready`) or a batch is still answering (`active`), and `hint` says which.
+   */
+  readonly jobs?:
+    | {
+        readonly label: string;
+        readonly hint?: string | undefined;
+        readonly badge?: 'ready' | 'active' | undefined;
+        readonly open: boolean;
+        readonly onToggle: () => void;
+        readonly controls?: string | undefined;
+      }
+    | undefined;
+  /** The Background jobs button: focus returns to it when the jobs dialog closes. */
+  readonly jobsRef?: Ref<HTMLButtonElement> | undefined;
+  /**
    * (added, Studio Indigo redesign 2026-10-12) One short line under the name, in Meta:
    * what the Agent is doing in a word or three («يبني الصفحة», "Waiting for your decision").
    * AgentPanel passes `headerStatusOf(state)`. Drawn text, never a live region: the RunBar
@@ -113,6 +130,8 @@ export function AgentHeader({
   status,
   knowledge,
   knowledgeRef,
+  jobs,
+  jobsRef,
 }: AgentHeaderProps) {
   const generatedId = useId();
   const nameId = headingId ?? generatedId;
@@ -158,6 +177,20 @@ export function AgentHeader({
             aria-controls={knowledge.open ? knowledge.controls : undefined}
             onClick={knowledge.onToggle}
           />
+        )}
+        {jobs === undefined ? null : (
+          <span className="ck-agent-header__jobs" data-badge={jobs.badge}>
+            <IconButton
+              ref={jobsRef}
+              icon="layers"
+              label={jobs.label}
+              hint={jobs.hint}
+              aria-haspopup="dialog"
+              aria-expanded={jobs.open}
+              aria-controls={jobs.open ? jobs.controls : undefined}
+              onClick={jobs.onToggle}
+            />
+          </span>
         )}
         <IconButton
           ref={conversationsRef}

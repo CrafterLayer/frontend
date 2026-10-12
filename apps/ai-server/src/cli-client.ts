@@ -374,11 +374,21 @@ function cancelled(): Error {
   return error;
 }
 
+/*
+  The `claude` CLI prefers an API key over the owner's login, so a key in this
+  server's environment (there for `api:` models) would silently move every
+  `cli:` run onto API billing. The child never sees one.
+*/
+function subscriptionEnv(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
+  const { ANTHROPIC_API_KEY: _key, ANTHROPIC_AUTH_TOKEN: _token, ...rest } = process.env;
+  return { ...rest, ...extra };
+}
+
 /** The real child: its own process group, so a cancelled request can kill the tree. */
 const spawnRealCli: SpawnCli = (command, args, env) =>
   spawn(command, [...args], {
     cwd: tmpdir(),
-    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
+    env: subscriptionEnv(env),
     detached: process.platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
     // Node's typed `stdout`/`stderr` are nullable in general; with this exact

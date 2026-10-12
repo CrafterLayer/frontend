@@ -20,6 +20,17 @@ export function isCliModel(slug: string): boolean {
   return slug.startsWith(CLI_MODEL_PREFIX);
 }
 
+/**
+ * `api:claude-haiku-5-5`: the Anthropic Messages API, billed to ANTHROPIC_API_KEY.
+ * The picker's other half of the subscription/API switch — the same model as a
+ * `cli:` entry, paid the other way.
+ */
+export const API_MODEL_PREFIX = 'api:';
+
+export function isApiModel(slug: string): boolean {
+  return slug.startsWith(API_MODEL_PREFIX);
+}
+
 /** `cli:haiku` ⇒ `haiku`; a bare `cli:` ⇒ the CLI's own default. */
 function cliModelOf(slug: string): string | undefined {
   const model = slug.slice(CLI_MODEL_PREFIX.length);
@@ -30,6 +41,8 @@ export interface RoutingClientOptions {
   readonly openrouter: Anthropic;
   /** Builds a CLI client for one model; a fresh one per request is cheap, it holds no state. */
   readonly cli: (model: string | undefined) => Anthropic;
+  /** The Messages API client for `api:` slugs. Omitted ⇒ an `api:` request fails naming the missing key. */
+  readonly api?: Anthropic;
   /** A `cli:` slug to run instead when OpenRouter fails retryably. Omitted ⇒ no fallback. */
   readonly fallback?: string;
   readonly onLog?: (line: string) => void;
@@ -109,10 +122,25 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
         ) as unknown as StreamLike;
       return follow(inner);
     };
+    const runApi = (slug: string): Promise<Anthropic.Message> => {
+      if (options.api === undefined) {
+        return Promise.reject(
+          new Error(
+            `${slug} needs ANTHROPIC_API_KEY in apps/ai-server/.env; set it and restart the server.`,
+          ),
+        );
+      }
+      const inner = options.api.messages.stream(
+        { ...params, model: slug.slice(API_MODEL_PREFIX.length) } as never,
+        requestOptions,
+      ) as unknown as StreamLike;
+      return follow(inner);
+    };
 
     const done = (async (): Promise<Anthropic.Message> => {
       const model = params.model;
       if (model !== undefined && isCliModel(model)) return runCli(model);
+      if (model !== undefined && isApiModel(model)) return runApi(model);
 
       const primary = options.openrouter.messages.stream(
         params as never,

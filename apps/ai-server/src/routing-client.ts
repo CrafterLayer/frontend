@@ -45,7 +45,7 @@ function apiParams(params: Record<string, unknown>, model: string): Record<strin
     | undefined;
   const schema = outputConfig?.format?.schema;
   if (outputConfig === undefined || schema === undefined) return { ...params, model };
-  const { format: _format, ...rest } = outputConfig;
+  const rest = Object.fromEntries(Object.entries(outputConfig).filter(([key]) => key !== 'format'));
   const system = Array.isArray(params['system']) ? (params['system'] as unknown[]) : [];
   return {
     ...params,
@@ -144,6 +144,10 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
     const follow = (inner: StreamLike): Promise<Anthropic.Message> => {
       inner.on('thinking', report);
       inner.on('text', text);
+      // The Messages API's first event (message_start): its prefix is cached now (cache-gate.ts).
+      inner.on('streamEvent', () => {
+        listeners.get('streamEvent')?.('');
+      });
       return inner.finalMessage();
     };
     const runCli = (slug: string): Promise<Anthropic.Message> => {

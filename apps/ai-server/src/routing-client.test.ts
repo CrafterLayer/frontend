@@ -119,6 +119,39 @@ describe('routing', () => {
     expect(openrouter.calls).toHaveLength(0);
   });
 
+  it('passes the Messages API stream start through, so same-prefix calls stop waiting', async () => {
+    const api = {
+      messages: {
+        stream: () => {
+          let started: (() => void) | undefined;
+          setTimeout(() => {
+            started?.();
+          }, 0);
+          return {
+            on: (event: string, listener: () => void) => {
+              if (event === 'streamEvent') started = listener;
+            },
+            finalMessage: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  resolve(answer('{}'));
+                }, 5);
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const client = createRoutingClient({ openrouter: backend({}).client, cli: vi.fn(), api });
+    const stream = client.messages.stream({ ...PARAMS, model: 'api:claude-haiku-5-5' } as never);
+    const onStart = vi.fn();
+    (stream as unknown as { on: (event: string, listener: () => void) => void }).on(
+      'streamEvent',
+      onStart,
+    );
+    await stream.finalMessage();
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
   it('hands the Messages API the schema as text, keeping the effort, since strict decoding refuses the plan schemas', async () => {
     const api = backend({ text: '{}' });
     const client = createRoutingClient({ openrouter: backend({}).client, cli: vi.fn(), api: api.client });

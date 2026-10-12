@@ -30,7 +30,6 @@
     "apps/playground/src/features/agent/copy/keys.ts": 912,
     "apps/playground/src/features/agent/hooks/stick-to-bottom/use-stick-to-bottom.ts": 683,
     "apps/playground/src/features/agent/hooks/use-agent-controller.test.tsx": 1083,
-    "apps/playground/src/features/agent/hooks/use-agent-controller.ts": 3930,
     "apps/playground/src/features/agent/model/agent-status.test.ts": 853,
     "apps/playground/src/features/agent/model/impact.ts": 979,
     "apps/playground/src/features/agent/model/migrate-sessions.ts": 693,

@@ -26,7 +26,7 @@ import type { BuildProgress, BuildTask } from './build-progress';
  * the rows ink in place: ink still means landed (SPEC §1).
  *
  * This module is the pure half: the writer's brief, the target guard, the landing record,
- * and the events that move the record. `hooks/use-agent-controller.ts` runs the loop.
+ * and the events that move the record. `hooks/agent-controller/successor-flow.ts` runs the loop.
  */
 
 /** The two props a section writer owns on its region (`AiBuildSectionKey`). */

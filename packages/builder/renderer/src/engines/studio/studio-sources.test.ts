@@ -15,6 +15,7 @@ import { GAMEAI_BANNER, GAMEAI_SHA256, GAMEAI_SOURCE } from './gameai-source';
 import { HUD_BANNER, HUD_SHA256, HUD_SOURCE } from './hud-source';
 import { INK_BANNER, INK_SHA256, INK_SOURCE } from './ink-source';
 import { KIT_BANNER, KIT_SHA256, KIT_SOURCE } from './kit-source';
+import { PEEPS_BANNER, PEEPS_SHA256, PEEPS_SOURCE } from './peeps-source';
 import { PHYSICS_BANNER, PHYSICS_SHA256, PHYSICS_SOURCE } from './physics-source';
 import { ROUGH_BANNER, ROUGH_SHA256, ROUGH_SOURCE } from './rough-source';
 import { SOUND_BANNER, SOUND_SHA256, SOUND_SOURCE } from './sound-source';
@@ -40,6 +41,8 @@ const ASSETS = [
   ['audio', AUDIO_SOURCE, AUDIO_BANNER, AUDIO_SHA256, 16_900],
   ['gameai', GAMEAI_SOURCE, GAMEAI_BANNER, GAMEAI_SHA256, 21_800],
   ['hud', HUD_SOURCE, HUD_BANNER, HUD_SHA256, 26_500],
+  // character art (2026-10-13): measured 111.3 kB gzip, nearly all Open Peeps path data.
+  ['peeps', PEEPS_SOURCE, PEEPS_BANNER, PEEPS_SHA256, 116_900],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;
 
@@ -61,4 +64,13 @@ describe('generated Studio engine assets', () => {
       expect(gzipSync(source, { level: 9 }).length).toBeLessThanOrEqual(budget);
     },
   );
+
+  it('carries the Open Peeps design licence (CC0 1.0) beside DiceBear’s MIT code licence', () => {
+    expect(PEEPS_BANNER).toContain('Source: Open Peeps (https://www.openpeeps.com/)');
+    expect(PEEPS_BANNER).toContain(
+      'License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)',
+    );
+    expect(PEEPS_BANNER).toContain('Copyright (c) 2024 Florian Körner');
+    expect(PEEPS_SOURCE).not.toMatch(/https?:\/\/api\.dicebear\.com/u);
+  });
 });

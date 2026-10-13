@@ -550,6 +550,34 @@ whose code names the key. `scripts/build-studio-engines.mjs` audits each bundled
 
 `@types/yuka` 0.7.4 (MIT) is a dev dependency for types only and ships nowhere.
 
+## Studio character art — Open Peeps through DiceBear (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy asset `assets/ck-lib-peeps.js` (generated
+`packages/builder/renderer/src/engines/studio/peeps-source.ts`, 111.3 kB gzip, budget 116.9 kB),
+shipped only on pages whose code names the `peeps` key (`ck.scene({ libs: ['peeps'] })`). Nothing
+is fetched at run time: the 48 hair styles, 30 faces, accessories and facial hair are SVG path data
+inside the bundle. `scripts/build-studio-engines.mjs` audits both packages' `LICENSE` text against
+the declared licence and carries both whole in the asset's banner; each drawn SVG also carries
+DiceBear's RDF metadata (title, creator, source and licence URL of the design).
+
+| Package              | Version | Licence                                      | Asset             |
+| -------------------- | ------- | -------------------------------------------- | ----------------- |
+| @dicebear/core       | 9.4.3   | MIT (c) 2024 Florian Körner                  | `ck-lib-peeps.js` |
+| @dicebear/open-peeps | 9.4.3   | code MIT; design **CC0 1.0** (Pablo Stanley) | `ck-lib-peeps.js` |
+
+Read on 2026-10-13 from the installed tarballs: `@dicebear/core/LICENSE` is the MIT text;
+`@dicebear/open-peeps/LICENSE` opens with "# Design — Applies to all design files in this package.
+Source: Open Peeps (https://www.openpeeps.com/) · Designer: Pablo Stanley · License: CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/)" and then gives the MIT text for the code; its
+`package.json` declares MIT and its README credits "Open Peeps by Pablo Stanley, licensed under
+CC0 1.0. / Remix of the original." The style's `meta` (`lib/index.js`) says the same: title
+"Open Peeps", creator "Pablo Stanley", license `{ name: 'CC0 1.0', url: …/publicdomain/zero/1.0/ }`.
+`@types/json-schema` (MIT, a type-only dependency of core) ships nowhere. 9.4.3 (2026-07-05) is the
+v9 LTS that `@dicebear/open-peeps` peers on; the older 9.2.4 lacks 9.4's XML escaping of colour and
+rotate options. Texts: THIRD_PARTY_LICENSES.md. Kenney packs were not used (kenney.nl is not reachable
+from this environment).
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

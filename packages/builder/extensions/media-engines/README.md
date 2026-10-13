@@ -226,6 +226,48 @@ Unit tests use fake backends/classes (`audio.test.ts`, `device.test.ts`, `hud.te
 yuka (`gameai.test.ts`); `pnpm --filter @craftkit/evals test:creative-engines:browser` runs the
 taught examples in the generated runtime (LTR/RTL, 390/1280 px, reduced motion).
 
+## Character art: `peeps` (2026-10-13)
+
+People for stories and games, with no network at run time: Open Peeps, Pablo Stanley's hand-drawn
+characters (design **CC0 1.0**), drawn by DiceBear's `open-peeps` style (`@dicebear/open-peeps` +
+`@dicebear/core` 9.4.3, code MIT). The asset `ck-lib-peeps.js` (`createPeepsLibrary`, not
+Pixi-bound, 111.3 kB gzip — nearly all of it the art's path data) loads only for scenes that list
+`'peeps'`.
+
+```js
+const s = await ck.scene({ libs: ['peeps', 'dialogue'] });
+const people = s.lib.peeps.cast([{ id: 'layla', name: 'Layla', color: '#f59e0b' }, 'Omar']);
+const layla = people.get('layla'); // { id, name, seed, color, colorNumber, …look }
+const tex = await s.lib.peeps.texture(s, { ...layla, mood: 'happy', size: 220 }); // PIXI.Texture
+const faces = await s.lib.peeps.textures(s, layla); // { calm, happy, surprised, sad, angry, thinking }
+const cast = s.lib.dialogue.cast(people.members()); // a data: URL portrait per mood
+const svg = s.lib.peeps.svg({ seed: 'Noor', mood: 'surprised', hair: 'hijab', skin: 'medium' });
+img.src = s.lib.peeps.dataUrl({ seed: 'Noor', round: true, background: '#fde68a' });
+```
+
+- **Identity** is the seed (a name; case and spacing folded): the same name draws the same person on
+  every page. DiceBear picks hair, skin, outfit and hair colour from one seeded sequence in a fixed
+  order, and every pick consumes it whether or not an option pins it, so a mood or an art-direction
+  override never reshuffles the rest of the character.
+- **Moods** map to the style's faces (`looks.ts`): calm `smile`, happy `smileBig`, surprised `awe`,
+  sad `solemn`, angry `veryAngry`, thinking `suspicious`, laughing, scared, worried, tired, serious,
+  love; English and Arabic aliases (`excited`, `سعيد`, `حزين`…) resolve with `mood(word)`; anything
+  else is calm. `face` takes a raw style face instead.
+- **Art direction**: `hair` (48 styles, e.g. `long`, `bun`, `hijab`, `afro`), `hairColor`, `skin`
+  (`light` … `dark` or `#rrggbb`), `clothing`, `color` (a cast colour dresses the outfit),
+  `accessories` / `facialHair` (`false`, `true` or a name), `flip`, `background`, `round`, `size`.
+  Unknown names and non-colours are ignored; masks are never drawn (they hide the mood).
+- **Canvas**: `texture(s | s.PIXI, options)` decodes the SVG (a `data:` URL) into a canvas at
+  `size × resolution` (the scene's `dpr` by default) and returns a Pixi texture with that
+  resolution; a small per-namespace cache reuses looks until a texture is destroyed. A still
+  (reduced-motion) scene is rendered once the texture is in use.
+- **Dialogue**: `cast.members(moods?)` returns `s.lib.dialogue.cast` entries with a `portrait` and
+  one `expressions[mood]` each; the dialogue cast admits data: URLs up to 128 kB whole.
+
+Unit tests (`libs/peeps/peeps.test.ts`) cover determinism, moods, cast stability, art direction,
+escaping and the texture pipeline with a fake browser; the dialogue playbook's taught example runs
+it in Chromium (`test:creative-engines:browser`).
+
 ## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

@@ -771,3 +771,76 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 <!-- end media-motion engine-timeline additions -->
+
+<!-- pixi-studio:peeps additions (2026-10-13) -->
+
+## DiceBear 9.4.3 (`@dicebear/core`, `@dicebear/open-peeps`) — MIT code; Open Peeps artwork — CC0 1.0
+
+`@dicebear/core@9.4.3` and `@dicebear/open-peeps@9.4.3` installed from the pnpm catalog into `@craftkit/builder-media-engines` only, and bundled into `packages/builder/renderer/src/engines/studio/peeps-source.ts`, shipped as `assets/ck-lib-peeps.js` only on pages whose code names the `peeps` library. Both LICENSE files travel whole in that asset's banner, and every SVG the library draws carries DiceBear's RDF metadata naming the design, its creator and its licence URL. Upstream: https://github.com/dicebear/dicebear · artwork: https://www.openpeeps.com/
+
+`@dicebear/open-peeps` LICENSE (design CC0 1.0, code MIT), verbatim:
+
+```text
+Licenses
+--------
+
+# Design
+Applies to all design files in this package.
+
+Source: Open Peeps (https://www.openpeeps.com/)
+Designer: Pablo Stanley (https://twitter.com/pablostanley)
+License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+# Code
+Applies to all non-design files in this package.
+
+MIT License
+
+Copyright (c) 2024 Florian Körner
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+`@dicebear/core` LICENSE, verbatim:
+
+```text
+MIT License
+
+Copyright (c) 2024 Florian Körner
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+<!-- end pixi-studio:peeps additions -->

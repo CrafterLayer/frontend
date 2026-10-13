@@ -235,6 +235,12 @@ catalogs:
     '@codemirror/view':
       specifier: 6.43.11
       version: 6.43.11
+    '@dicebear/core':
+      specifier: 9.4.3
+      version: 9.4.3
+    '@dicebear/open-peeps':
+      specifier: 9.4.3
+      version: 9.4.3
     '@dnd-kit/core':
       specifier: 6.3.1
       version: 6.3.1
@@ -1654,6 +1660,12 @@ importers:
       '@craftkit/builder-schema':
         specifier: workspace:*
         version: link:../../schema
+      '@dicebear/core':
+        specifier: 'catalog:'
+        version: 9.4.3
+      '@dicebear/open-peeps':
+        specifier: 'catalog:'
+        version: 9.4.3(@dicebear/core@9.4.3)
       '@pixi/sound':
         specifier: 'catalog:'
         version: 6.0.1(pixi.js@8.22.0)
@@ -3192,6 +3204,16 @@ packages:
 
   '@dabh/diagnostics@2.0.8':
     resolution: {integrity: sha512-R4MSXTVnuMzGD7bzHdW2ZhhdPC/igELENcq5IjEverBvq5hn1SXCWcsi6eSsdWP0/Ur+SItRRjAktmdoX/8R/Q==}
+
+  '@dicebear/core@9.4.3':
+    resolution: {integrity: sha512-9ITrQI57k3p5hKuU8HZJ1d0kPdrmTKEJDOdlKQ8CpaChbtmnD1R+dtWmNz5IesYThXM8F64pJ0ZvJ2rsY8Hciw==}
+    engines: {node: '>=18.0.0'}
+
+  '@dicebear/open-peeps@9.4.3':
+    resolution: {integrity: sha512-jv2hZPQ25/r+aFm0bf7omEUMFUy1JoSMr2luGdTnSBmefaIFD9vjCOxIyBjvY9f5SBTqwVgqhED/lJyo+n2NKQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@dicebear/core': ^9.0.0
 
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
@@ -11865,6 +11887,14 @@ snapshots:
       '@so-ric/colorspace': 1.1.6
       enabled: 2.0.0
       kuler: 2.0.0
+
+  '@dicebear/core@9.4.3':
+    dependencies:
+      '@types/json-schema': 7.0.15
+
+  '@dicebear/open-peeps@9.4.3(@dicebear/core@9.4.3)':
+    dependencies:
+      '@dicebear/core': 9.4.3
 
   '@dnd-kit/accessibility@3.1.1(react@19.2.8)':
     dependencies:

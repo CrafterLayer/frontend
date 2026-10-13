@@ -27,6 +27,7 @@ export const STUDIO_LIB_KEYS = [
   'audio',
   'gameai',
   'hud',
+  'peeps',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [

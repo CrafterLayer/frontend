@@ -170,7 +170,7 @@ describe('creative planner', () => {
       'بدي رواية مرئية فيها خيارات ونهايات مختلفة',
       'visual-novel',
       'story',
-      ['dialogue', 'anim', 'fx'],
+      ['dialogue', 'peeps', 'anim', 'fx'],
     ],
     [
       'قصة تفاعلية للأطفال قبل النوم عن قمر صغير',
@@ -213,6 +213,14 @@ describe('creative planner', () => {
     // A descriptor followed by a naming verb is the character's kind: the fox is called Rumi.
     const fox = planCreativeBrief('لعبة منصات في غابة، بطلها ثعلب اسمه رومي يجمع النجوم');
     expect(fox.cast.map(({ name, role }) => [name, role])).toEqual([['رومي', 'hero']]);
+  });
+
+  it('brings Open Peeps people for human characters, never for animals alone', () => {
+    const girl = planCreativeBrief('An interactive story about a girl named Layla and her family');
+    expect(girl.libs).toContain('peeps');
+    expect(girl.mechanics.join(' ')).toContain('s.lib.peeps');
+    expect(planCreativeBrief('قصة تفاعلية عن بنت اسمها ليلى').libs).toContain('peeps');
+    expect(planCreativeBrief('A bedtime story about a fox named Rumi').libs).not.toContain('peeps');
   });
 
   it('adds Ink, viewport and filters only when asked', () => {

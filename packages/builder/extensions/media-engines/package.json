@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@craftkit/builder-schema": "workspace:*",
+    "@dicebear/core": "catalog:",
+    "@dicebear/open-peeps": "catalog:",
     "@pixi/sound": "catalog:",
     "@pixi/tilemap": "catalog:",
     "@pixi/ui": "catalog:",

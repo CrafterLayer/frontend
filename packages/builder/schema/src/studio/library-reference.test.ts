@@ -48,4 +48,12 @@ describe('CK_LIBRARY_REFERENCE', () => {
       'Not s.lib.audio',
     );
   });
+
+  it('describes the character library by the calls the creative skills teach', () => {
+    const peeps = libraryEntry('peeps');
+    expect(peeps?.pixiBound).toBe(false);
+    expect(peeps?.purpose.en).toMatch(/Open Peeps.*CC0/u);
+    expect(peeps?.api.join('\n')).toContain('s.lib.peeps.cast(');
+    expect(peeps?.api.join('\n')).toContain('s.lib.dialogue.cast(people.members())');
+  });
 });

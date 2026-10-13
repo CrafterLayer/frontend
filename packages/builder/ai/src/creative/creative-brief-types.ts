@@ -32,7 +32,8 @@ export type CreativeLib =
   | 'gameai'
   | 'hud'
   | 'brush'
-  | 'rough';
+  | 'rough'
+  | 'peeps';
 
 export interface CreativeBeat {
   readonly id: string;

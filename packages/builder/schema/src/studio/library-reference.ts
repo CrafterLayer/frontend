@@ -24,6 +24,7 @@ export interface CkLibraryEntry {
 const STUDIO = '2026-10-10';
 const CREATIVE = '2026-10-12';
 const GAMES = '2026-10-12';
+const CHARACTERS = '2026-10-13';
 
 export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
   {
@@ -221,6 +222,23 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     ],
     source: '@pixi/ui',
     since: GAMES,
+  },
+  {
+    key: 'peeps',
+    pixiBound: false,
+    purpose: {
+      en: 'People for stories and games: Open Peeps, hand-drawn characters by Pablo Stanley (CC0), bundled with no network. A name fixes the look (the same name always looks the same), a mood picks the face (calm, happy, surprised, sad, angry, thinking, laughing, scared, worried, tired, serious, love), and hair, skin, outfit and accessories can be art-directed. SVG, data: URLs for DOM portraits, or Pixi textures.',
+      ar: 'أشخاص للقصص والألعاب: شخصيات Open Peeps المرسومة باليد لبابلو ستانلي (CC0)، مضمّنة بلا شبكة. الاسم يحدد الشكل (الاسم نفسه يبدو دائماً كما هو)، والمزاج يختار الوجه (هادئ، سعيد، مندهش، حزين، غاضب، يفكر، يضحك، خائف، قلق، متعب، جاد، محب)، ويمكن توجيه الشعر ولون البشرة والملابس والإكسسوارات. صيغة SVG أو روابط data: لصور DOM أو خامات Pixi.',
+    },
+    api: [
+      "const people = s.lib.peeps.cast([{ id: 'layla', name: 'Layla', color: '#f59e0b', hair: 'long' }, 'Omar'])",
+      "await s.lib.peeps.texture(s, { ...people.get('layla'), mood: 'happy', size: 220 }) → PIXI.Texture",
+      "const faces = await s.lib.peeps.textures(s, people.get('omar')) → { calm, happy, surprised, sad, angry, thinking }",
+      's.lib.dialogue.cast(people.members()) → dialogue portraits per mood (line emotion)',
+      "s.lib.peeps.svg({ seed: 'Noor', mood: 'surprised', skin: 'medium', flip: true }) / s.lib.peeps.dataUrl(options)",
+    ],
+    source: '@dicebear/core + @dicebear/open-peeps',
+    since: CHARACTERS,
   },
 ];
 

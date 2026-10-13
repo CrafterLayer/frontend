@@ -50,6 +50,9 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
     'sound effects for actions (s.lib.audio sfx presets), optional music from an approved URL',
   ],
   physics: ['Matter bodies stepped in s.fixedTick with Engine.update(engine, dt * 1000)'],
+  peeps: [
+    'people as s.lib.peeps characters: cast by name (the same name keeps its look), a mood per line or page; animals and creatures stay drawn',
+  ],
 };
 
 /* Scroll-driven pieces (creative power, 2026-10-12): the kit's s.scroll, no library. */
@@ -172,6 +175,33 @@ function beatsFor(kind: CreativeKind, genre: CreativeGenre, arabic: boolean): Cr
 }
 
 const BRUSH_WORDS = ['brush', 'brushstroke', 'painted', 'watercolor', 'فرشاة', 'ألوان مائية'];
+/* character art (2026-10-13): human characters bring s.lib.peeps (Open Peeps); animals do not. */
+const PEOPLE_WORDS = [
+  'people',
+  'person',
+  'boy',
+  'girl',
+  'man',
+  'woman',
+  'friends',
+  'family',
+  'grandma',
+  'grandpa',
+  'teacher',
+  'avatar',
+  'avatars',
+  'ناس',
+  'أشخاص',
+  'ولد',
+  'بنت',
+  'رجل',
+  'امرأة',
+  'أصدقاء',
+  'عائلة',
+  'جدتي',
+  'معلم',
+  'معلمة',
+];
 const ROUGH_WORDS = ['hand drawn', 'sketchy', 'doodle', 'crayon', 'مرسوم باليد', 'رسم يدوي'];
 
 const ACCESSIBILITY_EN = [
@@ -266,6 +296,7 @@ function briefFrom(
     ...(asked(PHYSICS_CUE_WORDS) ? (['physics'] as const) : []),
     ...(asked(BRUSH_WORDS) ? (['brush'] as const) : []),
     ...(asked(ROUGH_WORDS) ? (['rough'] as const) : []),
+    ...(asked(PEOPLE_WORDS) ? (['peeps'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([
@@ -300,7 +331,7 @@ function briefFrom(
       'every tick, listener, tween, effect, dialogue view and world released through s.dispose',
       'editor (s.editor) draws a still frame and its buttons do nothing',
       'Arabic text stays whole (DOM or unsplit Text); RTL flips horizontal flow with s.dir',
-      'no invented image URLs: approved assets or drawn shapes only',
+      'no invented image URLs: approved assets, s.lib.peeps people or drawn shapes only',
     ],
   };
 }

@@ -162,6 +162,16 @@ export const TARGETS = {
     budget: 26_500,
     versionPackage: '@pixi/ui',
   },
+  // character art (2026-10-13): Open Peeps people (design CC0 1.0) through DiceBear's open-peeps
+  // style and core (MIT). Nearly all of it is the hand-drawn SVG path data of 48 hair styles and 30
+  // faces, which is why it is the largest lazy library; only scenes listing 'peeps' load it.
+  peeps: {
+    entry: 'src/studio/libs/peeps-entry.ts',
+    factory: 'createPeepsLibrary',
+    pixi: false,
+    budget: 116_900,
+    versionPackage: '@dicebear/open-peeps',
+  },
   sound: {
     entry: 'src/sound/entry.ts',
     budget: 10_000,

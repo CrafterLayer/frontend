@@ -92,9 +92,10 @@ export const GENRES: readonly [GenreRule, ...GenreRule[]] = [
       'حوارات',
       'محادثة',
     ],
-    libs: ['dialogue', 'anim', 'fx'],
+    libs: ['dialogue', 'peeps', 'anim', 'fx'],
     mechanics: [
       'dialogue graph with speakers from the cast and a polite live region',
+      'each speaker an s.lib.peeps character whose mood follows the line (portraits in the box)',
       'at least two meaningful choices that set variables',
       'two or more endings decided by those variables',
       'save/restore and replay',

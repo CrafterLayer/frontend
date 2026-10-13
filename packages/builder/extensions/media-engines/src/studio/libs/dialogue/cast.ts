@@ -59,8 +59,9 @@ function text(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+/* Room for inline images: an s.lib.peeps portrait is a 10-20 kB SVG data: URL, and a cut one is broken. */
 function url(value: unknown): string {
-  const candidate = text(value, 2048);
+  const candidate = text(value, 131_072);
   return candidate !== '' && SAFE_URL.test(candidate) ? candidate : '';
 }
 

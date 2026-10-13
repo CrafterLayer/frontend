@@ -240,6 +240,26 @@ language, the seeded random and disposal through `s.dispose` cannot be forgotten
   on narrow game phrases only; plain words ("music", "أعداء", "xp") count inside a creative lane
   (`GAME_LIB_CUES`), where the planner also adds the libraries and their mechanics.
 
+### Character art: `peeps` (2026-10-13)
+
+People for stories and games come from `s.lib.peeps`: Open Peeps, Pablo Stanley's hand-drawn
+characters (design CC0 1.0), drawn by DiceBear's `open-peeps` style (`@dicebear/core` +
+`@dicebear/open-peeps` 9.4.3, code MIT). `ck-lib-peeps.js` is 111.3 / 116.9 kB gzip, nearly all of
+it the art's SVG path data, and loads only for scenes listing `'peeps'`; nothing is fetched at run
+time.
+
+- **One name, one look.** The seed is the character's name, so a cast stays consistent across
+  sections, chapters and visits (`s.lib.peeps.cast([...])`, a literal array the story bible learns
+  like `dialogue.cast`). A mood picks only the face; art direction pins hair, skin, outfit, hair
+  colour, accessories or facial hair without reshuffling the rest; a cast colour dresses the outfit.
+- **Three outputs.** `svg(options)` and `dataUrl(options)` are pure; `texture(s, options)` and
+  `textures(s, options, moods?)` rasterize at the scene's resolution for the canvas;
+  `cast.members()` hands `s.lib.dialogue.cast` a portrait per mood for the accessible box.
+- **Teaching.** The director carries the API (people are `s.lib.peeps`; animals and creatures stay
+  drawn); the dialogue playbook's example stages two peeps whose faces follow each line's emotion;
+  the story and game playbooks point people there; the planner adds `peeps` to visual novels and to
+  briefs that name people (girl, family, أصدقاء…).
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

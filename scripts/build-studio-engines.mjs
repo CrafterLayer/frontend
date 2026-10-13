@@ -5,7 +5,7 @@
     node scripts/build-studio-engines.mjs all
     node scripts/build-studio-engines.mjs kit
     node scripts/build-studio-engines.mjs sound
-    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap|audio|gameai|hud
+    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap|audio|gameai|hud|peeps
 
   Each output is one minified browser IIFE with no chunks. Pixi-bound libraries
   receive the page's already-loaded Pixi namespace instead of bundling another

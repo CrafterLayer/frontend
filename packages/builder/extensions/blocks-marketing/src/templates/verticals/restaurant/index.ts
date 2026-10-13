@@ -1,0 +1,1 @@
+export { restaurantTemplate } from './template';

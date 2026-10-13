@@ -1,0 +1,1 @@
+export { realEstateTemplate } from './template';

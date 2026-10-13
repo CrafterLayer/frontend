@@ -32,6 +32,12 @@ const CATEGORIES = new Set([
   'portfolio',
   'realestate',
   'events',
+  'education',
+  'fitness',
+  'legal',
+  'nonprofit',
+  'hospitality',
+  'personal',
 ]);
 
 describe('marketingTemplateCatalog', () => {

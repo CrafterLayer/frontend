@@ -2,7 +2,9 @@ import { definePreset, range, sharedParams } from './define';
 
 /**
  * Recursive rectangle subdivision in the spirit of De Stijl: a seeded split
- * tree that keeps re-balancing itself with eased transitions. A click (or tap)
+ * tree sized against the stage (big panels always split, a few calm ones stay
+ * whole), several panels in the palette's colours and thick lines in the
+ * theme's ink, re-balancing itself with eased transitions. A click (or tap)
  * splits the panel under the pointer. RTL mirrors the composition.
  */
 export const RECURSIVE_MONDRIAN = definePreset({
@@ -28,22 +30,40 @@ const s=await ck.scene({libs:[],seed:p.seed});
 const PIXI=s.PIXI,C=s.palette;
 const g=new PIXI.Graphics();
 s.stage.addChild(g);
-const paper=C.surface,line=C.text,accents=[C.colors[0],C.colors[4],C.colors[1]];
+const paper=C.surface,paper2=C.mix(C.surface,C.text,0.07),line=C.text;
+const colours=[C.colors[0],C.colors[4],C.colors[1],C.colors[3]];
 const maxDepth=Math.max(2,Math.min(7,Math.round(p.depth)));
-let W=1,H=1,timer=0;
+let W=Math.max(1,s.width),H=Math.max(1,s.height),timer=0;
 
-function colour(){return s.random()<p.accentRatio?s.pick(accents):paper;}
-function node(d,r0){
-  const n={d:d,leaf:true,flip:s.random()<0.25,tr:s.rand(0.3,0.7),r:0.5,c:colour(),a:null,b:null};
-  n.r=r0===undefined?n.tr:r0;
-  if(d<maxDepth&&(d<2||s.random()<p.splitChance*(1-d/(maxDepth+2)))){n.leaf=false;n.a=node(d+1);n.b=node(d+1);}
+function neutral(){return s.random()<0.3?paper2:paper;}
+function colour(){return s.random()<p.accentRatio*1.2?s.pick(colours):neutral();}
+function leaf(d,r0){return {d:d,leaf:true,flip:false,tr:0.5,r:r0,c:neutral(),a:null,b:null};}
+// A seeded split tree, sized against the stage it is built for: big panels always split, small
+// ones only by chance, and no panel gets thinner than a few line widths.
+function node(d,w,h){
+  const n=leaf(d,0.5);
+  n.flip=s.random()<0.2;
+  n.tr=d<2||s.random()<0.6?s.pick([s.rand(0.2,0.36),s.rand(0.64,0.8)]):s.rand(0.36,0.64);
+  n.r=n.tr;
+  const vert=(w>h)!==n.flip,side=vert?w:h,small=p.lineWidth*2+22;
+  const share=w*h/(W*H),chance=Math.min(1,p.splitChance*1.45*(1-d/(maxDepth+4)));
+  // Now and then a big panel stays whole: the calm field the small ones play against.
+  const keep=d>0&&share>0.06&&share<0.25&&Math.max(w,h)<Math.min(w,h)*1.7&&s.random()<0.35;
+  if(d<maxDepth&&side*Math.min(n.tr,1-n.tr)>small&&(d<1||share>0.3||(!keep&&(share>0.1||s.random()<chance)))){
+    n.leaf=false;
+    n.a=vert?node(d+1,w*n.tr,h):node(d+1,w,h*n.tr);
+    n.b=vert?node(d+1,w*(1-n.tr),h):node(d+1,w,h*(1-n.tr));
+  }
   return n;
 }
-const root=node(0);
-const inner=[];
-function collect(n){if(!n.leaf){inner.push(n);collect(n.a);collect(n.b);}}
-function relist(){inner.length=0;collect(root);}
+const root=node(0,W,H);
+const inner=[],leaves=[];
+function collect(n){if(n.leaf)leaves.push(n);else{inner.push(n);collect(n.a);collect(n.b);}}
+function relist(){inner.length=0;leaves.length=0;collect(root);}
 relist();
+// The classic look: a few panels in colour (every palette colour once before any repeats).
+const lit=p.accentRatio>0?Math.max(3,Math.round(leaves.length*p.accentRatio*1.15)):0;
+s.shuffle(leaves.slice()).slice(0,lit).forEach(function(n,i){n.c=colours[i%colours.length];});
 
 function walk(n,x,y,w,h,fn){
   if(n.leaf){fn(n,x,y,w,h);return;}
@@ -67,7 +87,7 @@ s.pointer.onDown(function(){
   const px=s.dir<0?W-s.pointer.x:s.pointer.x,py=s.pointer.y;
   walk(root,0,0,W,H,function(n,x,y,w,h){
     if(px<x||px>x+w||py<y||py>y+h||n.d>=8)return;
-    n.leaf=false;n.a=node(n.d+1,0.02);n.b=node(n.d+1,0.98);n.a.leaf=true;n.b.leaf=true;n.r=0.02;n.tr=0.5;
+    n.leaf=false;n.a=leaf(n.d+1,0.02);n.b=leaf(n.d+1,0.98);n.a.c=n.c;n.b.c=colour();n.r=0.02;n.tr=0.5;
   });
   relist();
 });

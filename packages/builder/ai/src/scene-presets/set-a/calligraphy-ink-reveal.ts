@@ -109,7 +109,8 @@ function draw(T){
   for(let r=0;r<rows.length;r++){
     const u=Math.max(0,Math.min(1,(r1-r*per)/per));
     if(u<=0)break;
-    stroke(mask,rows[r].slice(0,Math.max(2,Math.ceil(rows[r].length*u))),box.h/rows.length*2.4,1);
+    // A finished row ends blunt: a tapered end would leave the phrase's last letters masked.
+    stroke(mask,rows[r].slice(0,Math.max(2,Math.ceil(rows[r].length*u))),box.h/rows.length*2.4,u<1?1:0);
   }
   mask.fill(0xffffff);
   halo.alpha=p.bleed*0.6;

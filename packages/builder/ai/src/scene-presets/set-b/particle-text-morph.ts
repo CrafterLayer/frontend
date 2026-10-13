@@ -2,9 +2,11 @@ import { definePreset, range, select, sharedParams, text } from './define';
 
 /**
  * Particles that ARE the words. Each phrase is drawn whole on a 2D canvas (the browser shapes
- * Arabic, so letters stay joined), its pixels sampled into targets, and ~1,600 particles spring
- * between phrase one, phrase two, a ring and a galaxy — by scroll, by time, or by hover. The
- * pointer blows them apart and they settle back. The reduced-motion still is phrase one, formed.
+ * Arabic, so letters stay joined), sized so its ink holds about one pixel per particle, and
+ * ~1,600 particles spring onto that even grid. Each shape holds before it morphs to the next
+ * (phrase one, phrase two, a ring, a galaxy) by scroll, by time or by hover, so the words read
+ * crisply; a region at rest shows phrase one. The pointer blows them apart and they settle back.
+ * The reduced-motion still is phrase one, formed.
  */
 export const PARTICLE_TEXT_MORPH = definePreset({
   id: 'particle-text-morph',
@@ -42,38 +44,54 @@ const p = ck.params({ palette: 'theme', seed: 21, speed: 1, density: 1, interact
 const s = await ck.scene({ libs: [], pointer: false });
 const P = s.PIXI, pal = s.palette;
 const phrases = [p.text || (s.rtl ? 'إبداع' : 'Create'), p.text2 || (s.rtl ? 'بلا حدود' : 'No limits')];
-const N = Math.min(4000, s.count(1600));
+const N = Math.min(4000, s.count(1600 * Math.min(2, Math.max(1, Math.sqrt((s.width * s.height) / 230400)))));
 
-// sample a whole phrase from a 2D canvas: the browser shapes it, nothing is split by letter
-function sample(phrase, w, h) {
-  const out = [];
-  if (typeof document === 'undefined') return out;
-  const W = Math.max(96, Math.round(w / 3)), H = Math.max(48, Math.round(h / 3));
+// sample a whole phrase from a 2D canvas: the browser shapes it, nothing is split by letter.
+// The canvas is sized so its ink holds about one pixel per particle: every particle gets its own
+// point on an even grid, and the letters read as crisp dotted strokes at any stage size.
+function draw(phrase, W, H) {
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
-  const x = c.getContext('2d');
-  if (!x) return out;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  if (!x) return null;
   let fam = 'system-ui, sans-serif';
   try { fam = getComputedStyle(ck.root).fontFamily || fam; } catch (e) { /* default face */ }
-  let size = H * 0.62;
+  let size = H * 0.72;
   x.direction = s.rtl ? 'rtl' : 'ltr';
   x.textAlign = 'center';
   x.textBaseline = 'middle';
-  x.font = '800 ' + size + 'px ' + fam;
+  x.font = '900 ' + size + 'px ' + fam;
   const m = x.measureText(phrase).width;
-  if (m > W * 0.88) { size *= (W * 0.88) / m; x.font = '800 ' + size + 'px ' + fam; }
+  if (m > W * 0.9) { size *= (W * 0.9) / m; x.font = '900 ' + size + 'px ' + fam; }
   x.fillStyle = '#fff';
   x.fillText(phrase, W / 2, H / 2);
-  const d = x.getImageData(0, 0, W, H).data;
+  return x.getImageData(0, 0, W, H).data;
+}
+function sample(phrase, w, h) {
+  const out = [];
+  if (typeof document === 'undefined') return out;
+  let k = 3, W = 0, H = 0, d = null;
+  for (let pass = 0; pass < 2; pass++) {
+    W = Math.max(48, Math.round(w / k));
+    H = Math.max(24, Math.round(h / k));
+    d = draw(phrase, W, H);
+    if (!d) return out;
+    let ink = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 128) ink++;
+    const q = Math.sqrt(ink / (N * 1.1));
+    if (ink === 0 || Math.abs(q - 1) < 0.12) break;
+    k = Math.min(12, Math.max(1, k * q));
+  }
   for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) if (d[(yy * W + xx) * 4 + 3] > 128) out.push([((xx + 0.5) * w) / W, ((yy + 0.5) * h) / H]);
+  out.cell = w / W;
   return out;
 }
 function fill(pts) {
   if (pts.length < 24) return null;
   const sh = s.shuffle(pts.slice()), out = new Float32Array(N * 2);
   for (let i = 0; i < N; i++) {
-    const q = sh[i % sh.length], j = i >= sh.length ? 1.2 : 0;
+    const q = sh[i % sh.length], j = (pts.cell || 3) * (i >= sh.length ? 0.5 : 0.28);
     out[i * 2] = q[0] + s.rand(-j, j);
     out[i * 2 + 1] = q[1] + s.rand(-j, j);
   }
@@ -123,13 +141,20 @@ pc.boundsArea = new P.Rectangle(0, 0, s.width, s.height);
 s.onResize((w, h) => { pc.boundsArea = new P.Rectangle(0, 0, w, h); });
 
 let mph = 0;
+function hold(x) {
+  const i = Math.floor(x), f = Math.min(1, Math.max(0, (x - i - 0.45) / 0.55));
+  return i + f * f * (3 - 2 * f);
+}
 s.tick(({ t, dt }) => {
-  const live = p.interactive && s.pointer.inside, step = Math.min(dt * 60, 3) * p.speed;
+  // Damping scales with the step, so a slow frame rate settles the words as fast as a quick one.
+  const live = p.interactive && s.pointer.inside, step = Math.min(dt * 60, 3) * p.speed, damp = Math.pow(0.86, Math.max(1, step));
+  // Each shape holds, then morphs (a half-formed blend reads as a cloud): by scroll once the
+  // region passes the middle of the viewport (at rest it shows phrase one), or every 5 s.
   let target = 0;
-  if (p.morphOn === 'scroll') target = Math.min(1, Math.max(0, s.scroll.progress)) * 3;
-  else if (p.morphOn === 'time') target = ((t * p.speed) / 5) % 4;
+  if (p.morphOn === 'scroll') target = hold(Math.min(1, Math.max(0, (s.scroll.progress - 0.5) * 2.2)) * 3);
+  else if (p.morphOn === 'time') target = hold(((t * p.speed) / 5) % 4);
   else target = live ? 1 : 0;
-  mph = s.reducedMotion ? 0 : mph + (target - mph) * Math.min(1, dt * 3);
+  mph = s.reducedMotion ? 0 : p.morphOn === 'time' ? target : mph + (target - mph) * Math.min(1, dt * 3);
   const i0 = Math.floor(mph) % 4, i1 = (i0 + 1) % 4, f = mph - Math.floor(mph), e = f * f * (3 - 2 * f);
   const A = sets[i0], B = sets[i1], R = 90 * p.dispersion, px = s.pointer.x, py = s.pointer.y;
   for (let i = 0; i < N; i++) {
@@ -141,8 +166,8 @@ s.tick(({ t, dt }) => {
       if (d2 < R * R) { const dist = Math.sqrt(d2) + 0.01, k = (1 - dist / R) * 6 * p.dispersion; ax += (dx / dist) * k; ay += (dy / dist) * k; }
     }
     ax += s.noise3(d.x * 0.01, d.y * 0.01, t * 0.3) * 0.08;
-    d.vx = (d.vx + ax * step) * 0.86;
-    d.vy = (d.vy + ay * step) * 0.86;
+    d.vx = (d.vx + ax * step) * damp;
+    d.vy = (d.vy + ay * step) * damp;
     d.x += d.vx * step;
     d.y += d.vy * step;
     d.q.x = d.x;

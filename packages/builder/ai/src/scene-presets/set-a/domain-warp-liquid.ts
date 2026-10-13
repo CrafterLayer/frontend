@@ -2,8 +2,9 @@ import { definePreset, range, sharedParams } from './define';
 
 /**
  * A GPU fragment shader: fbm noise warped twice (Inigo Quilez's domain warping)
- * into liquid marble in the palette's colours, with film grain. The pointer
- * twists the liquid. `#include noise` brings the kit's stegu simplex chunk.
+ * into liquid marble on a contrast ramp (the surface, through the accent, to a
+ * light highlight), with film grain. The pointer twists the liquid.
+ * `#include noise` brings the kit's stegu simplex chunk.
  */
 export const DOMAIN_WARP_LIQUID = definePreset({
   id: 'domain-warp-liquid',
@@ -27,7 +28,12 @@ const s=await ck.scene({libs:[],seed:p.seed});
 const PIXI=s.PIXI,C=s.palette;
 function v3(c){return 'vec3('+[16,8,0].map(function(b){return ((c>>b&255)/255).toFixed(3);}).join(',')+')';}
 function f(x){return (+x).toFixed(4);}
-const n=Math.max(2,Math.min(5,Math.round(p.stops))),ramp=C.ramp(n);
+// A ramp with real contrast: from the surface, through the accent, to a light highlight (the
+// other way round on a light surface), sampled at the chosen number of stops.
+const L=C.dark?[C.surface,C.colors[4],C.colors[0],C.colors[1],C.mix(C.colors[1],0xffffff,0.6)]:[C.surface,C.colors[1],C.colors[0],C.colors[4],C.mix(C.colors[4],C.text,0.6)];
+function at(t){const x=Math.min(3.999,t*4),i=Math.floor(x);return C.mix(L[i],L[i+1],x-i);}
+const n=Math.max(2,Math.min(5,Math.round(p.stops))),ramp=[];
+for(let i=0;i<n;i++)ramp.push(at(i/(n-1)));
 let pal='vec3 pal(float x){x=clamp(x,0.,1.)*'+(n-1)+'.;vec3 c='+v3(ramp[0])+';';
 for(let i=1;i<n;i++)pal+='c=mix(c,'+v3(ramp[i])+',smoothstep('+(i-1)+'.,'+i+'.,x));';
 pal+='return c;}';
@@ -42,16 +48,17 @@ const frag=[
   'void main(){',
   ' vec2 uv=vTextureCoord*uInputSize.xy/uOutputFrame.zw;',
   ' float asp=uOutputFrame.z/max(uOutputFrame.w,1.);',
-  ' vec2 q=vec2((uv.x-.5)*asp*'+s.dir+'.,uv.y-.5)*'+f(p.scale)+'+'+o+';',
-  ' vec2 m=vec2((uMx-.5)*asp*'+s.dir+'.,uMy-.5)*'+f(p.scale)+'+'+o+';',
-  ' vec2 d=q-m;q+=vec2(-d.y,d.x)*uMk*1.6*exp(-dot(d,d)*3.);',
-  ' float t=uTime*'+f(p.speed)+';',
+  ' vec2 q=vec2((uv.x-.5)*asp*'+s.dir+'.,uv.y-.5)*'+f(p.scale*0.25)+'+'+o+';',
+  ' vec2 m=vec2((uMx-.5)*asp*'+s.dir+'.,uMy-.5)*'+f(p.scale*0.25)+'+'+o+';',
+  ' vec2 d=q-m;q+=vec2(-d.y,d.x)*uMk*6.4*exp(-dot(d,d)*48.);',
+  ' float t=uTime*'+f(p.speed*0.7)+';',
   ' vec2 a=vec2(wfbm(vec3(q,t*.07)),wfbm(vec3(q+vec2(5.2,1.3),t*.07)));',
   ' vec2 b=vec2(wfbm(vec3(q+'+f(p.warp)+'*a+vec2(1.7,9.2),t*.11)),wfbm(vec3(q+'+f(p.warp)+'*a+vec2(8.3,2.8),t*.11)));',
   ' float h=wfbm(vec3(q+'+f(p.warp)+'*b,t*.05));',
-  ' vec3 col=pal(.5+.6*h+.3*length(b)-.15);',
-  ' col=mix(col,pal(1.),smoothstep(.5,.95,length(a))*.35);',
-  ' col+=vec3(pow(max(h,0.),3.))*.18;',
+  ' float v=clamp(.45+.9*h,0.,1.);v=v*v*(3.-2.*v);',
+  ' vec3 col=pal(clamp(v*.78+.28*length(b)-.2,0.,1.));',
+  ' col=mix(col,pal(1.),smoothstep(.6,1.,length(a))*.25*v);',
+  ' col*='+(C.dark?'.7+.45*v':'.94+.1*v')+';col+=vec3(pow(max(h,0.),3.))*.25;',
   ' float g=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233))+uTime)*43758.5453)-.5;',
   ' finalColor=vec4(col+g*'+f(p.grain)+',1.);',
   '}',

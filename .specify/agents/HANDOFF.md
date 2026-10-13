@@ -1,5 +1,26 @@
 # Active Work Handoff
 
+## Current continuation — murals that land, cheaper reviews and batches, 2026-10-13 (d)
+
+Reported (Arabic): murals failed on time and no PixiJS mural landed; asked for strong cost work
+(Batches + prompt caching, the visual review), mural libraries, free art packs (Kenney, Open Peeps)
+and ready scripts. **Done and pushed** (feature 014 T256–T259).
+
+- T256: ready scenes for mural writers (`agent/scene-ready.ts`) and a fast retry; edits that add a
+  mural get the same list. Without live calls this is proven by build tests (a hanging writer now
+  lands a ready scene), not by a real model run: watch the next real mural build.
+- T257: review skips tested code and reuses verdicts; breakpoints only where they can cache; batch
+  pre-warm at 3+ sharers; reviews can ride `/batch` (no background build uses it yet — builds would
+  need to be resumable to wait for a batch).
+- T258: `tidySection` code repairs before the check; `section.ops` tone / space.
+- T259: noise, geom and hex libraries; six set-d murals; Kenney hex tiles (Open Peeps already
+  shipped as `s.lib.peeps`).
+- Open: physical-side classes (`ml-4`, `text-left`) are silently dropped by the door's normaliser
+  instead of being respelled logical; `s.texture('data:…')` fails in the reviewed preview's CSP
+  (`connect-src 'none'`); "make the story black" is read as a heading colour; a playground test
+  failed once under load and passed on re-run; the core behaviour runtime still ships with any
+  behaviour; `section-layout.css` still misses the published stylesheet.
+
 ## Current continuation — ready scripts and Pixi packages, 2026-10-13 (c)
 
 Requested (Arabic): the packages that strengthen PixiJS results, and ready-made scripts for what the

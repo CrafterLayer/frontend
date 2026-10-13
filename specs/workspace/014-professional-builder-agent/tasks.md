@@ -840,3 +840,33 @@ now names: a preset id and params, a `data-ck-behavior` value, a library call.
       params; keyboard only with focus, on-screen controls, pause, polite status, reduced motion as
       manual steps, RTL. One call costs ~24–84 tokens against ~3k–7k written (58,234 → 394 typical
       over the eleven). Played in Chromium (15 kit tests, 42 preset tests).
+
+## Increment 2026-10-13 (d) — murals that land, cheaper reviews and batches, ready repairs
+
+The owner reported (Arabic) that murals failed on time and no PixiJS mural landed, and asked for
+strong cost work: Batches with prompt caching, the visual review, mural libraries, free art packs
+and ready scripts for what the agent does again and again.
+
+- [x] T256 Murals no longer time out (b1b3da8, 3a1a5ed): a mural writer wrote its whole scene by
+      hand and a write still running at its 420 s deadline was thrown away, the retry repeating it.
+      Scene writers are now shown the ready backdrops that fit their brief and place one with
+      `@preset:<id>` (the build puts the tested code in, a repair round sees the name); a writer
+      whose first attempt failed places one; own code is asked to stay under 9,000 characters. A new
+      mural in an edit gets the same short list for one `scene.preset` step. Games and stories keep
+      their kits.
+- [x] T257 Review and batch economy (0a396d7): tested scene code (a preset or kit byte for byte)
+      skips the model's review; a verdict is reused by a hash of what the pictures were drawn from
+      (9 paid reviews → 2 in the fixture); the review's pretend breakpoint is gone (its shared
+      prefix is ~360 tokens, under every model's minimum; `minCacheableTokens`); reviews can ride
+      `/batch`; batch items keep their live one-hour breakpoints, and a batch whose 3+ items share a
+      cacheable prefix is warmed by one live `max_tokens: 0` call first.
+- [x] T258 Ready repairs and scripts (a75fb33): `tidySection` repairs 30 of the checker's 62 kinds
+      of slip in code before the check (headings, anchors, action links, raw colours, contrast,
+      scene height, libs, params, motion guard, cleanup), each kept only when the check finds
+      strictly fewer issues — four of five repair rounds avoided in a scripted page; `section.ops`
+      tone and space with zero-token readings in English and Arabic.
+- [x] T259 Mural libraries and art (1fc0518): `s.lib.noise` (simplex-noise), `s.lib.geom`
+      (d3-contour, polybooljs), `s.lib.hex` (Kenney's Hexagon Pack, CC0, from npm — kenney.nl is
+      blocked here); six one-call murals (set-d); PRESETS FIRST in the mural playbook. Rejected with
+      reasons: d3-delaunay and clippers (Unlicense dependency), fastnoise-lite, bezier-js, Game
+      Icons (CC BY), palettes.

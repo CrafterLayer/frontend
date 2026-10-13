@@ -1,5 +1,6 @@
 import { BOOLEAN_LIMITS, difference, draw, intersect, shapes, union, xor } from './geom/boolean';
 import { bands, CONTOUR_LIMITS, lines } from './geom/contours';
+import { curve, CURVE_LIMITS } from './geom/curve';
 import { mosaic, MOSAIC_LIMITS, type MosaicOptions } from './geom/mosaic';
 import {
   arch,
@@ -15,14 +16,16 @@ import {
   type RibbonWidth,
 } from './geom/paths';
 
-export const GEOM_VERSION = '1.0.0';
+export const GEOM_VERSION = '1.1.0';
 
 /**
  * `s.lib.geom` (mural libraries, 2026-10-13): mural geometry in design units, every polygon a flat
  * [x0, y0, …] array for `Graphics.poly` — terraced contour bands and isolines (d3-contour 4.0.2,
  * ISC), polygon union / intersect / difference / xor (polybooljs 1.2.2, MIT), and our own
  * relaxed-Voronoi mosaics (on the kit's s.delaunay), ribbons, insets, Chaikin smoothing and arch
- * outlines. Plain JavaScript: it never imports Pixi (draw fills the scene's own Graphics).
+ * outlines, and quadratic / cubic Bézier curves with offsets and tapered outlines (Bezier.js
+ * 6.1.4, MIT, vendored). Plain JavaScript: it never imports Pixi (draw fills the scene's own
+ * Graphics).
  */
 export function createGeomLibrary() {
   return Object.freeze({
@@ -32,6 +35,7 @@ export function createGeomLibrary() {
       maxRings: BOOLEAN_LIMITS.maxRings,
       maxPoints: PATH_LIMITS.maxPoints,
       maxCells: MOSAIC_LIMITS.maxCells,
+      maxCurveSteps: CURVE_LIMITS.maxSteps,
     }),
     arches: ARCH_KINDS,
     bands: (grid: unknown, levels?: number | readonly number[]) => bands(grid, levels),
@@ -53,5 +57,6 @@ export function createGeomLibrary() {
     area: (polygon: number[]) => area(polygon),
     centroid: (polygon: number[]) => centroid(polygon),
     contains: (polygon: number[], x: number, y: number) => contains(polygon, x, y),
+    curve: (points: unknown) => curve(points),
   });
 }

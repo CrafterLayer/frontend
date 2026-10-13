@@ -62,6 +62,17 @@ const HEX_SCENE = `const s=await ck.scene({libs:['hex'],design:{width:1280,heigh
 const hex=await s.lib.hex.load(s);
 window.__board=hex.board({cols:9,rows:6,terrain:c=>c.q===4&&c.r===2?'grass':c.q===0?'water':'sand'});`;
 
+/* 1.1.0 (2026-10-13): FastNoiseLite's types and a Bézier stroke, vendored, from the built assets. */
+const FAST_SCENE = `const s=await ck.scene({libs:['noise','geom'],design:{width:1280,height:720,fit:'contain'}});
+const G=s.lib.geom,C=s.palette;
+const kinds=['perlin','value','value-cubic','opensimplex2','opensimplex2s'];
+const fields=kinds.map(type=>s.lib.noise.create(s,{type,scale:180,fractal:'fbm'}));
+const g=new s.PIXI.Graphics();s.world.addChild(g);
+G.bands(fields[0].grid({width:1280,height:720,cell:20}),5).forEach((b,i)=>G.draw(g,b.shapes,C.mix(C.surface,C.accent,i/4)));
+const c=G.curve([80,600,400,80,900,700,1200,120]);
+const stroke=new s.PIXI.Graphics();s.world.addChild(stroke);stroke.poly(c.outline([6,60]),true).fill(0xff00ff);
+window.__fast={types:s.lib.noise.types,spread:fields.map(f=>{let lo=1,hi=-1;for(let i=0;i<64;i++){const v=f.at(i*20,i*11,0);lo=Math.min(lo,v);hi=Math.max(hi,v)}return hi-lo}),mid:c.at(0.5),loop:[fields[0].loop(100,100,0),fields[0].loop(100,100,1)]};`;
+
 async function mount(
   page: Page,
   code: string,
@@ -158,6 +169,29 @@ describe.skipIf(!QA)('mural libraries and hex art in the Studio preview runtime'
         await removeRegion(frame);
       });
     }
+  }, 120_000);
+
+  it('noise 1.1 + geom 1.1: FastNoiseLite types draw and loop, a tapered Bézier stroke fills', async () => {
+    await withPage(browser, 1280, async (page) => {
+      const { frame } = await mount(page, FAST_SCENE);
+      const fast = await frame.evaluate<{
+        types: string[];
+        spread: number[];
+        mid: { x: number; y: number };
+        loop: [number, number];
+      }>('window.__fast');
+      expect(fast.types).toEqual(
+        expect.arrayContaining(['perlin', 'value', 'value-cubic', 'opensimplex2', 'opensimplex2s']),
+      );
+      for (const spread of fast.spread) expect(spread).toBeGreaterThan(0.2);
+      expect(fast.loop[1]).toBeCloseTo(fast.loop[0], 6);
+      // The stroke's middle is filled magenta; the Perlin bands paint the rest.
+      expect(
+        await frame.evaluate<number[]>(`window.__at(${String(fast.mid.x)}, ${String(fast.mid.y)})`),
+      ).toEqual([255, 0, 255]);
+      expect(await frame.evaluate<number>('window.__ink()')).toBeGreaterThan(5);
+      await removeRegion(frame);
+    });
   }, 120_000);
 
   it('hex: the Kenney atlas decodes offline from its data: URL and the board mirrors in RTL', async () => {

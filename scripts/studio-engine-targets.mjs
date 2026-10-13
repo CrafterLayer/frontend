@@ -199,23 +199,42 @@ export const TARGETS = {
   },
   // mural libraries (2026-10-13): seeded noise fields (Worley cells, ridged/billow fractals, domain
   // warp, 4-D loops, sampled grids) on simplex-noise (MIT), the kit's own noise package. Measured
-  // 4,375 bytes gzip; budget + 5 % rounded up to 100 bytes.
+  // 4,375 bytes gzip; budget + 5 % rounded up to 100 bytes. 1.1.0 (the owner's word, same day):
+  // Perlin, value, value-cubic and OpenSimplex2 / 2S from FastNoiseLite 1.1.1 (MIT), vendored
+  // verbatim with its licence (the npm tarball has none); measured 21,085.
   noise: {
     entry: 'src/studio/libs/noise-entry.ts',
     factory: 'createNoiseLibrary',
     pixi: false,
-    budget: 4_600,
-    version: '1.0.0',
+    budget: 22_200,
+    version: '1.1.0',
+    vendored: [
+      {
+        name: 'fastnoise-lite',
+        version: '1.1.1',
+        declared: 'MIT',
+        licence: 'vendor/fastnoise-lite/LICENSE',
+      },
+    ],
   },
   // mural geometry: d3-contour (ISC) bands and isolines, polybooljs (MIT) booleans (its four
   // algorithm modules, not its window-assigning entry), and our own mosaics (on the kit's
-  // s.delaunay), ribbons, insets and arches. Measured 10,473.
+  // s.delaunay), ribbons, insets and arches. Measured 10,473. 1.1.0: Bézier curves, offsets and
+  // tapered outlines from Bezier.js 6.1.4 (MIT), vendored verbatim with its licence; 19,452.
   geom: {
     entry: 'src/studio/libs/geom-entry.ts',
     factory: 'createGeomLibrary',
     pixi: false,
-    budget: 11_000,
-    version: '1.0.0',
+    budget: 20_500,
+    version: '1.1.0',
+    vendored: [
+      {
+        name: 'bezier-js',
+        version: '6.1.4',
+        declared: 'MIT',
+        licence: 'vendor/bezier-js/LICENSE',
+      },
+    ],
   },
   // hex art: 28 Kenney Hexagon Pack tiles (CC0 1.0) as one lossless WebP data: URL, packed by
   // scripts/build-hex-atlas.mjs from the kenney-hexagon-pack devDependency (a generated module, so

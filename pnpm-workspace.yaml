@@ -178,8 +178,9 @@ catalog:
   # build-time input: scripts/build-hex-atlas.mjs packs 28 of its tiles; the package itself never
   # ships). d3-contour 4.0.2 was published 2023-01-11, polybooljs 1.2.2 2024-03-18,
   # kenney-hexagon-pack 1.0.0 2019-08-05. Not admitted: d3-delaunay, polygon-clipping,
-  # martinez-polygon-clipping, @velipso/polybool, fastnoise-lite, bezier-js, chromotome,
-  # nice-color-palettes, @iconify-json/game-icons (reasons in vendor/VENDOR.md).
+  # martinez-polygon-clipping, @velipso/polybool, chromotome, nice-color-palettes,
+  # @iconify-json/game-icons (reasons in vendor/VENDOR.md). fastnoise-lite and bezier-js are not
+  # installed but COPIED (media-engines/vendor/), their tarballs carrying no licence file.
   d3-contour: 4.0.2
   kenney-hexagon-pack: 1.0.0
   polybooljs: 1.2.2

@@ -8,16 +8,20 @@
     n.loop(x, y, phase)    // [-1, 1]; phase 0 and 1 are the same frame (seamless loops)
     n.grid({ width: 1280, height: 720, cell: 16, t }) // a sampled grid for s.lib.geom.bands/lines
 
-  The simplex noise is simplex-noise 4.0.3 (MIT), the same package the kit bundles; the cellular
-  noise, fractals and warp are our own. Every field is a pure function of its seed: the editor,
-  the preview and the published page sample the same values.
+  The simplex noise is simplex-noise 4.0.3 (MIT), the same package the kit bundles; Perlin, value,
+  value-cubic and OpenSimplex2 / 2S are FastNoiseLite 1.1.1's (MIT, vendored; fast.ts); the
+  cellular noise, fractals and warp are our own. Every field is a pure function of its seed: the
+  editor, the preview and the published page sample the same values. FastNoiseLite has no 4-D
+  noise, so its types loop by a crossfade of two drifts that meet at phase 0 and 1 — seamless, a
+  little softer mid-loop.
 */
 
 import { createNoise3D, createNoise4D } from 'simplex-noise';
 
 import { mulberry32 } from '../../kit/random';
+import { FAST_NOISE_TYPES, fastOctave, isFastNoiseType } from './fast';
 
-export const NOISE_TYPES = Object.freeze(['simplex', 'cellular'] as const);
+export const NOISE_TYPES = Object.freeze(['simplex', 'cellular', ...FAST_NOISE_TYPES] as const);
 export const NOISE_FRACTALS = Object.freeze(['none', 'fbm', 'ridged', 'billow'] as const);
 export const NOISE_CELLS = Object.freeze(['f1', 'f2', 'edge', 'id'] as const);
 export type NoiseType = (typeof NOISE_TYPES)[number];
@@ -198,6 +202,8 @@ export function createField(scene: unknown, input?: unknown): NoiseField {
   const warp3y = createNoise3D(random);
   const warp4x = createNoise4D(random);
   const warp4y = createNoise4D(random);
+  // Seeded apart from `random`, so simplex and cellular fields keep the values they had.
+  const fast = isFastNoiseType(type) ? fastOctave(type, seed ^ 0x2545f491) : undefined;
 
   /* One octave at (u, v) in feature units; (z, w) is time: w undefined means a plain drift. */
   function octave(u: number, v: number, z: number, w: number | undefined, layer: number): number {
@@ -206,6 +212,7 @@ export function createField(scene: unknown, input?: unknown): NoiseField {
       const turn = w === undefined ? z * TAU : Math.atan2(w, z);
       return cellValue(worley(u, v, (seed + layer * 0x9e3779b1) | 0, jitter, turn), output);
     }
+    if (fast !== undefined) return fast(u, v, z + layer * 17.31);
     return w === undefined ? base3(u, v, z + layer * 17.31) : base4(u, v, z + layer * 17.31, w);
   }
 
@@ -250,6 +257,14 @@ export function createField(scene: unknown, input?: unknown): NoiseField {
   }
 
   function loop(x: number, y: number, phase: number): number {
+    if (fast !== undefined) {
+      // Two drifts one loop apart, crossfaded: phase 0 is the first, phase 1 the second at 0.
+      const p = ((finite(phase, 0) % 1) + 1) % 1;
+      const span = LOOP_RADIUS * TAU * Math.max(0.05, speed);
+      const a = sample(finite(x, 0), finite(y, 0), p * span, undefined);
+      const b = sample(finite(x, 0), finite(y, 0), (p - 1) * span, undefined);
+      return clamp(((1 - p) * a + p * b) / Math.hypot(1 - p, p), -1, 1);
+    }
     const angle = finite(phase, 0) * TAU;
     const radius = LOOP_RADIUS * Math.max(0.05, speed);
     return sample(finite(x, 0), finite(y, 0), Math.cos(angle) * radius, Math.sin(angle) * radius);

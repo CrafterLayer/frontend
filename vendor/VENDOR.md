@@ -647,6 +647,18 @@ Kenney (www.kenney.nl), CC0 1.0". The package is a devDependency (23 MB unpacked
 only by `scripts/build-hex-atlas.mjs`, which packs 20 terrain tiles and 8 buildings (military
 tiles and the stereotyped `western_indians` tile left out) into one 67.6 kB lossless WebP.
 
+**Vendored as copies on the owner's word** (2026-10-13), because neither npm tarball carries a
+LICENSE file and the engine build's licence audit admits an installed package only with one:
+
+| Package        | Version | Licence                                                          | Copied to                                   | Used by                                       |
+| -------------- | ------- | ---------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------- |
+| fastnoise-lite | 1.1.1   | MIT — package.json, the source header, the repository's LICENSE  | `media-engines/vendor/fastnoise-lite/`      | `s.lib.noise` types perlin, value, value-cubic, opensimplex2, opensimplex2s (`ck-lib-noise.js`, 21.1 kB) |
+| bezier-js      | 6.1.4   | MIT — package.json and the repository's LICENSE.md               | `media-engines/vendor/bezier-js/` (its `src/`) | `s.lib.geom.curve` (`ck-lib-geom.js`, 19.5 kB) |
+
+Each folder holds the verbatim files (sha256 in its PROVENANCE.md, pinned by the unit tests), the
+upstream licence and our own `.d.ts`; `scripts/studio-engine-targets.mjs` lists each LICENSE under
+its target's `vendored`, so the asset banner carries the notice. Upgrading is a manual replace.
+
 Evaluated and **not admitted** (2026-10-13), each read from its tarball or registry entry:
 
 | Package                         | Version  | Licence (as read)                     | Why not                                                                                                                                                                        |
@@ -655,8 +667,6 @@ Evaluated and **not admitted** (2026-10-13), each read from its tarball or regis
 | polygon-clipping                | 0.15.7   | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
 | martinez-polygon-clipping       | 0.9.0    | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
 | @velipso/polybool               | 2.0.11   | 0BSD (+ tslib 0BSD)                   | 8.9 kB gzip for the booleans polybooljs's modules give in 3.5 kB; 0BSD is not yet in the build's audited list.                                                               |
-| fastnoise-lite                  | 1.1.1    | MIT (source header only)              | 16.1 kB gzip as one class nothing tree-shakes; its tarball has **no LICENSE file** (the audit refuses it, as it did yoga-layout); `s.lib.noise` gives cells, fractals, warp and loops in 4.4 kB on the kit's simplex-noise. |
-| bezier-js                       | 6.1.4    | MIT (package.json only)               | No LICENSE file in the tarball; a ribbon needs only a polyline offset (`G.ribbon`).                                                                                          |
 | chromotome / nice-color-palettes | 1.21.4 / 4.0.0 | MIT                           | Curated palettes, but the page palette (`s.palette`) wins, and the `palette` param already takes up to six colours of the person's own.                                       |
 | @iconify-json/game-icons        | 1.2.4    | **CC BY 3.0**                         | Attribution on every page that shows an icon, which an agent-built page cannot guarantee; this policy admits no CC BY art. `@icongo/gi` 1.2.0 relabels the same icons "MIT" (unclear licence). |
 | @anabis/kenney-space-kit-mirror | 2.0.0    | CC0-1.0                               | Kenney's Space Kit is 3-D models, not 2-D art for Pixi; "unofficial mirror".                                                                                                 |

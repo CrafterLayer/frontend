@@ -993,6 +993,62 @@ SOFTWARE.
 
 <!-- tailwind-plugins additions (2026-10-13) -->
 
+## FastNoiseLite 1.1.1 (`fastnoise-lite`) and Bezier.js 6.1.4 (`bezier-js`) — MIT
+
+Both are COPIED, not installed (2026-10-13, the owner's choice): neither npm tarball carries a
+LICENSE file. `FastNoiseLite.js` is kept verbatim in `packages/builder/extensions/media-engines/vendor/fastnoise-lite/` and Bezier.js's `src/` (`bezier.js`, `utils.js`, `poly-bezier.js`) in `packages/builder/extensions/media-engines/vendor/bezier-js/`, each beside its upstream licence and a PROVENANCE.md with the sha256 of every file. FastNoiseLite is bundled into `assets/ck-lib-noise.js` (pages whose code names `noise`) and Bezier.js into `assets/ck-lib-geom.js` (pages whose code names `geom`); each asset's banner carries the text whole. Upstream: https://github.com/Auburn/FastNoiseLite · https://github.com/Pomax/bezierjs
+
+FastNoiseLite's LICENSE (the repository's own; `FastNoiseLite.js` opens with the same notice, © 2023), verbatim:
+
+```text
+MIT License
+
+Copyright(c) 2020 Jordan Peck (jordan.me2@gmail.com)
+Copyright(c) 2020 Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+Bezier.js's LICENSE.md (the repository's own), verbatim:
+
+```text
+Copyright (c) 2023 Pomax
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Tailwind plugins — tw-animate-css 1.4.0, @tailwindcss/typography 0.5.20, @tailwindcss/forms 0.5.11 — MIT
 
 Installed from the pnpm catalog into `@craftkit/builder-renderer` (typography and forms also into

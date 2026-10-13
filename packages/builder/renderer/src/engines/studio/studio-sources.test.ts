@@ -55,8 +55,8 @@ const ASSETS = [
   ['gif', GIF_SOURCE, GIF_BANNER, GIF_SHA256, 7_900],
   // mural libraries and hex art (2026-10-13): measured 4,375, 10,473 and 75,575 bytes gzip
   // (hex is nearly all its 28-tile WebP atlas).
-  ['noise', NOISE_SOURCE, NOISE_BANNER, NOISE_SHA256, 4_600],
-  ['geom', GEOM_SOURCE, GEOM_BANNER, GEOM_SHA256, 11_000],
+  ['noise', NOISE_SOURCE, NOISE_BANNER, NOISE_SHA256, 22_200],
+  ['geom', GEOM_SOURCE, GEOM_BANNER, GEOM_SHA256, 20_500],
   ['hex', HEX_SOURCE, HEX_BANNER, HEX_SHA256, 79_400],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;

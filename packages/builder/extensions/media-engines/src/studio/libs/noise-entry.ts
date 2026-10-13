@@ -7,7 +7,7 @@ import {
   type NoiseOptions,
 } from './noise/field';
 
-export const NOISE_VERSION = '1.0.0';
+export const NOISE_VERSION = '1.1.0';
 
 /**
  * `s.lib.noise` (mural libraries, 2026-10-13): seeded noise fields in design units for murals —

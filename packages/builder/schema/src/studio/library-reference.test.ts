@@ -90,10 +90,16 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(noise?.pixiBound).toBe(false);
     expect(noise?.api.join('\n')).toContain('s.lib.noise.create(s,');
     expect(noise?.api.join('\n')).toContain('n.grid({ width: 1280, height: 720');
+    expect(noise?.api.join('\n')).toContain("'perlin' | 'value' | 'value-cubic'");
     const geom = libraryEntry('geom');
     expect(geom?.pixiBound).toBe(false);
-    expect(geom?.source).toBe('d3-contour + polybooljs');
-    for (const call of ['s.lib.geom.bands(grid', 's.lib.geom.mosaic(s,', 's.lib.geom.draw(g,'])
+    expect(geom?.source).toBe('d3-contour + polybooljs + Bezier.js');
+    for (const call of [
+      's.lib.geom.bands(grid',
+      's.lib.geom.mosaic(s,',
+      's.lib.geom.draw(g,',
+      's.lib.geom.curve([',
+    ])
       expect(geom?.api.join('\n')).toContain(call);
     const hex = libraryEntry('hex');
     expect(hex?.pixiBound).toBe(false);

@@ -387,10 +387,13 @@ CSP, what the kit already gives (`s.noise2/3`, `s.fbm`, `s.poisson`, `s.delaunay
   topographic-contours preset spends 838 tokens on line contours alone). The mural playbook opens
   with every mural, pattern and type preset and asks new scene code to stay under ~9,000 characters;
   set D stays out of the cached tool menu (its edit lane is at its cap) as the kits do.
-- **Why our own noise on simplex-noise over fastnoise-lite.** fastnoise-lite 1.1.1 (MIT) is 16.1 kB
-  gzip as one class nothing tree-shakes, duplicates the kit's simplex, and its tarball carries no
-  LICENSE file (the MIT text sits only in the source header), which the build's licence audit
-  refuses. Cellular noise, fractals, warp and loops on the kit's own simplex-noise cost 4.4 kB.
+- **Noise on simplex-noise, and FastNoiseLite vendored.** Cellular noise, fractals, warp and loops
+  on the kit's own simplex-noise cost 4.4 kB. On the owner's word (same day) FastNoiseLite 1.1.1
+  (MIT) adds Perlin, value, value-cubic and OpenSimplex2 / 2S (21.1 kB in all): its tarball carries
+  no LICENSE file, which the build's licence audit refuses for an installed package, so it is COPIED
+  verbatim under `vendor/fastnoise-lite/` with the repository's licence and listed as `vendored`, as
+  webgl-noise and zzfx are; the audit is unchanged. Bezier.js 6.1.4 (MIT) is vendored the same way
+  for `s.lib.geom.curve` (offsets, tapered outlines; 19.5 kB in all).
 - **Why polybooljs.** polygon-clipping 0.15.7 and martinez-polygon-clipping 0.9.0 depend on
   robust-predicates (Unlicense, outside the licence list — the reason the kit's Delaunay is our own
   code); @velipso/polybool 2.0.11 (0BSD + tslib) is 8.9 kB; polybooljs's four algorithm modules are
@@ -401,10 +404,10 @@ CSP, what the kit already gives (`s.noise2/3`, `s.fbm`, `s.poisson`, `s.delaunay
   `scripts/build-hex-atlas.mjs` packs 28 tiles; the notice and the CC0 1.0 legal code travel in the
   asset banner. The atlas is decoded by an `<img>` because Pixi's Assets loader fetches `data:`
   URLs, which the unreviewed preview's `connect-src 'none'` refuses.
-- **Not admitted:** d3-delaunay / delaunator 5 (the kit has it; robust-predicates), bezier-js 6.1.4
-  (no LICENSE file), chromotome / nice-color-palettes (the page palette wins), Game Icons
-  (`@iconify-json/game-icons`, CC BY 3.0 — attribution an agent-built page cannot guarantee;
-  `@icongo/gi` relabels the same icons MIT), `@anabis/kenney-space-kit-mirror` (3-D models).
+- **Not admitted:** d3-delaunay / delaunator 5 (the kit has it; robust-predicates), chromotome /
+  nice-color-palettes (the page palette wins), Game Icons (`@iconify-json/game-icons`, CC BY 3.0 —
+  attribution an agent-built page cannot guarantee; `@icongo/gi` relabels the same icons MIT),
+  `@anabis/kenney-space-kit-mirror` (3-D models).
 - **Proof.** `apps/evals/src/pixi-creative/mural-libs.browser.test.ts`: bands from a noise grid, a
   boolean hole that reads back as background, an arch-trimmed mosaic, the hex atlas decoded offline
   with a green grass tile and a board mirrored in RTL; each set-D preset draws, moves within a

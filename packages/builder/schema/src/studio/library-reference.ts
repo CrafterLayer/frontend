@@ -300,23 +300,23 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     key: 'noise',
     pixiBound: false,
     purpose: {
-      en: 'Seeded noise fields for murals in design units, beyond the kit’s s.noise2/s.fbm: Worley cells (stone, scales, cracked glaze), ridged and billowed fractals, domain warp (marbling, liquid), a seamless loop and sampled grids for s.lib.geom contours; the same seed draws the same field.',
-      ar: 'حقول ضوضاء ببذرة المشهد للجداريات بوحدات التصميم، أبعد مما يعطيه s.noise2 وs.fbm: خلايا ورلي (حجر، حراشف، تشقق الطلاء)، وكسوريات حادة ومنتفخة، وتشويه المجال (رخامي، سائل)، وحلقة بلا انقطاع، وشبكات عيّنات لخطوط s.lib.geom؛ البذرة نفسها ترسم الحقل نفسه.',
+      en: 'Seeded noise fields for murals in design units, beyond the kit’s s.noise2/s.fbm: simplex, Perlin, value, value-cubic and OpenSimplex2 / 2S (FastNoiseLite, vendored), Worley cells (stone, scales, cracked glaze), ridged and billowed fractals, domain warp (marbling, liquid), a seamless loop and sampled grids for s.lib.geom contours; the same seed draws the same field.',
+      ar: 'حقول ضوضاء ببذرة المشهد للجداريات بوحدات التصميم، أبعد مما يعطيه s.noise2 وs.fbm: simplex وPerlin وvalue وvalue-cubic وOpenSimplex2 (من FastNoiseLite المضمّنة)، وخلايا ورلي (حجر، حراشف، تشقق الطلاء)، وكسوريات حادة ومنتفخة، وتشويه المجال (رخامي، سائل)، وحلقة بلا انقطاع، وشبكات عيّنات لخطوط s.lib.geom؛ البذرة نفسها ترسم الحقل نفسه.',
     },
     api: [
-      "const n = s.lib.noise.create(s, { type: 'simplex' | 'cellular', fractal: 'fbm' | 'ridged' | 'billow' | 'none', scale: 240, warp: 60, cell: 'edge' | 'f1' | 'f2' | 'id' })",
+      "const n = s.lib.noise.create(s, { type: 'simplex' | 'cellular' | 'perlin' | 'value' | 'value-cubic' | 'opensimplex2' | 'opensimplex2s', fractal: 'fbm' | 'ridged' | 'billow' | 'none', scale: 240, warp: 60, cell: 'edge' | 'f1' | 'f2' | 'id' })",
       'n.at(x, y, t) / n.loop(x, y, phase) → [-1, 1]; phase 0 and 1 are the same frame',
       'const grid = n.grid({ width: 1280, height: 720, cell: 16, t }) → s.lib.geom.bands(grid, 8)',
     ],
-    source: 'simplex-noise',
+    source: 'simplex-noise + FastNoiseLite',
     since: MEDIA,
   },
   {
     key: 'geom',
     pixiBound: false,
     purpose: {
-      en: 'Mural geometry as flat polygons for Graphics.poly: terraced contour bands and isolines of any grid (d3-contour), cut, joined and clipped shapes (polybooljs), relaxed Voronoi mosaics with grout trimmed to an arch, ribbons, insets, smoothing and round, pointed or horseshoe arches.',
-      ar: 'هندسة الجداريات كمضلعات مسطحة لـ Graphics.poly: أشرطة كنتور متدرجة وخطوط تساوٍ لأي شبكة (d3-contour)، وأشكال تُقص وتُدمج وتُقتطع (polybooljs)، وفسيفساء فورونوي مُرخاة بفواصل ومقصوصة على قوس، وأشرطة، وإزاحة للداخل، وتنعيم، وأقواس دائرية أو مدببة أو حدوة فرس.',
+      en: 'Mural geometry as flat polygons for Graphics.poly: terraced contour bands and isolines of any grid (d3-contour), cut, joined and clipped shapes (polybooljs), relaxed Voronoi mosaics with grout trimmed to an arch, ribbons, insets, smoothing, round, pointed or horseshoe arches, and Bézier curves with offsets and tapered outlines (Bezier.js, vendored) for brush strokes and rivers.',
+      ar: 'هندسة الجداريات كمضلعات مسطحة لـ Graphics.poly: أشرطة كنتور متدرجة وخطوط تساوٍ لأي شبكة (d3-contour)، وأشكال تُقص وتُدمج وتُقتطع (polybooljs)، وفسيفساء فورونوي مُرخاة بفواصل ومقصوصة على قوس، وأشرطة، وإزاحة للداخل، وتنعيم، وأقواس دائرية أو مدببة أو حدوة فرس، ومنحنيات بيزيه بخطوط موازية وحدود تضيق وتتسع (Bezier.js المضمّنة) لضربات الفرشاة والأنهار.',
     },
     api: [
       'const bands = s.lib.geom.bands(grid, 8); bands.forEach((b, i) => s.lib.geom.draw(g, b.shapes, colours[i]))',
@@ -324,8 +324,9 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       "s.lib.geom.mosaic(s, { width: 1280, height: 720, cells: s.count(160), relax: 2, gap: 3, clip: s.lib.geom.arch(340, 60, 600, 640, 'pointed') }) → [{ tile, cell, cx, cy, tone }]",
       's.lib.geom.difference(a, b) / union / intersect / xor → rings; s.lib.geom.draw(g, rings, fill, stroke?) cuts the holes',
       's.lib.geom.ribbon(points, (t) => 30 * Math.sin(Math.PI * t)) / smooth(points, { closed, iterations }) / inset(poly, d)',
+      'const c = s.lib.geom.curve([x0, y0, cx, cy, (cx2, cy2,) x1, y1]); g.poly(c.outline([4, 40]), true).fill(ink); c.points(64) / at(t) / normal(t) / project(x, y) / offset(d) / split(t)',
     ],
-    source: 'd3-contour + polybooljs',
+    source: 'd3-contour + polybooljs + Bezier.js',
     since: MEDIA,
   },
   {

@@ -464,17 +464,25 @@ hex.tile('windmill', 96);
   kit's own `s.delaunay` already gives Delaunay, Voronoi and `find`; delaunator 5 needs
   robust-predicates, Unlicense, outside the licence list), polygon-clipping 0.15.7 and
   martinez-polygon-clipping 0.9.0 (both need robust-predicates, Unlicense), @velipso/polybool 2.0.11
-  (0BSD + tslib, 8.9 kB against polybooljs's 3.5 kB for the same booleans), fastnoise-lite 1.1.1
-  (16.1 kB gzip, one class nothing tree-shakes, and no LICENSE file in the tarball — the MIT text
-  lives only in the source header, which the build's audit does not read), bezier-js 6.1.4 (no
-  LICENSE file; a ribbon needs only a polyline offset), chromotome and nice-color-palettes (the page
-  palette wins, and `palette` already takes six colours of the person's own),
-  @iconify-json/game-icons (CC BY 3.0: attribution on every page that shows one, which an
-  agent-built page cannot promise; VENDOR.md admits no CC BY art).
+  (0BSD + tslib, 8.9 kB against polybooljs's 3.5 kB for the same booleans), chromotome and
+  nice-color-palettes (the page palette wins, and `palette` already takes six colours of the
+  person's own), @iconify-json/game-icons (CC BY 3.0: attribution on every page that shows one,
+  which an agent-built page cannot promise; VENDOR.md admits no CC BY art).
 
-Budgets: `ck-lib-noise.js` 4,600 bytes gzip (measured 4,375), `ck-lib-geom.js` 11,000 (10,473),
-`ck-lib-hex.js` 79,400 (75,575, nearly all the WebP). Unit tests: `libs/noise/noise.test.ts`,
-`libs/geom/geom.test.ts`, `libs/hex/hex.test.ts`; Chromium:
+- **Vendored on the owner's word** (1.1.0 of both, 2026-10-13): FastNoiseLite 1.1.1 (MIT, © Jordan
+  Peck and contributors) gives `s.lib.noise` the `perlin`, `value`, `value-cubic`, `opensimplex2`
+  and `opensimplex2s` types (one octave each; the field layers, warps, drifts and loops them as it
+  does simplex — a crossfade loop, since FastNoiseLite has no 4-D noise), and Bezier.js 6.1.4 (MIT,
+  © Pomax) gives `s.lib.geom.curve` (points, length, at, normal, project, offset, split, bbox and a
+  tapered `outline` as one flat polygon). Neither npm tarball carries a LICENSE file, so both are
+  COPIED verbatim under `vendor/fastnoise-lite/` and `vendor/bezier-js/` with their upstream
+  licences and PROVENANCE.md (sha256 of every copied file, pinned by tests), and the targets list
+  those licences as `vendored`, as for webgl-noise and zzfx; the build's audit is unchanged.
+
+Budgets: `ck-lib-noise.js` 22,200 bytes gzip (measured 21,085; 4,375 before FastNoiseLite),
+`ck-lib-geom.js` 20,500 (19,452; 10,473 before Bezier.js), `ck-lib-hex.js` 79,400 (75,575, nearly
+all the WebP). Unit tests: `libs/noise/noise.test.ts`, `libs/geom/geom.test.ts`,
+`libs/hex/hex.test.ts`; Chromium:
 `CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/mural-libs.browser.test.ts`.
 
 ## Bundled licences

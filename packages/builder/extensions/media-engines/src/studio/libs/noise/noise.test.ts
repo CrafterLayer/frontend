@@ -29,7 +29,15 @@ describe('noise library', () => {
     const lib = createNoiseLibrary();
     expect(Object.isFrozen(lib)).toBe(true);
     expect(lib.version).toBe(NOISE_VERSION);
-    expect(lib.types).toEqual(['simplex', 'cellular']);
+    expect(lib.types).toEqual([
+      'simplex',
+      'cellular',
+      'perlin',
+      'value',
+      'value-cubic',
+      'opensimplex2',
+      'opensimplex2s',
+    ]);
     expect(lib.fractals).toEqual(['none', 'fbm', 'ridged', 'billow']);
     expect(lib.cells).toEqual(['f1', 'f2', 'edge', 'id']);
     const manifest = JSON.parse(
@@ -115,7 +123,7 @@ describe('noise library', () => {
 
   it('clamps nonsense from authored code instead of throwing', () => {
     const field = createField(null, {
-      type: 'perlin' as never,
+      type: 'plasma' as never,
       fractal: 'turbulent' as never,
       octaves: 99,
       scale: -5,

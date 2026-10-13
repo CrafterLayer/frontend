@@ -17,6 +17,7 @@
   three pages called Modern, Clean and Fast. The home page is always first. One page, or
   none named and none counted, is not a site: `null`.
 */
+import { foldWord, SITE_LANGUAGES } from '../../i18n-tools/languages';
 import { PAGE_NAME_PAIRS_AR, PAGE_NAMES_AR, PAGE_NAMES_EN } from '../../intent/intent-lexicon';
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { detectPromptLanguage } from '../../prompt-enhance/language';
@@ -201,6 +202,29 @@ function splitArabicAnd(piece: string): string[] {
   return names.map((name) => name.join(' '));
 }
 
+/** Every word a request names a language by (folded): "english", «بالعربي». */
+const LANGUAGE_WORDS: ReadonlySet<string> = new Set(SITE_LANGUAGES.flatMap(({ words }) => words));
+/** Words that only lead into a language: "contact in Arabic", «تواصل باللغة العربية». */
+const INTO_LANGUAGE: ReadonlySet<string> = new Set(['in', 'into', 'باللغه', 'بلغه', 'اللغه']);
+
+/**
+ * A piece without the languages it ends on (T230c, 2026-10-12): a site "in Arabic and
+ * English" lists its languages after its pages ("home, about, contact in Arabic and
+ * English"), and neither "Contact in Arabic" nor "English" is a page.
+ */
+function withoutLanguages(piece: string): string {
+  const words = piece.split(/\s+/u).filter((word) => word !== '');
+  let end = words.length;
+  let named = false;
+  while (end > 0) {
+    const word = foldWord(words[end - 1] ?? '');
+    if (LANGUAGE_WORDS.has(word)) named = true;
+    else if (!named || !INTO_LANGUAGE.has(word)) break;
+    end -= 1;
+  }
+  return words.slice(0, end).join(' ');
+}
+
 function wordCount(text: string): number {
   return text.split(/\s+/u).filter((word) => word !== '').length;
 }
@@ -217,7 +241,7 @@ function namesInList(segment: string, lang: Lang): Named[] | undefined {
   const pieces = segment
     .split(LIST_SPLIT)
     .flatMap((piece) => (lang === 'ar' ? splitArabicAnd(piece) : [piece]))
-    .map(cleanPiece)
+    .map((piece) => cleanPiece(withoutLanguages(piece)))
     .filter((piece) => piece !== '');
   const named = pieces.flatMap((piece): Named[] => {
     const kind = kindsIn(normalizeIntentText(piece))[0];

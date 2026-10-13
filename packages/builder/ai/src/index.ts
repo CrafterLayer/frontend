@@ -54,7 +54,7 @@ export {
   type AiPagePlanEvent,
   type PlanAiPage,
   type PlanAiPageOptions,
-  type PlanAiPageResult, AI_SITE_MAX_PAGES, AI_SITE_MAX_REQUEST_LENGTH, AI_SITE_MAX_TITLE_LENGTH, AI_SITE_MIN_PAGES, linkSitePages, type LinkSitePagesOptions, planAiSite, sitePlanFromRequest, validateSitePlan, type AiSitePage, type AiSitePlan, type PlanAiSiteOptions, type SiteFromWordsOptions, type ValidateSitePlanResult, // T230: a site plan
+  type PlanAiPageResult, AI_SITE_MAX_PAGES, AI_SITE_MAX_REQUEST_LENGTH, AI_SITE_MAX_TITLE_LENGTH, AI_SITE_MIN_PAGES, linkSitePages, menuLabelOf, type LinkSitePagesOptions, planAiSite, sitePlanFromRequest, validateSitePlan, type AiSitePage, type AiSitePlan, type PlanAiSiteOptions, type SiteFromWordsOptions, type ValidateSitePlanResult, // T230: a site plan
   NEIGHBOUR_SUMMARY_MAX_CHARS,
   PAGE_PLAN_INTENTS,
   PAGE_PLAN_MAX_FACTS,

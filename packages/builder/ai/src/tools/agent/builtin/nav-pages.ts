@@ -131,11 +131,14 @@ function rebuilt(node: TreeNode, input: NavPagesInput, anchors: ReadonlySet<stri
   if (found === undefined) return node;
   const { first, last } = found;
   const run = children.slice(first, last + 1);
-  const links = run.some((item) => {
-    const href = menuLinkOf(item, MENU_ENTRY)?.attributes?.['href'] ?? '';
+  const links = run.map((item) => menuLinkOf(item, MENU_ENTRY));
+  // A language switcher (its links carry `lang`, T230c) points at the same pages and is no menu.
+  if (links.some((link) => link?.attributes?.['lang'] !== undefined)) return node;
+  const pointsHome = links.some((link) => {
+    const href = link?.attributes?.['href'] ?? '';
     return SITE_PAGE(href) || anchors.has(href.slice(1));
   });
-  if (!links || (run.length < 2 && !LIST_TAGS.has(node.tag))) return node;
+  if (!pointsHome || (run.length < 2 && !LIST_TAGS.has(node.tag))) return node;
   const template = run[0] as TreeElementNode;
   return {
     ...node,

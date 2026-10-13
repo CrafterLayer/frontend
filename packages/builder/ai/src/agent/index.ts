@@ -21,6 +21,7 @@ export {
   AI_SITE_MAX_TITLE_LENGTH,
   AI_SITE_MIN_PAGES,
   linkSitePages,
+  menuLabelOf,
   planAiSite,
   sitePlanFromRequest,
   validateSitePlan,

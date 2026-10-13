@@ -8,14 +8,27 @@
  *   new version is translated by its own edit run (`page.translate`), the page shown first.
  * - "translate" the whole site («ترجم الموقع للإنجليزي»): each page, in turn, is translated
  *   in place.
+ * - A whole SITE in several languages (T230c): "Build a 3-page website in English and
+ *   Arabic" builds the site first (site-flow.ts), in the first language named; then EVERY
+ *   page it built gets its versions (never the pages the person had before), each version is
+ *   translated, and once all are, each language's pages link their own language's pages
+ *   (`linkSitePages`), under the names their translations gave them.
  *
  * Only in Auto: Ask and Plan propose before anything is written, so they take the ordinary
  * paths. A Stop ends the loop; a request the person sends meanwhile goes first.
  */
-import { languageIntent, type IntentRoute, type LanguageIntent } from '@craftkit/builder';
+import {
+  languageIntent,
+  linkSitePages,
+  menuLabelOf,
+  type IntentRoute,
+  type LanguageIntent,
+} from '@craftkit/builder';
 
 import { languageLabels } from '../../copy/language-labels';
-import type { LanguagePage } from '../../model/language-versions';
+import { siteLabels } from '../../copy/site-labels';
+import type { LanguagePage, LanguageVersionsPort } from '../../model/language-versions';
+import { preflightPorts } from '../../model/runs';
 import type { AssistantMode } from '../../model/view-types';
 
 import { runPage } from './build-flow';
@@ -48,17 +61,62 @@ async function translateEach(
   placement: Placement,
   pages: readonly LanguagePage[],
   lang: (page: LanguagePage) => string,
-): Promise<void> {
+): Promise<boolean> {
   const labels = languageLabels(flow.env().options.locale);
   for (const page of pages) {
-    if (flow.runtime.lease !== null) return;
+    if (flow.runtime.lease !== null) return false;
     page.show();
     const text = labels.translate(labels.name(lang(page)), page.address);
     await runEdit(flow, { text, context: [], pointed: [] }, placement, 'auto', EDIT, page.kernel);
     const last = sessionOf(flow, placement.sessionId)?.turns.findLast(
       (turn) => turn.kind === 'edit',
     );
-    if (last?.kind === 'edit' && last.status === 'stopped') return;
+    if (last?.kind === 'edit' && last.status === 'stopped') return false;
+  }
+  return true;
+}
+
+/** The pages that hold content now, by id: what a build adds to them is what it wrote. */
+function written(port: LanguageVersionsPort): ReadonlySet<string> {
+  return new Set(
+    port
+      .pages()
+      .filter((page) => !isEmpty(page))
+      .map(({ pageId }) => pageId),
+  );
+}
+
+/**
+ * Each language's versions of a site linked to each other (T230c), as the site build linked
+ * its first language's pages (T230b): every page of a language lists that language's pages,
+ * each under the name its own translated menu gives it (`menuLabelOf`), its own marked
+ * current. A language whose pages do not all name themselves is left as the host relinked
+ * it; nothing is written while another run holds the lease.
+ */
+function linkVersions(flow: Flow, versions: readonly LanguagePage[]): void {
+  const label = siteLabels(flow.env().options.locale).linked;
+  for (const lang of new Set(versions.map((page) => page.lang))) {
+    const pages = versions.filter((page) => page.lang === lang);
+    const named = pages.map((page) => ({
+      page,
+      label: menuLabelOf(page.kernel, page.address),
+    }));
+    if (pages.length < 2 || named.some(({ label: name }) => name === undefined)) continue;
+    const links = named.map(({ page, label: name }) => ({ label: name ?? '', href: page.address }));
+    for (const page of pages) {
+      if (flow.runtime.lease !== null) return;
+      try {
+        linkSitePages({
+          kernel: page.kernel,
+          pages: links,
+          current: page.address,
+          label,
+          validationPorts: preflightPorts(),
+        });
+      } catch {
+        // A page the door refuses keeps the links the host gave it.
+      }
+    }
   }
 }
 
@@ -76,6 +134,8 @@ async function runVersions(
   const tags = intent.languages.map(({ tag }) => tag);
   const first = intent.languages[0];
   let built = false;
+  // T230c: the pages the build wrote; more than one is a site, versioned page by page.
+  let wrote: readonly string[] = [];
   if (first !== undefined && (isEmpty(port.pages()[0]) || route.kind.startsWith('build'))) {
     // The page is written in the first language named; the others become its versions.
     const others = intent.languages.slice(1).map(({ english }) => english);
@@ -83,11 +143,18 @@ async function runVersions(
     const build: IntentRoute = route.kind.startsWith('build')
       ? route
       : { kind: 'build-page', confidence: 1, reason: 'A site in several languages, built first.' };
+    const before = written(port);
     await runPage(flow, { ...outgoing, request }, placement, build, 'auto');
     if (isEmpty(port.pages()[0])) return;
     built = true;
+    wrote = [...written(port)].filter((pageId) => !before.has(pageId));
   }
-  const result = port.add({ languages: tags, scope: built ? 'page' : intent.scope });
+  const site = route.kind === 'build-site' && wrote.length > 1;
+  const result = port.add({
+    languages: tags,
+    scope: site ? 'site' : built ? 'page' : intent.scope,
+    ...(site ? { pages: wrote } : {}),
+  });
   const said = built ? null : outgoing;
   if (result.created.length === 0) {
     const names = result.existing.map(({ lang }) => labels.name(lang));
@@ -104,7 +171,8 @@ async function runVersions(
       result.created.map(({ address }) => address),
     ),
   );
-  await translateEach(flow, placement, result.created, (page) => page.lang);
+  const translated = await translateEach(flow, placement, result.created, (page) => page.lang);
+  if (site && translated) linkVersions(flow, [...result.created, ...result.existing]);
 }
 
 async function runSiteTranslation(

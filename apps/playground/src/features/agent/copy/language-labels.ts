@@ -13,7 +13,7 @@ export interface LanguageLabels {
   readonly name: (tag: string) => string;
   /** The request each version's translation is sent as (the person's turn). */
   readonly translate: (language: string, address: string) => string;
-  /** After versions were added: which, where, and what happens next. */
+  /** After versions were added: which, where, and what happens next (one noun per page, T230c). */
   readonly added: (languages: readonly string[], addresses: readonly string[]) => string;
   /** Every version asked for was already there. */
   readonly already: (languages: readonly string[]) => string;
@@ -32,7 +32,7 @@ const EN: LanguageLabels = {
   name: (tag) => siteLanguage(tag)?.english ?? tag,
   translate: (language, address) => `Translate this page to ${language} (${address}).`,
   added: (languages, addresses) =>
-    `Added the ${list(languages, ', ', ' and ')} ${languages.length === 1 ? 'version' : 'versions'}: ${addresses.join(', ')}. Every version is linked to the others for search and has a language switcher. Translating ${addresses.length === 1 ? 'it' : 'them'} now, one page at a time.`,
+    `Added the ${list(languages, ', ', ' and ')} ${addresses.length === 1 ? 'version' : 'versions'}: ${addresses.join(', ')}. Every version is linked to the others for search and has a language switcher. Translating ${addresses.length === 1 ? 'it' : 'them'} now, one page at a time.`,
   already: (languages) =>
     `The ${list(languages, ', ', ' and ')} ${languages.length === 1 ? 'version already exists' : 'versions already exist'}. Ask me to translate or change ${languages.length === 1 ? 'it' : 'them'}.`,
   translatingSite: (language, pages) =>
@@ -45,7 +45,7 @@ const AR: LanguageLabels = {
   name: (tag) => siteLanguage(tag)?.arabic ?? tag,
   translate: (language, address) => `ترجم هذه الصفحة إلى ${language} (${address}).`,
   added: (languages, addresses) =>
-    `أضفت ${languages.length === 1 ? 'النسخة' : 'النسخ'} ${list(languages, '، ', ' و')}: ${addresses.join('، ')}. كل نسخة مرتبطة بالأخرى لمحركات البحث وفيها مبدّل للغة. أترجمها الآن، صفحة بعد صفحة.`,
+    `أضفت ${addresses.length === 1 ? 'النسخة' : 'النسخ'} ${list(languages, '، ', ' و')}: ${addresses.join('، ')}. كل نسخة مرتبطة بالأخرى لمحركات البحث وفيها مبدّل للغة. أترجمها الآن، صفحة بعد صفحة.`,
   already: (languages) =>
     `${languages.length === 1 ? 'النسخة' : 'النسخ'} ${list(languages, '، ', ' و')} موجودة من قبل. اطلب مني ترجمتها أو تعديلها.`,
   translatingSite: (language, pages) =>

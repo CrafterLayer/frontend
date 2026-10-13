@@ -28,6 +28,15 @@ describe('sitePlanFromRequest — the pages a request names or counts', () => {
     ['Build a 3-page website with a pricing page', ['Home', 'Pricing', 'About']],
     ['Build a 4-page website: modern, clean and fast', ['Home', 'About', 'Services', 'Contact']],
     ['Build a site with contact, home and faq pages', ['Home', 'Contact', 'FAQ']],
+    // T230c: the languages a bilingual site is asked in are not pages.
+    [
+      'Build a 3-page website: home, about, contact, in English and Arabic',
+      ['Home', 'About', 'Contact'],
+    ],
+    [
+      'Build a website with home, about and contact pages in Arabic and English',
+      ['Home', 'About', 'Contact'],
+    ],
   ])('%s', (request, expected) => {
     expect(titles(request)).toEqual(expected);
   });
@@ -40,6 +49,10 @@ describe('sitePlanFromRequest — the pages a request names or counts', () => {
     ['اعمل موقع لمخبزي من 4 صفحات', ['الرئيسية', 'من نحن', 'الخدمات', 'تواصل معنا']],
     ['سوي موقع فيه صفحة رئيسية ومن نحن وخدماتنا وتواصل', ['رئيسية', 'من نحن', 'خدماتنا', 'تواصل']],
     ['اعمل موقع من صفحتين: من نحن والخدمات', ['من نحن', 'الخدمات']],
+    [
+      'اعمل موقع من 3 صفحات: الرئيسية، من نحن، تواصل بالعربي والإنجليزي',
+      ['الرئيسية', 'من نحن', 'تواصل'],
+    ],
     ['أريد موقعًا من ثلاث صفحات لعيادتي', ['الرئيسية', 'من نحن', 'الخدمات']],
     ['صمم موقع بصفحات الرئيسية والوظائف والمدونة', ['الرئيسية', 'الوظائف', 'المدونة']],
   ])('%s', (request, expected) => {

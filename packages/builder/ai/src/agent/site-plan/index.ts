@@ -1,4 +1,4 @@
-export { linkSitePages, type LinkSitePagesOptions } from './link-pages';
+export { linkSitePages, menuLabelOf, type LinkSitePagesOptions } from './link-pages';
 export { sitePlanFromRequest, type SiteFromWordsOptions } from './site-from-words';
 export {
   planAiSite,

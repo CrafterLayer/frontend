@@ -4,7 +4,7 @@ import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import type { JsonValue } from '@craftkit/builder-schema';
 
-import { linkSitePages } from '../../../agent/site-plan/link-pages';
+import { linkSitePages, menuLabelOf } from '../../../agent/site-plan/link-pages';
 import { parseTreeMarkup, serializeTreeMarkup } from '../../../plan/tree-markup';
 import {
   agentToolsFixtureBlocks,
@@ -136,6 +136,22 @@ describe('nav.pages — the menus', () => {
     // Nothing to do the second time.
     const again = navPagesTool.run({ pages: PAGES, current: '/contact' }, liveContext(kernel));
     expect(again.ok).toBe(true);
+  });
+
+  it('never takes a language switcher for the menu (T230c)', () => {
+    const kernel = pageWith(
+      "<header><a class='ck-link' href='#top'>Brew</a><nav><a class='ck-link' href='/'>Home</a><a class='ck-link' href='/contact'>Contact</a></nav><nav><a lang='en' href='/' aria-current='page'>English</a><a lang='ar' href='/ar'>العربية</a></nav></header>",
+      '<footer><p>© Brew</p></footer>',
+    );
+    const result = expandAndValidate(kernel, 'nav.pages', { pages: PAGES, current: '/' });
+    expect(result.issues).toEqual([]);
+    const header = trees(result).get('r-header') ?? '';
+    expect(header).toContain("href='/about-us'>About us</a>");
+    expect(header).toContain(
+      "<nav><a aria-current='page' href='/' lang='en'>English</a><a href='/ar' lang='ar'>العربية</a></nav>",
+    );
+    expect(menuLabelOf(kernel, '/contact')).toBe('Contact');
+    expect(menuLabelOf(kernel, '/ar')).toBeUndefined();
   });
 
   it('leaves a page without a menu as it is', () => {

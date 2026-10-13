@@ -8,8 +8,10 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { Transaction } from '@craftkit/builder-schema';
 
+import { pageContext } from '../../i18n-tools/language-set';
 import { applyAiPlan } from '../../plan/apply-plan';
 import { expandAgentTools } from '../../tools/agent/expand';
+import { isElement, readTree, regionIds, topElement, treeNodes } from '../../tools/agent/shared';
 import { AGENT_TOOL_COMMAND } from '../../tools/agent/types';
 import type { AiPlan, AiValidationPorts } from '../../types';
 
@@ -57,4 +59,31 @@ export function linkSitePages(options: LinkSitePagesOptions): Transaction | null
     label,
   });
   return applied.transactions[0] ?? null;
+}
+
+/**
+ * The words this page's header menu (else its footer list) shows for `href`, or undefined
+ * when no menu link points there (T230c, 2026-10-12). A translated version names itself in
+ * its own language this way: its menu was translated with the page, so its own link carries
+ * the page's translated name, which every page of that language then shows for it. A
+ * language switcher's links (they carry `lang`) never count.
+ */
+export function menuLabelOf(kernel: BuilderKernel, href: string): string | undefined {
+  const context = pageContext(kernel);
+  const regions = regionIds(context).flatMap((id) => {
+    const tree = readTree(context, id);
+    return tree === undefined ? [] : [{ tree, tag: topElement(tree)?.tag }];
+  });
+  for (const tag of ['header', 'footer']) {
+    for (const region of regions) {
+      if (region.tag !== tag) continue;
+      for (const node of treeNodes(region.tree)) {
+        if (!isElement(node) || node.tag !== 'a') continue;
+        if (node.attributes?.['href'] !== href || node.attributes['lang'] !== undefined) continue;
+        const words = (node.text ?? '').replace(/\s+/gu, ' ').trim();
+        if (words !== '') return words;
+      }
+    }
+  }
+  return undefined;
 }

@@ -45,10 +45,15 @@ export interface LanguageVersionsResult {
 }
 
 export interface LanguageVersionsPort {
-  /** Adds the versions asked for: of the open page (`page`) or of every page (`site`). */
+  /**
+   * Adds the versions asked for: of the open page (`page`) or of every page (`site`). With
+   * `pages` (T230c), a site's versions are made of those pages alone (by id): the pages a site
+   * build just wrote, never the pages the person had before it.
+   */
   readonly add: (request: {
     readonly languages: readonly string[];
     readonly scope: 'page' | 'site';
+    readonly pages?: readonly string[] | undefined;
   }) => LanguageVersionsResult;
   /** Every page that is not itself a version, the open one first (a whole-site translation). */
   readonly pages: () => readonly LanguagePage[];
@@ -116,12 +121,12 @@ export function createLanguageVersions(siteKernel: BuilderSiteKernel): LanguageV
     return siteKernel.getSite().pages.find((page) => !before.has(page.id));
   };
 
-  const add: LanguageVersionsPort['add'] = ({ languages, scope }) => {
+  const add: LanguageVersionsPort['add'] = ({ languages, scope, pages: only }) => {
     const site = siteKernel.getSite();
     const open = site.pages.find((page) => page.id === siteKernel.currentPage());
     const sources =
       scope === 'site'
-        ? site.pages.filter((page) => !isVersion(page))
+        ? site.pages.filter((page) => !isVersion(page) && (only?.includes(page.id) ?? true))
         : open === undefined
           ? []
           : [sourceOf(open)];

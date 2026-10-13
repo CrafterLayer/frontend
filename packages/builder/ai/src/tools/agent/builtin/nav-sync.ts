@@ -14,6 +14,7 @@ import {
   type TreeElementNode,
   type TreeNode,
 } from '../shared';
+import { IN_PAGE, itemFrom, LIST_TAGS, menuLinkOf, menuRun, repointed } from './nav-menu';
 import {
   defineAgentTool,
   type AgentToolContext,
@@ -45,53 +46,10 @@ interface NavTarget {
   readonly anchor: string;
 }
 
-const LIST_TAGS = new Set(['nav', 'ul', 'ol']);
-
-/** An in-page link that is a menu entry: not the brand's `#top`, not the page's action button. */
-function isMenuLink(node: TreeNode): node is TreeElementNode {
-  if (!isElement(node) || node.tag !== 'a') return false;
-  const href = node.attributes?.['href'] ?? '';
-  return (
-    href.startsWith('#') &&
-    href !== '#' &&
-    href !== '#top' &&
-    !/\bck-btn\b/u.test(node.className ?? '')
-  );
-}
-
-/** The menu link an item is (`a`) or wraps alone (`li > a`), else undefined. */
-function menuLinkOf(node: TreeNode): TreeElementNode | undefined {
-  if (isMenuLink(node)) return node;
-  if (!isElement(node) || node.tag !== 'li') return undefined;
-  const links = treeNodes({ kind: 'root', children: node.children ?? [] }).filter(
-    (child) => isElement(child) && child.tag === 'a',
-  );
-  const only = links[0];
-  return links.length === 1 && only !== undefined && isMenuLink(only) ? only : undefined;
-}
-
-/** The link re-pointed: new words and anchor, icons kept, old text spans dropped. */
-function pointed(link: TreeElementNode, target: NavTarget): TreeElementNode {
-  const rest: TreeElementNode = {
-    tag: link.tag,
-    kind: link.kind,
-    ...(link.className === undefined ? {} : { className: link.className }),
-  };
-  const icons = (link.children ?? []).filter((child) => !isElement(child));
-  return {
-    ...rest,
-    text: target.label,
-    attributes: { ...(link.attributes ?? {}), href: `#${target.anchor}` },
-    ...(icons.length === 0 ? {} : { children: icons }),
-  };
-}
-
-function itemFor(template: TreeElementNode, target: NavTarget): TreeElementNode {
-  if (isMenuLink(template)) return pointed(template, target);
-  const next = mapTree({ kind: 'root', children: [template] }, (node) =>
-    isMenuLink(node) ? pointed(node, target) : node,
-  );
-  return next.children[0] as TreeElementNode;
+// The menu's finding and re-pointing are nav-menu.ts's, shared with nav.pages (T230b).
+function retarget(target: NavTarget): (link: TreeElementNode) => TreeElementNode {
+  return (link) =>
+    repointed(link, target.label, { ...(link.attributes ?? {}), href: `#${target.anchor}` });
 }
 
 /**
@@ -107,19 +65,12 @@ function rebuilt(
 ): TreeNode {
   if (!isElement(node) || node.children === undefined) return node;
   const children = node.children;
-  const first = children.findIndex((child) => menuLinkOf(child) !== undefined);
-  if (first < 0) return node;
-  let last = first;
-  for (
-    let next = children[last + 1];
-    next !== undefined && menuLinkOf(next) !== undefined;
-    next = children[last + 1]
-  ) {
-    last += 1;
-  }
+  const found = menuRun(children, IN_PAGE);
+  if (found === undefined) return node;
+  const { first, last } = found;
   const run = children.slice(first, last + 1);
   const pointsHome = run.some((item) =>
-    anchors.has((menuLinkOf(item)?.attributes?.['href'] ?? '').slice(1)),
+    anchors.has((menuLinkOf(item, IN_PAGE)?.attributes?.['href'] ?? '').slice(1)),
   );
   if (!pointsHome || (run.length < 2 && !LIST_TAGS.has(node.tag))) return node;
   const template = run[0] as TreeElementNode;
@@ -127,7 +78,7 @@ function rebuilt(
     ...node,
     children: [
       ...children.slice(0, first),
-      ...targets.map((target) => itemFor(template, target)),
+      ...targets.map((target) => itemFrom(template, IN_PAGE, retarget(target))),
       ...children.slice(last + 1),
     ],
   };

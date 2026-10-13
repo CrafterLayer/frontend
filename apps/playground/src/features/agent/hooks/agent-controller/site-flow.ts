@@ -16,6 +16,10 @@
  *   head, and all of them share ONE writers' pool: the person's worker count (1, 3 or 6)
  *   is how many sections are written at a time across the whole site, never per page.
  * - One lease, claimed once and given back once: Stop ends every page.
+ * - T230b: once every page has settled, each page that was built gets its header menu and
+ *   footer link list pointed at the site's built pages (`linkSitePages`, the `nav.pages`
+ *   tool), the page's own link marked current: one labelled AI transaction per page, part
+ *   of that page's record. A page with no menu is left as it is.
  */
 import {
   type AiSitePlan,
@@ -23,6 +27,7 @@ import {
   type BuilderKernel,
   createAiWriterPool,
   DEFAULT_AI_BUILD_BUDGET_MS,
+  linkSitePages,
   planAiSite,
   sitePlanFromRequest,
   summarizeDocumentForIntent,
@@ -30,6 +35,8 @@ import {
 
 import { siteLabels } from '../../copy/site-labels';
 import { initialBuildProgress, landedCount } from '../../model/build-progress';
+import { preflightPorts } from '../../model/runs';
+import { agentScriptSiteFor } from '../../model/script-site';
 import type { AnswerTurn, BuildTurn } from '../../model/turns';
 import type { AssistantMode } from '../../model/view-types';
 
@@ -128,23 +135,43 @@ function pageRecord(env: Env, run: SitePageRun, now: number): BuildTurn {
   };
 }
 
+/** A page a site is built on, and where it lives when the host says (T230b). */
+interface OpenedPage {
+  readonly kernel: BuilderKernel;
+  readonly address?: string | undefined;
+}
+
+/** The address of the page on screen, from the site the host hands the panel; "/" without one. */
+function addressOnScreen(kernel: BuilderKernel): string {
+  try {
+    return (
+      agentScriptSiteFor(kernel)
+        ?.pages()
+        .find((page) => page.current)?.slug ?? '/'
+    );
+  } catch {
+    return '/';
+  }
+}
+
 /**
- * The kernel each page is built on: the page on screen for the home page when it takes it,
- * else a page the host opens (the home page made current, the others not). Null for a page
- * a Stop came before; the error for a page the host could not open.
+ * The kernel each page is built on: the page on screen for the home page when it takes it
+ * (and keeps its address), else a page the host opens (the home page made current, the
+ * others not). Null for a page a Stop came before; the error for a page the host could not
+ * open.
  */
 async function openPage(
   flow: Flow,
   slot: Slot,
   index: number,
   run: SitePageRun,
-): Promise<BuilderKernel | Error | null> {
+): Promise<OpenedPage | Error | null> {
   const { kernel, addPage } = flow.env().options;
   if (slot.controller.signal.aborted) return null;
-  if (index === 0 && takesHome(kernel)) return kernel;
+  if (index === 0 && takesHome(kernel)) return { kernel, address: addressOnScreen(kernel) };
   if (addPage === undefined) return new Error('This host cannot open a page.');
   try {
-    return (await addPage(run.title, index === 0 ? {} : { current: false })).kernel;
+    return await addPage(run.title, index === 0 ? {} : { current: false });
   } catch (cause) {
     return cause instanceof Error ? cause : new Error(String(cause));
   }
@@ -169,7 +196,7 @@ async function buildSite(
   slot: Slot,
   site: { readonly id: string; readonly plan: AiSitePlan; readonly mode: AssistantMode },
   history: ReturnType<typeof historyFor>,
-): Promise<readonly SitePageRun[]> {
+): Promise<readonly SitePageBuilt[]> {
   const env = flow.env();
   const runs = site.plan.pages.map((page, index): SitePageRun => ({
     turnId: env.sessions.nextId('turn'),
@@ -207,10 +234,12 @@ async function buildSite(
   };
   const hold = heldPages(flow, slot);
   const builds: Promise<void>[] = [];
+  const opened: (OpenedPage | undefined)[] = [];
   try {
     for (const [index, run] of runs.entries()) {
-      const kernel = await openPage(flow, slot, index, run);
-      if (kernel === null) {
+      const page = await openPage(flow, slot, index, run);
+      opened.push(page instanceof Error || page === null ? undefined : page);
+      if (page === null) {
         patchTurn(flow, slot.sessionId, run.turnId, () => ({
           id: run.turnId,
           kind: 'end',
@@ -218,10 +247,11 @@ async function buildSite(
         }));
         continue;
       }
-      if (kernel instanceof Error) {
-        failBuild(flow, slot, run.turnId, null, run.request, kernel);
+      if (page instanceof Error) {
+        failBuild(flow, slot, run.turnId, null, run.request, page);
         continue;
       }
+      const { kernel } = page;
       ledger.follow(kernel);
       builds.push(
         buildPage(flow, slot, {
@@ -241,7 +271,50 @@ async function buildSite(
     ledger.dispose();
     slot.controller.signal.removeEventListener('abort', stopping);
   }
-  return runs;
+  return runs.map((run, index) => {
+    const page = opened[index];
+    return page === undefined ? { run } : { run, page };
+  });
+}
+
+/** One page of the site after its build: its record, and the page it was built on. */
+interface SitePageBuilt {
+  readonly run: SitePageRun;
+  readonly page?: OpenedPage;
+}
+
+/**
+ * Point every built page's menus at the site's built pages (T230b): one AI transaction per
+ * page, labelled in the person's language and added to that page's record, so its Undo
+ * build takes it too. A page with no menu, or one the door refuses, keeps its own menus.
+ */
+function linkBuiltPages(flow: Flow, slot: Slot, built: readonly SitePageBuilt[]): void {
+  const linked = built.flatMap(({ run, page }) =>
+    page?.address === undefined ? [] : [{ run, kernel: page.kernel, href: page.address }],
+  );
+  if (linked.length < 2 || slot.controller.signal.aborted) return;
+  const pages = linked.map(({ run, href }) => ({ label: run.title, href }));
+  const label = siteLabels(flow.env().options.locale).linked;
+  for (const { run, kernel, href } of linked) {
+    let tx: ReturnType<typeof linkSitePages>;
+    try {
+      tx = linkSitePages({
+        kernel,
+        pages,
+        current: href,
+        label,
+        validationPorts: preflightPorts(),
+      });
+    } catch {
+      continue;
+    }
+    if (tx === null) continue;
+    const id = tx.id;
+    patchKind(flow, slot.sessionId, run.turnId, 'build', (turn) => ({
+      ...turn,
+      transactionIds: [...(turn.transactionIds ?? []), id],
+    }));
+  }
 }
 
 /**
@@ -294,15 +367,18 @@ export async function runSite(
     }
     const titles = plan.pages.map(({ title }) => title);
     patchTurn(flow, slot.sessionId, siteId, () => line(labels.building(titles)));
-    const runs = await buildSite(flow, slot, { id: siteId, plan, mode }, history);
+    const pages = await buildSite(flow, slot, { id: siteId, plan, mode }, history);
+    const runs = pages.map(({ run }) => run);
     // Built as its record says "Page built": completed, with sections on the page.
     const records = runs.map((run) => locateTurn(flow, run.turnId)?.turn);
     const landed = (turn: (typeof records)[number]): number =>
       turn?.kind === 'build' ? landedCount(turn.progress) : 0;
-    const built = runs.filter((_, index) => {
+    const complete = pages.filter((_, index) => {
       const turn = records[index];
       return turn?.kind === 'build' && turn.progress.phase === 'completed' && landed(turn) > 0;
     });
+    linkBuiltPages(flow, slot, complete);
+    const built = complete.map(({ run }) => run);
     const last = runs.at(-1)?.turnId ?? siteId;
     if (built.length > 0) {
       const text = labels.built(

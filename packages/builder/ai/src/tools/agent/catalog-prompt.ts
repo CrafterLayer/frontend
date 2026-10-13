@@ -33,11 +33,13 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // creative-power F (2026-10-12): edit 2460 → 3250 and section 1200 → 1976, measured (3,247 and
 // 1,973): scene.preset's signature and its preset line (the 30 ids by category, +789); every other
 // tool keeps the shape it had. Not in build: +789 does not fit its 1,270 (a 62% rise for one tool).
+// T230b (2026-10-12): edit 3250 → 3294, measured: nav.pages at its signature (+47). At 3,250 it
+// pushed kit.section and image.set down to bare names; every other tool keeps the shape it had.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
   build: 1_270,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
   section: 1_976,
-  edit: 3_250,
+  edit: 3_294,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 

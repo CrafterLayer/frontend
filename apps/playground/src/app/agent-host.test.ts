@@ -15,6 +15,7 @@ import {
   nextPageAddress,
   pageOpener,
   planModelChoice,
+  slugAddress,
 } from './agent-host';
 
 describe('agentPanelFromEnv', () => {
@@ -125,6 +126,38 @@ describe('pageOpener', () => {
     expect(created?.title).toBe('Services');
     expect(siteKernel.currentPage()).toBe(current);
     expect(kernel).toBe(siteKernel.page(created?.id ?? ''));
+  });
+
+  it('gives a page a readable address from a Latin title, and hands it back (T230b)', async () => {
+    const siteKernel = site();
+    const opened = await pageOpener(siteKernel)('About us', { current: false });
+    expect(opened.address).toBe('/about-us');
+    expect(siteKernel.getSite().pages.at(-1)?.address).toBe('/about-us');
+    const again = await pageOpener(siteKernel)('About us', { current: false });
+    expect(again.address).toBe('/about-us-2');
+    const arabic = await pageOpener(siteKernel)('من نحن', { current: false });
+    expect(arabic.address).toMatch(/^\/page-\d+$/u);
+  });
+
+  it.each([
+    ['About us', [], '/about-us'],
+    ['Café & Bar', [], '/cafe-bar'],
+    ['  FAQ!  ', [], '/faq'],
+    ['Services', ['/services', '/services-2'], '/services-3'],
+    ['Our menu 2024', [], '/our-menu-2024'],
+    ['من نحن', [], undefined],
+    ['Menu قائمة', [], undefined],
+    ['!!!', [], undefined],
+  ] as const)('slugAddress(%j) → %s', (title, taken, address) => {
+    expect(slugAddress(title, taken)).toBe(address);
+  });
+
+  it('cuts a long title back to a whole word', () => {
+    const address = slugAddress(
+      'Build me a beautiful landing page for my specialty coffee roastery in Amman',
+      [],
+    );
+    expect(address).toBe('/build-me-a-beautiful-landing-page-for-my');
   });
 
   it('picks the first free /page-N address', () => {

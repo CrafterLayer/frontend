@@ -11,9 +11,11 @@ import { describe, expect, it } from 'vitest';
 import type { AgentController, BuildRecordView, TurnView } from '../model/view-types';
 import {
   createBuildKernel,
+  createPlanKernel,
   deferred,
   type Deferred,
   memoryStorage,
+  planningProvider,
   regionList,
 } from '../testing/scripted-engine';
 import { useAgentController, type UseAgentControllerOptions } from './use-agent-controller';
@@ -123,6 +125,38 @@ function answers(c: () => AgentController): string[] {
   return c().state.turns.flatMap((turn: TurnView) =>
     turn.kind === 'answer' ? [turn.view.text] : [],
   );
+}
+
+/** The menu links a page's header and footer hold: their addresses, and which is current. */
+function menuLinks(kernel: BuilderKernel) {
+  const document = kernel.getDocument();
+  const regions = document.nodes[document.rootId]?.slots?.['default'] ?? [];
+  const linksIn = (tag: string) => {
+    const links: { href: string; current: boolean }[] = [];
+    for (const id of regions) {
+      const tree = document.nodes[id]?.props['tree'] as { children?: unknown[] } | undefined;
+      const top = tree?.children?.[0] as { tag?: string } | undefined;
+      if (top?.tag !== tag) continue;
+      const walk = (node: unknown, inMenu: boolean): void => {
+        const element = node as {
+          tag?: string;
+          attributes?: Record<string, string>;
+          children?: unknown[];
+        };
+        const menu = inMenu || element.tag === 'nav';
+        const href = element.attributes?.['href'];
+        // The inline nav only: the phone sheet repeats it (a popover) and is skipped.
+        if (element.tag === 'nav' && element.attributes?.['popover'] !== undefined) return;
+        if (menu && element.tag === 'a' && href?.startsWith('/') === true) {
+          links.push({ href, current: element.attributes?.['aria-current'] === 'page' });
+        }
+        for (const child of element.children ?? []) walk(child, menu);
+      };
+      walk(top, false);
+    }
+    return links;
+  };
+  return { header: linksIn('header'), footer: linksIn('footer') };
 }
 
 const LIVE = new Set(['skeleton', 'building', 'stopping']);
@@ -280,6 +314,42 @@ describe('useAgentController: a site build', () => {
       ['Contact', 'done'],
     ]);
     expect(answers(c).at(-1)).toBe('Built all 4 pages: Home, About, Services, and Contact.');
+  }, 60_000);
+
+  it('links every built page from every page’s header and footer, its own page marked (T230b)', async () => {
+    const home = createPlanKernel();
+    const kernels: BuilderKernel[] = [home];
+    const addresses = ['/'];
+    const addPage: NonNullable<UseAgentControllerOptions['addPage']> = (title) => {
+      const kernel = createPlanKernel();
+      const address = `/${title.toLowerCase()}`;
+      kernels.push(kernel);
+      addresses.push(address);
+      return Promise.resolve({ kernel, address });
+    };
+    const { c } = mount({ kernel: home, provider: planningProvider(), addPage, locale: 'ar' });
+
+    ask(c, SITE_REQUEST);
+    await waitFor(() => {
+      expect(builds(c)).toHaveLength(4);
+    }, WAIT);
+    await settled(c);
+
+    expect(builds(c).map((view) => view.phase)).toEqual(['done', 'done', 'done', 'done']);
+    expect(addresses).toEqual(['/', '/about', '/services', '/contact']);
+    for (const [index, kernel] of kernels.entries()) {
+      const links = menuLinks(kernel);
+      // The header's menu and the footer's list both name every page, this one current.
+      expect(links.header.map(({ href }) => href)).toEqual(addresses);
+      expect(links.footer.map(({ href }) => href)).toEqual(addresses);
+      for (const list of [links.header, links.footer]) {
+        expect(list.filter(({ current }) => current).map(({ href }) => href)).toEqual([
+          addresses[index],
+        ]);
+      }
+      // One more AI entry in the page's history, in the person's language.
+      expect(kernel.transactions().at(-1)?.command).toBe('المساعد: ربط صفحات الموقع');
+    }
   }, 60_000);
 
   it('without a host that opens pages, builds one page and says so (siteAsOnePage)', async () => {

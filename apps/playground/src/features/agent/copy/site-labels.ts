@@ -20,6 +20,8 @@ export interface SiteLabels {
   readonly built: (built: readonly string[], total: number) => string;
   /** Between a page's name and its record's state, in the record's head ("About: Page built"). */
   readonly pageSeparator: string;
+  /** The history entry that links a built site's pages from each page's menus (T230b). */
+  readonly linked: string;
 }
 
 const EN: SiteLabels = {
@@ -31,6 +33,7 @@ const EN: SiteLabels = {
       ? `Built all ${String(total)} pages: ${formatList('en', built)}.`
       : `Built ${String(built.length)} of ${String(total)} pages: ${formatList('en', built)}.`,
   pageSeparator: ': ',
+  linked: "Assistant: link the site's pages",
 };
 
 const AR: SiteLabels = {
@@ -42,6 +45,7 @@ const AR: SiteLabels = {
       ? `بُنيت صفحات الموقع كلها: ${formatList('ar', built)}.`
       : `بُنيت ${arabicCount(built.length, AR_PAGES)} من ${String(total)}: ${formatList('ar', built)}.`,
   pageSeparator: ': ',
+  linked: 'المساعد: ربط صفحات الموقع',
 };
 
 export function siteLabels(locale: Locale): SiteLabels {

@@ -5,6 +5,7 @@ import { directionSetTool } from './direction-set';
 import { fontsSetTool } from './fonts-set';
 import { iconSetTool } from './icon-set';
 import { imageSetTool } from './image-set';
+import { navPagesTool } from './nav-pages';
 import { navSyncTool } from './nav-sync';
 import { sectionOpsTool } from './section-ops';
 import { themeApplyTool } from './theme-apply';
@@ -19,6 +20,8 @@ export const BUILTIN_AGENT_TOOLS: readonly AgentTool[] = Object.freeze([
   iconSetTool,
   sectionOpsTool,
   navSyncTool,
+  // T230b (2026-10-12): a built site's pages, linked from every page's menus.
+  navPagesTool,
   behaviorAttachTool,
 ] as readonly AgentTool[]);
 
@@ -29,6 +32,7 @@ export {
   fontsSetTool,
   iconSetTool,
   imageSetTool,
+  navPagesTool,
   navSyncTool,
   sectionOpsTool,
   themeApplyTool,

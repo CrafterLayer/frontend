@@ -61,13 +61,14 @@ export interface UseAgentControllerOptions {
    * Opens a new page for a "new page" request and hands back its kernel; the build then
    * lands there. Absent: the page is built below this one, and the thread says so. A site
    * build (T230) opens each further page with `{ current: false }`: the page the person is
-   * watching stays current while the others are built.
+   * watching stays current while the others are built. `address` is where the page lives
+   * ("/about-us"), so a site build can link its pages from every page's menus (T230b).
    */
   readonly addPage?:
     | ((
         title: string,
         open?: { readonly current?: boolean },
-      ) => Promise<{ readonly kernel: BuilderKernel }>)
+      ) => Promise<{ readonly kernel: BuilderKernel; readonly address?: string | undefined }>)
     | undefined;
   /**
    * The site's language versions (2026-10-12): a request for the site in several languages

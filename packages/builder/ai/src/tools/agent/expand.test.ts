@@ -89,7 +89,7 @@ describe('agentToolPrompt', () => {
   });
   // Recipe guidance keeps edit/section bounded while retaining existing signatures.
   it('stays within its lane cap and shows one example step', () => {
-    expect(agentToolPromptMaxChars('edit')).toBe(3_250);
+    expect(agentToolPromptMaxChars('edit')).toBe(3_294);
     expect(agentToolPromptMaxChars('section')).toBe(1_976);
     expect(agentToolPromptMaxChars('build')).toBe(1_270);
     expect(agentToolPromptMaxChars('seo')).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);

@@ -109,6 +109,32 @@ export function nextPageAddress(addresses: readonly string[]): string {
   return `/page-${String(index)}`;
 }
 
+/** The longest slug an address takes from a title, cut back to a whole word. */
+const MAX_SLUG = 48;
+
+/**
+ * A page's address from its title (T230b, 2026-10-12), so a built site's menus link
+ * readable pages: a Latin title in lower case, every run of anything else one hyphen
+ * ("About us" → `/about-us`, "Café & Bar" → `/cafe-bar`), unique among `addresses`
+ * (`/about-us-2`). `undefined` for a title in any other script («من نحن»), which keeps
+ * the site's `/page-N` (`nextPageAddress`).
+ */
+export function slugAddress(title: string, addresses: readonly string[]): string | undefined {
+  const plain = title.normalize('NFKD').replace(/\p{M}/gu, '');
+  if (/(?!\p{Script=Latin})\p{L}/u.test(plain)) return undefined;
+  const words = plain
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+  const cut = words.length <= MAX_SLUG ? words : words.slice(0, MAX_SLUG).replace(/-[^-]*$/u, '');
+  if (cut === '') return undefined;
+  let address = `/${cut}`;
+  for (let suffix = 2; addresses.includes(address); suffix += 1) {
+    address = `/${cut}-${String(suffix)}`;
+  }
+  return address;
+}
+
 /**
  * The panel's `addPage`: a "new page" request opens a page on the site, titled from the
  * request, makes it the current page and hands the build its lens. The same two steps
@@ -116,14 +142,16 @@ export function nextPageAddress(addresses: readonly string[]): string {
  * `ai` so the change strip says who opened it. A refused command rejects, and the panel
  * then builds below the current page and says so. A site build (T230) opens its further
  * pages with `{ current: false }`, so the page the person watches (the home page) stays
- * current while the others are written beside it.
+ * current while the others are written beside it. The page's address comes from its title
+ * when it is Latin (`slugAddress`), else `/page-N`, and is handed back with the lens so a
+ * site build can link its pages (T230b).
  */
 export function pageOpener(
   siteKernel: BuilderSiteKernel,
 ): (
   title: string,
   open?: { readonly current?: boolean },
-) => Promise<{ readonly kernel: BuilderKernel }> {
+) => Promise<{ readonly kernel: BuilderKernel; readonly address: string }> {
   // script-wiring additions
   /*
     The panel's site hand-off for code mode (agent-script DESIGN §A.9): the opener is the
@@ -137,12 +165,13 @@ export function pageOpener(
     try {
       const pages = siteKernel.getSite().pages;
       const before = new Set(pages.map((page) => page.id));
-      const address = nextPageAddress(pages.map((page) => page.address));
+      const taken = pages.map((page) => page.address);
+      const address = slugAddress(title, taken) ?? nextPageAddress(taken);
       siteKernel.dispatch('addPage', { address, title }, 'ai');
       const created = siteKernel.getSite().pages.find((page) => !before.has(page.id));
       if (created === undefined) return Promise.reject(new Error('The new page did not appear.'));
       if (open.current !== false) siteKernel.setCurrentPage(created.id);
-      return Promise.resolve({ kernel: siteKernel.page(created.id) });
+      return Promise.resolve({ kernel: siteKernel.page(created.id), address: created.address });
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }

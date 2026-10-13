@@ -315,8 +315,8 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     key: 'geom',
     pixiBound: false,
     purpose: {
-      en: 'Mural geometry as flat polygons for Graphics.poly: terraced contour bands and isolines of any grid (d3-contour), cut, joined and clipped shapes (polybooljs), relaxed Voronoi mosaics with grout trimmed to an arch, ribbons, insets, smoothing, round, pointed or horseshoe arches, and Bézier curves with offsets and tapered outlines (Bezier.js, vendored) for brush strokes and rivers.',
-      ar: 'هندسة الجداريات كمضلعات مسطحة لـ Graphics.poly: أشرطة كنتور متدرجة وخطوط تساوٍ لأي شبكة (d3-contour)، وأشكال تُقص وتُدمج وتُقتطع (polybooljs)، وفسيفساء فورونوي مُرخاة بفواصل ومقصوصة على قوس، وأشرطة، وإزاحة للداخل، وتنعيم، وأقواس دائرية أو مدببة أو حدوة فرس، ومنحنيات بيزيه بخطوط موازية وحدود تضيق وتتسع (Bezier.js المضمّنة) لضربات الفرشاة والأنهار.',
+      en: 'Mural geometry as flat polygons for Graphics.poly: terraced contour bands and isolines of any grid (d3-contour), cut, joined and clipped shapes (polybooljs), relaxed Voronoi mosaics with grout trimmed to an arch, ribbons, insets, smoothing, round, pointed or horseshoe arches, Bézier curves with offsets and tapered outlines (Bezier.js, vendored) for brush strokes and rivers, splines through or near points, rounded ring sectors laid out as pie spans (d3-shape) and stroke simplification (simplify-js).',
+      ar: 'هندسة الجداريات كمضلعات مسطحة لـ Graphics.poly: أشرطة كنتور متدرجة وخطوط تساوٍ لأي شبكة (d3-contour)، وأشكال تُقص وتُدمج وتُقتطع (polybooljs)، وفسيفساء فورونوي مُرخاة بفواصل ومقصوصة على قوس، وأشرطة، وإزاحة للداخل، وتنعيم، وأقواس دائرية أو مدببة أو حدوة فرس، ومنحنيات بيزيه بخطوط موازية وحدود تضيق وتتسع (Bezier.js المضمّنة) لضربات الفرشاة والأنهار، ومنحنيات ناعمة تمر بالنقاط أو بقربها، وقطاعات حلقات مستديرة الحواف موزّعة كقطاعات دائرة (d3-shape)، وتبسيط الخطوط (simplify-js).',
     },
     api: [
       'const bands = s.lib.geom.bands(grid, 8); bands.forEach((b, i) => s.lib.geom.draw(g, b.shapes, colours[i]))',
@@ -325,8 +325,11 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       's.lib.geom.difference(a, b) / union / intersect / xor → rings; s.lib.geom.draw(g, rings, fill, stroke?) cuts the holes',
       's.lib.geom.ribbon(points, (t) => 30 * Math.sin(Math.PI * t)) / smooth(points, { closed, iterations }) / inset(poly, d)',
       'const c = s.lib.geom.curve([x0, y0, cx, cy, (cx2, cy2,) x1, y1]); g.poly(c.outline([4, 40]), true).fill(ink); c.points(64) / at(t) / normal(t) / project(x, y) / offset(d) / split(t)',
+      "s.lib.geom.spline(points, { curve: 'catmull' | 'basis' | 'natural' | 'monotone' | 'step', closed, steps: 8 }) → a flat polyline (a ring when closed)",
+      's.lib.geom.pie([3, 1, 2], { pad: 0.03, dir: s.dir }).forEach((span) => g.poly(s.lib.geom.arc({ cx: 640, cy: 360, inner: 120, outer: 220, corner: 6, ...span })).fill(colour))',
+      's.lib.geom.simplify(strokePoints, 2, highQuality?) → fewer points along the same line',
     ],
-    source: 'd3-contour + polybooljs + Bezier.js',
+    source: 'd3-contour + polybooljs + Bezier.js + d3-shape + simplify-js',
     since: MEDIA,
   },
   {
@@ -343,6 +346,39 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       "hex.tile('windmill', 96) → PIXI.Sprite; s.lib.hex.names / terrains / buildings / credit",
     ],
     source: 'kenney-hexagon-pack (art, CC0 1.0)',
+    since: MEDIA,
+  },
+  {
+    key: 'color',
+    pixiBound: false,
+    purpose: {
+      en: 'Perceptual colour that keeps a mural in the page palette: even OKLab / OKLCH ramps between s.palette colours, lighter-to-darker shades that keep the hue, analogous / complementary / triadic / split / tetradic harmonies, OKLab mixes, WCAG contrast and a readable pick — colours in as s.palette numbers or CSS strings, out as 0xRRGGBB for Pixi (culori).',
+      ar: 'ألوان إدراكية تُبقي الجدارية ضمن ألوان الصفحة: تدرجات OKLab / OKLCH متساوية الخطوات بين ألوان s.palette، ودرجات من الفاتح إلى الداكن تحفظ الصبغة، وتناسقات متجاورة ومتكاملة وثلاثية ومنقسمة ورباعية، ومزج OKLab، وتباين WCAG واختيار لون مقروء — تدخل الألوان أرقامًا من s.palette أو نصوص CSS وتخرج 0xRRGGBB لـ Pixi (culori).',
+    },
+    api: [
+      "const Co = s.lib.color; Co.ramp(C.surface, C.accent, 7, { space: 'oklch' }) → 7 × 0xRRGGBB; Co.ramp([c0, c1, c2], n)",
+      "Co.shades(C.accent, 5) / Co.harmony(C.accent, 'analogous' | 'complementary' | 'triadic' | 'split' | 'tetradic')",
+      'Co.mix(a, b, t) / Co.adjust(c, { l: 0.1, c: -0.02, h: 30 }) / Co.oklch(c) → { l, c, h }',
+      'Co.contrast(a, b) → 1..21; Co.readable(C.surface, [C.text, C.accent]) → the first ≥ 4.5:1, else the best',
+      "Co.toHex(c) → '#rrggbb'; Co.toNumber('oklch(0.7 0.1 200)') → 0xRRGGBB",
+    ],
+    source: 'culori',
+    since: MEDIA,
+  },
+  {
+    key: 'lsys',
+    pixiBound: false,
+    purpose: {
+      en: 'L-system growth for plants, vines, ferns, arabesque scrolls and fractal patterns: seeded rewriting (lindenmayer) with weighted and context-sensitive rules, a turtle in design units that mirrors with s.dir, ready rule sets, a fit into a box, a growth animation that grows every branch at once and a stroke per branch depth; hard limits stop runaway strings.',
+      ar: 'نمو أنظمة ليندنماير للنباتات والكروم والسرخس وزخارف الأرابيسك والأنماط الكسورية: إعادة كتابة ببذرة المشهد (lindenmayer) بقواعد موزونة وحساسة للسياق، وسلحفاة رسم بوحدات التصميم تنعكس مع s.dir، وقواعد جاهزة، وملاءمة داخل إطار، وتحريك نمو تنمو فيه الأغصان كلها معًا، وخط لكل عمق غصن؛ وحدود صارمة تمنع انفلات النصوص.',
+    },
+    api: [
+      "const L = s.lib.lsys; const r = L.fit(L.grow(s, { preset: 'fern' | 'tree' | 'bush' | 'vine' | 'arabesque' | 'koch' | 'dragon' | 'hilbert', dir: s.dir }), { x, y, width, height }, { align: 'bottom' })",
+      "L.grow(s, { axiom: 'X', rules: { X: [{ to: 'F[+X]FX', p: 0.6 }, 'F[-X]FX'], F: 'FF' }, iterations: 5, angle: 25, seed })",
+      'L.draw(g.clear(), L.upTo(r, t), { color: [trunk, twig], width: 4, taper: 0.7 }) — t from 0 to 1 grows it',
+      'r.segments [x0, y0, x1, y1, …] / r.depths / r.tips (branch ends for buds) / r.bounds / L.presets / L.limits',
+    ],
+    source: 'lindenmayer',
     since: MEDIA,
   },
 ];

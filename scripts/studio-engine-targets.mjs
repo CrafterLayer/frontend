@@ -221,12 +221,15 @@ export const TARGETS = {
   // algorithm modules, not its window-assigning entry), and our own mosaics (on the kit's
   // s.delaunay), ribbons, insets and arches. Measured 10,473. 1.1.0: Bézier curves, offsets and
   // tapered outlines from Bezier.js 6.1.4 (MIT), vendored verbatim with its licence; 19,452.
+  // 1.2.0 (mural libraries 2): splines, ring sectors and pie spans from d3-shape 3.2.0 (+ d3-path
+  // 3.1.0, ISC) sampled through our own path context, and simplify-js 1.2.4 (BSD-2-Clause);
+  // 26,585 (+7.1 kB: the curve factories, the arc and d3-path's Path, and three more notices).
   geom: {
     entry: 'src/studio/libs/geom-entry.ts',
     factory: 'createGeomLibrary',
     pixi: false,
-    budget: 20_500,
-    version: '1.1.0',
+    budget: 28_000,
+    version: '1.2.0',
     vendored: [
       {
         name: 'bezier-js',
@@ -235,6 +238,26 @@ export const TARGETS = {
         licence: 'vendor/bezier-js/LICENSE',
       },
     ],
+  },
+  // perceptual colour (mural libraries 2, 2026-10-13): culori 4.0.2 (MIT), its tree-shakable
+  // culori/fn entry with four colour spaces (sRGB, linear sRGB, OKLab, OKLCH; HSL left out, 0.6
+  // kB), and our own ramps, shades, harmonies, mixes, WCAG contrast and readable pick. Measured
+  // 10,421 bytes gzip; budget + 5 % rounded up to 100 bytes.
+  color: {
+    entry: 'src/studio/libs/color-entry.ts',
+    factory: 'createColorLibrary',
+    pixi: false,
+    budget: 11_000,
+    version: '1.0.0',
+  },
+  // L-systems: lindenmayer 1.5.4 (MIT) rewriting, and our own seeded turtle, presets, fit, growth
+  // order and per-depth strokes. Measured 7,271.
+  lsys: {
+    entry: 'src/studio/libs/lsys-entry.ts',
+    factory: 'createLsysLibrary',
+    pixi: false,
+    budget: 7_700,
+    version: '1.0.0',
   },
   // hex art: 28 Kenney Hexagon Pack tiles (CC0 1.0) as one lossless WebP data: URL, packed by
   // scripts/build-hex-atlas.mjs from the kenney-hexagon-pack devDependency (a generated module, so

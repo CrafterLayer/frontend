@@ -672,6 +672,44 @@ Evaluated and **not admitted** (2026-10-13), each read from its tarball or regis
 | @anabis/kenney-space-kit-mirror | 2.0.0    | CC0-1.0                               | Kenney's Space Kit is 3-D models, not 2-D art for Pixi; "unofficial mirror".                                                                                                 |
 | hexagonopolis-assets            | 1.0.0    | ISC (registry entry)                  | Read from its registry entry only: "Assets for the webbased game Hexagonopolis", art declared ISC with no stated source; not admitted without clear provenance.               |
 
+## Studio mural libraries 2 — culori, lindenmayer, d3-shape, simplify-js (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, on
+the owner's request (in Arabic) for more libraries that make murals richer with less code; the
+primary vetted each one first. Bundled into the lazy assets `assets/ck-lib-color.js` (generated
+`packages/builder/renderer/src/engines/studio/color-source.ts`, 10.4 kB gzip, budget 11.0 kB),
+`assets/ck-lib-lsys.js` (`lsys-source.ts`, 7.3 kB, budget 7.7 kB) and `assets/ck-lib-geom.js`
+(`geom-source.ts`, now 26.6 kB, budget 28.0 kB), shipped only on pages whose code names `color`,
+`lsys` or `geom`. `scripts/build-studio-engines.mjs` audited each package's licence text against
+its declared licence, unchanged; no asset evaluates code, fetches or bundles Pixi.
+
+| Package     | Version | Licence                                                  | Asset              |
+| ----------- | ------- | -------------------------------------------------------- | ------------------ |
+| culori      | 4.0.2   | MIT (c) 2018 Dan Burzo (`culori/fn` only)                | `ck-lib-color.js`  |
+| lindenmayer | 1.5.4   | MIT (c) 2015-2016 Tom Brewe                              | `ck-lib-lsys.js`   |
+| d3-shape    | 3.2.0   | ISC (c) 2010-2022 Mike Bostock                           | `ck-lib-geom.js`   |
+| d3-path     | 3.1.0   | ISC (c) 2015-2022 Mike Bostock (d3-shape's dependency)   | `ck-lib-geom.js`   |
+| simplify-js | 1.2.4   | **BSD-2-Clause** (c) 2017 Vladimir Agafonkin             | `ck-lib-geom.js`   |
+
+Read on 2026-10-13 from each tarball (`npm pack`, extracted as data into its own scratch
+directory, no script run): every one ships a `LICENSE` file whose text matches its declared
+licence; culori 4.0.2 was published 2025-06-27 (already in the catalog for the shell's ramp editor
+and `@types/culori` 4.0.1, now also a media-engines devDependency), lindenmayer 1.5.4 2020-06-12,
+d3-shape 3.2.0 2022-12-20 (d3-path 3.1.0 2022-12-19), simplify-js 1.2.4 2020-02-03. None has a
+runtime dependency beyond d3-path. Notes from reading the code:
+
+- culori's `prepare` script (`git config core.hooksPath`) is a development hook; pnpm does not run
+  it for a registry install. Only `culori/fn` is imported: it registers no colour space by itself,
+  so the asset carries exactly the four modes `libs/color/color.ts` registers.
+- lindenmayer picks weighted successors with `Math.random`; `s.lib.lsys` never hands it any (a
+  stochastic rule reaches it as a function drawing from the scene's seeded generator), so that
+  path is dead code in the asset. It has no global side effects.
+- simplify-js is a UMD file: under esbuild's CommonJS wrapper it takes the `module.exports`
+  branch; a page that defined an AMD `define` would make it register there instead, in which case
+  `G.simplify` returns its input unchanged rather than throwing (CraftKit pages load no AMD loader).
+- d3-shape's line and arc draw into a path context of our own, so d3-path's `Path` (string
+  output) is bundled but never called.
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

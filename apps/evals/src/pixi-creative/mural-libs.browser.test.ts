@@ -7,8 +7,9 @@ import { buildStudioPreviewHtml } from '@craftkit/builder';
 
 /*
   mural libraries and hex art (2026-10-13): s.lib.noise, s.lib.geom and s.lib.hex, and the six
-  set-D presets built on them, in the generated, sandboxed Studio preview runtime (real Pixi v8 +
-  WebGL, each lazily loaded ck-lib-*.js asset, the unreviewed CSP with connect-src 'none').
+  set-D presets built on them — then s.lib.color, s.lib.lsys, geom 1.2 and the four set-E presets
+  — in the generated, sandboxed Studio preview runtime (real Pixi v8 + WebGL, each lazily loaded
+  ck-lib-*.js asset, the unreviewed CSP with connect-src 'none').
 
   - Libraries: contour bands painted from a noise grid, a square with a hole cut by a boolean (the
     hole reads back as background), a mosaic trimmed to an arch; the Kenney atlas decoding from its
@@ -72,6 +73,22 @@ G.bands(fields[0].grid({width:1280,height:720,cell:20}),5).forEach((b,i)=>G.draw
 const c=G.curve([80,600,400,80,900,700,1200,120]);
 const stroke=new s.PIXI.Graphics();s.world.addChild(stroke);stroke.poly(c.outline([6,60]),true).fill(0xff00ff);
 window.__fast={types:s.lib.noise.types,spread:fields.map(f=>{let lo=1,hi=-1;for(let i=0;i<64;i++){const v=f.at(i*20,i*11,0);lo=Math.min(lo,v);hi=Math.max(hi,v)}return hi-lo}),mid:c.at(0.5),loop:[fields[0].loop(100,100,0),fields[0].loop(100,100,1)]};`;
+
+/*
+  mural libraries 2 (2026-10-13): s.lib.color, s.lib.lsys and geom 1.2 from the built assets — an
+  OKLCH ramp colour read back from a G.arc ring (its hole open), a fitted L-system tree stroked
+  magenta, a natural spline stroked green and simplified.
+*/
+const LIBS2_SCENE = `const s=await ck.scene({libs:['color','lsys','geom'],design:{width:1280,height:720,fit:'contain'}});
+const Co=s.lib.color,L=s.lib.lsys,G=s.lib.geom,C=s.palette;
+const ramp=Co.ramp(C.surface,C.accent,5,{space:'oklch'});
+const g=new s.PIXI.Graphics();s.world.addChild(g);g.poly(G.arc({cx:300,cy:360,inner:120,outer:220})).fill(ramp[3]);
+const tree=L.fit(L.grow(s,{preset:'tree',seed:4,dir:s.dir}),{x:700,y:100,width:500,height:540},{align:'bottom'});
+const t=new s.PIXI.Graphics();s.world.addChild(t);L.draw(t,tree,{color:0xff00ff,width:6});
+const wave=G.spline([0,650,320,600,640,690,960,600,1280,650],{curve:'natural'});
+const w=new s.PIXI.Graphics();s.world.addChild(w);w.poly(wave,false).stroke({width:8,color:0x00ff00});
+const q=Math.floor(wave.length/8)*2;
+window.__libs2={ring:ramp[3],readable:Co.readable(C.surface,[C.surface,C.text])===C.text,trunk:[(tree.segments[0]+tree.segments[2])/2,(tree.segments[1]+tree.segments[3])/2],lean:tree.tips[0]-tree.segments[0],kept:G.simplify(wave,2).length,points:wave.length,on:[wave[q],wave[q+1]]};`;
 
 async function mount(
   page: Page,
@@ -219,7 +236,48 @@ describe.skipIf(!QA)('mural libraries and hex art in the Studio preview runtime'
     }
   }, 180_000);
 
-  it('covers the six set-D presets', () => {
+  it('color + lsys + geom 1.2: an OKLCH ring, a fitted tree that mirrors, a spline', async () => {
+    const leans: number[] = [];
+    for (const dir of ['ltr', 'rtl'] as const) {
+      await withPage(browser, 1280, async (page) => {
+        const { frame, html } = await mount(page, LIBS2_SCENE, { dir });
+        for (const key of ['color', 'lsys', 'geom']) {
+          expect(html).toContain(`data-ck-engine="lib-${key}"`);
+        }
+        const libs = await frame.evaluate<{
+          ring: number;
+          readable: boolean;
+          trunk: [number, number];
+          lean: number;
+          kept: number;
+          points: number;
+          on: [number, number];
+        }>('window.__libs2');
+        const rgb = [(libs.ring >> 16) & 255, (libs.ring >> 8) & 255, libs.ring & 255];
+        expect(await frame.evaluate<number[]>('window.__at(470, 360)')).toEqual(rgb);
+        expect(await frame.evaluate<number[]>('window.__at(300, 360)')).not.toEqual(rgb);
+        expect(libs.readable).toBe(true);
+        expect(
+          await frame.evaluate<number[]>(
+            `window.__at(${String(libs.trunk[0])}, ${String(libs.trunk[1])})`,
+          ),
+        ).toEqual([255, 0, 255]);
+        expect(
+          await frame.evaluate<number[]>(
+            `window.__at(${String(libs.on[0])}, ${String(libs.on[1])})`,
+          ),
+        ).toEqual([0, 255, 0]);
+        expect(libs.kept).toBeLessThan(libs.points);
+        leans.push(libs.lean);
+        await removeRegion(frame);
+      });
+    }
+    // The same seeded tree, mirrored in RTL: its first branch end leans the other way.
+    expect(leans[0]).not.toBe(0);
+    expect(leans[1]).toBeCloseTo(-(leans[0] ?? 0), 3);
+  }, 120_000);
+
+  it('covers the set-D and set-E presets', () => {
     expect(MURALS.map((preset) => preset.id)).toEqual([
       'terraced-topography',
       'paper-cut-landscape',
@@ -227,6 +285,10 @@ describe.skipIf(!QA)('mural libraries and hex art in the Studio preview runtime'
       'hex-island',
       'mosaic-arch-window',
       'ebru-marbling',
+      'botanical-garden',
+      'gradient-waves',
+      'arc-rings',
+      'arabesque-scroll',
     ]);
   });
 

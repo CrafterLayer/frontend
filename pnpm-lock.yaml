@@ -403,6 +403,9 @@ catalogs:
     d3-contour:
       specifier: 4.0.2
       version: 4.0.2
+    d3-shape:
+      specifier: 3.2.0
+      version: 3.2.0
     embla-carousel:
       specifier: 8.6.0
       version: 8.6.0
@@ -451,6 +454,9 @@ catalogs:
     kenney-hexagon-pack:
       specifier: 1.0.0
       version: 1.0.0
+    lindenmayer:
+      specifier: 1.5.4
+      version: 1.5.4
     lucide:
       specifier: 1.38.0
       version: 1.38.0
@@ -523,6 +529,9 @@ catalogs:
     simplex-noise:
       specifier: 4.0.3
       version: 4.0.3
+    simplify-js:
+      specifier: 1.2.4
+      version: 1.2.4
     sonner:
       specifier: 2.0.8
       version: 2.0.8
@@ -1705,9 +1714,15 @@ importers:
       '@pixi/ui':
         specifier: 'catalog:'
         version: 2.3.2(pixi.js@8.22.0)
+      culori:
+        specifier: 'catalog:'
+        version: 4.0.2
       d3-contour:
         specifier: 'catalog:'
         version: 4.0.2
+      d3-shape:
+        specifier: 'catalog:'
+        version: 3.2.0
       embla-carousel:
         specifier: 'catalog:'
         version: 8.6.0
@@ -1717,6 +1732,9 @@ importers:
       inkjs:
         specifier: 'catalog:'
         version: 2.4.0
+      lindenmayer:
+        specifier: 'catalog:'
+        version: 1.5.4
       matter-js:
         specifier: 'catalog:'
         version: 0.20.0
@@ -1744,6 +1762,9 @@ importers:
       simplex-noise:
         specifier: 'catalog:'
         version: 4.0.3
+      simplify-js:
+        specifier: 'catalog:'
+        version: 1.2.4
       yuka:
         specifier: 'catalog:'
         version: 0.7.8
@@ -1760,6 +1781,9 @@ importers:
       '@craftkit/typescript-config':
         specifier: workspace:*
         version: link:../../../typescript-config
+      '@types/culori':
+        specifier: 'catalog:'
+        version: 4.0.1
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -7550,6 +7574,14 @@ packages:
     resolution: {integrity: sha512-4EzFTRIikzs47RGmdxbeUvLWtGedDUNkTcmzoeyg4sP/dvCexO47AaQL7VKy/gul85TOxw+IBgA8US2xwbToNA==}
     engines: {node: '>=12'}
 
+  d3-path@3.1.0:
+    resolution: {integrity: sha512-p3KP5HCf/bvjBSSKuXid6Zqijx7wIfNW+J/maPs+iwR35at5JCbLUT0LzF1cnjbCHWhqzQTIN2Jpe8pRebIEFQ==}
+    engines: {node: '>=12'}
+
+  d3-shape@3.2.0:
+    resolution: {integrity: sha512-SaLBuwGm3MOViRq2ABk3eLoxwZELpH6zhl3FbAoJ7Vm1gofKx6El1Ib5z23NUEhF9AsGl7y+dzLe5Cw2AArGTA==}
+    engines: {node: '>=12'}
+
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
@@ -9020,6 +9052,9 @@ packages:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
 
+  lindenmayer@1.5.4:
+    resolution: {integrity: sha512-tmuD/ZGO25AptY1WBlsAyp4JrFtmAa3utm9HBiPYTQdHqaW3Oaq0CkxN5KeGxlAeGjwbxwxwZijvS1DDZ7cWMQ==}
+
   linkifyjs@4.3.3:
     resolution: {integrity: sha512-P8aEP5U/D1/IlTY2OeYsErdwh9bGuLE30NcXtKEjgdHcahveQoQwM2yZNsioQHsWFz0P7KKudisbrzCgR0sDHg==}
 
@@ -10270,6 +10305,9 @@ packages:
 
   simplex-noise@4.0.3:
     resolution: {integrity: sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==}
+
+  simplify-js@1.2.4:
+    resolution: {integrity: sha512-vITfSlwt7h/oyrU42R83mtzFpwYk3+mkH9bOHqq/Qw6n8rtR7aE3NZQ5fbcyCUVVmuMJR6ynsAhOfK2qoah8Jg==}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -16057,6 +16095,12 @@ snapshots:
     dependencies:
       d3-array: 3.2.4
 
+  d3-path@3.1.0: {}
+
+  d3-shape@3.2.0:
+    dependencies:
+      d3-path: 3.1.0
+
   data-uri-to-buffer@4.0.1: {}
 
   data-uri-to-buffer@8.0.0: {}
@@ -17658,6 +17702,8 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  lindenmayer@1.5.4: {}
 
   linkifyjs@4.3.3: {}
 
@@ -19288,6 +19334,8 @@ snapshots:
   simple-xml-to-json@1.2.7: {}
 
   simplex-noise@4.0.3: {}
+
+  simplify-js@1.2.4: {}
 
   sirv@3.0.2:
     dependencies:

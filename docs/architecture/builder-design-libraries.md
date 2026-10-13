@@ -414,6 +414,47 @@ CSP, what the kit already gives (`s.noise2/3`, `s.fbm`, `s.poisson`, `s.delaunay
   second, runs in RTL, holds one unchanged frame under reduced motion with the ticker stopped, and
   leaves `Ticker.shared` untouched after its region goes; 390 and 1280 px.
 
+### Mural libraries 2: `color`, `lsys`, geom 1.2 (2026-10-13)
+
+Asked (in Arabic) for more strong, suitable libraries that make the murals richer with less code of
+the Agent's own, four packages already vetted by the primary (each npm tarball ships a LICENSE file
+and a permissive licence; the build's audit passes them unchanged) became two new plain lazy assets
+and a geom minor, with four ready presets.
+
+| Key     | Source / licence                                                  | gzip / budget  | What it gives an authored scene                                                                                                           |
+| ------- | ----------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `color` | culori 4.0.2 (MIT), `culori/fn` only                              | 10.4 / 11.0 kB | OKLab / OKLCH ramps between palette colours, shades that keep the hue, five harmonies, mixes, WCAG contrast and a readable pick, 0xRRGGBB |
+| `lsys`  | lindenmayer 1.5.4 (MIT) + first-party turtle                      | 7.3 / 7.7 kB   | Seeded L-system plants, vines, ferns, arabesque scrolls and fractal curves, fitted to a box, mirrored with `s.dir`, growing branch-wise   |
+| `geom`  | + d3-shape 3.2.0 / d3-path 3.1.0 (ISC), simplify-js 1.2.4 (BSD-2) | 26.6 / 28.0 kB | 1.2.0 adds splines (catmull, basis, natural, monotone, step), ring sectors and pie spans, and stroke simplification                       |
+
+- **Presets first.** Set E — botanical-garden, gradient-waves, arc-rings (mural), arabesque-scroll
+  (pattern) — is one `scene.preset` call of 6–8 tokens instead of 327–587 tokens of scene code
+  (47–79×). Like set D it rides in the mural playbook, not the cached menu; build writers are
+  offered it as ready scenes (each passes `checkScene` with a sized region).
+- **Why culori through `culori/fn`.** The kit keeps its own OKLab `s.palette.mix/ramp` (no culori in
+  every scene); a scene that needs OKLCH, shades, harmonies or contrast lists `color`. The `fn`
+  entry registers no colour space by itself, so the asset carries four (sRGB, linear sRGB, OKLab,
+  OKLCH); HSL is left out (0.6 kB for `hsl()` strings a palette-bound scene never writes). OKLCH
+  results come back into sRGB by lowering chroma, so a shade or a harmony keeps its hue.
+- **Why lindenmayer, and what is ours.** It rewrites (string axioms, context-sensitive `A<B>C` keys)
+  and nothing else; its weighted successors call `Math.random`, so a stochastic rule reaches it only
+  as a function drawing from a generator seeded by `seed` or one draw of `s.random` (the asset's two
+  `Math.random` calls are dead code, held by tests). The turtle, the limits (each rewrite is
+  projected from the longest successor per symbol and skipped past 200,000 symbols), RTL mirroring,
+  `fit`, the growth order (`upTo`: every branch grows at once, one reused buffer) and the per-depth
+  stroke are first-party.
+- **Why d3-shape in geom.** Catmull-Rom (centripetal), basis, natural and monotone curves and
+  rounded, padded ring sectors are d3-shape's well-tested maths; drawn into a path context of ours
+  that samples Béziers and arcs into points, they stay flat polygons with no DOM or SVG string. A
+  whole ring is one polygon a hairline short of a full turn. simplify-js thins brush strokes. Cost:
+  +7.1 kB gzip on `ck-lib-geom.js` (curve factories, the arc, d3-path's `Path`, three more notices)
+  — loaded only by scenes that list `geom`.
+- **Proof.** `apps/evals/src/pixi-creative/mural-libs.browser.test.ts`: an OKLCH ramp colour read
+  back from a `G.arc` ring with its hole open, a fitted L-system tree stroked and mirrored in RTL
+  (its first branch leans the other way), a natural spline read back on its line and simplified;
+  each set-E preset draws, moves within a second, runs in RTL, holds one frame under reduced motion
+  and leaves `Ticker.shared` untouched after its region goes.
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

@@ -185,6 +185,19 @@ catalog:
   kenney-hexagon-pack: 1.0.0
   polybooljs: 1.2.2
   # end pixi-studio:mural-libs additions
+  # pixi-studio:mural-libs-2 additions (2026-10-13): perceptual colour, L-system growth and curves
+  # for murals, in @craftkit/builder-media-engines only and shipped only as the lazy
+  # ck-lib-color.js, ck-lib-lsys.js and ck-lib-geom.js assets (culori 4.0.2 is above, for the
+  # shell's ramp editor; media-engines imports only culori/fn). Licences read from each tarball on
+  # 2026-10-13: culori LICENSE MIT (c) 2018 Dan Burzo; lindenmayer LICENSE MIT (c) 2015-2016 Tom
+  # Brewe; d3-shape LICENSE ISC (c) 2010-2022 Mike Bostock (its d3-path 3.1.0, ISC (c) 2015-2022
+  # Mike Bostock, comes with it); simplify-js LICENSE BSD-2-Clause (c) 2017 Vladimir Agafonkin.
+  # culori 4.0.2 was published 2025-06-27, lindenmayer 1.5.4 2020-06-12, d3-shape 3.2.0
+  # 2022-12-20 (d3-path 3.1.0 2022-12-19), simplify-js 1.2.4 2020-02-03.
+  d3-shape: 3.2.0
+  lindenmayer: 1.5.4
+  simplify-js: 1.2.4
+  # end pixi-studio:mural-libs-2 additions
   # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
   # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
   # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json

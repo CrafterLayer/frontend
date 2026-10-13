@@ -93,12 +93,16 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(noise?.api.join('\n')).toContain("'perlin' | 'value' | 'value-cubic'");
     const geom = libraryEntry('geom');
     expect(geom?.pixiBound).toBe(false);
-    expect(geom?.source).toBe('d3-contour + polybooljs + Bezier.js');
+    expect(geom?.source).toBe('d3-contour + polybooljs + Bezier.js + d3-shape + simplify-js');
     for (const call of [
       's.lib.geom.bands(grid',
       's.lib.geom.mosaic(s,',
       's.lib.geom.draw(g,',
       's.lib.geom.curve([',
+      's.lib.geom.spline(points,',
+      's.lib.geom.pie([3, 1, 2], { pad: 0.03, dir: s.dir })',
+      's.lib.geom.arc({ cx: 640, cy: 360, inner: 120, outer: 220',
+      's.lib.geom.simplify(strokePoints, 2',
     ])
       expect(geom?.api.join('\n')).toContain(call);
     const hex = libraryEntry('hex');
@@ -106,5 +110,25 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(hex?.purpose.en).toMatch(/Kenney.*CC0/u);
     expect(hex?.purpose.en).toMatch(/mirrors in RTL/u);
     expect(hex?.api.join('\n')).toContain('await s.lib.hex.load(s)');
+  });
+
+  it('describes perceptual colour and L-system growth by the calls the mural playbook teaches', () => {
+    const color = libraryEntry('color');
+    expect(color?.pixiBound).toBe(false);
+    expect(color?.source).toBe('culori');
+    expect(color?.purpose.en).toMatch(/OKLCH.*page palette|page palette.*OKLCH/u);
+    for (const call of [
+      "Co.ramp(C.surface, C.accent, 7, { space: 'oklch' })",
+      'Co.readable(',
+      'Co.shades(',
+    ])
+      expect(color?.api.join('\n')).toContain(call);
+    const lsys = libraryEntry('lsys');
+    expect(lsys?.pixiBound).toBe(false);
+    expect(lsys?.source).toBe('lindenmayer');
+    expect(lsys?.purpose.en).toMatch(/mirrors with s\.dir/u);
+    expect(lsys?.purpose.ar).toContain('s.dir');
+    for (const call of ['L.grow(s, {', 'L.fit(', 'L.upTo(r, t)', 'dir: s.dir'])
+      expect(lsys?.api.join('\n')).toContain(call);
   });
 });

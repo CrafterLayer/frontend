@@ -28,6 +28,7 @@ import type {
 } from './creative-brief-types';
 import { PHYSICS_CUE_WORDS, SCROLL_CUE_WORDS } from './creative-activation';
 import { FALLBACK_GENRE, GENRES, SETTINGS, type GenreRule } from './creative-genres';
+import { COLOR_CUE_WORDS, LSYS_CUE_WORDS, RING_CUE_WORDS } from './mural-cues';
 
 export type {
   CreativeBeat,
@@ -65,7 +66,14 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
     'seeded fields from s.lib.noise.create(s,{type,fractal,scale,warp}): n.loop(x,y,phase) loops without a jump, n.grid({width,height,cell}) feeds s.lib.geom',
   ],
   geom: [
-    'mural geometry from s.lib.geom: bands(grid,n) terraces, mosaic(s,{cells,gap,clip:arch(x,y,w,h)}), difference(a,b) cut-outs, ribbon(points,width) — or a ready preset (terraced-topography, ebru-marbling, mosaic-arch-window, paper-cut-landscape, ribbon-flow)',
+    'mural geometry from s.lib.geom: bands(grid,n) terraces, mosaic(s,{cells,gap,clip:arch(x,y,w,h)}), difference(a,b) cut-outs, ribbon(points,width), spline(points,{curve}), arc({cx,cy,inner,outer,start,end}) per pie(values) span — or a ready preset (terraced-topography, ebru-marbling, mosaic-arch-window, paper-cut-landscape, ribbon-flow, arc-rings)',
+  ],
+  // mural libraries 2 (2026-10-13).
+  color: [
+    "perceptual colour from s.lib.color, always from s.palette: ramp(C.surface,C.accent,n,{space:'oklch'}) even gradients, shades(c,n), harmony(c,'analogous'), readable(bg,[…]) for marks over text — or a ready preset (gradient-waves)",
+  ],
+  lsys: [
+    "L-system growth from s.lib.lsys: fit(grow(s,{preset:'fern'|'tree'|'bush'|'vine'|'arabesque',dir:s.dir}),box), then draw(g,upTo(result,t),{color,width}) grows every branch at once — or a ready preset (botanical-garden, arabesque-scroll)",
   ],
   hex: [
     'a hex board from (await s.lib.hex.load(s)).board({cols,rows,terrain}): Kenney CC0 tiles, mirrored in RTL; board.pick(x,y) for taps, board.neighbours(q,r) for moves',
@@ -392,6 +400,9 @@ function briefFrom(
     ...(asked(GIF_WORDS) ? (['gif'] as const) : []),
     ...(asked(MURAL_GEOMETRY_WORDS) ? (['noise', 'geom'] as const) : []),
     ...(asked(HEX_WORDS) ? (['hex'] as const) : []),
+    ...(asked(LSYS_CUE_WORDS) ? (['lsys', 'color'] as const) : []),
+    ...(asked(COLOR_CUE_WORDS) ? (['color'] as const) : []),
+    ...(asked(RING_CUE_WORDS) ? (['geom', 'color'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([

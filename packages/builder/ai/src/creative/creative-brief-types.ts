@@ -38,7 +38,9 @@ export type CreativeLib =
   | 'gif'
   | 'noise'
   | 'geom'
-  | 'hex';
+  | 'hex'
+  | 'color'
+  | 'lsys';
 
 export interface CreativeBeat {
   readonly id: string;

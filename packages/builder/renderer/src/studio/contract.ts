@@ -33,6 +33,8 @@ export const STUDIO_LIB_KEYS = [
   'noise',
   'geom',
   'hex',
+  'color',
+  'lsys',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [

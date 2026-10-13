@@ -485,6 +485,81 @@ all the WebP). Unit tests: `libs/noise/noise.test.ts`, `libs/geom/geom.test.ts`,
 `libs/hex/hex.test.ts`; Chromium:
 `CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/mural-libs.browser.test.ts`.
 
+## Mural libraries 2: `color`, `lsys`, geom 1.2 (2026-10-13)
+
+Asked (in Arabic) for more strong libraries that make the Agent's murals richer with less code of
+its own, two new plain lazy libraries and a geom minor, all installed from the catalog (each npm
+tarball ships its LICENSE; the build's audit passes them unchanged):
+
+```js
+const s = await ck.scene({ libs: ['color', 'lsys', 'geom'], design: { width: 1280, height: 720 } });
+const Co = s.lib.color,
+  C = s.palette;
+Co.ramp(C.surface, C.accent, 7, { space: 'oklch' }); // 7 × 0xRRGGBB, perceptually even
+Co.ramp([C.surface, C.colors[4], C.accent], 12); // along stops (OKLab by default)
+Co.shades(C.accent, 5); // lighter → darker, the hue kept
+Co.harmony(C.accent, 'analogous' | 'complementary' | 'triadic' | 'split' | 'tetradic');
+Co.mix(a, b, t);
+Co.adjust(c, { l: 0.1, c: -0.02, h: 30 });
+Co.oklch(c); // { l, c, h }
+Co.contrast(a, b);
+Co.readable(C.surface, [C.text, C.accent]); // first ≥ 4.5:1, else the best
+Co.toHex(c);
+Co.toNumber('oklch(0.7 0.12 200)');
+const L = s.lib.lsys;
+const plant = L.fit(
+  L.grow(s, { preset: 'fern', dir: s.dir }),
+  { x, y, width, height },
+  { align: 'bottom' },
+);
+L.draw(g.clear(), L.upTo(plant, t), { color: [trunk, twig], width: 5, taper: 0.7 }); // t: 0 → 1
+L.grow(s, { axiom: 'X', rules: { X: [{ to: 'F[+X]FX', p: 0.6 }, 'F[-X]FX'], F: 'FF' }, angle: 25 });
+const G = s.lib.geom;
+G.spline(points, { curve: 'catmull' | 'basis' | 'natural' | 'monotone' | 'step', closed, steps });
+G.pie(values, { pad: 0.03, dir: s.dir }).forEach((span) =>
+  g.poly(G.arc({ cx, cy, inner, outer, corner: 6, ...span })).fill(c),
+);
+G.simplify(strokePoints, 2);
+```
+
+- **color** (`libs/color/color.ts`, culori 4.0.2, MIT, © Dan Burzo): only the tree-shakable
+  `culori/fn` entry, with four modes registered — sRGB (with its hex, `rgb()` and named parsers),
+  linear sRGB (WCAG luminance), OKLab and OKLCH. HSL is left out (0.6 kB for `hsl()` strings a
+  palette-bound scene never writes). Colours in: s.palette's 0xRRGGBB numbers, CSS strings or culori
+  objects; out: 0xRRGGBB numbers for Pixi. OKLCH results come back into sRGB by lowering chroma
+  (`clampChroma`), so a harmony or a shade keeps its hue instead of clipping into another. The kit's
+  own `s.palette.mix/ramp` (OKLab, our code) stay: `s.lib.color` is for the scenes that need OKLCH,
+  shades, harmonies or contrast. An unreadable colour reads as mid grey; an unreadable list gives
+  `[]`.
+- **lsys** (`libs/lsys/`, lindenmayer 1.5.4, MIT, © Tom Brewe): lindenmayer rewrites (string axioms,
+  classic context-sensitive `A<B>C` keys); everything else is ours — the turtle (F/G draw, f
+  moves, + left / - right on screen, | back, " shrinks the step, [ ] branches), the seeded choice
+  between weighted successors (lindenmayer's own weighted successors call `Math.random`, so a
+  stochastic rule reaches it only as a function drawing from a generator seeded by `seed` or one
+  draw of `s.random`), mirroring about the start for `dir: -1`, `fit` into a box, the growth order
+  (`upTo` shows a segment once the path from the root reaches it, so every branch grows at once,
+  reusing one buffer per result) and `draw` (one round-capped stroke per branch depth). Ready rule
+  sets: fern, tree, bush (ABOP figs. 1.24), vine, arabesque, koch, dragon, hilbert. Limits: 12
+  iterations, 200,000 symbols (checked BEFORE each rewrite from the longest successor per symbol, so
+  no runaway string is ever built), 30,000 segments, 32 rules.
+- **geom 1.2.0** (`libs/geom/shape.ts`): d3-shape 3.2.0 (ISC, with d3-path 3.1.0, ISC) draws lines
+  and arcs into a path context of ours that samples every Bézier and circular arc into points (no
+  DOM, no SVG string): `spline` (catmull centripetal, basis, natural, monotone, step, linear; closed
+  rings without a repeated point), `arc` (ring sectors, wedges, whole rings kept to ONE polygon a
+  hairline short of a full turn; rounded corners and pad) and `pie` (spans in input order, mirrored
+  with `dir: -1`, a `mid` angle for labels). `simplify` is simplify-js 1.2.4 (BSD-2-Clause, ©
+  Vladimir Agafonkin): radial distance then Douglas–Peucker. Angles: radians, 0 at 12 o'clock,
+  clockwise on screen. Bad input gives `[]`.
+- **Presets** (set E, `packages/builder/ai/src/scene-presets/set-e/`): botanical-garden,
+  gradient-waves, arc-rings (mural), arabesque-scroll (pattern) — one `scene.preset` call of 6–8
+  tokens instead of 327–587 tokens of code (47–79× cheaper), which itself leans on these libraries.
+
+Budgets: `ck-lib-color.js` 11,000 bytes gzip (measured 10,421), `ck-lib-lsys.js` 7,700 (7,271),
+`ck-lib-geom.js` 28,000 (26,585; 19,452 before d3-shape and simplify-js — the curve factories, the
+arc, d3-path's `Path` and three more notices). Unit tests: `libs/color/color.test.ts`,
+`libs/lsys/lsys.test.ts`, `libs/geom/shape.test.ts`; Chromium: the same
+`mural-libs.browser.test.ts`.
+
 ## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

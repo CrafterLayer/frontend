@@ -252,6 +252,27 @@ describe('creative planner', () => {
     expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('hex');
   });
 
+  // mural libraries 2 (2026-10-13): L-system plants, OKLCH gradients, arc rings.
+  it('adds lsys for plants and arabesques, color for gradients, geom arcs for rings', () => {
+    const garden = planCreativeBrief(
+      'A botanical mural of ferns and vines growing behind the hero',
+    );
+    expect(garden.libs).toEqual(expect.arrayContaining(['lsys', 'color']));
+    expect(garden.mechanics.join(' ')).toContain('botanical-garden');
+    expect(garden.mechanics.join(' ')).toContain('upTo(result,t)');
+    expect(planCreativeBrief('جدارية أرابيسك بزخرفة نباتية').libs).toContain('lsys');
+    const waves = planCreativeBrief('A soft gradient wave background in our brand colours');
+    expect(waves.libs).toContain('color');
+    expect(waves.libs).not.toContain('lsys');
+    expect(waves.mechanics.join(' ')).toContain("{space:'oklch'}");
+    expect(planCreativeBrief('An astrolabe of concentric rings').libs).toEqual(
+      expect.arrayContaining(['geom', 'color']),
+    );
+    for (const lib of ['lsys', 'color'] as const) {
+      expect(planCreativeBrief('A platformer in a forest').libs).not.toContain(lib);
+    }
+  });
+
   it("animates the person's own GIF only when they bring one", () => {
     const brief = planCreativeBrief('A platformer where my cat.gif is the hero');
     expect(brief.libs).toContain('gif');

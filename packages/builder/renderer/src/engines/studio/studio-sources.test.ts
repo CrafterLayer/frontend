@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { ANIM_BANNER, ANIM_SHA256, ANIM_SOURCE } from './anim-source';
 import { AUDIO_BANNER, AUDIO_SHA256, AUDIO_SOURCE } from './audio-source';
 import { BRUSH_BANNER, BRUSH_SHA256, BRUSH_SOURCE } from './brush-source';
+import { COLOR_BANNER, COLOR_SHA256, COLOR_SOURCE } from './color-source';
 import { DIALOGUE_BANNER, DIALOGUE_SHA256, DIALOGUE_SOURCE } from './dialogue-source';
 import { EMITTER_BANNER, EMITTER_SHA256, EMITTER_SOURCE } from './emitter-source';
 import { FILTERS_BANNER, FILTERS_SHA256, FILTERS_SOURCE } from './filters-source';
@@ -18,6 +19,7 @@ import { HEX_BANNER, HEX_SHA256, HEX_SOURCE } from './hex-source';
 import { HUD_BANNER, HUD_SHA256, HUD_SOURCE } from './hud-source';
 import { INK_BANNER, INK_SHA256, INK_SOURCE } from './ink-source';
 import { KIT_BANNER, KIT_SHA256, KIT_SOURCE } from './kit-source';
+import { LSYS_BANNER, LSYS_SHA256, LSYS_SOURCE } from './lsys-source';
 import { NOISE_BANNER, NOISE_SHA256, NOISE_SOURCE } from './noise-source';
 import { PEEPS_BANNER, PEEPS_SHA256, PEEPS_SOURCE } from './peeps-source';
 import { PHYSICS_BANNER, PHYSICS_SHA256, PHYSICS_SOURCE } from './physics-source';
@@ -56,8 +58,12 @@ const ASSETS = [
   // mural libraries and hex art (2026-10-13): measured 4,375, 10,473 and 75,575 bytes gzip
   // (hex is nearly all its 28-tile WebP atlas).
   ['noise', NOISE_SOURCE, NOISE_BANNER, NOISE_SHA256, 22_200],
-  ['geom', GEOM_SOURCE, GEOM_BANNER, GEOM_SHA256, 20_500],
+  // mural libraries 2 (2026-10-13): geom 1.2 with d3-shape + simplify-js measured 26,585; color
+  // (culori/fn) 10,421 and lsys (lindenmayer) 7,271 bytes gzip.
+  ['geom', GEOM_SOURCE, GEOM_BANNER, GEOM_SHA256, 28_000],
   ['hex', HEX_SOURCE, HEX_BANNER, HEX_SHA256, 79_400],
+  ['color', COLOR_SOURCE, COLOR_BANNER, COLOR_SHA256, 11_000],
+  ['lsys', LSYS_SOURCE, LSYS_BANNER, LSYS_SHA256, 7_700],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;
 
@@ -125,5 +131,23 @@ describe('generated Studio engine assets', () => {
     // The tiles ship inside the asset as a data: URL; nothing is fetched.
     expect(HEX_SOURCE).toContain('data:image/webp;base64,');
     expect(HEX_SOURCE).not.toMatch(/https?:\/\/[^"'\s]*\.(?:png|webp)/u);
+  });
+
+  it('carries culori’s and lindenmayer’s MIT, d3-shape’s ISC and simplify-js’s BSD notices', () => {
+    expect(COLOR_BANNER).toContain('Copyright (c) 2018 Dan Burzo');
+    expect(LSYS_BANNER).toContain('Copyright (c) 2015-2016 Tom Brewe');
+    expect(GEOM_BANNER).toContain('Copyright 2010-2022 Mike Bostock');
+    expect(GEOM_BANNER).toContain('Copyright 2015-2022 Mike Bostock');
+    expect(GEOM_BANNER).toContain('Copyright (c) 2017, Vladimir Agafonkin');
+    expect(GEOM_BANNER).toContain('Redistribution and use in source and binary forms');
+    for (const source of [COLOR_SOURCE, LSYS_SOURCE, GEOM_SOURCE]) {
+      expect(source).not.toMatch(/\beval\(|new Function\b|WebAssembly|Ticker\.shared/u);
+      expect(source).toContain('pixi:false');
+    }
+    // lindenmayer's own weighted successors call Math.random; s.lib.lsys never hands it any, so
+    // the only Math.random left is that dead branch of the library (held by lsys.test.ts).
+    expect(LSYS_SOURCE.match(/Math\.random\(\)/gu)?.length ?? 0).toBeLessThanOrEqual(2);
+    // culori ships only through culori/fn: no colour space beyond the four the library registers.
+    expect(COLOR_SOURCE).not.toMatch(/mode:"(?:hsl|hsv|hwb|p3|rec2020|a98|prophoto)"/u);
   });
 });

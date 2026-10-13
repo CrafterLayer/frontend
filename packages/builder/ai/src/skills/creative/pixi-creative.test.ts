@@ -122,6 +122,14 @@ describe('Pixi creative skills — actual prompt activation', () => {
       'G.draw(g,shapes,fill) cuts holes',
       "G.mosaic(s,{cells,gap,clip:G.arch(x,y,w,h,'pointed')})",
       'await s.lib.hex.load(s)',
+      // mural libraries 2 (2026-10-13): colour, L-systems and geom 1.2, in the same budget.
+      "Co.ramp(a,b,n,{space:'oklch'})",
+      'readable(bg,[…])',
+      "L.grow(s,{preset:'fern'|'tree'|'vine'|'arabesque',dir:s.dir})",
+      'L.draw(g.clear(),L.upTo(r,t),{color,width}) grows it',
+      'G.spline(pts,{curve})',
+      'G.arc({cx,cy,inner,outer,start,end}) per G.pie(values) span',
+      'G.simplify(pts,2)',
     ])
       expect(mural).toContain(call);
     const game = PIXI_CREATIVE_SKILLS.find(({ id }) => id === GAME)?.instructions ?? '';

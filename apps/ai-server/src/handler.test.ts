@@ -1811,6 +1811,8 @@ describe('page-plan drafts', () => {
       rationale: PAGE_PLAN_EXAMPLE.rationale,
       pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
     });
-    expect(live.subscribed).not.toContain('text');
+    // `text` is the public lifecycle signal (it releases the cache gate), not a draft relay:
+    // drafts alone listen for the routing client's `restart`.
+    expect(live.subscribed).not.toContain('restart');
   });
 });

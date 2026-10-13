@@ -66,7 +66,7 @@
     "packages/builder/ai/src/agent/run-build.ts": 4059,
     "packages/builder/ai/src/agent/run-coordinator.ts": 1201,
     "packages/builder/ai/src/agent/types.ts": 874,
-    "packages/builder/ai/src/context/assemble-context.ts": 1165,
+    "packages/builder/ai/src/context/assemble-context.ts": 1156,
     "packages/builder/ai/src/context/document-tree-mode.ts": 557,
     "packages/builder/ai/src/index.ts": 776,
     "packages/builder/ai/src/intent/intent-lexicon.ts": 1798,

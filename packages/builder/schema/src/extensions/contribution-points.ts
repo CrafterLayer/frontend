@@ -443,12 +443,13 @@ export interface AiContextCommandCatalogEntry {
   readonly argsSchema: JsonValue;
 }
 
-/** Bounded composition summary; stored nodes never cross the collector boundary. */
+/** Bounded composition summary and its content direction; stored nodes never cross the boundary. */
 export interface AiContextCompositionCatalogEntry {
   readonly id: string;
   readonly name: string;
   readonly version: number;
   readonly surfaces?: readonly Surface[];
+  readonly dir?: ContentDirection;
   readonly rootType: string;
   readonly nodeCount: number;
   readonly blockTypes: readonly string[];
@@ -464,9 +465,8 @@ export interface AiContextWidgetCatalogEntry {
 }
 
 /**
- * Safe registry catalog for prompt context. Command implementations and lazy
- * executable/live contribution objects are intentionally absent; providers
- * inspect detached, frozen summaries without obtaining a mutation path.
+ * Safe registry catalog for prompt context: no command implementations or live contribution
+ * objects; providers inspect detached, frozen summaries without obtaining a mutation path.
  */
 export interface AiContextRegistryRead {
   block: (type: string) => AiContextBlockCatalogEntry | undefined;

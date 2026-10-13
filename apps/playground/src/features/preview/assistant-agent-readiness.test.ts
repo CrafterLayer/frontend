@@ -61,7 +61,13 @@ async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'emp
         .filter((source) => DUPLICATED_BUILTIN_FRAGMENT_SOURCES.has(source));
 
       expect(context.blocks).toHaveLength(kernel.context.registry.blocks('site').length);
-      expect(context.templates).toHaveLength(kernel.context.registry.compositions('site').length);
+      // Only the templates written in the page's direction are offered (template-context.ts).
+      const { dir } = kernel.getDocument();
+      const offered = kernel.context.registry
+        .compositions('site')
+        .filter((entry) => entry.dir === undefined || entry.dir === dir);
+      expect(context.templates).toHaveLength(offered.length);
+      expect(offered.length).toBeLessThan(kernel.context.registry.compositions('site').length);
       expect(context.document.nodes).toHaveLength(Object.keys(kernel.getDocument().nodes).length);
       if (fixture === 'landing') {
         expect(context.blocks).toHaveLength(LANDING_BLOCK_COUNT);

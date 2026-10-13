@@ -29,6 +29,7 @@ import {
 
 import { serializeTreeMarkup } from '../plan/tree-markup';
 import { wirePropsSchema, withStudioSummaries } from './wire-schema';
+import { collectTemplates } from './template-context';
 import type {
   AiBlockContext,
   AiBlockPropertyIntentContext,
@@ -37,7 +38,6 @@ import type {
   AiDocumentContext,
   AiDocumentNodeContext,
   AiSelectionContext,
-  AiTemplateContext,
   AiPlanOutputContract,
   AssembledAiContext,
 } from '../types';
@@ -154,6 +154,7 @@ function compositionCatalogEntry(composition: CompositionDef): AiContextComposit
     ...(composition.surfaces === undefined
       ? {}
       : { surfaces: frozenStrings([...composition.surfaces].sort(compareText)) }),
+    ...(composition.dir === undefined ? {} : { dir: composition.dir }),
     rootType: root?.type ?? 'unknown',
     nodeCount: Object.keys(composition.nodes).length,
     blockTypes: frozenStrings(
@@ -593,16 +594,6 @@ function propertyIntentSummary(
       ),
     ),
   };
-}
-
-function collectTemplates(ctx: AiContextReadApi, full: boolean): readonly AiTemplateContext[] {
-  return ctx.registry.compositions(ctx.surface).map((composition) => ({
-    id: composition.id,
-    name: composition.name,
-    rootType: composition.rootType,
-    nodeCount: composition.nodeCount,
-    ...(full ? { blockTypes: [...composition.blockTypes] } : {}), // a model without the catalog cannot author them
-  }));
 }
 
 function collectDocument(

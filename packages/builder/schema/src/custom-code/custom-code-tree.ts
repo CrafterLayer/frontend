@@ -24,8 +24,6 @@ import {
   CUSTOM_CODE_MEDIA_ATTRIBUTES,
   CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS,
   CUSTOM_CODE_MEDIA_BEHAVIOR_PARAM_OWNERS,
-  CUSTOM_CODE_MEDIA_BEHAVIOR_TAGS,
-  CUSTOM_CODE_MEDIA_BEHAVIORS,
   CUSTOM_CODE_MEDIA_PART_ATTRIBUTES,
   CUSTOM_CODE_SCENES,
   CUSTOM_CODE_TIMELINE_RECIPES,
@@ -41,6 +39,23 @@ import {
 } from './media-vocabulary';
 import { CUSTOM_CODE_DIALOGUE_ATTRIBUTES, CUSTOM_CODE_DIALOGUE_RULES } from './dialogue-vocabulary';
 import { SCENE_HOOKS } from './creative-vocabulary';
+// The data-ck-behavior enum, its params and tags, and the everyday ones (2026-10-13): site-behavior-vocabulary.ts.
+import {
+  BEHAVIOR_TAGS,
+  CUSTOM_CODE_BEHAVIOR_PARAMS,
+  CUSTOM_CODE_BEHAVIORS,
+  CUSTOM_CODE_SITE_PART_ATTRIBUTES,
+  behaviorValue,
+  filterAttributeProblem,
+  isCustomCodeBehavior,
+  siteBehaviorShapeProblem,
+} from './site-behavior-vocabulary';
+export {
+  CUSTOM_CODE_BEHAVIORS,
+  CUSTOM_CODE_BEHAVIOR_PARAMS,
+  isCustomCodeBehavior,
+  type CustomCodeBehavior,
+} from './site-behavior-vocabulary';
 // pixi-studio:sound-engine additions (2026-10-10)
 import { soundAttributeProblem } from '../sound/attribute';
 // end pixi-studio:sound-engine additions
@@ -454,44 +469,7 @@ export const CUSTOM_CODE_ATTRIBUTES = [
   // end pixi-studio:sound-engine additions
   ...CUSTOM_CODE_DIALOGUE_ATTRIBUTES, // creative engines (2026-10-12): dialogue-vocabulary.ts
   ...SCENE_HOOKS.names, // the hooks scene code finds (2026-10-12): creative-vocabulary.ts
-] as const;
-
-/**
- * The site behaviours a tree may name with `data-ck-behavior` — a closed
- * enum. Each is a few lines of vanilla script in the renderer's
- * `mountBehaviors`, progressive enhancement over native HTML and CSS: the
- * content reads without it, and `prefers-reduced-motion` stills the motion.
- */
-export const CUSTOM_CODE_BEHAVIORS = [
-  'reveal',
-  'stagger',
-  'count-up',
-  'countdown',
-  'marquee',
-  'carousel',
-  'tabs',
-  'sticky-header',
-  'lightbox',
-  'whatsapp-form',
-  'copy-text',
-  // Added 2026-10-05 (style-manager DESIGN §B.1): rolling digits, FLIP layout.
-  'ticker',
-  'layout',
-  // media-motion (2026-10-06): gallery, video, embed facade and widgets (DESIGN §A, §B, §E).
-  ...CUSTOM_CODE_MEDIA_BEHAVIORS,
-] as const;
-
-export type CustomCodeBehavior = (typeof CUSTOM_CODE_BEHAVIORS)[number];
-
-/** The behaviour params: each means something only beside a `data-ck-behavior`. */
-export const CUSTOM_CODE_BEHAVIOR_PARAMS = [
-  'data-ck-to',
-  'data-ck-until',
-  'data-ck-speed',
-  'data-ck-phone',
-  'data-ck-text',
-  // media-motion (2026-10-06): carousel indicator/autoplay, mailto address.
-  ...CUSTOM_CODE_MEDIA_BEHAVIOR_PARAMS,
+  ...CUSTOM_CODE_SITE_PART_ATTRIBUTES, // everyday site behaviours (2026-10-13): site-behavior-vocabulary.ts
 ] as const;
 
 export type CustomCodeAttribute = (typeof CUSTOM_CODE_ATTRIBUTES)[number];
@@ -770,23 +748,6 @@ const svgLength = matching(LENGTH, 'a number or a length');
 /** An ISO 8601 date-time: a date, a time to the minute or finer, and an optional zone. */
 const ISO_DATETIME =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?$/u;
-
-const BEHAVIOR_SET: ReadonlySet<string> = new Set<string>(CUSTOM_CODE_BEHAVIORS);
-
-/** Whether a value names a behaviour in the closed enum. */
-export function isCustomCodeBehavior(value: string): value is CustomCodeBehavior {
-  return BEHAVIOR_SET.has(value);
-}
-
-const behaviorValue = (value: string, name: string): string | undefined =>
-  BEHAVIOR_SET.has(value) ? undefined : `${name} is one of ${CUSTOM_CODE_BEHAVIORS.join(', ')}`;
-
-/** Behaviours bound to a tag: the WhatsApp form sends from a form or its button. */
-const BEHAVIOR_TAGS: Readonly<Partial<Record<CustomCodeBehavior, readonly string[]>>> = {
-  'whatsapp-form': ['form', 'button'],
-  // media-motion (2026-10-06): the video player, facade and mailto form are tag-bound too.
-  ...CUSTOM_CODE_MEDIA_BEHAVIOR_TAGS,
-};
 
 /** An id another attribute points at (`for`, `data-ck-target`). */
 const ID_TOKEN = /^[^\s'"<>]{1,120}$/u;
@@ -1067,6 +1028,8 @@ const HTML_TAG_RULES: Readonly<Record<string, AttributeRule>> = {
   'data-ck-density': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_DENSITIES) }, // gsap-pixi additions (2026-10-08)
   'data-ck-palette': { on: ['div', ...SCENE_HOST_TAGS], value: oneOf(...SCENE_PALETTES) }, // gsap-pixi additions (2026-10-08)
   hidden: { on: 'html', value: bare },
+  // everyday site behaviours (2026-10-13): a filter button's group, or an item's groups.
+  'data-ck-filter': { on: 'html', value: filterAttributeProblem },
   // pixi-studio:sound-engine additions (2026-10-10)
   'data-ck-sound': { on: 'html', value: (value) => soundAttributeProblem(value) },
   // end pixi-studio:sound-engine additions
@@ -1300,7 +1263,7 @@ export function customCodeAttributeProblem(
       return `${name} is not an attribute the vocabulary admits: a tree never carries a script handler; name a behaviour with data-ck-behavior (${CUSTOM_CODE_BEHAVIORS.join(', ')}) or an animation with data-ck-motion / data-ck-hover`;
     }
     if (/^data-/iu.test(name)) {
-      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), the part markers ${CUSTOM_CODE_MEDIA_PART_ATTRIBUTES.join(', ')}, the dialogue markers ${CUSTOM_CODE_DIALOGUE_ATTRIBUTES.join(', ')}, and the scene hooks the playbooks name; for any other hook a scene's code finds, use ${SCENE_HOOKS.general.join(', ')}`;
+      return `${name} is not an attribute the vocabulary admits: the only data attributes are data-ck-behavior and its params (${CUSTOM_CODE_BEHAVIOR_PARAMS.join(', ')}), data-ck-motion / data-ck-hover with their params (${CUSTOM_CODE_MOTION_PARAMS.join(', ')}, data-ck-speed), the engine markers ${CUSTOM_CODE_ENGINE_MARKERS.join(', ')} with their params (${CUSTOM_CODE_ENGINE_PARAMS.join(', ')}), the part markers ${[...CUSTOM_CODE_MEDIA_PART_ATTRIBUTES, ...CUSTOM_CODE_SITE_PART_ATTRIBUTES].join(', ')}, the dialogue markers ${CUSTOM_CODE_DIALOGUE_ATTRIBUTES.join(', ')}, and the scene hooks the playbooks name; for any other hook a scene's code finds, use ${SCENE_HOOKS.general.join(', ')}`;
     }
     if (name === 'style') {
       return 'style is not an attribute the vocabulary admits: write utility classes in className';
@@ -1710,6 +1673,14 @@ function elementProblems(node: Record<string, unknown>, place: Place): readonly 
   }
   found.push(...motionProblems(tag, record));
   found.push(...mediaProblems(tag, record)); // media-motion (2026-10-06)
+  // everyday site behaviours (2026-10-13): the shape each pack reads (and the no-script view).
+  const behavior = record['data-ck-behavior'];
+  if (typeof behavior === 'string') {
+    const children = Array.isArray(node['children']) ? (node['children'] as unknown[]) : [];
+    const shape = siteBehaviorShapeProblem(behavior, tag, record, children);
+    if (shape !== undefined)
+      found.push({ path: ['attributes', 'data-ck-behavior'], message: shape });
+  }
   if (
     tag === 'video' &&
     typeof record['autoplay'] === 'string' &&

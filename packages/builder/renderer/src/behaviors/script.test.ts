@@ -132,8 +132,13 @@ const BASELINE_GZIP_BYTES = 12_605;
   region (a ResizeObserver, the renderer resize for a script that listens, the cover fallback and
   its pointer mapping), +495 B to the every-pack bundle (22 131 → 22 626 B). It is part of the
   `scripts` pack, which ships only to a page whose markup carries `data-ck-js`.
+  23 000 → 27 000 on 2026-10-13 (everyday site behaviours), measured: six packs the agent names
+  by attribute instead of writing script — back-to-top 1 111, read-more 1 549, scroll-spy 1 803,
+  typed-words 1 557, filter 1 084, dismiss 1 182 B gzip on their own — add 3 938 B to the
+  every-pack bundle (22 756 → 26 694 B). Each ships only to a page whose markup carries its
+  `data-ck-behavior` value (packs/everyday.test.ts), so a page that uses none pays nothing.
 */
-const PACKS_BUDGET_GZIP_BYTES = 23_000;
+const PACKS_BUDGET_GZIP_BYTES = 27_000;
 
 describe('behaviorRuntimeScript — packs', () => {
   it('serialises the core runtime and then every pack, each called on the document', () => {

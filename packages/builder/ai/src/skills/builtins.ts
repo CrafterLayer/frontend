@@ -6,6 +6,7 @@ import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
 import { DATA_VIZ_SKILL } from './data-viz';
+import { MOTION_SKILL } from './motion';
 import { createAiSkillRegistry } from './registry';
 import { CREATIVE_ENGINE_SKILLS } from './creative/creative-engines';
 import { PIXI_CREATIVE_SKILLS } from './creative/pixi-creative';
@@ -14,6 +15,7 @@ import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
 import { DESIGN_CODE_SKILL } from './design-code';
 import { DESIGN_QUALITY_TEACHING, TAILWIND_PLUGIN_TEACHING } from './design-libraries';
+import { SITE_BEHAVIOR_TEACHING } from './site-behaviors';
 // end design-code additions
 // pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see creative/PIXI_SOURCES.md.
 import {
@@ -123,7 +125,7 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.5.0',
+  version: '3.6.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
@@ -136,7 +138,7 @@ THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finishe
 SHELL BY ROLE — the request states this region's ROLE; follow it, whatever the section's number. HERO: the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one; an active archetype's own opening (a CV header, an occasion card) replaces this shell. CHROME: the site header, navigation or footer its title names — a header holds the brand, links to the page's section ids and one action; a footer holds a brand column, link columns and the copyright line; no h1, no h2 of its own, no hero shell. BAND: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
 FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a business fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros). A person's own facts (a CV's employers and dates, an invitation's names and date) are never invented: they stay bracketed and listed in followUp, as the copywriting rules say.
 SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
-${DESIGN_QUALITY_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}`,
+${DESIGN_QUALITY_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}\n${SITE_BEHAVIOR_TEACHING}`,
   references: {
     'checks/fill.md':
       "One setProp on the named region's tree, plus one for its css only when the tree uses ck- classes; the shell its ROLE names — the hero holds the page's one h1, a band keeps its h2 text, chrome carries neither; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched; no other region's content repeated; no bracketed placeholder for a business fact — samples are realistic and listed in followUp; only a person's own facts stay bracketed.",
@@ -829,60 +831,6 @@ ARABIC: Modern Standard Arabic; one address form (أنتَ or أنتم); «،» 
 });
 
 /**
- * Restrained motion the renderer can actually run: transition utilities,
- * keyframes in pageCss, reduced-motion guards. Auto on animation verbs;
- * "animate" reaches "animated" and "animating" through the matcher's endings.
- */
-const MOTION: AiSkillDefinitionV1 = builtin({
-  schemaVersion: 1,
-  id: 'craftkit.motion',
-  name: 'Motion and interaction',
-  description:
-    'Restrained motion the renderer can run: transition and hover utilities, animate-in entrances, keyframes in pageCss, reduced-motion guards, CSS-only lift, reveal and marquee.',
-  version: '1.5.0',
-  source: 'builtin',
-  trust: 'builtin',
-  priority: 45,
-  activation: {
-    mode: 'auto',
-    keywords: [
-      'animate',
-      'animation',
-      'motion',
-      'hover effect',
-      'parallax',
-      'keyframe',
-      'transition',
-      'scroll reveal',
-      'marquee',
-      'gsap',
-      'تحريك',
-      'متحرك',
-      'حركة',
-      'حركات',
-      'أنيميشن',
-      'تأثيرات',
-    ],
-  },
-  tags: ['animation', 'interaction', 'motion'],
-  instructions: `Motion budget: at most two moving things per screen, and nothing moves that the visitor did not cause except one ambient element.
-TIMING: micro interactions transition-colors duration-200 ease-out; card lift duration-300; entrance reveal 0.6s ease-out; ambient loops 8s to 20s linear infinite.
-HOVER on cards: transition duration-300 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none; hover:scale-105 for media. A lift tied to the site shadow token: class ck-lift with css .ck-lift:hover{transform:translateY(-4px);box-shadow:var(--t-shadow-elevated)}.
-ENTRANCE ON LOAD needs no css: class='animate-in fade-in slide-in-from-bottom-4 duration-700 motion-reduce:animate-none' (zoom-in-95 or slide-in-from-start-8 for a card; delay-150, delay-300 stagger siblings); the page already stops it under reduced motion, the motion-reduce class says so in the markup. KEYFRAMES, for anything else, live in pageCss on the page root (they pass scoping unchanged and are declared once): @keyframes ck-fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}. Apply from the region css: .ck-fade-up{animation:ck-fade-up .6s ease-out both}; stagger with .ck-d1{animation-delay:.1s} .ck-d2{animation-delay:.2s} .ck-d3{animation-delay:.3s}.
-GUARD every animated rule in the same sheet: @media (prefers-reduced-motion:reduce){.ck-fade-up,.ck-marquee-track{animation:none}}.
-SCROLL REVEAL without JavaScript: @supports (animation-timeline: view()){.ck-fade-up{animation-timeline:view();animation-range:entry 0% entry 40%}}; elsewhere it plays on load.
-MARQUEE: prefer the marquee block when present; otherwise div overflow-hidden > div ck-marquee-track flex gap-12 whitespace-nowrap with the items duplicated once, css .ck-marquee-track{animation:ck-marquee 20s linear infinite} and keyframes translateX(0) to translateX(-50%) in pageCss.
-HOVER REVEALS: group on the card and group-hover:translate-x-1 on its arrow; for a reveal, .ck-card .ck-meta{opacity:0;transition:opacity .2s} .ck-card:hover .ck-meta{opacity:1}.
-PARALLAX: in css, background-attachment:fixed on a background-image region only inside @media (min-width:768px); phones get a static image.
-Never animate layout (width, height, margin); animate transform and opacity only.
-GSAP, SCROLL REVEALS AND TIMELINES go through the motion tool, never through attributes you write: {"command":"tool","args":{"name":"motion.add","input":{"id":"<region id>","recipe":"stagger-in"}}}, one step per section (recipes: fade-in, slide-in, stagger-in, split-reveal, parallax-depth, scrub-scale). Never write data-ck-motion or data-ck-timeline yourself, and never put "attributes" inside "set".`,
-  references: {
-    'checks/motion.md':
-      "At most two moving things per screen; an entrance is animate-in with motion-reduce:animate-none; keyframes in pageCss, applied from region css; prefers-reduced-motion guard present; transform/opacity only; a hover lift moves transform and shadow one step, never layout; group-hover only on a card's own children; no pulsing glow or blob.",
-  },
-});
-
-/**
  * Landmarks, heading order, naming, contrast pairs, motion and language rules
  * for assistive tech. Auto on accessibility vocabulary; "high-contrast" is
  * the words "high contrast", and "inaccessible" — a hit the substring matcher
@@ -1147,6 +1095,8 @@ const PROPERTY_PAGE = builtin(PROPERTY_PAGE_SKILL);
 const CLINIC_PAGE = builtin(CLINIC_PAGE_SKILL);
 const SHOP_PAGE = builtin(SHOP_PAGE_SKILL);
 const DATA_VIZ = builtin(DATA_VIZ_SKILL);
+// everyday site behaviours (2026-10-13): the motion skill moved to its own module (motion.ts).
+const MOTION = builtin(MOTION_SKILL);
 // design-code additions (2026-09-28): explicit, for section writers and the page plan.
 const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
 // end design-code additions

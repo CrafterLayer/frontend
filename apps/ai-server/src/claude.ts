@@ -2,6 +2,12 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
+import {
+  SHARED_CACHE_DOCTOR,
+  isDiagnosisRefusal,
+  type CacheDoctor,
+  type CacheVisit,
+} from './cache-doctor';
 import { SHARED_CACHE_GATE, cacheShape, opened, type CacheGate } from './cache-gate';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
 import {
@@ -15,6 +21,7 @@ import {
   contractSchemaOf,
   planParams,
   usageOf,
+  type PlanParams,
   type UsageReport,
 } from './plan-params';
 import { PAGE_PLAN_ANSWER_SCHEMA, planShapeCheck } from './plan-shape';
@@ -74,6 +81,8 @@ export interface ClaudeOptions {
   readonly onLog?: (line: string) => void;
   /** Staggers same-prefix calls so they read one cache write (cache-gate.ts); the server's own by default. */
   readonly cacheGate?: CacheGate;
+  /** Why a call did not read the cache (cache-doctor.ts); the server's shared one by default. */
+  readonly cacheDoctor?: CacheDoctor;
 }
 
 /** One piece of an answer being written, or the word that it started over. */
@@ -116,17 +125,55 @@ async function ask(
 ): Promise<Anthropic.Message> {
   const { params, system } = build(request, options, schema);
   options.onProgress?.('Understanding the request…');
+  // Why the cache was not read, when it was not (cache-doctor.ts).
+  const doctor = options.cacheDoctor ?? SHARED_CACHE_DOCTOR;
+  let visit = doctor.visit({ ...params, system });
+  let message: Anthropic.Message;
+  try {
+    message = await streamOnce(params, system, visit, options);
+  } catch (error) {
+    if (Object.keys(visit.body).length === 0 || !isDiagnosisRefusal(error)) throw error;
+    doctor.disableApiDiagnosis();
+    options.onLog?.('cache diagnosis: the API refused the beta; comparing locally from now on');
+    visit = doctor.visit({ ...params, system });
+    message = await streamOnce(params, system, visit, options);
+  }
+  const miss = visit.done(message);
+  const usage = usageOf(message);
+  if (miss !== undefined) {
+    options.onLog?.(
+      `cache: read ${String(usage.cacheReadTokens ?? '?')}, wrote ${String(usage.cacheWriteTokens ?? '?')} — ` +
+        `${miss.reason} (${miss.source}${miss.missedTokens === null ? '' : `, ~${String(miss.missedTokens)} tokens missed`})`,
+    );
+  }
+  options.onUsage?.(miss === undefined ? usage : { ...usage, cacheMiss: miss });
+  options.onProgress?.('Checking the generated result…');
+  return message;
+}
+
+/** One streamed call, behind the cache gate, with the doctor's fields on the request. */
+async function streamOnce(
+  params: PlanParams['params'],
+  system: PlanParams['system'],
+  visit: CacheVisit,
+  options: ClaudeOptions,
+): Promise<Anthropic.Message> {
   // A same-prefix call already writing the cache: wait until it streams, then read it.
   const shape = cacheShape([params.model, params.thinking, params.output_config, system]);
   const release = await (options.cacheGate ?? SHARED_CACHE_GATE).enter(shape, options.signal);
+  const headers = {
+    ...visit.headers,
+    // Kept for the CLI shim, which reads the budget from here and nowhere else.
+    ...(options.effort === undefined ? {} : { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort }),
+  };
   const stream = opened(release, () =>
-    options.client.messages.stream(params, {
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-      // Kept for the CLI shim, which reads the budget from here and nowhere else.
-      ...(options.effort === undefined
-        ? {}
-        : { headers: { [CRAFTKIT_REASONING_EFFORT_HEADER]: options.effort } }),
-    }),
+    options.client.messages.stream(
+      { ...params, ...visit.body },
+      {
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        ...(Object.keys(headers).length === 0 ? {} : { headers }),
+      },
+    ),
   );
 
   // The first streamed event means the prefix is cached: same-shape calls may go. The SDK's
@@ -156,7 +203,6 @@ async function ask(
 
   if (options.onDraft !== undefined) {
     const onDraft = options.onDraft;
-    /** An observer's failure never becomes the answer's. */
     const tell = (draft: AnswerDraft): void => {
       try {
         onDraft(draft);
@@ -180,12 +226,9 @@ async function ask(
     stream.on('text', reportWriting);
   }
 
-  const message = await opened(release, () => stream.finalMessage()).finally(() => {
+  return opened(release, () => stream.finalMessage()).finally(() => {
     release(false);
   });
-  options.onUsage?.(usageOf(message));
-  options.onProgress?.('Checking the generated result…');
-  return message;
 }
 
 // ── the page-plan task (2026-09-28) ─────────────────────────────────────────

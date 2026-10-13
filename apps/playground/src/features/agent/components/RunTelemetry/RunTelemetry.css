@@ -43,3 +43,8 @@
   color: var(--bldr-panel-text);
   font-variant-numeric: tabular-nums;
 }
+/* Why the prompt cache was written instead of read (2026-10-13): a cause, not a count. */
+.ck-agent-telemetry__cache-miss {
+  margin-block-start: 6px;
+  color: var(--bldr-panel-text);
+}

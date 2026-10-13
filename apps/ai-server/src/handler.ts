@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
+import type { CacheDoctor } from './cache-doctor';
 import { proposerFor, type AnswerDraft, type ClaudeOptions } from './claude';
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
@@ -60,12 +61,10 @@ export interface HandlerOptions {
   readonly model?: string;
   /** The OTHER models a request may name through `x-craftkit-ai-model`. Unset ⇒ only the default. */
   readonly models?: readonly string[];
-  /**
-   * The free OpenRouter models listed right now. A request may name any of them
-   * (the allowlist above is no longer the only door), and `GET /v1/models`
-   * offers them to the picker. Omitted ⇒ only the configured models.
-   */
+  /** Free OpenRouter models listed now: a request may name any, `GET /v1/models` offers them. */
   readonly freeModels?: FreeModelCatalog;
+  /** Why a call did not read the prompt cache (cache-doctor.ts); the shared one by default. */
+  readonly cacheDoctor?: CacheDoctor;
   readonly maxTokens?: number;
   /** Bearer token required on every request. Omitted ⇒ no auth (local only). */
   readonly authToken?: string;
@@ -509,6 +508,7 @@ async function answer(
     ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
     ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
     ...(options.onLog === undefined ? {} : { onLog: options.onLog }),
+    ...(options.cacheDoctor === undefined ? {} : { cacheDoctor: options.cacheDoctor }),
     ...callEffort(wire, options),
     ...(onProgress === undefined ? {} : { onProgress }),
     ...(onDraft === undefined ? {} : { onDraft }),

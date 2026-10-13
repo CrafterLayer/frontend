@@ -259,7 +259,10 @@ describe('POST /batch', () => {
 
     expect(response.status).toBe(200);
     expect(api.streamed).toHaveLength(1);
-    expect(api.created[0]?.requests[0]?.params).toEqual(api.streamed[0]);
+    // The live call alone asks the API why it missed the cache (cache-doctor.ts); a batch can't.
+    const { diagnostics, ...streamed } = api.streamed[0] as Record<string, unknown>;
+    expect(diagnostics).toEqual({ previous_message_id: null });
+    expect(api.created[0]?.requests[0]?.params).toEqual(streamed);
     expect(api.created[0]?.requests[0]?.params).toMatchObject({ model: 'claude-haiku-5-5' });
     expect(api.created[0]?.requests[0]?.params).not.toHaveProperty('output_config.format');
   });

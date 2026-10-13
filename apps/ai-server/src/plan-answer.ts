@@ -276,12 +276,16 @@ export function answerBody(
   if (outcome.kind === 'refusal') return { body: refusalBody(outcome.message), ...usage };
   if (outcome.kind === 'invalid-output')
     return { body: invalidOutputBody(outcome.message), ...usage };
-  if (outcome.kind === 'plan') return { body: outcome.plan, usage: outcome.usage };
+  // The call's own report when there is one: the same counts, and why it missed the cache.
+  if (outcome.kind === 'plan') return { body: outcome.plan, usage: measured ?? outcome.usage };
   if (outcome.kind === 'site-plan') {
     // T230: the pages, for `readAiSitePlanWireResponse` (builder-ai site-plan-wire.ts).
     const { pages, rationale } = outcome;
     const said = rationale === undefined ? {} : { rationale };
-    return { body: { version: AI_PLAN_WIRE_VERSION, ...said, pages }, usage: outcome.usage };
+    return {
+      body: { version: AI_PLAN_WIRE_VERSION, ...said, pages },
+      usage: measured ?? outcome.usage,
+    };
   }
   return {
     body: {
@@ -289,7 +293,7 @@ export function answerBody(
       ...(outcome.rationale === undefined ? {} : { rationale: outcome.rationale }),
       pagePlan: outcome.pagePlan,
     },
-    usage: outcome.usage,
+    usage: measured ?? outcome.usage,
   };
 }
 

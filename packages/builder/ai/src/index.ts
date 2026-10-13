@@ -334,7 +334,7 @@ export {
   type AiPlanValidationIssue,
   type AiPlanValidationResult,
   type AiProposeOptions,
-  type AiProviderUsage,
+  type AiProviderUsage, type AiCacheMiss, type AiCacheMissReason,
   type AiSelectedNodeContext,
   type AiSelectionContext,
   type AiTemplateContext,

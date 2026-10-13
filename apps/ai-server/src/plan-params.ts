@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
+import type { CacheMiss } from './cache-doctor';
 import { buildPrompt } from './prompt';
 import { cachedPrompt } from './prompt-cache';
 import { withModelThinking } from './thinking-config';
@@ -65,6 +66,8 @@ export interface UsageReport {
   readonly cacheReadTokens: number | null;
   readonly cacheWriteTokens: number | null;
   readonly costUsd?: number | null;
+  /** Why the call wrote the cache instead of reading it, when it did (cache-doctor.ts). */
+  readonly cacheMiss?: CacheMiss;
 }
 
 function measuredCount(value: unknown): number | null {

@@ -79,3 +79,21 @@ export const PartialMeasurement: Story = {
 };
 export const EmptyHistorical: Story = { args: { state: { activity: [], attempts: {} } } };
 export const ArabicNarrow: Story = { args: { locale: 'ar' } };
+/** Why the cache was written instead of read (2026-10-13): the server's cause under the counts. */
+export const CacheMiss: Story = {
+  args: {
+    live: false,
+    state: {
+      activity: [],
+      attempts: {
+        one: {
+          inputTokens: 300,
+          outputTokens: 80,
+          cacheReadTokens: 2_200,
+          cacheWriteTokens: 1_300,
+          cacheMiss: { reason: 'catalog', missedTokens: 4_377, source: 'api' },
+        },
+      },
+    },
+  },
+};

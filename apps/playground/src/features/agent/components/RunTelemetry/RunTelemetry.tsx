@@ -1,5 +1,7 @@
 import { formatNumber, t, type Key } from '../../copy';
+import { cacheMissLine } from '../../copy/cache-labels';
 import {
+  latestCacheMiss,
   telemetryTotals,
   type OperationalStage,
   type RunTelemetryState,
@@ -31,6 +33,8 @@ const COUNTS = [
 /** Bounded public work phases and actual measurements, separate from context estimates. */
 export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps) {
   const totals = telemetryTotals(state);
+  // Why the cache was written instead of read (2026-10-13): the server's cause, said plainly.
+  const miss = latestCacheMiss(state);
   const latest = state.activity.at(-1);
   /*
     Usage is drawn only when the provider reported a count (2026-10-12): four cells reading
@@ -80,6 +84,9 @@ export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps)
           </dl>
           {totals.cachedReplies === 0 ? null : (
             <p>{t(locale, 'telemetry.cached', { n: totals.cachedReplies })}</p>
+          )}
+          {miss === undefined ? null : (
+            <p className="ck-agent-telemetry__cache-miss">{cacheMissLine(locale, miss)}</p>
           )}
           {totals.costUsd == null ? null : (
             <p>

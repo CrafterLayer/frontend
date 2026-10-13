@@ -231,3 +231,13 @@ export function telemetryTotals(
     requests: attempts.length,
   };
 }
+
+/** The most recent reason a request of this run wrote the prompt cache instead of reading it. */
+export function latestCacheMiss(
+  state: RunTelemetryState,
+): NonNullable<MeasuredUsage['cacheMiss']> | undefined {
+  return Object.values(state.attempts)
+    .map((usage) => usage?.cacheMiss)
+    .filter((miss) => miss !== undefined)
+    .at(-1);
+}

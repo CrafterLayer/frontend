@@ -92,4 +92,24 @@ describe('RunTelemetry', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByText('Live activity').closest('details')).toBeInTheDocument();
   });
+
+  it('says why the cache was written instead of read, the latest cause, in either language', () => {
+    const miss = (reason: 'first' | 'skills', missedTokens: number | null) => ({
+      inputTokens: 300,
+      outputTokens: 80,
+      cacheReadTokens: 2_200,
+      cacheWriteTokens: 1_300,
+      cacheMiss: { reason, missedTokens, source: 'api' as const },
+    });
+    const state = {
+      activity: [],
+      attempts: { 'run/attempt-1': miss('first', null), 'run/attempt-2': miss('skills', 1_300) },
+    };
+    const { rerender } = render(<RunTelemetry locale="en" state={state} />);
+    expect(
+      screen.getByText('Cache not read: different skills woke for these words (~1,300 tokens).'),
+    ).toBeInTheDocument();
+    rerender(<RunTelemetry locale="ar" state={state} />);
+    expect(screen.getByText(/^لم يُقرأ الكاش: نشطت مهارات مختلفة/u)).toBeInTheDocument();
+  });
 });

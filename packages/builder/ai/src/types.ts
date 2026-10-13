@@ -208,6 +208,30 @@ export interface AiProviderUsage {
   readonly costUsd?: number | null;
   /** A local answer-cache hit: no new model request or charge. */
   readonly cached?: true;
+  /** Why the provider wrote its prompt cache instead of reading it, when the server says. */
+  readonly cacheMiss?: AiCacheMiss;
+}
+
+/** Why a request wrote the prompt cache instead of reading it (ai-server cache-doctor.ts). */
+export type AiCacheMissReason =
+  | 'first'
+  | 'expired'
+  | 'model'
+  | 'settings'
+  | 'rules'
+  | 'catalog'
+  | 'skills'
+  | 'system'
+  | 'tools'
+  | 'history'
+  | 'unknown';
+
+export interface AiCacheMiss {
+  readonly reason: AiCacheMissReason;
+  /** Tokens the API says would have been read had the prefix matched; null when not said. */
+  readonly missedTokens: number | null;
+  /** The Messages API's own comparison, or the server's. */
+  readonly source: 'api' | 'local';
 }
 
 /**

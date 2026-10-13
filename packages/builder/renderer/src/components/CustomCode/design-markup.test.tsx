@@ -285,6 +285,15 @@ describe('CustomCode — design markup', () => {
     }
   });
 
+  it('keeps a hidden option hidden: the bare attribute renders, on the page and published', () => {
+    const option = [el('p', { attributes: { hidden: '' }, text: 'Yearly' })];
+    expect(renderRegion(option).container.querySelector('p')?.hidden).toBe(true);
+    const html = renderToStaticMarkup(
+      <CustomCode tree={tree(option)} hostId="h" isCanvas={false} />,
+    );
+    expect(html).toMatch(/<p[^>]* hidden=""/u);
+  });
+
   it('stamps an svg shape with its editing path on the canvas like any element', () => {
     const { container } = renderRegion(
       [el('svg', { attributes: { viewBox: '0 0 1 1' }, children: [el('path', { attributes: { d: 'M0 0' } })] })],

@@ -883,3 +883,18 @@ and ready scripts for what the agent does again and again.
       increment under the scoped exception in plan.md; it was not executed and no CLI pass is
       claimed. Do not retry the declined action without new user authorization. Native independent
       review and local implementation checks passed; see `verification-scene-speed-2026-10-13.md`.
+
+## Increment 2026-10-13 (f) — more mural libraries
+
+- [x] T261 FastNoiseLite 1.1.1 and Bezier.js 6.1.4 (7cf96bd), on the owner's word: neither npm
+      tarball carries a LICENSE file, so both are COPIED verbatim under `media-engines/vendor/` with
+      their upstream MIT licences and PROVENANCE.md (sha256 pinned by tests) and listed as
+      `vendored`, like webgl-noise and zzfx — the licence audit is unchanged. `s.lib.noise` 1.1.0
+      gains perlin / value / value-cubic / opensimplex2 / opensimplex2s; `s.lib.geom` 1.1.0 gains
+      `curve()` with offsets and tapered outlines.
+- [x] T262 culori, lindenmayer, d3-shape and simplify-js (e0b682d), installed through the catalog:
+      `s.lib.color` (OKLCH ramps, harmonies, contrast, readable ink), `s.lib.lsys` (seeded L-system
+      growth, capped), `s.lib.geom` 1.2.0 (splines, arcs, pie, simplify), and four set-E murals
+      (botanical-garden, gradient-waves, arc-rings, arabesque-scroll), offered to build writers as
+      ready scenes. 7b7614b aligns one stale ai-server assertion with efea3b7's always-on `text`
+      listener.

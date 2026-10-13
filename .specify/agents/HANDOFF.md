@@ -1,5 +1,14 @@
 # Active Work Handoff
 
+## Current continuation — more mural libraries, 2026-10-13 (f)
+
+Done and pushed (T261–T262): FastNoiseLite and Bezier.js vendored as verbatim copies with their
+upstream licences (the owner chose this over changing the licence audit, which the auto-mode
+classifier refused as weakening a gate; the audit is unchanged); culori (`s.lib.color`), lindenmayer
+(`s.lib.lsys`), d3-shape + simplify-js (`s.lib.geom` 1.2.0) and four set-E murals. Upgrading a
+vendored copy is manual (see each `vendor/<name>/PROVENANCE.md`). Size notes the guard prints
+(`cli-client.ts`, `index.ts` shrank) are from efea3b7 and can be tightened.
+
 ## Current continuation — mural build speed, 2026-10-13 (e)
 
 Status: local implementation, checks and review complete; user accepted local review on 2026-10-13.

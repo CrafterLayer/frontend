@@ -103,3 +103,68 @@
   color: var(--bldr-panel-muted);
   cursor: not-allowed;
 }
+
+/*
+  The tooltip (UX pass, 2026-10-13). Icon-only controls in the top bar had a spoken name and
+  nothing a sighted person could read: no label, no shortcut, and no native title either.
+  The hint is drawn from the button's own data attribute, under it, on hover after a short
+  pause and at once on keyboard focus. Inverse colours from the panel's own pair, so it
+  reads in the light and the dark chrome alike; logical placement, so it mirrors in Arabic.
+*/
+.bldr-chrome-button[data-bldr-tooltip] {
+  position: relative;
+}
+
+.bldr-chrome-button[data-bldr-tooltip]::after {
+  background: var(--bldr-panel-text);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel);
+  content: attr(data-bldr-tooltip);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  inset-block-start: calc(100% + var(--bldr-space-sm));
+  inset-inline-start: 50%;
+  line-height: var(--bldr-line-height-tight);
+  opacity: 0;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  pointer-events: none;
+  position: absolute;
+  transition:
+    opacity var(--bldr-duration-state) var(--bldr-easing),
+    visibility var(--bldr-duration-state) var(--bldr-easing);
+  translate: -50% 0;
+  visibility: hidden;
+  white-space: nowrap;
+  z-index: 40;
+}
+
+.bldr-chrome-button[data-bldr-tooltip]:dir(rtl)::after {
+  translate: 50% 0;
+}
+
+.bldr-chrome-button[data-bldr-tooltip]:hover::after {
+  opacity: 1;
+  transition-delay: var(--bldr-duration-land);
+  visibility: visible;
+}
+
+.bldr-chrome-button[data-bldr-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-chrome-button,
+  .bldr-chrome-button[data-bldr-tooltip]::after {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .bldr-chrome-button[data-bldr-tooltip]::after {
+    border: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

@@ -20,7 +20,6 @@ import '../features/preview/local-asset-library';
 import '../features/preview/components/AssistantPanel/use-site-run';
 import '../features/preview/components/AssistantPanel/planProviderFromEnv';
 import './agent-host';
-import './rail-section-notice';
 import './rail-sections';
 import './site-design-host';
 import './design-rail-panel';

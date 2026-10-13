@@ -12,6 +12,8 @@ export interface PreviewToolbarProps {
   /** Whether the preview is showing the flipped direction. */
   readonly flipped: boolean;
   readonly onFlip: () => void;
+  /** What is being previewed ("Desktop · 1280 px"), said beside the tools. */
+  readonly note?: string | undefined;
 }
 
 /**
@@ -20,9 +22,22 @@ export interface PreviewToolbarProps {
  * the top of every page. It is now a tokenized toggle chip in its own toolbar
  * row, so the page underneath is never overlaid. The flip stays VIEW state.
  */
-export function PreviewToolbar({ language, dir, flipLabel, flipped, onFlip }: PreviewToolbarProps) {
+export function PreviewToolbar({
+  language,
+  dir,
+  flipLabel,
+  flipped,
+  onFlip,
+  note,
+}: PreviewToolbarProps) {
   return (
-    <div className="pg-preview-toolbar" role="toolbar" aria-label={TOOLBAR_LABEL[language]} dir={dir} lang={language}>
+    <div
+      className="pg-preview-toolbar"
+      role="toolbar"
+      aria-label={TOOLBAR_LABEL[language]}
+      dir={dir}
+      lang={language}
+    >
       <button type="button" className="pg-preview-chip" aria-pressed={flipped} onClick={onFlip}>
         <svg
           className="pg-preview-chip__icon"
@@ -39,6 +54,7 @@ export function PreviewToolbar({ language, dir, flipLabel, flipped, onFlip }: Pr
         </svg>
         <span>{flipLabel}</span>
       </button>
+      {note === undefined ? null : <span className="pg-preview-toolbar__note">{note}</span>}
     </div>
   );
 }

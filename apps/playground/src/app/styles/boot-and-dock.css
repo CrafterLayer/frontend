@@ -227,6 +227,14 @@
   block-size: 100%;
   box-sizing: border-box;
   display: grid;
+  /*
+    One column, never wider than the panel (UX pass, 2026-10-13). The implicit
+    track was `auto`, so it grew to the tree's min-content width — 408px of
+    rows in a 320px panel. In English the long rows were cut at the edge with
+    no ellipsis; in Arabic the overflow ran off the START side and half of
+    every row sat under the canvas.
+  */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
 }

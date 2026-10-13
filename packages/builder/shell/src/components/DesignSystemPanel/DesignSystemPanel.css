@@ -2,7 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-md);
-  padding: var(--bldr-space-lg);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding: var(--bldr-panel-padding);
 }
 
 .bldr-design-system__head {
@@ -87,7 +88,11 @@
   border-radius: var(--bldr-radius-md);
   display: grid;
   gap: var(--bldr-space-2xs);
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  /* Two tabs a row in the panel; the minimum is the swatch-picker field's measure, not a literal. */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--bldr-measure-picker-field) * 0.75), 1fr)
+  );
   padding: var(--bldr-space-2xs);
 }
 
@@ -258,16 +263,27 @@
 }
 
 /* Palette */
-.bldr-palette {
+/*
+  .bldr-palette is ALSO the block Palette's root class (Palette.css), whose panel padding,
+  background and full height landed on this section: the Site palette sat inset as a card
+  of its own, 16px further in than everything around it. Scoped back to a plain section.
+*/
+.bldr-design-system .bldr-palette {
+  background: transparent;
+  block-size: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-xs);
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-0);
 }
 
-.bldr-palette__empty {
+/* Scoped for the same collision: the block Palette's empty state pads itself 16px. */
+.bldr-design-system .bldr-palette__empty {
   color: var(--bldr-panel-muted);
   font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
   margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
 }
 
 .bldr-palette__list {
@@ -318,26 +334,50 @@
   color: var(--bldr-danger);
 }
 
+/*
+  The add row (UX pass, 2026-10-13): the name takes the whole first line, the value and the
+  button share the second, every control at the 28px small control height. Three controls
+  in one 288px row clipped the placeholder ("New colour nam") and left the button the width
+  of its word.
+*/
 .bldr-palette__add {
   display: grid;
-  gap: var(--bldr-space-xs);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--bldr-space-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bldr-palette__add > .bldr-palette__input:first-child {
+  grid-column: 1 / -1;
+}
+
+.bldr-palette__add .bldr-palette__input,
+.bldr-palette__submit {
+  min-block-size: var(--bldr-control-height-sm);
 }
 
 .bldr-palette__submit {
-  background: var(--bldr-surface-raised);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-sm);
-  color: var(--bldr-panel-text);
+  background: var(--bldr-accent);
+  border: var(--bldr-border-hairline) solid var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
   cursor: pointer;
   font: inherit;
   font-size: var(--bldr-font-size-caption);
-  padding-inline: var(--bldr-space-sm);
+  font-weight: var(--bldr-font-weight-medium);
+  padding-inline: var(--bldr-space-xl);
 }
 
+.bldr-palette__submit:enabled:hover {
+  background: var(--bldr-accent-strong);
+  border-color: var(--bldr-accent-strong);
+}
+
+/* Disabled until a name and a valid colour are typed: the chrome's disabled look, not a fade. */
 .bldr-palette__submit:disabled {
+  background: var(--bldr-surface-sunken);
+  border-color: var(--bldr-panel-border);
+  color: var(--bldr-panel-muted);
   cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .bldr-design-system__panel[hidden] {

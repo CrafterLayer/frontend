@@ -33,11 +33,11 @@ export const UnsupportedClaimsAreAbsent: Story = {
     await expect(canvas.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     await expect(canvas.queryByRole('button', { name: 'Publish options' })).not.toBeInTheDocument();
 
-    // Scenario controls live in the Settings rail; Harness labels the controls
-    // there rather than acting as an action-band button.
+    // Scenario controls live in the Settings rail, under the Settings heading,
+    // rather than acting as an action-band button.
     await userEvent.click(canvas.getByRole('button', { name: 'Settings' }));
     const harness = await canvas.findByRole('region', { name: 'Scenario harness' });
-    await expect(within(harness).getByRole('heading', { name: 'Harness' })).toBeVisible();
+    await expect(within(harness).getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(within(harness).getByRole('combobox', { name: 'Fixture' })).toBeVisible();
     const status = await canvas.findByRole('region', { name: 'Editor status' });
 
@@ -69,7 +69,7 @@ export const DefaultPreviewUsesTheSelectedBreakpoint: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Settings' }));
     const harness = await canvas.findByRole('region', { name: 'Scenario harness' });
-    await expect(within(harness).getByRole('heading', { name: 'Harness' })).toBeVisible();
+    await expect(within(harness).getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(within(harness).getByRole('combobox', { name: 'Fixture' })).toBeVisible();
     // A person leaves Settings by choosing the real Layers rail destination.
     await userEvent.click(canvas.getByRole('button', { name: 'Layers' }));

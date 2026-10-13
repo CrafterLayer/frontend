@@ -15,6 +15,12 @@ type NativeButtonProps = Omit<
 type ChromeButtonBaseProps = NativeButtonProps & {
   children: ReactNode;
   size?: ChromeButtonSize | undefined;
+  /**
+   * A visible hint drawn under the button on hover and on keyboard focus — the name of an
+   * icon-only control and its shortcut ("Undo · Ctrl Z"). Visual only: the accessible name
+   * stays `aria-label`, and a shortcut belongs in `aria-keyshortcuts` too.
+   */
+  tooltip?: string | undefined;
 };
 
 type PrimaryChromeButtonProps = ChromeButtonBaseProps & {
@@ -60,6 +66,7 @@ export function ChromeButton({
   size = 'lg',
   tone = 'quiet',
   variant = 'quiet',
+  tooltip,
   ...buttonProps
 }: ChromeButtonProps) {
   const classes = ['bldr-chrome-button', className].filter(Boolean).join(' ');
@@ -74,6 +81,7 @@ export function ChromeButton({
       data-size={size}
       data-tone={variant === 'icon' ? tone : undefined}
       data-variant={variant}
+      data-bldr-tooltip={tooltip === undefined || tooltip === '' ? undefined : tooltip}
     >
       {children}
     </button>

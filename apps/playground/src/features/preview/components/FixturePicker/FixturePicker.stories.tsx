@@ -22,3 +22,20 @@ export const Interactive: Story = {
   args: { value: 'landing', onChange: () => undefined },
   render: () => <InteractiveFixturePicker />,
 };
+
+export const Arabic: Story = {
+  args: {
+    value: 'empty',
+    onChange: () => undefined,
+    labels: {
+      label: 'المستند التجريبي',
+      fixtures: {
+        landing: 'صفحة تسويقية',
+        empty: 'صفحة فارغة',
+        inline: 'تحرير مباشر',
+        'code-view': 'عرض الشيفرة',
+        'code-page': 'صفحة TSX مكتوبة',
+      },
+    },
+  },
+};

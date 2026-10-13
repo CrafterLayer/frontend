@@ -15,11 +15,13 @@
 }
 .pg-page-workspace__header h2 {
   font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
   margin: 0;
 }
 .pg-page-workspace__header p {
   color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-micro);
+  font-size: var(--bldr-font-size-caption);
   margin: var(--bldr-space-2xs) 0 0;
 }
 /*

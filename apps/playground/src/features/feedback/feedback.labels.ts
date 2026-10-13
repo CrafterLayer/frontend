@@ -12,6 +12,16 @@ export interface FeedbackLabels {
   readonly publishFailedDetail: string;
   readonly retry: string;
   readonly close: string;
+  /** "Undone · Duplicate · Hero": a step was taken back (UX pass, 2026-10-13). */
+  readonly undone: (step: string) => string;
+  /** "Redone · Duplicate · Hero". */
+  readonly redone: (step: string) => string;
+  /** The way back from an undo, offered on its toast. */
+  readonly redo: string;
+  /** The way back from a redo. */
+  readonly undo: string;
+  /** The way back's spoken name: "Redo Duplicate · Hero". */
+  readonly reverseStep: (verb: string, step: string) => string;
 }
 
 export const FEEDBACK_LABELS_EN: FeedbackLabels = {
@@ -23,6 +33,11 @@ export const FEEDBACK_LABELS_EN: FeedbackLabels = {
   publishFailedDetail: 'Nothing was lost. Check the page and try again.',
   retry: 'Try again',
   close: 'Close',
+  undone: (step) => `Undone · ${step}`,
+  redone: (step) => `Redone · ${step}`,
+  redo: 'Redo',
+  undo: 'Undo',
+  reverseStep: (verb, step) => `${verb} ${step}`,
 };
 
 export const FEEDBACK_LABELS_AR: FeedbackLabels = {
@@ -35,6 +50,11 @@ export const FEEDBACK_LABELS_AR: FeedbackLabels = {
   publishFailedDetail: 'لم يضِع شيء. راجع الصفحة وحاول مجددًا.',
   retry: 'حاول مجددًا',
   close: 'إغلاق',
+  undone: (step) => `تم التراجع · ${step}`,
+  redone: (step) => `أُعيد · ${step}`,
+  redo: 'إعادة',
+  undo: 'تراجع',
+  reverseStep: (verb, step) => `${verb} ${step}`,
 };
 
 export function feedbackLabels(locale: 'en' | 'ar'): FeedbackLabels {

@@ -90,7 +90,7 @@ export function TopBarExtra({
         variant="toggle"
         className="pg-pane-toggle"
         aria-label={labels.togglePanel}
-        title={labels.togglePanel}
+        tooltip={labels.togglePanel}
         aria-pressed={visiblePanes.panel}
         onClick={() => {
           setPanelOpen(!visiblePanes.panel);
@@ -109,7 +109,7 @@ export function TopBarExtra({
         variant="toggle"
         className="pg-pane-toggle"
         aria-label={labels.toggleInspector}
-        title={labels.toggleInspector}
+        tooltip={labels.toggleInspector}
         aria-pressed={visiblePanes.aside}
         onClick={() => {
           setAsideOpen(!visiblePanes.aside);

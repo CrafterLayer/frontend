@@ -116,9 +116,10 @@ describe('the app frame must not reach into the page being edited', () => {
     .replaceAll(/\/\*[\s\S]*?\*\//g, '');
 
   it('keeps App.css an index of region stylesheets, none of them over 500 lines', () => {
-    const imports = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)].map((match) => match[1] ?? '');
+    const imports = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)].map((m) => m[1] ?? '');
     expect(imports.length).toBeGreaterThan(5);
-    expect(appCssIndex.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/@import[^;]+;/g, '').trim()).toBe('');
+    const bare = appCssIndex.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/@import[^;]+;/g, '');
+    expect(bare.trim()).toBe('');
     for (const path of imports) {
       const text = readFileSync(join(process.cwd(), 'src', 'app', path), 'utf8');
       expect(text.split('\n').length, path).toBeLessThanOrEqual(501);
@@ -141,12 +142,6 @@ describe('the app frame must not reach into the page being edited', () => {
     expect(scoped.some((body) => body.includes('overflow: hidden'))).toBe(true);
   });
 
-  // Measured in Chromium: every control the SHELL owns sits at exactly 44px
-  // (`--bldr-hit-target-min`), while the harness's own controls came in at
-  // 13-27px — a 22px button fails WCAG 2.2 SC 2.5.8, and a 13px checkbox is a
-  // thing to aim at. jsdom cannot measure a box, so this gate holds the
-  // narrower line it CAN hold: the harness sizes its controls from the token
-  // and never from a literal that would drift away from it.
   /*
     Measured in Chromium against the dev server: wrapping AssistantPanel in
     `.pg-rail-panel` (to keep it mounted across rail destinations) put an
@@ -178,15 +173,13 @@ describe('the app frame must not reach into the page being edited', () => {
     }
   });
 
-  it('sizes every harness control from the hit-target token', () => {
-    const harness = globalBlocks(/\.pg-settings/);
-    const sizing = harness.flatMap((body) => [...body.matchAll(/min-block-size:\s*([^;]+);/g)]);
-
-    // Non-vacuous: a file that had stopped sizing its controls at all would
-    // otherwise sail through, and that is the state this gate was written for.
-    expect(sizing.length).toBeGreaterThanOrEqual(2);
-    for (const declaration of sizing) {
-      expect(declaration[1]?.trim()).toBe('var(--bldr-hit-target-min)');
+  // UX pass (2026-10-13): 32px like every panel control (all ≥ 28px, WCAG 2.5.8 asks 24).
+  it('sizes every harness control from a chrome control token, never a literal', () => {
+    const css = globalBlocks(/\.pg-settings/).join('\n');
+    const sizing = [...css.matchAll(/min-block-size:\s*([^;]+);/g)].map((m) => m[1]?.trim());
+    expect(sizing.length).toBeGreaterThanOrEqual(2); // non-vacuous: controls are sized at all
+    for (const value of sizing) {
+      expect(value).toMatch(/^var\(--bldr-(control-height|control-lg|hit-target-min)\)$/u);
     }
   });
 });
@@ -601,7 +594,9 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(await screen.findByRole('region', { name: 'Design system' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Styles' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Symbols' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Import & export design system' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Import & export design system' }),
+    ).toBeInTheDocument();
 
     // History: the labelled steps sit beside the vault's restore points.
     await user.click(screen.getByRole('button', { name: 'History' }));
@@ -867,7 +862,9 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
       if (surface !== null) {
         surface.textContent = 'Edited in place';
         surface.dispatchEvent(new Event('input', { bubbles: true }));
-        surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        surface.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        );
       }
     });
     await waitFor(() => {

@@ -1,8 +1,10 @@
 import type { ChromeChoice } from './chrome-theme';
+import { CHROME_PICKER_LABELS_EN, type ChromePickerLabels } from './ChromePicker.labels';
 
 export interface ChromePickerProps {
   value: ChromeChoice;
   onChange: (next: ChromeChoice) => void;
+  labels?: ChromePickerLabels | undefined;
 }
 
 const CHOICES: readonly ChromeChoice[] = ['system', 'light', 'dark'];
@@ -23,10 +25,14 @@ const CHOICES: readonly ChromeChoice[] = ['system', 'light', 'dark'];
  * block answer. Choosing `light` on a dark machine is a different decision from
  * not choosing, and this control keeps them distinguishable.
  */
-export function ChromePicker({ value, onChange }: ChromePickerProps) {
+export function ChromePicker({
+  value,
+  onChange,
+  labels = CHROME_PICKER_LABELS_EN,
+}: ChromePickerProps) {
   return (
     <fieldset>
-      <legend>Editor</legend>
+      <legend>{labels.legend}</legend>
       {CHOICES.map((choice) => (
         <label key={choice}>
           <input
@@ -39,7 +45,7 @@ export function ChromePicker({ value, onChange }: ChromePickerProps) {
               its subject. The visible word is still contained in the spoken
               name, which is what WCAG 2.5.3 asks of a label in a name.
             */
-            aria-label={`Editor ${choice}`}
+            aria-label={labels.optionName(labels.choices[choice])}
             name="playground-chrome"
             value={choice}
             checked={value === choice}
@@ -47,7 +53,7 @@ export function ChromePicker({ value, onChange }: ChromePickerProps) {
               onChange(choice);
             }}
           />
-          {choice}
+          {labels.choices[choice]}
         </label>
       ))}
     </fieldset>

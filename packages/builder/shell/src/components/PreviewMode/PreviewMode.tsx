@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
@@ -14,6 +14,7 @@ import '../../styles/visually-hidden.css';
 // library-playground additions (2026-10-08): the frame's <html lang> follows the page.
 import { useFrameLang } from '../EditorCanvas/frame-lang';
 // end library-playground additions
+import { PREVIEW_MODE_LABELS_EN, type PreviewModeLabels } from './PreviewMode.labels';
 import './PreviewMode.css';
 
 // gsap-pixi additions (2026-10-08): engines on registered blocks play as on the published page.
@@ -39,6 +40,14 @@ export interface PreviewModeProps {
   frameWidth?: number | undefined;
   /** Escape (host or frame) triggers this too. */
   onExit: () => void;
+  /**
+   * The host's own preview tools (a direction flip, a device note). Given, Preview draws a
+   * bar ABOVE the page holding them and Exit preview at its end, so no control sits over
+   * the page; absent, Exit preview floats at the frame's corner as before.
+   */
+  toolbar?: ReactNode | undefined;
+  /** Every visible and spoken string; English by default. */
+  labels?: PreviewModeLabels | undefined;
 }
 
 /**
@@ -58,6 +67,8 @@ export function PreviewMode({
   breakpoint,
   frameWidth,
   onExit,
+  toolbar,
+  labels = PREVIEW_MODE_LABELS_EN,
 }: PreviewModeProps) {
   const docDir = useKernelSelector(
     kernel,
@@ -119,10 +130,12 @@ export function PreviewMode({
   // set after mount (rAF keeps the state write out of the effect body) using
   // the established {text, nonce} pattern.
   const [message, setMessageState] = useState({ text: '', nonce: 0 });
+  // Said once, on entry, in the language preview opened in.
+  const enteredText = useRef(labels.entered);
   useEffect(() => {
     const handle = requestAnimationFrame(() => {
       setMessageState((current) => ({
-        text: 'Preview — press Escape to return to editing.',
+        text: enteredText.current,
         nonce: current.nonce + 1,
       }));
     });
@@ -131,8 +144,30 @@ export function PreviewMode({
     };
   }, []);
 
+  const exitButton = (
+    <button type="button" className="bldr-preview__exit" onClick={onExit}>
+      {labels.exit}
+      <kbd className="bldr-preview__key" aria-hidden="true">
+        {labels.exitKey}
+      </kbd>
+    </button>
+  );
+
   return (
-    <div ref={regionRef} className="bldr-preview" role="region" aria-label="Preview" tabIndex={0}>
+    <div
+      ref={regionRef}
+      className="bldr-preview"
+      role="region"
+      aria-label={labels.region}
+      tabIndex={0}
+      data-bar={toolbar === undefined ? undefined : ''}
+    >
+      {toolbar === undefined ? null : (
+        <div className="bldr-preview__bar">
+          <div className="bldr-preview__tools">{toolbar}</div>
+          {exitButton}
+        </div>
+      )}
       <div
         className="bldr-preview__frame"
         style={
@@ -144,7 +179,7 @@ export function PreviewMode({
         <CanvasFrame
           theme={theme}
           dir={dir}
-          title="Preview"
+          title={labels.frameTitle}
           onFrame={setFrame}
           siteEngines={PREVIEW_SITE_ENGINES} /* gsap-pixi additions (2026-10-08) */
         >
@@ -156,10 +191,8 @@ export function PreviewMode({
           <DocumentView kernel={kernel} isCanvas={false} breakpoint={breakpoint} />
         </CanvasFrame>
       </div>
-      <button type="button" className="bldr-preview__exit" onClick={onExit}>
-        Exit preview
-      </button>
-      <output className="bldr-visually-hidden" aria-live="polite" aria-label="Preview messages">
+      {toolbar === undefined ? exitButton : null}
+      <output className="bldr-visually-hidden" aria-live="polite" aria-label={labels.messages}>
         {message.text}
         {message.nonce % 2 === 1 ? '​' : ''}
       </output>

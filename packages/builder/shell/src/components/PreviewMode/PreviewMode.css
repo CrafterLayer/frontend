@@ -1,40 +1,118 @@
 .bldr-preview {
-  background: var(--bldr-ground, #eef0f5);
+  background: var(--bldr-ground);
   block-size: 100%;
+  box-sizing: border-box;
   inline-size: 100%;
   overflow: hidden;
   position: relative;
 }
 
+/* With a host toolbar, the bar is a row of its own and the page takes the rest. */
+.bldr-preview[data-bar] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .bldr-preview__frame {
-  background: var(--bldr-surface, #ffffff);
+  background: var(--bldr-surface);
   block-size: 100%;
   box-shadow: var(--bldr-shadow-raised);
   inline-size: 100%;
   margin-inline: auto;
+  min-block-size: 0;
 }
 
 .bldr-preview:focus-visible {
-  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
-  outline-offset: var(--bldr-border-thick);
+  outline: var(--bldr-border-thick) solid var(--bldr-selection);
+  outline-offset: calc(-1 * var(--bldr-border-thick));
+}
+
+/*
+  The preview bar (UX pass, 2026-10-13): the host's tools at the start, Exit preview at the
+  end, ABOVE the page. Exit preview used to float over the page's own top corner — over its
+  navigation, in every preview — and that was the one place a person checks first.
+*/
+.bldr-preview__bar {
+  align-items: center;
+  background: var(--bldr-surface);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: flex;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+  min-block-size: var(--bldr-topbar-height);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-xl);
+}
+
+.bldr-preview__tools {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
 }
 
 .bldr-preview__exit {
-  background: var(--bldr-panel, #f8fafc);
-  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #e2e8f0);
-  border-radius: var(--bldr-radius-full);
-  box-shadow: 0 var(--bldr-border-hairline) var(--bldr-space-xs) rgb(0 0 0 / 15%);
-  color: var(--bldr-panel-text, #334155);
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
   cursor: pointer;
-  font-family: var(--bldr-font, system-ui, sans-serif);
-  font-size: 0.8125rem;
-  inset-block-start: 0.75rem;
-  inset-inline-end: 0.75rem;
-  padding: 0.375rem 0.75rem;
+  display: inline-flex;
+  flex: none;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-md);
+  inset-block-start: var(--bldr-space-xl);
+  inset-inline-end: var(--bldr-space-xl);
+  line-height: var(--bldr-line-height-tight);
+  min-block-size: var(--bldr-control-height);
+  padding-inline: var(--bldr-space-xl) var(--bldr-space-sm);
   position: absolute;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
 }
 
-.bldr-preview__exit:hover,
+/* In the bar it is an ordinary control, not a floating one. */
+.bldr-preview__bar .bldr-preview__exit {
+  box-shadow: none;
+  position: static;
+}
+
+.bldr-preview__exit:lang(ar) {
+  font-family: var(--bldr-font-arabic);
+}
+
+.bldr-preview__exit:hover {
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent);
+}
+
 .bldr-preview__exit:focus-visible {
-  color: var(--bldr-accent, #2563eb);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-preview__key {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-preview__exit {
+    transition: none;
+  }
 }

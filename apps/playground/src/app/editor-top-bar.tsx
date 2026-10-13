@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import {
   TopBar,
   type BuilderKernel,
@@ -48,6 +46,9 @@ export interface EditorTopBarProps {
   readonly setPreview: (preview: boolean) => void;
   readonly panes: TopBarExtraProps['panes'] & EditorCommandsOptions['panes'];
   readonly openShortcuts: (open: boolean) => void;
+  /** The command palette's open state, owned by the app so Help can open it too. */
+  readonly paletteOpen: boolean;
+  readonly setPaletteOpen: (open: boolean | ((open: boolean) => boolean)) => void;
 }
 
 /**
@@ -68,10 +69,11 @@ export function EditorTopBar({
   setPreview,
   panes,
   openShortcuts,
+  paletteOpen,
+  setPaletteOpen,
 }: EditorTopBarProps) {
   const { publishSite, publishStaticSiteFiles, codeSnapshot, compileCodePage } = code;
   const { editorLocale } = language;
-  const [paletteOpen, setPaletteOpen] = useState(false);
   useCommandPaletteShortcut(() => {
     setPaletteOpen((open) => !open);
   });

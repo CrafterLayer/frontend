@@ -36,7 +36,8 @@ export interface HistoryPanelLabels {
 
 export const HISTORY_PANEL_LABELS_EN: HistoryPanelLabels = {
   region: 'History',
-  title: 'History',
+  // The section's own name: the rail already says History, and Edit history sits above it.
+  title: 'Restore points',
   intro:
     'A restore point keeps the whole page. Restoring one is a single change, so a single undo puts it back.',
   name: 'Name',
@@ -75,7 +76,7 @@ const AR_UNITS: Readonly<Record<'B' | 'kB' | 'MB', string>> = {
 
 export const HISTORY_PANEL_LABELS_AR: HistoryPanelLabels = {
   region: 'السجل',
-  title: 'السجل',
+  title: 'نقاط الاستعادة',
   intro: 'تحفظ نقطة الاستعادة الصفحة كاملة. واستعادتها تغيير واحد، فتراجع واحد يلغي الاستعادة.',
   name: 'الاسم',
   namePlaceholder: 'قبل إعادة الكتابة',

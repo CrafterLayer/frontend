@@ -9,6 +9,10 @@ import {
 } from '@craftkit/builder';
 
 import type { ProposalPreview } from '../features/agent';
+import {
+  CanvasEmptyState,
+  canvasEmptyStateLabels,
+} from '../features/preview/components/CanvasEmptyState';
 import { CodeViewShowcase } from '../features/preview/components/CodeViewShowcase';
 import type { PlaygroundFixture } from '../features/preview/create-playground-kernel';
 import { PageWorkspace } from '../features/preview/page-workspace';
@@ -16,9 +20,11 @@ import type { VaultKernelState } from '../features/vault/use-vault';
 import type { ReadySession } from './app-helpers';
 import { BootState } from './boot-state';
 import { CodeRuntimeView } from './code-runtime-view';
-import type { EditorLabels } from './editor-labels';
+import type { EditorLabels, EditorLocale } from './editor-labels';
 import type { CodeSession } from './use-code-session';
 import type { EditorChrome } from './use-editor-chrome';
+import type { EditorPanes } from './use-editor-panes';
+import { useDocumentIsEmpty } from './use-kernel-snapshot';
 import type { InspectorFocus } from './use-inspector-focus';
 import type { PartWiring } from './use-part-wiring';
 import type { SiteDesign } from './use-site-design';
@@ -29,6 +35,9 @@ export interface WorkspaceCanvasProps {
   readonly siteKernel: BuilderSiteKernel | undefined;
   readonly workspaceView: 'canvas' | 'sitemap';
   readonly labels: EditorLabels;
+  readonly editorLocale: EditorLocale;
+  /** The empty page's two ways in open the library on a tab. */
+  readonly openLibrary: EditorPanes['openLibrary'];
   readonly code: CodeSession;
   /** The rail's Code destination is open. */
   readonly codeOpen: boolean;
@@ -58,6 +67,8 @@ export function WorkspaceCanvas({
   siteKernel,
   workspaceView,
   labels,
+  editorLocale,
+  openLibrary,
   code,
   codeOpen,
   fixture,
@@ -75,6 +86,7 @@ export function WorkspaceCanvas({
   onReplaceMedia,
 }: WorkspaceCanvasProps) {
   const { codeSnapshot } = code;
+  const pageIsEmpty = useDocumentIsEmpty(session?.kernel);
   return session === undefined ? (
     <BootState state={vault} />
   ) : workspaceView === 'sitemap' ? (
@@ -147,6 +159,19 @@ export function WorkspaceCanvas({
         canvasLabels={labels.canvas}
         symbolTree={design.symbolTree}
       />
+      {/* An empty page says what to do next instead of showing a blank sheet. */}
+      {pageIsEmpty ? (
+        <CanvasEmptyState
+          onAddBlock={() => {
+            openLibrary('blocks');
+          }}
+          onUseTemplate={() => {
+            openLibrary('templates');
+          }}
+          labels={canvasEmptyStateLabels(editorLocale)}
+          dir={labels.dir}
+        />
+      ) : null}
     </AssetTableProvider>
   );
 }

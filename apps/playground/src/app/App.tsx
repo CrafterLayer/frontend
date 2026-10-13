@@ -16,6 +16,8 @@ import { useCodeSession } from './use-code-session';
 import { useAgentHost } from './use-agent-host';
 import { useKernelSnapshot } from './use-kernel-snapshot';
 import { useSiteDesign } from './use-site-design';
+import { useRevealInspector } from './use-reveal-inspector';
+import { useHistoryFeedback } from './use-history-feedback';
 import { PlaygroundPreview } from './playground-preview';
 import { EditorTopBar } from './editor-top-bar';
 import { VaultNotices } from './vault-notices';
@@ -79,22 +81,11 @@ export function App() {
   } = panes;
   // The assistant's model, effort and free-code choices, and the provider they decide.
   const agentSettings = useAgentModelSettings();
-  /*
-    The scenario harness is a disclosure, not a strip. Eight controls plus the
-    product's own do not fit a 56px bar: measured at 1600px they came to 722px
-    inside a 372px slot, so two of them sat outside the visible region — still
-    focusable, no longer clickable. Opening OVER the canvas costs no layout
-    pixels at all, which is the whole point.
-  */
+  // The scenario fixture (the Settings panel's harness). There is no "edit mode": a
+  // builder IS an editor, and Preview is the one control that shows the page alone.
   const [fixture, setFixture] = useState<PlaygroundFixture>(readCurrentWorkspace);
-  /*
-    There is no "edit mode". A builder IS an editor — you do not switch it on —
-    and `Preview` is the one control that shows the page without the chrome. The
-    checkbox that used to sit in the product's action band was harness
-    scaffolding wearing a product control's clothes; the `editMode = true`
-    constant that outlived it was the same scaffolding, reduced to a conditional
-    that could only ever take one branch.
-  */
+  // The command palette: the top bar's trigger and Ctrl/⌘ K open it, and so does Help.
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [dragHandle, setDragHandle] = useState<CanvasDragHandle | undefined>(undefined);
   // B3a view state: device emulation and preview — never document, never kernel.
   const [device, setDevice] = useState<DeviceState>({ width: 1280, bucket: 'base' });
@@ -190,6 +181,9 @@ export function App() {
 
   // The live document direction and undo/redo state (Law S: subscribed, never read bare).
   const { docDir, canUndo, canRedo } = useKernelSnapshot(kernel);
+  // A canvas selection brings a hidden Inspector forward; every undo/redo is said once.
+  useRevealInspector(kernel, panes);
+  useHistoryFeedback(kernel, editorLocale, labels.historyList);
   // The site's palette (as the page theme), asset table and design library, subscribed.
   const design = useSiteDesign(siteKernel, themeName);
   const { theme, retheme, siteLibrary } = design;
@@ -265,6 +259,8 @@ export function App() {
             setPreview={setPreview}
             panes={panes}
             openShortcuts={chrome.setShortcutsOpen}
+            paletteOpen={paletteOpen}
+            setPaletteOpen={setPaletteOpen}
           />
           {/* The outcome of a person's own action (publish first), said once near the canvas. */}
           <FeedbackToaster labels={feedbackLabels(editorLocale)} dir={labels.dir} />
@@ -425,6 +421,8 @@ export function App() {
                       libraryKitSections={libraryKitSections}
                       libraryPreviewCss={libraryPreviewCss}
                       liveUtilities={liveUtilities}
+                      libraryRequest={panes.libraryRequest}
+                      openPalette={setPaletteOpen}
                     />
                   </>
                 )
@@ -436,6 +434,8 @@ export function App() {
                   siteKernel={siteKernel}
                   workspaceView={panes.workspaceView}
                   labels={labels}
+                  editorLocale={editorLocale}
+                  openLibrary={panes.openLibrary}
                   code={code}
                   codeOpen={codeOpen}
                   fixture={fixture}

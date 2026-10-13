@@ -21,3 +21,11 @@ export const Interactive: Story = {
   args: { value: 'light', onChange: () => undefined },
   render: () => <InteractiveThemePicker />,
 };
+
+export const Arabic: Story = {
+  args: {
+    value: 'light',
+    onChange: () => undefined,
+    labels: { legend: 'سمة الصفحة', choices: { light: 'فاتحة', dark: 'داكنة' } },
+  },
+};

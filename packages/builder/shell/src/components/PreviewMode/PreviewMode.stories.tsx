@@ -14,6 +14,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { PreviewMode } from './PreviewMode';
+import { PREVIEW_MODE_LABELS_AR } from './PreviewMode.labels';
 
 const TextRender = ((props: BlockRenderProps<{ content: string }>) => (
   <p style={{ fontFamily: 'system-ui', padding: '1rem' }}>{props.props.content}</p>
@@ -130,4 +131,38 @@ export const EscapeExit: Story = {
     await expect(args.onExit).toHaveBeenCalled();
     await expect(escapeKernel.transactions().length).toBe(0);
   },
+};
+
+/* The host's tools in a bar ABOVE the page, Exit preview at its end: nothing over the page. */
+const barKernel = makeKernel();
+export const WithToolbar: Story = {
+  args: {
+    kernel: barKernel,
+    theme: lightTheme,
+    onExit: fn(),
+    toolbar: <span>Desktop · 1280 px</span>,
+  },
+  play: async ({ args, canvasElement }) => {
+    const bar = canvasElement.querySelector<HTMLElement>('.bldr-preview__bar');
+    await expect(bar).not.toBeNull();
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Exit preview' }));
+    await expect(args.onExit).toHaveBeenCalled();
+  },
+};
+
+export const Arabic: Story = {
+  args: {
+    kernel: makeKernel(),
+    theme: lightTheme,
+    onExit: () => undefined,
+    labels: PREVIEW_MODE_LABELS_AR,
+    toolbar: <span>سطح المكتب · 1280 px</span>,
+  },
+  decorators: [
+    (Story) => (
+      <div dir="rtl" lang="ar" style={{ blockSize: 480 }}>
+        <Story />
+      </div>
+    ),
+  ],
 };

@@ -4,5 +4,5 @@ export {
   feedbackLabels,
   type FeedbackLabels,
 } from './feedback.labels';
-export { notifyPublish } from './notify';
+export { notifyHistoryStep, notifyPublish, type HistoryStepNotice } from './notify';
 export { FeedbackToaster, type FeedbackToasterProps } from './components/FeedbackToaster';

@@ -28,7 +28,8 @@
   display: flex;
   gap: var(--bldr-space-2xs);
   padding-block: var(--bldr-space-sm) var(--bldr-space-0);
-  padding-inline: var(--bldr-space-md);
+  /* The first tab's WORD sits on the panel gutter, like every other panel's first line. */
+  padding-inline: calc(var(--bldr-panel-padding) - var(--bldr-space-sm));
 }
 
 .bldr-library__tab {
@@ -39,11 +40,19 @@
   color: var(--bldr-panel-muted);
   cursor: pointer;
   display: inline-flex;
-  font: var(--bldr-font-weight-medium) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
-    inherit;
+  /* Longhands: "inherit" is not a family inside the font shorthand, and the invalid
+     declaration was dropped whole, so the tabs never took their size or weight. */
+  font-family: inherit;
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-medium);
   gap: var(--bldr-space-2xs);
+  line-height: var(--bldr-line-height-tight);
   padding-block: var(--bldr-space-sm);
   padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-library__tab:hover {
+  color: var(--bldr-panel-text);
 }
 
 .bldr-library__tab[data-state='active'] {
@@ -67,22 +76,58 @@
   padding-inline: var(--bldr-space-xs);
 }
 
+/*
+  UX pass (2026-10-13): the search row is the SAME control as the Blocks tab's (Palette):
+  the panel gutter, a 32px field with the Large radius, the control type size and a
+  magnifier at its start. It was a 28px bare box 8px from the edge, so moving between
+  the Library's tabs changed the field under the pointer.
+*/
 .bldr-library__search {
   flex-shrink: 0;
-  padding-block: var(--bldr-space-sm);
-  padding-inline: var(--bldr-space-md);
+  padding-block: var(--bldr-space-xl) var(--bldr-space-md);
+  padding-inline: var(--bldr-panel-padding);
+  position: relative;
+}
+
+.bldr-library__search::before {
+  background-color: var(--bldr-panel-muted);
+  block-size: var(--bldr-space-3xl);
+  content: '';
+  inline-size: var(--bldr-space-3xl);
+  inset-block-start: calc(
+    var(--bldr-space-xl) + (var(--bldr-control-height) - var(--bldr-space-3xl)) / 2
+  );
+  inset-inline-start: calc(var(--bldr-panel-padding) + var(--bldr-space-lg));
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.25'/%3E%3Cpath d='m10.25 10.25 3 3'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  pointer-events: none;
+  position: absolute;
 }
 
 .bldr-library__search-input {
-  background: var(--bldr-input-bg);
-  block-size: var(--bldr-control-height-sm);
+  appearance: none;
+  background: var(--bldr-panel-control);
+  block-size: var(--bldr-control-height);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
+  border-radius: var(--bldr-radius-lg);
   box-sizing: border-box;
   color: var(--bldr-panel-text);
-  font: inherit;
+  font-family: inherit;
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-regular);
   inline-size: 100%;
-  padding-inline: var(--bldr-space-sm);
+  line-height: var(--bldr-line-height-snug);
+  padding-inline: calc(var(--bldr-space-lg) + var(--bldr-space-3xl) + var(--bldr-space-sm))
+    var(--bldr-space-lg);
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-library__search-input::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-library__search-input:hover {
+  border-color: var(--bldr-panel-border-strong);
 }
 
 .bldr-library__filters {
@@ -90,11 +135,11 @@
 }
 
 .bldr-library__filters select {
-  background: var(--bldr-surface);
+  background: var(--bldr-panel-control);
   color: var(--bldr-panel-text);
   border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-md);
-  min-block-size: var(--bldr-control-height-sm);
+  border-radius: var(--bldr-radius-lg);
+  min-block-size: var(--bldr-control-height);
   inline-size: 100%;
   font: inherit;
   padding-inline: var(--bldr-space-sm);
@@ -102,31 +147,49 @@
 
 .bldr-library__hint {
   color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-micro);
+  font-size: var(--bldr-font-size-caption);
   line-height: var(--bldr-line-height-snug);
-  margin-block: var(--bldr-space-sm) var(--bldr-space-0);
+  margin-block: var(--bldr-space-md) var(--bldr-space-0);
+}
+
+/* "Click to insert…" says how to use tiles; over a tab with none it only adds noise. */
+.bldr-library__tabs:has(> .bldr-library__panel[data-state='active'] > .bldr-library__empty)
+  .bldr-library__hint {
+  display: none;
 }
 
 .bldr-library__panel {
   flex: 1 1 auto;
   min-block-size: 0;
   overflow: auto;
-  padding-block: var(--bldr-space-0) var(--bldr-space-md);
-  padding-inline: var(--bldr-space-md);
+  padding-block: var(--bldr-space-0) var(--bldr-panel-padding);
+  padding-inline: var(--bldr-panel-padding);
 }
 
 .bldr-library__panel--blocks {
   padding-inline: var(--bldr-space-0);
 }
 
+/*
+  An empty tab is a quiet card that says what to do next (UX pass, 2026-10-13), the same
+  shape as the Inspector's invitation — not a stray line of grey text under the search.
+*/
 .bldr-library__empty {
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
   color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
   margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-5xl);
+  padding-inline: var(--bldr-space-4xl);
+  text-align: center;
+  text-wrap: pretty;
 }
 
 .bldr-library__grid {
   display: grid;
-  gap: var(--bldr-space-sm);
+  gap: var(--bldr-space-md);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   list-style: none;
   margin: var(--bldr-space-0);
@@ -162,6 +225,10 @@
   box-shadow: var(--bldr-shadow-raised);
 }
 
+.bldr-library__tile-button:active {
+  cursor: grabbing;
+}
+
 .bldr-library__thumb {
   align-items: center;
   aspect-ratio: 4 / 3;
@@ -176,8 +243,8 @@
 
 .bldr-library__glyph {
   color: var(--bldr-panel-muted);
-  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
-    var(--bldr-font-mono);
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) /
+    var(--bldr-line-height-tight) var(--bldr-font-mono);
 }
 
 .bldr-library__frame {
@@ -229,7 +296,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bldr-library__tile-button {
+  .bldr-library__tile-button,
+  .bldr-library__search-input {
     transition: none;
   }
 }
@@ -251,7 +319,7 @@
 .bldr-library__template-grid {
   display: grid;
   gap: var(--bldr-space-md);
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--bldr-measure-picker)), 1fr));
   list-style: none;
   margin: var(--bldr-space-0);
   padding: var(--bldr-space-0);

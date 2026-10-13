@@ -8,6 +8,8 @@
    impossible. */
 
 .pg-history {
+  /* It follows Edit history in the same panel: a hairline says where one section ends. */
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   color: var(--bldr-panel-text);
   display: flex;
   flex-direction: column;
@@ -23,10 +25,17 @@
   gap: var(--bldr-space-xs);
 }
 
+/* A SECTION heading, the same eyebrow as Edit history above it (UX pass, 2026-10-13):
+   two headings of different sizes for two halves of one panel read as two panels. */
 .pg-history__head h2 {
-  font-size: var(--bldr-font-size-title);
-  font-weight: var(--bldr-font-weight-semibold);
+  font: var(--bldr-font-weight-bold) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
+    var(--bldr-font);
   margin: var(--bldr-space-0);
+  text-transform: uppercase;
+}
+
+.pg-history__head h2:lang(ar) {
+  font-family: var(--bldr-font-arabic);
 }
 
 .pg-history__head p {
@@ -58,9 +67,9 @@
   border-radius: var(--bldr-radius-md);
   color: var(--bldr-panel-text);
   font: var(--bldr-font-weight-regular) var(--bldr-font-size-control) / 1 var(--bldr-font);
-  /* The one control this panel owns outright, sized from the same token every
-     other control in the editor is sized from (WCAG 2.2 SC 2.5.8). */
-  min-block-size: var(--bldr-hit-target-min);
+  /* The one control this panel owns outright, the same height as the button under it
+     (36px, well above WCAG 2.2 SC 2.5.8's 24px for pointer targets). */
+  min-block-size: var(--bldr-control-lg);
   padding-inline: var(--bldr-space-md);
 }
 

@@ -19,7 +19,7 @@
     "apps/ai-server/src/prompt.ts": 997,
     "apps/evals/src/live/drive-playground.ts": 681,
     "apps/mcp-server/src/server.ts": 606,
-    "apps/playground/src/app/App.test.tsx": 1091,
+    "apps/playground/src/app/App.test.tsx": 1088,
     "apps/playground/src/app/library-sections.copy.ts": 970,
     "apps/playground/src/features/agent/components/Composer/Composer.stories.tsx": 843,
     "apps/playground/src/features/agent/components/Composer/Composer.tsx": 539,

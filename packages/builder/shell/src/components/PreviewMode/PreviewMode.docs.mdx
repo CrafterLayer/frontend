@@ -23,8 +23,13 @@ exactly as it was left.
 
 Preview is a modal surface: focus moves into the region on entry, and Escape is bound at the HOST
 DOCUMENT for the preview's lifetime — it exits wherever focus happens to be, including inside the
-preview frame (which carries its own listener, since keydown does not cross document boundaries). A
-floating "Exit preview" control is always visible. All paths call the same `onExit`.
+preview frame (which carries its own listener, since keydown does not cross document boundaries). An
+"Exit preview" control is always visible, with its key (`Esc`) beside it. All paths call the same
+`onExit`.
+
+With a `toolbar`, Preview draws a bar ABOVE the page — the host's tools at its start, Exit preview
+at its end — so no control sits over the page being checked. Without one, Exit preview floats at the
+frame's corner.
 
 ## Usage
 
@@ -55,12 +60,16 @@ import { PreviewMode } from '@craftkit/builder';
 | `breakpoint`  | `RenderBreakpoint`         | optional responsive prop bucket                       |
 | `frameWidth`  | `number`                   | optional real iframe viewport width in CSS pixels     |
 | `onExit`      | `() => void`               | required; Escape (both documents) and the exit button |
+| `toolbar`     | `ReactNode`                | optional host tools; draws the bar above the page     |
+| `labels`      | `PreviewModeLabels`        | optional; English default, `PREVIEW_MODE_LABELS_AR`   |
 
 ## Accessibility & RTL
 
-A labeled, focusable region (focused on entry); the exit control is a real button; entry announces
-through a named polite region ("Preview messages") as a post-mount mutation. The direction override
-renders true RTL inside the frame.
+A labeled, focusable region (focused on entry); the exit control is a real button whose drawn key
+(`Esc`) is hidden from assistive technology, so its name stays "Exit preview"; entry announces
+through a named polite region ("Preview messages") as a post-mount mutation. Every string comes from
+`labels`, so the Arabic editor names and announces Preview in Arabic; the bar uses logical
+properties and mirrors with the editor. The direction override renders true RTL inside the frame.
 
 ## When not to use
 

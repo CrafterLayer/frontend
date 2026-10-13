@@ -405,6 +405,9 @@
   display: flex;
   align-items: center;
   block-size: 100%;
+  /* The status bar's own surface, so the zoom control is part of the bar rather than a
+     grey band of the shell's ground beside it (UX pass, 2026-10-13). */
+  background-color: var(--bldr-surface);
 }
 
 .pg-canvas-status > :first-child {
@@ -421,12 +424,27 @@
   white-space: nowrap;
 }
 
+.pg-canvas-zoom {
+  color: var(--bldr-panel-muted);
+}
+
 .pg-canvas-zoom select {
   color: var(--bldr-panel-text);
-  background: var(--bldr-panel);
-  border: 1px solid var(--bldr-panel-border);
-  border-radius: var(--bldr-radius-sm);
-  min-block-size: 24px;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  font: inherit;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-canvas-zoom select:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.pg-canvas-zoom select:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
 }
 
 .pg-chat__mode-hint {

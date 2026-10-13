@@ -222,7 +222,8 @@ describe('HistoryPanel', () => {
       />,
     );
     const region = await screen.findByRole('region', { name: 'السجل' });
-    expect(within(region).getByRole('heading', { name: 'السجل' })).toBeVisible();
+    // The region keeps the destination's name; its heading names the section (restore points).
+    expect(within(region).getByRole('heading', { name: 'نقاط الاستعادة' })).toBeVisible();
     expect(region).toHaveTextContent('لا شيء محفوظ بعد.');
     const name = within(region).getByRole('textbox', { name: 'الاسم' });
     expect(name).toHaveAttribute('placeholder', 'قبل إعادة الكتابة');

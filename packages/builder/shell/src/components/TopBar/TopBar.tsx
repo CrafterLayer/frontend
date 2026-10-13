@@ -2,6 +2,7 @@ import { useRef, type KeyboardEvent, type ReactNode, type SVGProps } from 'react
 
 import { ChromeButton } from '../ChromeButton';
 import { TOP_BAR_LABELS_EN, type TopBarLabels } from './TopBar.labels';
+import { tooltipFor, topBarShortcut } from './top-bar-shortcuts';
 import './TopBar.css';
 
 export type TopBarDevice = 'desktop' | 'tablet' | 'mobile';
@@ -84,6 +85,18 @@ const DEVICE_OPTIONS = [
   readonly id: TopBarDevice;
   readonly icon: ReactNode;
 }[];
+
+/*
+  Each icon-only control's shortcut, read once from the editor's keymap (UX pass, 2026-10-13):
+  the tooltip and `aria-keyshortcuts` say the keys the keyboard host actually runs.
+*/
+const SHORTCUTS = {
+  undo: topBarShortcut('undo'),
+  redo: topBarShortcut('redo'),
+  desktop: topBarShortcut('deviceDesktop'),
+  tablet: topBarShortcut('deviceTablet'),
+  mobile: topBarShortcut('deviceMobile'),
+} as const;
 
 const NEXT_DEVICE: Readonly<Record<TopBarDevice, TopBarDevice>> = {
   desktop: 'tablet',
@@ -174,6 +187,8 @@ export function TopBar({
             variant="icon"
             role="radio"
             aria-label={labels.device[option.id]}
+            aria-keyshortcuts={SHORTCUTS[option.id]?.aria}
+            tooltip={tooltipFor(labels.device[option.id], SHORTCUTS[option.id])}
             aria-checked={device === option.id}
             tabIndex={device === option.id ? 0 : -1}
             onKeyDown={(event) => {
@@ -196,6 +211,8 @@ export function TopBar({
           size="lg"
           variant="icon"
           aria-label={labels.undo}
+          aria-keyshortcuts={SHORTCUTS.undo?.aria}
+          tooltip={tooltipFor(labels.undo, SHORTCUTS.undo)}
           disabled={!canUndo}
           onClick={onUndo}
         >
@@ -209,6 +226,8 @@ export function TopBar({
           size="lg"
           variant="icon"
           aria-label={labels.redo}
+          aria-keyshortcuts={SHORTCUTS.redo?.aria}
+          tooltip={tooltipFor(labels.redo, SHORTCUTS.redo)}
           disabled={!canRedo}
           onClick={onRedo}
         >

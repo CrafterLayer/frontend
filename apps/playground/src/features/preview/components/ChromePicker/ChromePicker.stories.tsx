@@ -41,3 +41,15 @@ export const Interactive: Story = {
 export const Overridden: Story = {
   args: { value: 'dark', onChange: () => undefined },
 };
+
+export const Arabic: Story = {
+  args: {
+    value: 'system',
+    onChange: () => undefined,
+    labels: {
+      legend: 'المظهر',
+      choices: { system: 'النظام', light: 'فاتح', dark: 'داكن' },
+      optionName: (choice) => `المحرر: ${choice}`,
+    },
+  },
+};

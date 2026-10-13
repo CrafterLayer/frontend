@@ -1,4 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+
+import type { LibraryTab } from '@craftkit/builder';
+
+/** A request to show the library on one of its tabs; the nonce makes a repeat a new request. */
+export interface LibraryRequest {
+  readonly tab: LibraryTab;
+  readonly nonce: number;
+}
 
 /**
  * The editor's layout state: which rail section is open, which panes are open and
@@ -21,6 +29,18 @@ export function useEditorPanes() {
   const [canvasWidth, setCanvasWidth] = useState(1280);
   const [zoomChoice, setZoomChoice] = useState('fit');
   const [workspaceView, setWorkspaceView] = useState<'canvas' | 'sitemap'>('canvas');
+  /*
+    "Add a block" / "Start from a template" (the empty page, Help): open the library on a
+    tab. The Library keeps its own tab once open, so a request re-opens it at the asked tab.
+  */
+  const [libraryRequest, setLibraryRequest] = useState<LibraryRequest | undefined>(undefined);
+  const openLibrary = useCallback((tab: LibraryTab) => {
+    setRailSection('blocks');
+    setPanelOpen(true);
+    setActiveSide('panel');
+    setWorkspaceView('canvas');
+    setLibraryRequest((current) => ({ tab, nonce: (current?.nonce ?? 0) + 1 }));
+  }, []);
   return {
     railSection,
     setRailSection,
@@ -40,6 +60,8 @@ export function useEditorPanes() {
     setZoomChoice,
     workspaceView,
     setWorkspaceView,
+    libraryRequest,
+    openLibrary,
   };
 }
 

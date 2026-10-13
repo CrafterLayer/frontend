@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { toast } from 'sonner';
 
 import type { FeedbackLabels } from './feedback.labels';
@@ -45,4 +46,38 @@ export function notifyPublish(
     () => undefined,
     () => undefined,
   );
+}
+
+/** One history step, said once: which way it went, what it was, and the way back. */
+export interface HistoryStepNotice {
+  readonly direction: 'undo' | 'redo';
+  /** The step's name in the editor's language ("Duplicate · Hero"). */
+  readonly step: string;
+  /** Takes the step the other way (redo after an undo, undo after a redo). */
+  readonly reverse: () => void;
+}
+
+/** Short: a confirmation, not news. A later step replaces it rather than stacking. */
+const HISTORY_STEP_DURATION_MS = 3_000;
+const HISTORY_STEP_TOAST_ID = 'pg-history-step';
+
+/**
+ * Undo and redo, answered (UX pass, 2026-10-13). Undo used to change the page and say
+ * nothing anywhere a sighted person looks, so after a busy minute the question "what did
+ * that just take back?" had no answer. One toast names the step and offers the way back;
+ * repeated presses update the same toast instead of stacking a column of them.
+ */
+export function notifyHistoryStep(notice: HistoryStepNotice, labels: FeedbackLabels): void {
+  const undo = notice.direction === 'undo';
+  const verb = undo ? labels.redo : labels.undo;
+  toast.info(undo ? labels.undone(notice.step) : labels.redone(notice.step), {
+    id: HISTORY_STEP_TOAST_ID,
+    duration: HISTORY_STEP_DURATION_MS,
+    action: {
+      /* The word is the top bar's ("Redo"); the spoken name says WHICH step, so the toast's
+         button is never a second, identical "Redo" beside the toolbar's. */
+      label: createElement('span', { 'aria-label': labels.reverseStep(verb, notice.step) }, verb),
+      onClick: notice.reverse,
+    },
+  });
 }

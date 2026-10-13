@@ -15,6 +15,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { PreviewMode } from './PreviewMode';
+import { PREVIEW_MODE_LABELS_AR } from './PreviewMode.labels';
 
 const TextRender = ((props: BlockRenderProps<{ content: string }>) => (
   <p data-testid={`text-${props.node.id}`}>{props.props.content}</p>
@@ -208,5 +209,48 @@ describe('convergence fixes (007 §11)', () => {
     // …and a composer re-render with a FRESH onExit closure must not yank it.
     view.rerender(<PreviewMode kernel={kernel} theme={lightTheme} onExit={vi.fn()} />);
     expect(exit).toHaveFocus();
+  });
+});
+
+describe('the preview bar and its words (UX pass, 2026-10-13)', () => {
+  it('a host toolbar puts its tools and Exit preview in a bar above the page, not over it', async () => {
+    const onExit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PreviewMode
+        kernel={makeKernel()}
+        theme={lightTheme}
+        onExit={onExit}
+        toolbar={<button type="button">Flip direction</button>}
+      />,
+    );
+    const exit = screen.getByRole('button', { name: 'Exit preview' });
+    const flip = screen.getByRole('button', { name: 'Flip direction' });
+    const frame = screen.getByTitle('Preview');
+    // Both controls come before the page in the flow, so neither is drawn over it.
+    expect(exit.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(flip.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(exit).toHaveTextContent('Esc');
+    await user.click(exit);
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it('names, titles and announces Preview in the editor language', async () => {
+    render(
+      <PreviewMode
+        kernel={makeKernel()}
+        theme={lightTheme}
+        onExit={vi.fn()}
+        labels={PREVIEW_MODE_LABELS_AR}
+      />,
+    );
+    expect(screen.getByRole('region', { name: 'معاينة' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'إنهاء المعاينة' })).toBeInTheDocument();
+    expect(screen.getByTitle('معاينة')).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(screen.getByRole('status', { name: 'رسائل المعاينة' })).toHaveTextContent(
+        'معاينة — اضغط Escape للعودة إلى التحرير.',
+      );
+    });
   });
 });

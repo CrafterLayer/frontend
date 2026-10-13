@@ -2,13 +2,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-md);
-  padding: var(--bldr-space-lg);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding: var(--bldr-panel-padding);
 }
 
+/* A destination's title: the one Title step every panel uses (Pages, Site, History…). */
 .bldr-asset-manager__title {
   color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-body);
+  font-size: var(--bldr-font-size-title);
   font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
   margin: var(--bldr-space-0);
 }
 
@@ -152,7 +155,12 @@
 .bldr-asset-manager__grid {
   display: grid;
   gap: var(--bldr-space-sm);
-  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-thumb-width), 1fr));
+  /* Two thumbnails a row in the 320px panel at its 16px gutter: the full thumb width
+     (144px) left room for one, and each tile became a 288px blank while it loaded. */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--bldr-thumb-width) - var(--bldr-space-xl)), 1fr)
+  );
   list-style: none;
   margin: var(--bldr-space-0);
   padding: var(--bldr-space-0);

@@ -179,4 +179,17 @@ describe('TopBar', () => {
     await userEvent.setup().click(publish);
     expect(onPublish).toHaveBeenCalledTimes(1);
   });
+
+  it('names each icon-only control and its shortcut in a tooltip, from the editor keymap', () => {
+    render(<TopBar productName="CraftKit" canUndo canRedo onUndo={vi.fn()} onRedo={vi.fn()} />);
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+    expect(undo).toHaveAttribute('data-bldr-tooltip', 'Undo · Ctrl Z');
+    const redo = screen.getByRole('button', { name: 'Redo' });
+    expect(redo).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+Z');
+    expect(redo).toHaveAttribute('data-bldr-tooltip', 'Redo · Ctrl Shift Z');
+    const tablet = screen.getByRole('radio', { name: 'Tablet' });
+    expect(tablet).toHaveAttribute('aria-keyshortcuts', 'Control+2');
+    expect(tablet).toHaveAttribute('data-bldr-tooltip', 'Tablet · Ctrl 2');
+  });
 });

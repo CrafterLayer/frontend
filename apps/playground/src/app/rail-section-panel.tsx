@@ -16,16 +16,21 @@ import {
   type Theme,
 } from '@craftkit/builder';
 
+import { paletteShortcutLabel } from '../features/command';
 import { SiteBuilderPanel } from '../features/preview/components/SiteBuilderPanel';
+import { HelpPanel, helpPanelLabels } from '../features/preview/components/HelpPanel';
 import { HistoryPanel } from '../features/preview/components/HistoryPanel';
 import { PageWorkspace } from '../features/preview/page-workspace';
 import { LOAD_FONT_PREVIEWS } from './app-env';
 import type { ReadySession } from './app-helpers';
 import { DesignRailPanel } from './design-rail-panel';
 import type { EditorLabels, EditorLocale } from './editor-labels';
-import { RailSectionNotice } from './rail-section-notice';
 import type { AgentHost } from './use-agent-host';
 import type { EditorChrome } from './use-editor-chrome';
+import type { LibraryRequest } from './use-editor-panes';
+
+/** Read once: the platform decides `Ctrl` or `⌘` for the whole session. */
+const PLATFORM = typeof navigator === 'undefined' ? '' : navigator.userAgent;
 
 export interface RailSectionPanelProps {
   readonly railSection: string;
@@ -45,6 +50,10 @@ export interface RailSectionPanelProps {
   readonly libraryKitSections: ComponentProps<typeof LibraryPanel>['sections'];
   readonly libraryPreviewCss: string;
   readonly liveUtilities: LiveUtilities | undefined;
+  /** The last request to show the library on a tab (the empty page, Help). */
+  readonly libraryRequest: LibraryRequest | undefined;
+  /** Opens the command palette (Help's "Search and commands"). */
+  readonly openPalette: (open: boolean) => void;
 }
 
 /**
@@ -68,6 +77,8 @@ export function RailSectionPanel({
   libraryKitSections,
   libraryPreviewCss,
   liveUtilities,
+  libraryRequest,
+  openPalette,
 }: RailSectionPanelProps) {
   const { assetLibrary, siteHost, siteSeam } = host;
   return railSection === 'pages' ? (
@@ -130,7 +141,18 @@ export function RailSectionPanel({
       loadFontPreviews={LOAD_FONT_PREVIEWS}
     />
   ) : railSection === 'help' ? (
-    <RailSectionNotice section={railSection} locale={editorLocale} />
+    <div className="pg-panel-scroll">
+      <HelpPanel
+        onOpenShortcuts={() => {
+          chrome.setShortcutsOpen(true);
+        }}
+        onOpenCommands={() => {
+          openPalette(true);
+        }}
+        commandsShortcut={paletteShortcutLabel(PLATFORM)}
+        labels={helpPanelLabels(editorLocale)}
+      />
+    </div>
   ) : railSection === 'site' ? (
     <div className="pg-panel-scroll">
       <SiteBuilderPanel
@@ -150,12 +172,14 @@ export function RailSectionPanel({
       through the canvas's tree drop.
     */
     <LibraryPanel
+      /* A library request re-opens the panel at its tab (the Library keeps its own tab). */
+      key={libraryRequest?.nonce ?? 0}
       kernel={session.kernel}
       dragHandle={dragHandle}
       templates={templates}
       onRemoveTemplate={chrome.removeTemplate}
       // The rail item is "Blocks": it opens on them; Elements, Sections and Saved are one tab away.
-      defaultTab="blocks"
+      defaultTab={libraryRequest?.tab ?? 'blocks'}
       labels={labels.libraryPanel}
       actionLabels={labels.elementActions}
       words={labels.elementWords}

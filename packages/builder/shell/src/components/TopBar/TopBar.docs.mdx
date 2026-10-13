@@ -77,6 +77,11 @@ default `lg` size (`--bldr-control-lg`), and the icon-only type contract require
 name. Undo and Redo use the native `disabled` attribute. Publish and Publish options are separate
 buttons inside one visual shell.
 
+The icon-only controls (the three devices, Undo, Redo) carry a visible tooltip with their name and
+shortcut ("Undo · Ctrl Z", "⌘ Z" on Apple platforms) and the same keys in `aria-keyshortcuts`. The
+keys are read from the editor's own keymap (`EDITOR_SHORTCUTS`), so the hint can never advertise a
+shortcut the keyboard host does not run.
+
 ## RTL, theme, and content constraints
 
 The three groups rely on inherited direction, a symmetric grid, and logical borders and spacing. RTL

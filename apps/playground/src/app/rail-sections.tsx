@@ -70,6 +70,17 @@ const ASSISTANT = glyph(
     <path d="M12.6 11.4 13 12.7l1.3.4-1.3.4-.4 1.3-.4-1.3-1.3-.4 1.3-.4z" />
   </>,
 );
+/*
+  Two pages, one behind the other: the site's page list (UX pass, 2026-10-13). Pages used
+  to borrow SITE's glyph, so two neighbouring destinations looked like one.
+*/
+const PAGES = glyph(
+  <>
+    <path d="M5.2 2.4h4.6L12.6 5.2v6.6c0 .5-.4.9-.9.9h-6.5a.9.9 0 0 1-.9-.9V3.3c0-.5.4-.9.9-.9Z" />
+    <path d="M9.6 2.5v2.9h2.9" />
+    <path d="M2.4 5.2v7.5c0 .8.6 1.4 1.4 1.4h5.6" />
+  </>,
+);
 /* A page stack with a spark: a whole site, built. */
 const SITE = glyph(
   <>
@@ -97,7 +108,7 @@ const HELP = glyph(
 
 export const RAIL_SECTIONS: readonly RailItem[] = [
   { id: 'blocks', label: 'Blocks', icon: BLOCKS },
-  { id: 'pages', label: 'Pages', icon: SITE },
+  { id: 'pages', label: 'Pages', icon: PAGES },
   { id: 'layers', label: 'Layers', icon: LAYERS },
   { id: 'assets', label: 'Assets', icon: ASSETS },
   /* The design system, named styles, symbols and design-library transfer (style-manager §G). */

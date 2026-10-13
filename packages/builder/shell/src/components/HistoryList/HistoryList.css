@@ -5,8 +5,9 @@
   font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-snug)
     var(--bldr-font);
   inline-size: 100%;
-  padding-block: var(--bldr-space-md);
-  padding-inline: var(--bldr-space-md);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding-block: var(--bldr-panel-padding) var(--bldr-space-md);
+  padding-inline: var(--bldr-panel-padding);
 }
 
 .bldr-history-list__title {

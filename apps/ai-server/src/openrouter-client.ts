@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import { parsesAsJson, unwrapJson } from './json-salvage';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
-import { turnText as messageText } from './prompt-cache';
+import * as cache from './openrouter-cache';
 
 /**
  * The OpenRouter backend, gated by `CRAFTKIT_AI_BACKEND=openrouter`.
@@ -164,30 +164,11 @@ function schemaAsText(schema: unknown): string {
   );
 }
 
-function chatMessages(
-  params: StreamParams,
-  schema: unknown,
-  explicitPromptCache: boolean,
-): unknown[] {
-  const system = (params.system ?? []).map((block) => ({
-    type: 'text',
-    text: block.text,
-    ...(block.cache_control === undefined || !explicitPromptCache
-      ? {}
-      : { cache_control: { type: 'ephemeral' } }), // OpenRouter's default lifetime, not ours
-  }));
-  if (schema !== undefined) system.push({ type: 'text', text: schemaAsText(schema) });
-  const turns = (params.messages ?? []).map((turn) => ({
-    role: turn.role === 'assistant' ? 'assistant' : 'user',
-    content: messageText(turn.content),
-  }));
-  return [...(system.length === 0 ? [] : [{ role: 'system', content: system }]), ...turns];
-}
-
 function chatPayload(
   params: StreamParams,
   options: OpenRouterClientOptions,
   effort: OpenRouterEffort | undefined,
+  extended: boolean,
 ): Record<string, unknown> {
   const schema = params.output_config?.format?.schema;
   const model = params.model ?? options.model;
@@ -215,9 +196,11 @@ function chatPayload(
         : Math.min(params.max_tokens, ceiling);
   return {
     model,
-    // GPT caching is automatic. Anthropic is the only configured path where
-    // this server sends the provider-specific cache-control TTL.
-    messages: chatMessages(params, schema, model.startsWith('anthropic/')),
+    // GPT and the rest cache by themselves; Anthropic only at breakpoints (openrouter-cache.ts).
+    messages: cache.chatMessages(params, schema === undefined ? undefined : schemaAsText(schema), {
+      explicit: cache.explicitCacheFor(model),
+      extended,
+    }),
     ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     stream: true,
     usage: { include: true },
@@ -693,6 +676,8 @@ export async function probeOpenRouterModels(
 
 /** A `client.messages.stream(...)`-shaped shim over OpenRouter's chat completions. */
 export function createOpenRouterClient(options: OpenRouterClientOptions): Anthropic {
+  // The hour-long breakpoints and the conversation breakpoint, until OpenRouter refuses them.
+  let extendedCache = true;
   const stream = (params: StreamParams, requestOptions: StreamRequestOptions = {}) => {
     const listeners = new Map<string, (delta: string) => void>();
     const report = (text: string): void => {
@@ -706,15 +691,22 @@ export function createOpenRouterClient(options: OpenRouterClientOptions): Anthro
     const requestedEffort =
       openRouterEffort(params.output_config?.effort) ??
       openRouterEffort(requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER]);
-    const done = runChat(
-      chatPayload(params, options, requestedEffort ?? options.effort),
-      options,
-      requestOptions.signal,
-      report,
-      (text) => {
-        listeners.get('text')?.(text);
-      },
-    );
+    const send = (extended: boolean) =>
+      runChat(
+        chatPayload(params, options, requestedEffort ?? options.effort, extended),
+        options,
+        requestOptions.signal,
+        report,
+        (text) => {
+          listeners.get('text')?.(text);
+        },
+      );
+    const extended =
+      extendedCache && cache.usesExtendedCache(params, params.model ?? options.model);
+    const done = cache.sendWithCacheFallback(send, extended, () => {
+      extendedCache = false;
+      options.onLog?.('openrouter refused the hour-long cache form; five minutes from now on');
+    });
     return {
       on: (event: string, listener: (delta: string) => void) => {
         listeners.set(event, listener);

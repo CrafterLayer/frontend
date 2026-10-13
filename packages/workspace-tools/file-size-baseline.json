@@ -12,7 +12,7 @@
     "apps/ai-server/src/handler.ts": 666,
     "apps/ai-server/src/main.ts": 587,
     "apps/ai-server/src/openrouter-client.test.ts": 950,
-    "apps/ai-server/src/openrouter-client.ts": 727,
+    "apps/ai-server/src/openrouter-client.ts": 719,
     "apps/ai-server/src/plan-shape.test.ts": 1025,
     "apps/ai-server/src/plan-shape.ts": 1098,
     "apps/ai-server/src/prompt.test.ts": 1506,

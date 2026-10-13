@@ -1,10 +1,10 @@
 /**
  * Why a request did not read the prompt cache (2026-10-13). Ours to prove: a request that
  * reads the cache in full says nothing; one that writes is named by the first thing that
- * differs from the previous request of its kind — settings, then rules, catalog, skills, then
- * the history — or as the first of its kind, or as an entry past its lifetime; on `api:` slugs
- * the request asks the API, whose answer wins and is narrowed to the block that changed; a
- * refused beta falls back to the local comparison, in the call itself.
+ * differs from the previous request of its kind and settings — rules, catalog, skills, then
+ * the history — or as new settings, the first of its kind, or an entry past its lifetime; on
+ * `api:` slugs the request asks the API, whose answer wins and is narrowed to the block that
+ * changed; a refused beta falls back to the local comparison, in the call itself.
  */
 import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it } from 'vitest';
@@ -74,6 +74,19 @@ describe('the cache doctor', () => {
     expect(doctor.visit(longer).done(wrote('m6'))?.reason).toBe('history');
     // A different rules text is another kind of request: its first.
     expect(doctor.visit(params({ rules: 'You edit.' })).done(wrote('m7'))?.reason).toBe('first');
+  });
+
+  it('compares a call with the last one under the same thinking and effort', () => {
+    const doctor = createCacheDoctor();
+    const scene = (skills: string) =>
+      params({ skills }, { thinking: { type: 'adaptive' }, output_config: { effort: 'medium' } });
+    doctor.visit(params()).done(wrote('msg_1')); // a section writer: thinking off
+    expect(doctor.visit(scene('game')).done(wrote('msg_2'))?.reason).toBe('settings');
+    doctor.visit(params()).done(wrote('msg_3'));
+    // The next scene writer is compared with the last scene writer, not the section writer.
+    const next = doctor.visit(scene('film'));
+    expect(next.body).toEqual({ diagnostics: { previous_message_id: 'msg_2' } });
+    expect(next.done(wrote('msg_4'))?.reason).toBe('skills');
   });
 
   it('names an entry past its lifetime', () => {

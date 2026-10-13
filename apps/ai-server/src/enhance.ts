@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { DEFAULT_MODEL, type UsageReport } from './claude';
 import { salvageJson } from './json-salvage';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
+import { PROMPT_CACHE } from './prompt-cache';
 import { withModelThinking } from './thinking-config';
 
 /**
@@ -319,13 +320,13 @@ function requestTurn(request: EnhanceRequest): string {
 }
 
 export interface EnhancePromptParts {
-  readonly system: readonly { readonly type: 'text'; readonly text: string }[];
+  readonly system: readonly Anthropic.TextBlockParam[];
   readonly messages: readonly { readonly role: 'user'; readonly content: string }[];
 }
 
 export function buildEnhancePrompt(request: EnhanceRequest): EnhancePromptParts {
   return {
-    system: [{ type: 'text', text: ENHANCE_RULES }],
+    system: [{ type: 'text', text: ENHANCE_RULES, cache_control: PROMPT_CACHE }],
     messages: [{ role: 'user', content: requestTurn(request) }],
   };
 }
@@ -565,12 +566,11 @@ function usageOf(message: Anthropic.Message): UsageReport {
 }
 
 /**
- * One enhancement, through the same `messages.stream` seam every plan uses —
- * so the CLI, OpenRouter and the Messages API all serve it with no
- * backend-specific code. Thinking is off, in the form the model takes (the 5.5
- * models refuse `disabled`: thinking-config.ts), and the low budget travels on
- * the private header the CLI (`--effort low`) and OpenRouter
- * (`reasoning.effort`) read; the real API ignores that header.
+ * One enhancement, through the `messages.stream` seam every plan uses (CLI, OpenRouter, the
+ * Messages API); its rules (~1.1k tokens) are cached for an hour. Thinking is off, in the form
+ * the model takes (the 5.5 models refuse `disabled`: thinking-config.ts), and the low budget
+ * travels on the private header the CLI (`--effort low`) and OpenRouter (`reasoning.effort`)
+ * read; the real API ignores that header.
  */
 export async function enhancePrompt(
   request: EnhanceRequest,

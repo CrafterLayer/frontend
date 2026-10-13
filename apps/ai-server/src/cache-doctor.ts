@@ -14,8 +14,10 @@ import { createHash } from 'node:crypto';
 
   Two sources, one answer:
   - Locally, for every route: each request is compared with the previous request of the same
-    kind (same model, same rules) — its settings, then each cached system block, then the
-    history behind the conversation breakpoint.
+    kind (same model, same rules, same thinking and effort: a build's scene writers think and
+    its other writers do not, and each keeps its own entries) — each cached system block, then
+    the history behind the conversation breakpoint. A kind first seen under other settings is
+    named for its settings.
   - The Messages API's own diagnosis (beta `cache-diagnosis-2026-04-07`, `api:` slugs only):
     the request names the previous response's id and the answer says whether the model, the
     system, the tools or the messages diverged, and how many tokens that cost. A rejected
@@ -97,7 +99,7 @@ function fingerprintOf(params: DoctorParams, at: number): Omit<Fingerprint, 'id'
 }
 
 /** The request's kind: the same model writing under the same rules. */
-function laneOf(params: DoctorParams): string {
+function kindOf(params: DoctorParams): string {
   return `${params.model}|${hash(params.system?.[0]?.text ?? '')}`;
 }
 
@@ -180,7 +182,6 @@ function localMiss(
 ): CacheMissReason {
   if (previous === undefined) return 'first';
   if (next.at - previous.at > ttlMs) return 'expired';
-  if (previous.settings !== next.settings) return 'settings';
   for (const [index, block] of next.blocks.entries()) {
     if (previous.blocks[index]?.hash !== block.hash) return block.name;
   }
@@ -192,7 +193,9 @@ export function createCacheDoctor(options: CacheDoctorOptions = {}): CacheDoctor
   const now = options.now ?? Date.now;
   const ttlMs = options.ttlMs ?? 60 * 60 * 1000;
   let apiDiagnosis = options.apiDiagnosis ?? true;
+  // The last request per kind and settings, and every kind seen under any settings.
   const lanes = new Map<string, Fingerprint>();
+  const kinds = new Set<string>();
   return {
     get apiDiagnosis() {
       return apiDiagnosis;
@@ -201,9 +204,11 @@ export function createCacheDoctor(options: CacheDoctorOptions = {}): CacheDoctor
       apiDiagnosis = false;
     },
     visit(params) {
-      const lane = laneOf(params);
-      const previous = lanes.get(lane);
+      const kind = kindOf(params);
       const next = fingerprintOf(params, now());
+      const lane = `${kind}|${next.settings}`;
+      const previous = lanes.get(lane);
+      const newSettings = previous === undefined && kinds.has(kind);
       const diagnose = apiDiagnosis && onMessagesApi(params.model);
       return {
         body: diagnose ? { diagnostics: { previous_message_id: previous?.id ?? null } } : {},
@@ -211,10 +216,11 @@ export function createCacheDoctor(options: CacheDoctorOptions = {}): CacheDoctor
         done(message) {
           const id = typeof message.id === 'string' ? message.id : undefined;
           lanes.set(lane, { ...next, id });
+          kinds.add(kind);
           const usage = (message.usage ?? {}) as Record<string, unknown>;
           const written = count(usage['cache_creation_input_tokens']) ?? 0;
           if (written === 0) return undefined;
-          const local = localMiss(previous, next, ttlMs);
+          const local = newSettings ? 'settings' : localMiss(previous, next, ttlMs);
           const api = apiMiss(message.diagnostics);
           if (api === undefined) return { reason: local, missedTokens: null, source: 'local' };
           // The API says "system"; the local comparison knows which block of it.

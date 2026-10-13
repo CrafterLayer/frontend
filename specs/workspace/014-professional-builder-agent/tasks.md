@@ -813,24 +813,24 @@ separation. Five bounded helpers, each verified in a clean worktree and committe
 
 ## Increment 2026-10-13 (c) — ready scripts and Pixi packages, to lower the agent's cost
 
-The owner asked (Arabic) for the packages that strengthen PixiJS results, and for ready-made
-scripts for the things the agent does often, so each costs it less. What the agent used to write
-as code it now names: a preset id and params, a `data-ck-behavior` value, a library call.
+The owner asked (Arabic) for the packages that strengthen PixiJS results, and for ready-made scripts
+for the things the agent does often, so each costs it less. What the agent used to write as code it
+now names: a preset id and params, a `data-ck-behavior` value, a library call.
 
-- [x] T251 Two lazy Studio libraries: `s.lib.procgen` (rot-js 2.2.1, BSD-3-Clause; 11,745 of
-      12,400 B gzip — seeded dungeon, cave and maze maps, every one connected, RTL-mirrored start,
-      path, fov, scatter, tilemap rows) and `s.lib.gif` (gifuct-js 2.1.2, MIT; 7,480 of 7,900 B —
-      bounded GIF sprites on the scene's tick, still under reduced motion). Rejected with reasons
-      in the media-engines README: @pixi/gif, @pixi/layout + yoga-layout, poisson-disk-sampling.
+- [x] T251 Two lazy Studio libraries: `s.lib.procgen` (rot-js 2.2.1, BSD-3-Clause; 11,745 of 12,400
+      B gzip — seeded dungeon, cave and maze maps, every one connected, RTL-mirrored start, path,
+      fov, scatter, tilemap rows) and `s.lib.gif` (gifuct-js 2.1.2, MIT; 7,480 of 7,900 B — bounded
+      GIF sprites on the scene's tick, still under reduced motion). Rejected with reasons in the
+      media-engines README: @pixi/gif, @pixi/layout + yoga-layout, poisson-disk-sampling.
 - [x] T252 Six ready website behaviours (back-to-top, read-more, scroll-spy, typed-words, filter,
       dismiss): audited renderer packs shipped only to the pages that name them, a vocabulary the
-      door owns (`site-behavior-vocabulary.ts`), a site-behaviors playbook, and a Chromium test of
-      a published page by keyboard, LTR/RTL, with and without motion, under a strict CSP.
-      All-packs budget 23,000 → 27,000 B gzip.
-- [x] T253 The free-code card names the ready behaviours instead of teaching a hand-written
-      count-up (the card is 193 characters shorter on every free-code request, and the model no
-      longer writes ~400 characters of script for a counter); a test holds each name to the enum.
+      door owns (`site-behavior-vocabulary.ts`), a site-behaviors playbook, and a Chromium test of a
+      published page by keyboard, LTR/RTL, with and without motion, under a strict CSP. All-packs
+      budget 23,000 → 27,000 B gzip.
+- [x] T253 The free-code card names the ready behaviours instead of teaching a hand-written count-up
+      (the card is 193 characters shorter on every free-code request, and the model no longer writes
+      ~400 characters of script for a counter); a test holds each name to the enum.
 - [x] T254 Fixes the new tests found: a stored `hidden` attribute rendered visible (React drops a
-      falsy `hidden`; it is now a boolean attribute); a sticky header could not stick on a
-      published page (its region now sticks with it, proven by the Chromium test failing without
-      the rule); `copy-text` now says "Copied" / «تم النسخ» politely to screen readers.
+      falsy `hidden`; it is now a boolean attribute); a sticky header could not stick on a published
+      page (its region now sticks with it, proven by the Chromium test failing without the rule);
+      `copy-text` now says "Copied" / «تم النسخ» politely to screen readers.

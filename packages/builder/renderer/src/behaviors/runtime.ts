@@ -136,9 +136,9 @@ export function mountBehaviors(
     const chosen = lang !== '' ? lang : page.documentElement.lang;
     if (chosen === '') return undefined;
     /*
-      Arabic pages count in Arabic-Indic digits (١٥٠٠). Current CLDR gives
-      bare `ar` Latin digits, so the numbering system is named — except where
-      the region writes Latin digits (the Maghreb) or the tag already chose.
+      Arabic pages count in Arabic-Indic digits (١٥٠٠). Current CLDR gives bare `ar` Latin digits,
+      so the numbering system is named — except where the region writes Latin digits (the Maghreb)
+      or the tag already chose.
     */
     if (/^ar(?:-|$)/iu.test(chosen) && !/-u-/iu.test(chosen) && !/^ar-(?:MA|DZ|TN|LY|EH)\b/iu.test(chosen)) {
       return `${chosen}-u-nu-arab`;
@@ -482,19 +482,26 @@ export function mountBehaviors(
 
   function copyText(el: Element): void {
     let reset = 0;
+    // The outline (.ck-copied) is for the eye; a screen reader hears a polite "copied" (2026-10-13).
+    const status = page.createElement('span');
+    status.setAttribute('role', 'status');
+    status.style.cssText =
+      'position:fixed;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)';
+    page.body.appendChild(status);
     function done(): void {
       el.classList.add('ck-copied');
+      status.textContent = /^ar(?:-|$)/iu.test(langOf(el) ?? '') ? 'تم النسخ' : 'Copied';
       view.clearTimeout(reset);
       reset = view.setTimeout(function clear() {
         el.classList.remove('ck-copied');
+        status.textContent = '';
       }, 1600);
     }
     function fallback(value: string): void {
       const area = page.createElement('textarea');
       area.value = value;
       area.setAttribute('readonly', '');
-      area.style.position = 'fixed';
-      area.style.opacity = '0';
+      area.style.cssText = 'position:fixed;opacity:0';
       page.body.appendChild(area);
       area.select();
       try {
@@ -519,17 +526,17 @@ export function mountBehaviors(
     cleanups.push(function uncopy() {
       view.clearTimeout(reset);
       el.classList.remove('ck-copied');
+      status.remove();
     });
   }
 
   /* ── new behaviours: ticker (rolling digits) and layout (FLIP) ──────────── */
 
   /*
-    Rolling digits — the idea of NumberFlow (MIT, Maxwell Barvian) and Magic
-    UI's number-ticker (MIT): every digit is a column of 0–9 that slides to its
-    value. The digits are the page language's own (Arabic-Indic on an Arabic
-    page); the columns are aria-hidden and the element's aria-label carries
-    the final value. Reduced motion (and the canvas) write the value at once.
+    Rolling digits — the idea of NumberFlow (MIT, Maxwell Barvian) and Magic UI's number-ticker
+    (MIT): every digit is a column of 0–9 that slides to its value. The digits are the page
+    language's own (Arabic-Indic on an Arabic page); the columns are aria-hidden and the element's
+    aria-label carries the final value. Reduced motion (and the canvas) write the value at once.
   */
   function ticker(el: HTMLElement): void {
     const written = el.getAttribute('data-ck-to') ?? '';
@@ -586,12 +593,10 @@ export function mountBehaviors(
   }
 
   /*
-    FLIP on layout change — the idea of auto-animate (MIT, FormKit): remember
-    where each child sat, and when the children change (added, removed,
-    reordered, shown, hidden) play each moved child from its old place to its
-    new one with the Web Animations API. auto-animate documents no
-    reduced-motion guard; ours does nothing under reduced motion or on the
-    canvas.
+    FLIP on layout change — the idea of auto-animate (MIT, FormKit): remember where each child sat,
+    and when the children change (added, removed, reordered, shown, hidden) play each moved child
+    from its old place to its new one with the Web Animations API. auto-animate documents no
+    reduced-motion guard; ours does nothing under reduced motion or on the canvas.
   */
   function layout(el: HTMLElement): void {
     if (reduced || still) return;
@@ -672,13 +677,11 @@ export function mountBehaviors(
   }
 
   /*
-    Seen / done, for view-triggered presets. `data-ck-inview` drives the
-    time-based path (browsers without view timelines, and the text presets);
-    `data-ck-done` tells a view()-scrubbed element it has passed the end of
-    its range, so (once) it rests at its final state instead of reversing when
-    the reader scrolls back. With data-ck-once="false" leaving the viewport
-    re-arms it: its animation is dropped for one style pass so the next entry
-    starts from the first frame.
+    Seen / done, for view-triggered presets. `data-ck-inview` drives the time-based path (browsers
+    without view timelines, and the text presets); `data-ck-done` tells a view()-scrubbed element it
+    has passed the end of its range, so (once) it rests at its final state instead of reversing when
+    the reader scrolls back. With data-ck-once="false" leaving the viewport re-arms it: its
+    animation is dropped for one style pass so the next entry starts from the first frame.
   */
   function observeView(el: Element, once: boolean): void {
     const Observer = (view as unknown as { IntersectionObserver?: typeof IntersectionObserver })
@@ -754,9 +757,9 @@ export function mountBehaviors(
   }
 
   /*
-    Scripts whose letters JOIN (Arabic, Syriac, N'Ko, Mongolian) or build
-    clusters (the Indic scripts) cannot be cut into one span per character
-    without breaking their shapes, so split-chars falls back to words there.
+    Scripts whose letters JOIN (Arabic, Syriac, N'Ko, Mongolian) or build clusters (the Indic
+    scripts) cannot be cut into one span per character without breaking their shapes, so split-chars
+    falls back to words there.
   */
   const JOINING = /[؀-ۿ܀-ݏݐ-ݿ߀-߿ࡰ-ࣿऀ-෿᠀-᢯ﭐ-﷿ﹰ-﻿]/u;
 
@@ -767,14 +770,12 @@ export function mountBehaviors(
   }
 
   /*
-    Split text into spans — the technique of Splitting.js (MIT, Stephen
-    Shaw): each unit becomes a span carrying its index as a custom property
-    (`--ck-char-i`, `--ck-word-i`, `--ck-line-i`, and `--ck-u-i` for the
-    animated unit), the spans are aria-hidden, and the parent's aria-label
-    keeps the sentence whole for assistive technology. The original text
-    nodes stay where they are, emptied, so a host that owns them (React) can
-    still update or remove them; dispose removes the spans and refills a node
-    the host has not rewritten.
+    Split text into spans — the technique of Splitting.js (MIT, Stephen Shaw): each unit becomes a
+    span carrying its index as a custom property (`--ck-char-i`, `--ck-word-i`, `--ck-line-i`, and
+    `--ck-u-i` for the animated unit), the spans are aria-hidden, and the parent's aria-label keeps
+    the sentence whole for assistive technology. The original text nodes stay where they are,
+    emptied, so a host that owns them (React) can still update or remove them; dispose removes the
+    spans and refills a node the host has not rewritten.
   */
   function splitText(el: HTMLElement, unit: 'chars' | 'words' | 'lines'): void {
     const sentence = el.textContent.replace(/\s+/gu, ' ').trim();
@@ -855,9 +856,9 @@ export function mountBehaviors(
   }
 
   /*
-    Typewriter: the sentence is typed into an aria-hidden span (its caret is
-    CSS) while the element's aria-label holds the whole of it. Text-only
-    elements: inner markup cannot be typed without being destroyed.
+    Typewriter: the sentence is typed into an aria-hidden span (its caret is CSS) while the
+    element's aria-label holds the whole of it. Text-only elements: inner markup cannot be typed
+    without being destroyed.
   */
   function typewriter(el: HTMLElement, trigger: string): void {
     if (el.children.length > 0) return;
@@ -904,10 +905,9 @@ export function mountBehaviors(
   }
 
   /*
-    Word rotate (Magic UI word-rotate, MIT): the words are the element's
-    element children, or "a|b|c" text the runtime turns into spans. One word
-    shows at a time (`data-ck-on`); a visually hidden `.ck-sr` span reads all
-    of them. Under reduced motion it is built but never turns.
+    Word rotate (Magic UI word-rotate, MIT): the words are the element's element children, or
+    "a|b|c" text the runtime turns into spans. One word shows at a time (`data-ck-on`); a visually
+    hidden `.ck-sr` span reads all of them. Under reduced motion it is built but never turns.
   */
   function wordRotate(el: HTMLElement): void {
     let words = Array.from(el.children).filter((child) => !child.classList.contains('ck-sr'));
@@ -1103,10 +1103,9 @@ export function mountBehaviors(
   }
 
   /*
-    The canvas Preview: the panel sets data-ck-play on the canvas DOM. CSS
-    presets replay by themselves; the DOM-rebuilding ones are built for the
-    preview only and taken down again after it, so the canvas the author
-    edits never holds runtime spans for long.
+    The canvas Preview: the panel sets data-ck-play on the canvas DOM. CSS presets replay by
+    themselves; the DOM-rebuilding ones are built for the preview only and taken down again after
+    it, so the canvas the author edits never holds runtime spans for long.
   */
   const previews = new Map<Element, () => void>();
   function stopPreview(el: Element): void {

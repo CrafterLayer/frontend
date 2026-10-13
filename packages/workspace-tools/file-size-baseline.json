@@ -102,7 +102,7 @@
     "packages/builder/extensions/richtext/src/RichTextField/RichTextField.test.tsx": 802,
     "packages/builder/renderer/src/behaviors/behaviors.css": 675,
     "packages/builder/renderer/src/behaviors/packs/scripts.ts": 1027,
-    "packages/builder/renderer/src/behaviors/runtime.ts": 1213,
+    "packages/builder/renderer/src/behaviors/runtime.ts": 1212,
     "packages/builder/renderer/src/components/CustomCode/CustomCode.tsx": 837,
     "packages/builder/renderer/src/components/DocumentView/NodeView/NodeView.test.tsx": 842,
     "packages/builder/renderer/src/components/DocumentView/NodeView/NodeView.tsx": 504,

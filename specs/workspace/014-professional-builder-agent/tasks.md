@@ -747,3 +747,12 @@ workers; "high power" for stories, murals, games and websites; any package neede
       context overflow.
 - [x] T236 The agent panel keeps one live region: `/` command answers speak through LiveStatus;
       agent stories brought up to the compact chat (workers chip, cards, radius 16).
+- [x] T240 The cache doctor (ai-server `cache-doctor.ts`): every call that wrote the prompt cache
+      instead of reading it is named — first of its kind, expired, another model, thinking/effort
+      changed, rules/catalog/skills block changed, history changed — by comparing it with the
+      previous call of the same kind, and on `api:` slugs by the Messages API's own diagnosis
+      (`cache-diagnosis-2026-04-07`, previous_message_id; a refused beta is retried without it).
+      The reason reaches the server log and the run telemetry (EN/AR). A reproduction through the
+      real client, handler and prompt keeps the prefix byte-stable (`cache-prefix.integration`).
+      OpenRouter slugs keep OpenRouter's own 5-minute lifetime and provider routing (not verified
+      from here: openrouter.ai is outside the network policy).

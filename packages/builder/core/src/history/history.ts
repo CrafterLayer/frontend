@@ -93,8 +93,26 @@ function samePath(a: readonly unknown[], b: readonly unknown[]): boolean {
   return a.length === b.length && a.every((segment, index) => segment === b[index]);
 }
 
+/*
+  A merged step keeps the FIRST step's inverse and the LAST step's forward
+  patches. That is sound only when every patch OVERWRITES its path — it lands
+  the same value whatever was there before. An `add`/`remove` at an array
+  index does not: it splices, shifting every later sibling. Moving a node out
+  of a slot and straight back is two `moveNode`s on identical paths, so they
+  merged, and Undo replayed the first move's inverse onto the restored page:
+  the slot came back holding one node id twice. Such steps never merge.
+*/
+function isOverwriteOnly(tx: Transaction): boolean {
+  return tx.patches.every(
+    (patch) => patch.op === 'replace' || typeof patch.path.at(-1) !== 'number',
+  );
+}
+
 function isTypingContinuation(previous: Transaction, next: Transaction, windowMs: number): boolean {
   if (next.ts - previous.ts > windowMs) {
+    return false;
+  }
+  if (!isOverwriteOnly(previous) || !isOverwriteOnly(next)) {
     return false;
   }
   if (previous.command === 'setProp' && next.command === 'setProp') {

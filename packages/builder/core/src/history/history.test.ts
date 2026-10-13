@@ -71,6 +71,51 @@ describe('history', () => {
     expect(kernel.history?.().entries()).toHaveLength(2);
   });
 
+  it('never merges steps that splice an array, even on identical paths (a move out and straight back)', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(0, 1), ids: seededIds('h') },
+    });
+    kernel.dispatch('moveNode', { id: 'hero1', toParentId: 'sec1', toIndex: 0 });
+    const afterFirstMove = kernel.getDocument();
+    kernel.dispatch('moveNode', { id: 'hero1', toParentId: 'root', toIndex: 0 });
+    // Both moves write the same slot paths with add/remove at array indices.
+    expect(kernel.history?.().entries()).toHaveLength(2);
+
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(afterFirstMove);
+    expect(kernel.undo()).toBe(true);
+    expect(kernel.getDocument()).toEqual(landingFixture());
+    expect(kernel.canUndo()).toBe(false);
+  });
+
+  it('undo-all restores the page after the property-suite counterexample (seed -928950502)', () => {
+    const kernel = createBuilder({
+      document: landingFixture(),
+      extensions: [fixtureBlocks],
+      ports: { clock: fixedClock(), ids: seededIds('prop') },
+    });
+    kernel.dispatch('moveNode', { id: 'hero1', toParentId: 'sec1', toIndex: 0 });
+    kernel.dispatch('moveNode', { id: 'hero1', toParentId: 'root', toIndex: 0 });
+    kernel.dispatch('removeNode', { id: 'hero1' });
+    kernel.dispatch('setProp', { id: 'sec1', key: 'gap', value: 'sm' });
+    kernel.dispatch('setProp', { id: 'sec1', key: 'gap', value: 'sm' });
+    kernel.dispatch('duplicateNode', { id: 'sec1' });
+    const final = kernel.getDocument();
+
+    while (kernel.undo()) {
+      // drain
+    }
+    expect(kernel.getDocument()).toEqual(landingFixture());
+    expect(kernel.getDocument().nodes['root']?.slots?.['default']).toEqual(['hero1', 'sec1']);
+    while (kernel.redo()) {
+      // drain
+    }
+    expect(kernel.getDocument()).toEqual(final);
+    expect(kernel.validate()).toEqual([]);
+  });
+
   it('a new change clears the redo stack', () => {
     const kernel = createBuilder({
       document: landingFixture(),

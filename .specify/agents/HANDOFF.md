@@ -1,5 +1,25 @@
 # Active Work Handoff
 
+## Current continuation — cache reads, characters, responsive scenes, a smarter agent, 2026-10-13
+
+Requested (Arabic): make the agent actually read from the prompt cache on every route, start on
+free-licence art (Kenney, Open Peeps), make the agent smarter, and use pixi-viewport so scenes
+scale on every screen. **Done and pushed** (feature 014 T232, T233, T240–T242):
+
+- Cache (T240): `cache-doctor.ts` names why each call wrote instead of read (first, expired, model,
+  settings, rules/catalog/skills/history; the API's own diagnosis on `api:` slugs), shown in the
+  server log and the run telemetry (EN/AR). OpenRouter `anthropic/` slugs now keep the hour and the
+  conversation breakpoint (`openrouter-cache.ts`, falls back to five minutes only when refused);
+  the enhancer's rules are cached. The site plan (~450 tokens) and the scene review (~330) are under
+  the API's 512-token floor. openrouter.ai is outside the network policy: not verified live.
+- Characters (T233): `s.lib.peeps` (Open Peeps CC0 via DiceBear 9.4.3). Kenney not fetched:
+  kenney.nl must be allowed in the environment's network settings first.
+- Responsive scenes (T241): `ck.scene({design})` + `s.world`; pixi-viewport only with `zoom`.
+- Smarter agent (T232, T242): one visual review per scene section; build lessons for later writers.
+- Budgets with no headroom: kit 15,769 / 15,800 B gzip; pixi-dialogue skill 2,798 / 2,800 tokens.
+- Not done: scene presets using peeps; `LIB_CUES` for peeps in scene-edit-context; review usage as
+  a build `provider.usage` event; `graphify` is not installed here, so the graph was not updated.
+
 ## Current continuation — agent power, batches, creative production, 2026-10-12 (b)
 
 Requested increment: **in progress, pushed in slices** (T215..T235, feature 014). The user asked

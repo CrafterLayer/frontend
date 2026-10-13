@@ -739,8 +739,22 @@ workers; "high power" for stories, murals, games and websites; any package neede
       time (AIMD), live in every page and site build (`congestionAwareProvider`).
 - [x] T238 Preset art: reaction-diffusion, coral, particle text, Mondrian, domain-warp, calligraphy,
       aurora, girih, arabesque, magnetic grid and confetti look finished within seconds.
-- [ ] T232 Vision review of a rendered scene (one extra call per scene) — owner's decision.
-- [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
+- [x] T232 The agent looks at its scenes: the scene probe photographs each scene section (desktop
+      640×360 and the 390 px phone, SVG foreignObject, canvases as their current frame), and one
+      review per scene section (`POST /v1/scene/review`, the fastest model of the route, Messages
+      API only) turns up to five visible failures into `scene-visual` findings for its one repair.
+- [x] T242 Build lessons: a kept repair records what it fixed (one line each, at most six), and
+      every later writer of the same build reads them (`build-lessons.ts`); a scripted writer
+      repeating one mistake needed four repairs without lessons, one with.
+- [x] T233 People for stories and games: `s.lib.peeps` (Open Peeps, design CC0, through DiceBear
+      9.4.3, MIT), lazy `ck-lib-peeps.js` 111.3 kB gzip, no network; a name fixes the look, a mood
+      the face; dialogue portraits per mood; taught by the director, dialogue, story and game
+      playbooks and the planner. Kenney packs: not fetched (kenney.nl is outside this
+      environment's network policy) — allow it in the environment to add them.
+- [x] T241 Responsive scenes: `ck.scene({design})` draws in `s.world` at a design size the kit
+      fits to every region (letterbox in the theme surface, pointer in design units, `s.compact`,
+      `s.portrait`, `s.ui`); `zoom` with `libs:['viewport']` makes `s.world` a clamped
+      pixi-viewport camera that never traps the page. Game and story playbooks compose at 1280×720.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing
       `prettier --check` (both pre-existing on builder-core) — owner's decision.
 - [x] T235 Page plans fit a long history with `fitAiPlanWireHistory` instead of failing on

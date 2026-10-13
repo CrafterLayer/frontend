@@ -20,7 +20,8 @@ power" for stories, murals, games and websites, installing any package needed (1
   translatable (T231a); the tree door keeps the hooks scene code finds (T231b — it dropped them).
 - Then: site pages link each other (T230b), the story arc and unwinnable-level check (T231c),
   adaptive writers on rate limits (T237), preset art pass (T238).
-- In flight: T230c language versions of a whole site; a second preset art pass.
+- Then: language versions of a whole site (T230c); eleven presets reworked to look finished in
+  seconds (T238). Next: T230d translations via the batch queue; Plan mode for site requests.
 - Owner decisions open: T232 vision review, T233 CC0 art packs, T234 CI workflow + formatting.
 - No new npm package was needed so far (the runtime already ships pixi.js 8, matter-js, inkjs,
   @pixi/tilemap, pixi-filters, pixi-viewport, roughjs, perfect-freehand, simplex-noise,

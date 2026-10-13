@@ -721,8 +721,9 @@ workers; "high power" for stories, murals, games and websites; any package neede
       shared across pages, a record per page, per-page Undo.
 - [x] T230b Site pages linked in each page's header/footer menu (`nav.pages`, one transaction per
       page, aria-current), slug addresses from Latin titles.
-- [ ] T230c Language versions of a whole site (scope 'site', each language linking its own
-      pages); translations through the batch queue.
+- [x] T230c Language versions of a whole site: every built page (never the person's own) gets its
+      versions, each language's pages link each other under their translated names.
+- [ ] T230d Translations through the batch queue (half price, background) — not started.
 - [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree,
       five `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
 - [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it
@@ -731,8 +732,8 @@ workers; "high power" for stories, murals, games and websites; any package neede
       exit or pickups are walled off is sent back (`scene-level`, column and row).
 - [x] T237 Smarter live workers: the writers' pool halves on 429/503/529 and grows back one at a
       time (AIMD), live in every page and site build (`congestionAwareProvider`).
-- [x] T238 Preset art: reaction-diffusion, coral, particle text, Mondrian, domain-warp, calligraphy
-      and aurora look finished within seconds; a second pass is in flight.
+- [x] T238 Preset art: reaction-diffusion, coral, particle text, Mondrian, domain-warp, calligraphy,
+      aurora, girih, arabesque, magnetic grid and confetti look finished within seconds.
 - [ ] T232 Vision review of a rendered scene (one extra call per scene) — owner's decision.
 - [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing

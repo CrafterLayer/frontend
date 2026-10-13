@@ -1,5 +1,24 @@
 # Active Work Handoff
 
+## Current continuation — design round, 2026-10-13 (b)
+
+Requested (Arabic): better designs and template designs, more elements, Tailwind packages for
+design quality, the whole builder's design and UX, performance and code separation. **Done and
+pushed** (feature 014 T243–T247): six new templates + a rhythm pass (direction-filtered for the
+agent); eight new elements; typography/forms/tw-animate plugins end to end; a builder design pass
+(audit screenshots in the session scratchpad); EditorCanvas and AssistantPanel split, vendor
+chunks (entry −31%); the theme gate green again.
+
+- In progress: T248 — first-load JS is over its 1,151 KB budget (~1,161 KB); templates move behind
+  a lazy loader (measured −101.6 KB). Further measured options: the full lucide set (−86 KB),
+  react-dom/server for Library thumbnails (−56 KB).
+- Open from the audit: the selection toolbar covers the selected element's name label; the
+  Inspector's empty card could mention Layers; a two-way LTR | RTL switch in Settings.
+- Open from the blocks: `section-layout.css` never reaches the published stylesheet (dark-section
+  corrections are lost on published pages, all blocks); the compare pack's thumb differs from the
+  canvas handle.
+- Photos for new templates reuse verified entries only (Unsplash/Pexels are blocked here).
+
 ## Current continuation — cache reads, characters, responsive scenes, a smarter agent, 2026-10-13
 
 Requested (Arabic): make the agent actually read from the prompt cache on every route, start on

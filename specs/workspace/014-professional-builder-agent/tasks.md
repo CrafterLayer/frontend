@@ -773,3 +773,28 @@ workers; "high power" for stories, murals, games and websites; any package neede
       OpenRouter refuses the hour and accepts the old form); other vendors cache a stable prefix
       by themselves; the prompt enhancer's rules are cached; batches and authored runs already
       were. The site plan's rules (~450 tokens) stay under the API's 512-token floor.
+
+## Increment 2026-10-13 (b) — design round: templates, elements, Tailwind, builder UX, performance
+
+The owner asked (Arabic) for better designs and template designs, more elements, Tailwind packages
+that raise design quality, the whole builder's design and UX fixed, and better performance and code
+separation. Five bounded helpers, each verified in a clean worktree and committed on its own.
+
+- [x] T243 Six new templates (education, fitness, law firm, nonprofit, hotel and travel, personal
+      brand; EN + AR) and a rhythm pass on the nine (a dark section each, no three same tones in a
+      row, a distinct closing CTA), held by `design.test.ts`; every template file under 500 lines.
+      The agent is offered only the templates in the page's direction (`CompositionDef.dir`,
+      `template-context.ts`), so the list it pays for halved (30 → 15).
+- [x] T244 Eight new elements: beforeAfter, pullQuote, reviewSummary, caseStudy, jobsList,
+      downloadList, appDownload, fundraiser — full contract, tokens only, RTL, every word a part.
+- [x] T245 Tailwind plugins: @tailwindcss/typography, @tailwindcss/forms (class strategy) and
+      tw-animate-css, themed through the --t-* tokens and calm under reduced motion, on the canvas,
+      in preview, the export and the AI door; the design skills teach them within their ceilings.
+- [x] T246 Builder design pass: one panel system (spacing, surface, titles, search fields), Layers
+      that fit, the Inspector brought forward at narrow widths, guidance on an empty page and in
+      Help, translated Settings, undo/redo feedback, tooltips with shortcuts, a preview toolbar.
+- [x] T247 Code separation and first load: EditorCanvas.tsx 3,136 → 491 and AssistantPanel.tsx
+      1,942 → 446 lines (tests split with every assertion kept); vendor chunks; entry 913.6 →
+      625.7 KB gzip. The theme gate is green again (two runtime-written tokens declared).
+- [ ] T248 First-load JS back under its 1,151 KB budget by loading templates on demand (in
+      progress).

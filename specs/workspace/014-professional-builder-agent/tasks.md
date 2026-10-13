@@ -719,14 +719,20 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T230 Real multi-page sites (up to 8 pages): `planAiSite` (server `task:'site-plan'`, else the
       words), every page built at once under one run, one writers' pool (`createAiWriterPool`)
       shared across pages, a record per page, per-page Undo.
-- [ ] T230b Site pages linked in each page's header/footer menu (`nav.pages`), slug addresses;
-      language versions of a whole site; translations through the batch queue.
+- [x] T230b Site pages linked in each page's header/footer menu (`nav.pages`, one transaction per
+      page, aria-current), slug addresses from Latin titles.
+- [ ] T230c Language versions of a whole site (scope 'site', each language linking its own
+      pages); translations through the batch queue.
 - [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree,
       five `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
 - [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it
       dropped them all before, so written games lost their controls. check-scene names them.
-- [ ] T231c Parallel creative units: story chapters, game levels (reachability checked in code),
-      mural panels.
+- [x] T231c Every scene writer sees the page's arc (craftkit:story-arc); a literal tile level whose
+      exit or pickups are walled off is sent back (`scene-level`, column and row).
+- [x] T237 Smarter live workers: the writers' pool halves on 429/503/529 and grows back one at a
+      time (AIMD), live in every page and site build (`congestionAwareProvider`).
+- [x] T238 Preset art: reaction-diffusion, coral, particle text, Mondrian, domain-warp, calligraphy
+      and aurora look finished within seconds; a second pass is in flight.
 - [ ] T232 Vision review of a rendered scene (one extra call per scene) — owner's decision.
 - [ ] T233 CC0 art packs (Kenney, Open Peeps) through AssetPack — owner's decision on licence/look.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing

@@ -157,8 +157,8 @@ const FIXED =
   "const s=await ck.scene({libs:['fx']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
 /** Passes every static rule; throws when it runs. */
 const THROWS = `${FIXED}\nhero.position.set(1,1);`;
-/** Fails the static check (uses s.lib.fx, lists only anim). */
-const STATIC_BROKEN = FIXED.replace("libs:['fx']", "libs:['anim']");
+/** Fails the static check: it looks up an id no element carries (only its writer can fix that). */
+const STATIC_BROKEN = `${FIXED}\ndocument.getElementById('score');`;
 
 function scripted(sceneJs: string, repairJs: string) {
   const repairs: (readonly AiPlanValidationIssue[])[] = [];

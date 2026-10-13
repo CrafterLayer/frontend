@@ -61,7 +61,7 @@
     "packages/builder/ai/src/agent/run-build.safety.test.ts": 825,
     "packages/builder/ai/src/agent/run-build.streaming.test.ts": 881,
     "packages/builder/ai/src/agent/run-build.test.ts": 1428,
-    "packages/builder/ai/src/agent/run-build.ts": 4059,
+    "packages/builder/ai/src/agent/run-build.ts": 4055,
     "packages/builder/ai/src/agent/run-coordinator.ts": 1201,
     "packages/builder/ai/src/agent/types.ts": 874,
     "packages/builder/ai/src/context/assemble-context.ts": 1156,

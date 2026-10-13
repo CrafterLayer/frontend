@@ -22,7 +22,8 @@ import { expandAgentTools } from '../tools/agent/expand';
 import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
-import { checkSection, tokeniseColourClasses } from './page-plan/check-section';
+import { checkSection } from './page-plan/check-section';
+import { regionPropAccepts, tidySection } from './page-plan/tidy-section';
 import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
 import { planKit, planKitIndex, writerKitRoles } from './page-plan/kits';
 import { sectionScriptCard } from './section-script-card';
@@ -3008,19 +3009,14 @@ function planJobs(
         return contract === undefined ? [] : checkWritten(current, contract, section, checkOptions);
       },
       scene: () => briefingFor(planFor(key))?.scene === true,
-      tidy: (commands) => {
-        const tokens = planFor(key).tokens;
-        try {
-          const next = commands.map((step) => {
-            const args = tokeniseColourClasses(step.args, tokens);
-            return args === step.args ? step : { ...step, args };
-          });
-          return next.some((step, index) => step !== commands[index]) ? next : commands;
-        } catch {
-          // A repair that throws repairs nothing: the check judges what was written.
-          return commands;
-        }
-      },
+      // Palette classes, and every repair the check's own instruction names exactly (tidy-section.ts).
+      tidy: (commands) =>
+        tidySection(commands, {
+          plan: planFor(key),
+          contract: contractOf(planFor(key), key),
+          request: checkOptions.request,
+          accepts: regionPropAccepts(options.kernel, REGION_TYPE),
+        }).commands,
       onLanded: (after) => {
         landedSections.set(key, sectionOf(after));
       },

@@ -155,8 +155,8 @@ const SCENE_CSS = '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320p
 const SCENE =
   "const s=await ck.scene({libs:['fx']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
 const SCRIMMED = `${SCENE}\n// the title now sits on a scrim`;
-/** Fails the static check (uses s.lib.fx, lists only anim). */
-const STATIC_BROKEN = SCENE.replace("libs:['fx']", "libs:['anim']");
+/** Fails the static check: it looks up an id no element carries (only its writer can fix that). */
+const STATIC_BROKEN = `${SCENE}\ndocument.getElementById('score');`;
 
 function scripted(sceneJs: string, repairJs: string, review?: AiPlanProvider['reviewScene']) {
   const repairs: (readonly AiPlanValidationIssue[])[] = [];

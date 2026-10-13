@@ -13,6 +13,8 @@ import { colourOf } from './colour-words';
 import { askElementColour, readElementColour } from './element-colour';
 // ── /block-parts ──
 import { expandAgentTools } from './expand';
+import { readSectionSpace } from './section-space-reading';
+import { readSectionTone } from './section-tone-reading';
 import { rootChildren } from './shared';
 import { AGENT_TOOL_COMMAND, type AgentToolStep } from './types';
 import { planChangesLook } from './visible-change';
@@ -296,6 +298,9 @@ export function tryDirectTool(
     readSeo(text) ??
     readNav(text) ??
     readDirection(text) ??
+    // ready scripts (2026-10-13): «خلّي قسم الأسعار داكن» → section.ops tone; «زوّد المسافات بين الأقسام» → space
+    readSectionTone(text, kernel) ??
+    readSectionSpace(text, kernel) ??
     readSections(text, kernel) ??
     // media-motion (2026-10-06): «ضيف معرض صور», «حط فيديو <url>», «خلفية متحركة» … (URLs read from the typed request)
     readMedia(text, kernel, trimmed);

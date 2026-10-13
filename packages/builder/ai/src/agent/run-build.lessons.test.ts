@@ -28,9 +28,11 @@ import { runAiBuild } from './run-build';
 
 /*
   Build lessons in a real build (2026-10-13): the writers of one page learn from each other. A
-  scripted writer makes the same mistake in every section that is not the hero — an h1 where the
-  page's one h1 belongs to the hero — until a "Lessons from this build so far" fragment names it.
+  scripted writer makes the same mistake in every section that is not the hero — lorem ipsum
+  where finished copy belongs — until a "Lessons from this build so far" fragment names it.
   Sections are written one after another, so each writer starts after the one before it landed.
+  (The mistake was an h1 in a band until code learned to fix that before the check, tidy-section.ts:
+  a lesson is only ever needed for what the writer alone can repair.)
 */
 
 const NullRender: BlockRenderComponent = () => null;
@@ -124,8 +126,8 @@ const PLAN: PagePlanCandidate = {
   ],
 };
 
-/** A section that honours its contract — save for the heading level, when `h1` says so. */
-function section(request: string, heading: 'h1' | 'h2'): CustomCodeRoot {
+/** A section that honours its contract — save for its copy, lorem ipsum when it `slips`. */
+function section(request: string, slips: boolean): CustomCodeRoot {
   const anchor = /ANCHOR:[^\n]*id="([^"]+)"/u.exec(request)?.[1] ?? 'missing';
   const title = /SECTION \d+ OF \d+: ([^\n]+)/u.exec(request)?.[1] ?? 'Section';
   const action = /PRIMARY ACTION: "([^"]+)" → (\S+)/u.exec(request);
@@ -139,7 +141,18 @@ function section(request: string, heading: 'h1' | 'h2'): CustomCodeRoot {
         attributes: { id: anchor },
         className: 'py-16',
         children: [
-          { kind: 'element', tag: heading, text: title, children: [] },
+          {
+            kind: 'element',
+            tag: request.includes('ROLE: HERO') ? 'h1' : 'h2',
+            text: title,
+            children: [],
+          },
+          {
+            kind: 'element',
+            tag: 'p',
+            text: slips ? 'Lorem ipsum dolor sit amet.' : 'Roasted in small batches.',
+            children: [],
+          },
           ...(cta
             ? [
                 {
@@ -165,19 +178,17 @@ interface Write {
 }
 
 /**
- * The writer: an h1 in every section unless it is the hero — until it reads the lesson
- * (`learns`). Its repair answers with an h2, unless `repairFixes` is false.
+ * The writer: lorem ipsum in every section unless it is the hero — until it reads the lesson
+ * (`learns`). Its repair answers with finished copy, unless `repairFixes` is false.
  */
 function scripted(options: { readonly learns: boolean; readonly repairFixes?: boolean }) {
   const repairs: (readonly AiPlanValidationIssue[])[] = [];
   const writes: Write[] = [];
-  const answer = (request: string, heading: 'h1' | 'h2'): AiPlan => {
+  const answer = (request: string, slips: boolean): AiPlan => {
     const id = /REGION ID: (\S+)/u.exec(request)?.[1] ?? 'missing';
     return {
       rationale: 'filled',
-      commands: [
-        { command: 'setProp', args: { id, key: 'tree', value: section(request, heading) } },
-      ],
+      commands: [{ command: 'setProp', args: { id, key: 'tree', value: section(request, slips) } }],
     };
   };
   const lessonsIn = (context: AssembledAiContext): string | undefined =>
@@ -187,12 +198,12 @@ function scripted(options: { readonly learns: boolean; readonly repairFixes?: bo
       const lessons = lessonsIn(context);
       writes.push({ title: /SECTION \d+ OF \d+: ([^\n]+)/u.exec(request)?.[1] ?? '?', lessons });
       const hero = request.includes('ROLE: HERO');
-      const learned = options.learns && lessons?.includes('heading-level:') === true;
-      return Promise.resolve(answer(request, hero || learned ? (hero ? 'h1' : 'h2') : 'h1'));
+      const learned = options.learns && lessons?.includes('placeholder-left:') === true;
+      return Promise.resolve(answer(request, !hero && !learned));
     },
     repair(request, _context, _plan, issues) {
       repairs.push(issues);
-      return Promise.resolve(answer(request, options.repairFixes === false ? 'h1' : 'h2'));
+      return Promise.resolve(answer(request, options.repairFixes === false));
     },
     proposePagePlan: () => {
       const checked = validatePagePlan(PLAN);
@@ -217,9 +228,9 @@ function build(provider: AiPlanProvider, runId: string) {
   };
 }
 
-function headingRepairs(repairs: readonly (readonly AiPlanValidationIssue[])[]): number {
+function copyRepairs(repairs: readonly (readonly AiPlanValidationIssue[])[]): number {
   return repairs.filter((issues) =>
-    issues.some(({ message }) => message.startsWith('heading-level:')),
+    issues.some(({ message }) => message.startsWith('placeholder-left:')),
   ).length;
 }
 
@@ -229,7 +240,7 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
     const deaf = scripted({ learns: false });
     const control = await runAiBuild(build(deaf.provider, 'lessons-control'));
     expect(control.outcome).toBe('completed');
-    expect(headingRepairs(deaf.repairs)).toBe(4);
+    expect(copyRepairs(deaf.repairs)).toBe(4);
 
     const pupil = scripted({ learns: true });
     const options = build(pupil.provider, 'lessons-taught');
@@ -237,13 +248,13 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
 
     expect(result.outcome).toBe('completed');
     // The first band's writer made the mistake and was repaired; nobody after it did.
-    expect(headingRepairs(pupil.repairs)).toBe(1);
+    expect(copyRepairs(pupil.repairs)).toBe(1);
     expect(pupil.repairs).toHaveLength(1);
     const repaired = result.tasks.filter(({ check }) => check?.repaired === true);
     expect(repaired.map(({ sectionKey }) => sectionKey)).toEqual(['origins']);
     expect(result.tasks.every(({ check }) => (check?.issues ?? []).length === 0)).toBe(true);
     expect(buildLessonsOf(options)).toEqual([
-      "heading-level: the page's one h1 is the hero's; every other section heads with h2",
+      "placeholder-left: write finished, realistic copy — never XXX, 0000, lorem or a field's name",
     ]);
   });
 
@@ -262,7 +273,7 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
     expect(pupil.writes[2]?.lessons).toBe(
       [
         'Earlier sections of THIS page were sent back for these and fixed in their repair round. Get them right the first time:',
-        "- heading-level: the page's one h1 is the hero's; every other section heads with h2",
+        "- placeholder-left: write finished, realistic copy — never XXX, 0000, lorem or a field's name",
       ].join('\n'),
     );
 
@@ -271,7 +282,7 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
     const options = build(stubborn.provider, 'lessons-unfixed');
     await runAiBuild(options);
     expect(stubborn.writes.every(({ lessons }) => lessons === undefined)).toBe(true);
-    expect(headingRepairs(stubborn.repairs)).toBe(4);
+    expect(copyRepairs(stubborn.repairs)).toBe(4);
     expect(buildLessonsOf(options)).toEqual([]);
   });
 
@@ -289,6 +300,6 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
     });
     await runAiBuild(options);
     expect(second.writes[0]?.lessons).toBeUndefined();
-    expect(headingRepairs(second.repairs)).toBe(1);
+    expect(copyRepairs(second.repairs)).toBe(1);
   });
 });

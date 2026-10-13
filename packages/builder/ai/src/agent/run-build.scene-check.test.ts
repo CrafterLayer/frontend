@@ -179,10 +179,12 @@ function honestSection(request: string): CustomCodeRoot {
 }
 
 const SCENE_CSS = '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}';
-/** Passes the door, fails the scene check: it uses s.lib.fx but lists only anim. */
-const BROKEN =
-  "const s=await ck.scene({libs:['anim']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
-const FIXED = BROKEN.replace("libs:['anim']", "libs:['fx']");
+const FIXED =
+  "const s=await ck.scene({libs:['fx']});\nconst fx=s.lib.fx.create(s.app,{reducedMotion:s.reducedMotion});\nif(!s.editor&&!s.reducedMotion)s.tick(t=>fx.update(t.dt));\ns.dispose(()=>fx.dispose());";
+/** Passes the door, fails the scene check: line 2 looks up a hook the tree never carries. */
+const BROKEN = FIXED.replace('\n', "\nconst go=ck.root.querySelector('[data-scene-action]');\n");
+/** A slip code repairs before the check (tidy-section.ts): it uses s.lib.fx but lists only anim. */
+const SLIPPED = FIXED.replace("libs:['fx']", "libs:['anim']");
 /** The door refuses it: it does not parse. */
 const UNPARSED = 'const s=await ck.scene({});\nconst x = ;';
 
@@ -268,9 +270,9 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     expect(result.outcome).toBe('completed');
     expect(script.repairs).toHaveLength(1);
     const sent = (script.repairs[0] ?? []).map(({ message }) => message);
-    expect(sent.some((line) => line.startsWith('scene-lib:') && line.includes("libs:['fx'"))).toBe(
-      true,
-    );
+    expect(
+      sent.some((line) => line.startsWith('scene-dom:') && line.includes('data-scene-action')),
+    ).toBe(true);
     expect(sent.some((line) => line.endsWith('(at js line 2)'))).toBe(true);
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
     expect(hero?.status).toBe('applied');
@@ -279,6 +281,22 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     // Ordinary sections write no code and are checked as before.
     const menu = result.tasks.find(({ sectionKey }) => sectionKey === 'menu');
     expect(menu?.check).toEqual({ issues: [], repaired: false });
+  });
+
+  it('repairs a slip code can fix before the check: no repair round, the repaired scene lands', async () => {
+    const script = scripted('hero', SLIPPED, BROKEN);
+    const build = options(script, 'Build a website with a playable 2d game with stars');
+
+    const result = await runAiBuild(build);
+
+    expect(result.outcome).toBe('completed');
+    expect(script.repairs).toHaveLength(0);
+    const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+    expect(hero?.status).toBe('applied');
+    expect(hero?.check).toEqual({ issues: [], repaired: false });
+    expect(build.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(
+      FIXED.replace("libs:['fx']", "libs:['fx','anim']"),
+    );
   });
 
   it('turns code that does not parse back at the door, with its line, before the check sees it', async () => {

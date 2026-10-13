@@ -724,6 +724,11 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T230c Language versions of a whole site: every built page (never the person's own) gets its
       versions, each language's pages link each other under their translated names.
 - [ ] T230d Translations through the batch queue (half price, background) — not started.
+- [x] T239 Full regression sweep (builder-ai by area, schema, renderer, media-engines, editor, core,
+      shell, ai-server, playground: all green). Fixed on the way: the Pixi containment guard read
+      a test fixture as an import; core's site-door list lacked the script/sound commands; the
+      history merged two array-splicing steps, so Undo after a quick move out and back
+      duplicated a node (property suite seed -928950502, red on builder-core too).
 - [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree,
       five `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
 - [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it

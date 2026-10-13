@@ -258,3 +258,22 @@ The header uses the raised surface, with current document context in a quiet ins
 uses the panel surface, roomier turn spacing, and control-sized user text. Starter cards and the
 composer share theme borders and radii. Context and the empty-state mark remain still; active
 generation retains its existing feedback and reduced-motion support.
+
+## Source layout (maintainers)
+
+`AssistantPanel.tsx` is the composition root and renders the panel; the behaviour lives in hooks
+beside it (split 2026-10-13, behaviour unchanged):
+
+| Module                                   | Owns                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `AssistantPanel.types.ts`                | the public props and the internal request/build shapes                                      |
+| `use-assistant-sessions.ts`              | conversations, the chosen mode, persistence under `persistKey`, ids that never repeat a key |
+| `use-assistant-providers.ts`             | the skill registry, the wired or local provider, the catalog-first provider, suggestions    |
+| `use-page-build.ts`                      | a page-sized request as a split build (skeleton, one run per section, the one approval)     |
+| `use-assistant-ask.ts`, `run-outline.ts` | routing a request: queue, build, an answer in words, or one agent run                       |
+| `use-run-queue.ts`                       | the queued request, Stop, and the one run lease shared with the site run                    |
+| `use-build-report-actions.ts`            | answering a build's question, putting one section back, removing unfilled placeholders      |
+| `use-plan-actions.ts`                    | Apply (fails closed in Plan), the would-be-page preview dialog, Discard                     |
+
+The suites are split by theme (`AssistantPanel.test.tsx`, `.preview-memory`, `.modes`, `.face`,
+`.split-build`, `.routing`) and share three `*.test-helpers.tsx` fixture modules.

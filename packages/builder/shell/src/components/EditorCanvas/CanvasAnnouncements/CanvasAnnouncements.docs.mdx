@@ -1,0 +1,54 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CanvasAnnouncementsStories from './CanvasAnnouncements.stories';
+
+<Meta of={CanvasAnnouncementsStories} />
+
+# CanvasAnnouncements
+
+The editor canvas's two **polite live regions**, visually hidden: what is selected, and what the
+last gesture did. Owned by `EditorCanvas`, which feeds it the selection announcement (the selected
+block, element or part by name) and the gesture announcer's last outcome (a drag, a keyboard move, a
+refused edit).
+
+## When to use
+
+- Inside `EditorCanvas` only. Other surfaces announce through their own regions.
+
+## When not to use
+
+- For visible status text: these regions are hidden and exist for assistive technology.
+
+## Props
+
+| Prop             | Type              | Notes                                                   |
+| ---------------- | ----------------- | ------------------------------------------------------- |
+| `selection`      | `{ text, nonce }` | the selection message; the nonce changes per selection  |
+| `gesture`        | `{ text, nonce }` | the last gesture outcome; the nonce changes per outcome |
+| `selectionLabel` | `string`          | the selection region's accessible name                  |
+| `gestureLabel`   | `string`          | the gesture region's accessible name                    |
+
+## Why a nonce
+
+A live region announces DOM **mutations**, not semantic equality. Moving from one "Text" block to
+another, or hearing "Already last" twice, leaves the words unchanged — so each message toggles a
+zero-width space on odd nonces, and the text node changes every time.
+
+<Canvas of={CanvasAnnouncementsStories.GestureOutcome} />
+
+## Accessibility
+
+- Two `output` elements (`role="status"`) with `aria-live="polite"` and accessible names, so a
+  screen reader user can tell a selection change from a gesture outcome.
+- Polite: announcements never interrupt what is being read.
+
+## RTL and locale
+
+The host passes the regions' names and messages in the editor's language (`EDITOR_CANVAS_LABELS_AR`
+on an Arabic editor).
+
+<Canvas of={CanvasAnnouncementsStories.Arabic} />
+
+## Limitations
+
+Visually hidden by design; Storybook's canvas shows nothing — inspect the accessibility tree.

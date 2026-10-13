@@ -230,6 +230,13 @@ export function isBuildOwnEvent(event: AiBuildEvent): event is AiBuildOwnEvent {
  * bubbles, stop markers and section lists carry no meaning here.
  */
 
+/**
+ * Ask again for the sections a build gave up on — and ONLY those.
+ *
+ * Deliberately worded without any page noun: the routing above reads the same
+ * registry, and a retry that said "landing page" again would scaffold a second
+ * skeleton over the one already on the canvas.
+ */
 export function retrySkippedRequest(titles: readonly string[]): string {
   return `Write the sections that were skipped: ${titles
     .map((title) => `“${title}”`)
@@ -238,6 +245,16 @@ export function retrySkippedRequest(titles: readonly string[]): string {
     )}. Keep the direction the rest of the page already follows, and change nothing else.`;
 }
 
+/**
+ * The blocks a kernel holds, as of a given registry version.
+ *
+ * The version is an argument it does not use, and that is the point: the
+ * registry is mutable and hands back the same object identity after an
+ * extension registers, so a memo keyed on the kernel alone never learns that
+ * the catalog grew. Threading the version through a real parameter is what
+ * turns "please re-run" into a dependency the compiler and the linter can both
+ * see.
+ */
 export function blocksAtVersion(
   kernel: BuilderKernel,
   _version: number,
@@ -273,6 +290,19 @@ export function skillsForMode(
   return base.includes(PLAN_MODE_SKILL_ID) ? base : [...base, PLAN_MODE_SKILL_ID];
 }
 
+/**
+ * The `followUp` of the NEWEST answer — and only if that answer had one.
+ *
+ * Stops at the first assistant turn found reading backwards, whatever kind it
+ * is, rather than skipping past newer answers hunting for a plan. The first
+ * version did skip, and the effect was a suggestion that outlived its
+ * conversation: a plan proposed "now add pricing", the person then asked
+ * something else and got a refusal or a report, and the strip still offered
+ * "now add pricing" as though nothing had happened since.
+ *
+ * `thinking` turns are passed over on purpose — they are the spinner, not an
+ * answer, and the strip must not go blank while the assistant is mid-sentence.
+ */
 export function lastFollowUp(turns: readonly Turn[]): string | undefined {
   for (let index = turns.length - 1; index >= 0; index -= 1) {
     const turn = turns[index];

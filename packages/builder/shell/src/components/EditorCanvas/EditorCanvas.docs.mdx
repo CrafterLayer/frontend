@@ -124,8 +124,9 @@ stays beside the editor (block-parts, 2026-10-06): over the selection when there
 the editing surface while the caret is collapsed. The editor still decides which actions exist and
 which are enabled (the contributed editor offers bold, italic, link, bulleted and numbered lists and
 clear formatting; the built-in surface disables its marks at a bare caret), and the canvas names
-them in the editor's language (`richTextLabels`, default from `canvasLabels.locale`). A rejected `setProp` keeps the draft and session
-open and renders the door's message next to the editing control through `aria-describedby`.
+them in the editor's language (`richTextLabels`, default from `canvasLabels.locale`). A rejected
+`setProp` keeps the draft and session open and renders the door's message next to the editing
+control through `aria-describedby`.
 
 Focus uses the same ownership split as formatting: the frame-side editor intercepts only an
 unmodified forward Tab and supplies an editor-specific selection bookmark; the shell finds and
@@ -148,18 +149,18 @@ custom properties with fallbacks, independent of the document's `--t-*` theme.
 `canvasLabels` (`EDITOR_CANVAS_LABELS_AR`) and `elementNameWords` (`ELEMENT_NAME_WORDS_AR`) put the
 selection chip, the Selection and Gesture announcements and the action bar's name in Arabic; block
 chips use the Arabic block-name catalogue. A new `frameWidth`/`breakpoint` keeps the selection and
-scrolls it into view in the frame: at a narrower width the page reflows taller, and an element picked
-on desktop otherwise sat far below the fold with its outline and quick bar hidden.
+scrolls it into view in the frame: at a narrower width the page reflows taller, and an element
+picked on desktop otherwise sat far below the fold with its outline and quick bar hidden.
 
 ## Element chrome (P7, style-manager DESIGN.md §A.6, §A.7, §E)
 
 Every element inside a custom-code region is a widget on the canvas.
 
-- **Quick bar.** With an element focused, `ElementQuickBar` replaces the block action bar,
-  anchored ABOVE the element (flipping below when clipped) on the same anchor channel the bar
-  uses — scrolling renders nothing. Its actions are tree commands on the element, never the
-  region (the old `block-actions.ts` bug: Delete removed the whole region). `Alt+F10` enters the
-  bar; Escape there returns to the element.
+- **Quick bar.** With an element focused, `ElementQuickBar` replaces the block action bar, anchored
+  ABOVE the element (flipping below when clipped) on the same anchor channel the bar uses —
+  scrolling renders nothing. Its actions are tree commands on the element, never the region (the old
+  `block-actions.ts` bug: Delete removed the whole region). `Alt+F10` enters the bar; Escape there
+  returns to the element.
 - **Selection.** A click focuses the element under the pointer; a LOCKED element passes the click
   (and the hover) to its parent. Shift-click toggles the element in the shared multi-selection
   (`elementSelection`, P2), drawn with extra outlines; the quick bar writes every member in one
@@ -182,10 +183,10 @@ Every element inside a custom-code region is a widget on the canvas.
   translate, snapping (6px) to its parent's and siblings' edges and centres with guide lines; the
   release writes `inset-s` / `inset-bs` through the engine. Arrow keys nudge it 1px (Shift 10px),
   the inline arrows mirrored on an RTL page.
-- **Tree drops.** The drag session also carries tree payloads: `beginTreeInsert` (the Library
-  panel) and the quick bar's grip (a move). The tree drop resolver finds the container under the
-  pointer and the seat along its axis (RTL-aware), drawing the insertion line and the edges the
-  siblings share; the drop is one `insertTreeNode` or `moveTreeNode`.
+- **Tree drops.** The drag session also carries tree payloads: `beginTreeInsert` (the Library panel)
+  and the quick bar's grip (a move). The tree drop resolver finds the container under the pointer
+  and the seat along its axis (RTL-aware), drawing the insertion line and the edges the siblings
+  share; the drop is one `insertTreeNode` or `moveTreeNode`.
 - **Forced state.** `styleState` other than `default` stamps `data-ck-state` on the focused element
   (on its `.group` ancestor for group-hover); the canvas's live compiler must be created with
   `canvasStateVariants: true` for the stamp to show.
@@ -206,38 +207,62 @@ optional `beginTreeInsert(node, label, x, y)`.
 Every inner element of a **registered** block — the hero's badge, heading, paragraph, buttons and
 meta line, each feature card and its title — is a **part** the block declares in its schema
 (`parts`) and stamps on the canvas with `blockPartProps` (`data-ck-part`, `data-ck-part-index`,
-`data-ck-bind`; canvas only, never in the published HTML). The canvas treats parts the way it
-treats authored elements, the GrapesJS way:
+`data-ck-bind`; canvas only, never in the published HTML). The canvas treats parts the way it treats
+authored elements, the GrapesJS way:
 
-| Input                | With                     | Result                                                                  |
-| -------------------- | ------------------------ | ----------------------------------------------------------------------- |
-| hover                | any                      | a thin outline on the part and a chip "Heading · Hero" (localized)      |
-| click                | a part                   | `kernel.focusPart(nodeId, ref)` — the block is selected too             |
-| click                | the block outside parts  | the whole block; the part focus clears                                  |
-| double-click / Enter | text, rich or link part  | the inline editor opens at the part's bind; Enter or blur commits ONCE  |
-| double-click / Enter | image part               | `onReplacePartImage(target)` — the host's asset picker                  |
-| Enter                | list or item part        | steps into its first part; Shift+Enter steps back out                   |
-| Escape               | any                      | inline edit → part → block → parent → nothing, one layer per press      |
-| Delete / Backspace   | item part                | removes the item (`planPartListOp`), focus moves to its neighbour       |
-| Alt+↑ / Alt+↓        | item, or a part inside one | moves the item; the block itself never moves                          |
-| Tab / Shift+Tab      | a part                   | the next / previous part in document order; at either end Tab leaves    |
+| Input                | With                       | Result                                                                 |
+| -------------------- | -------------------------- | ---------------------------------------------------------------------- |
+| hover                | any                        | a thin outline on the part and a chip "Heading · Hero" (localized)     |
+| click                | a part                     | `kernel.focusPart(nodeId, ref)` — the block is selected too            |
+| click                | the block outside parts    | the whole block; the part focus clears                                 |
+| double-click / Enter | text, rich or link part    | the inline editor opens at the part's bind; Enter or blur commits ONCE |
+| double-click / Enter | image part                 | `onReplacePartImage(target)` — the host's asset picker                 |
+| Enter                | list or item part          | steps into its first part; Shift+Enter steps back out                  |
+| Escape               | any                        | inline edit → part → block → parent → nothing, one layer per press     |
+| Delete / Backspace   | item part                  | removes the item (`planPartListOp`), focus moves to its neighbour      |
+| Alt+↑ / Alt+↓        | item, or a part inside one | moves the item; the block itself never moves                           |
+| Tab / Shift+Tab      | a part                     | the next / previous part in document order; at either end Tab leaves   |
 
-- **Hit testing.** `rectIndex.hitAt` returns `part` only when the part's nearest node wrapper is
-  the hit node, so a part inside a nested child block belongs to that child. A custom-code
+- **Hit testing.** `rectIndex.hitAt` returns `part` only when the part's nearest node wrapper is the
+  hit node, so a part inside a nested child block belongs to that child. A custom-code
   `data-ck-path` keeps precedence. `partRect(id, ref)` measures one instance (cached per version).
-- **One write, one Undo.** Inline commits go through `partInlineCommit` (`planPartValue`), the
-  quick bar through `createPartBarModel` (`planPartStyle` in tokens mode into the block's
-  `partStyles` prop), and item actions through `performPartAction` (`planPartListOp`,
-  `planPartDir`) — every write is one labelled `dispatchGroup`.
-- **Quick bar.** With a part focused, `ElementQuickBar` (part model, `quickGroupsForPart`, the
-  part action row and `PartLinkPopover` for a link's text and address) replaces the block action
-  bar, anchored to the part. It never shows over an open inline editor. Attribute-only groups
-  (direction, motion, hover preset) are not offered on a part; Direction is a part action
-  (Auto / LTR / RTL) and "This item only" switches the style scope of a repeated part.
-- **Announcements.** The selection region reads "Heading in Hero selected" /
-  «حُدِّد العنوان في البطل»; item actions are announced in the editor's language.
+- **One write, one Undo.** Inline commits go through `partInlineCommit` (`planPartValue`), the quick
+  bar through `createPartBarModel` (`planPartStyle` in tokens mode into the block's `partStyles`
+  prop), and item actions through `performPartAction` (`planPartListOp`, `planPartDir`) — every
+  write is one labelled `dispatchGroup`.
+- **Quick bar.** With a part focused, `ElementQuickBar` (part model, `quickGroupsForPart`, the part
+  action row and `PartLinkPopover` for a link's text and address) replaces the block action bar,
+  anchored to the part. It never shows over an open inline editor. Attribute-only groups (direction,
+  motion, hover preset) are not offered on a part; Direction is a part action (Auto / LTR / RTL) and
+  "This item only" switches the style scope of a repeated part.
+- **Announcements.** The selection region reads "Heading in Hero selected" / «حُدِّد العنوان في
+  البطل»; item actions are announced in the editor's language.
 
 New props: `onReplacePartImage(target)`, `onOpenPartStyle(sector, target)`,
-`onEditWithAiPart(target)` (names fixed by DESIGN §2.13; the playground wires them) and
-`linkPages` (the link popover's page picker). `EditorCanvasLabels` gains the optional `locale` and
+`onEditWithAiPart(target)` (names fixed by DESIGN §2.13; the playground wires them) and `linkPages`
+(the link popover's page picker). `EditorCanvasLabels` gains the optional `locale` and
 `partNotEditable`.
+
+## Source layout (maintainers)
+
+`EditorCanvas.tsx` is the composition root; each behaviour lives in its own module beside it (split
+2026-10-13, behaviour unchanged). Effects keep their original relative order.
+
+| Module                                                                              | Owns                                                                                        |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `EditorCanvas.types.ts`                                                             | the public props and host handles, plus the internal `Machinery` / `FloatingMounts` shapes  |
+| `use-canvas-refs.ts`                                                                | the one stable bag of refs shared with the plain-TS machinery, and the ref-sync effects     |
+| `use-canvas-machinery.ts`                                                           | the per-frame-mount machinery: rect index, overlay, tools, anchor channel, drag session     |
+| `canvas-chrome.ts`, `frame-pointer-gestures.ts`, `host-drag-net.ts`                 | floating hosts + element chrome; frame pointer listeners; the host-side drag safety net     |
+| `use-inline-session.ts`, `use-forwarded-part-edit.ts`                               | the inline-edit session lifecycle, begin/exit gestures, in-place editing of forwarded parts |
+| `use-inline-editor-chrome.ts`, `use-inline-edit-binding.tsx`, `inline-edit-seam.ts` | the formatting bubble's actions, the lazily loaded contributed editor, the node-keyed seam  |
+| `use-tree-text-editing.ts`, `use-text-actions.ts`                                   | P7 in-place tree text and its bubble; the editor's reported actions and focus round trip    |
+| `use-canvas-keys.ts`, `use-part-gestures.ts`, `use-input-routing.ts`                | element keys + traversal; part keys and activation; frame/host key and click routing        |
+| `use-block-actions.ts`, `use-element-quick-bar.ts`, `use-part-quick-bar.ts`         | the block action bar, the element quick bar, the part quick bar                             |
+| `use-selection-in-view.ts`, `use-canvas-announcements.ts`                           | keeping the selection in view; the two polite live regions' state                           |
+| `TreeTextBubble/`, `CanvasAnnouncements/`                                           | the two extracted sub-components (each with its own story, docs and test)                   |
+| `canvas-targets.ts`, `canvas-frame-style.ts`, `text-selection-measure.ts`           | pure helpers (event targets, names, anchors; frame width/zoom styles; selection rects)      |
+
+The suites are split by theme: `EditorCanvas.test.tsx` (005 core), `.drag`, `.drag-safety`,
+`.inline-edit`, `.formatting-bubble`, `.action-bar`, `.render-cost`, sharing
+`EditorCanvas.test-helpers.tsx` and `EditorCanvas.floating.test-helpers.tsx`.

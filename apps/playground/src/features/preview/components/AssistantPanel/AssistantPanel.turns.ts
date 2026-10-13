@@ -35,6 +35,7 @@ import type { AssistantMode } from './AssistantPanel.modes';
  */
 export type BuildRevertRefusal = AiBuildRevertErrorCode | 'refused' | 'no-earlier-version';
 
+/** A split build IN FLIGHT: its own kind, so a landed skeleton never reads as "nothing changed". */
 export interface BuildingTurn {
   readonly id: string;
   readonly from: 'assistant';
@@ -228,6 +229,7 @@ export interface PlanTurn {
   readonly run?: RunProgress;
 }
 
+/** One turn. A plan belongs to its MESSAGE, not to one "current plan" slot that forgets. */
 export type Turn =
   | { readonly id: string; readonly from: 'you'; readonly text: string }
   | BuildingTurn

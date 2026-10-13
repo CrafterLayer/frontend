@@ -5,7 +5,7 @@
  * writer that fails lets its siblings go without warming; every wait is bounded and ends on
  * cancel; a writer that never released is taken over; a throw before streaming releases.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cacheShape, createCacheGate, opened } from './cache-gate';
 
@@ -18,6 +18,8 @@ function settled(promise: Promise<unknown>): () => boolean {
 }
 
 const tick = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+afterEach(() => vi.useRealTimers());
 
 describe('createCacheGate', () => {
   it('holds a same-shape request until the writer streams, never another shape', async () => {
@@ -78,6 +80,19 @@ describe('createCacheGate', () => {
     controller.abort();
     await tick();
     expect(cancelled()).toBe(true);
+  });
+
+  it('a late sibling waits only the remaining pioneer window', async () => {
+    vi.useFakeTimers();
+    const gate = createCacheGate();
+    const release = await gate.enter('mural');
+    await vi.advanceTimersByTimeAsync(14_900);
+    const waiting = settled(gate.enter('mural'));
+    await vi.advanceTimersByTimeAsync(99);
+    expect(waiting()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(waiting()).toBe(true);
+    release(false);
   });
 
   it('lets the next request take over from a writer that never released', async () => {

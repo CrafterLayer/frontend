@@ -14,6 +14,9 @@ import {
   slashToken,
   textBeforeSlash,
   withoutSlash,
+  withInlineSkill,
+  inlineSkillIds,
+  inlineSkillRequest,
 } from './skill-slash';
 import type { UserSkill } from './user-skills';
 
@@ -76,6 +79,69 @@ describe('commandOf', () => {
     expect(commandOf('  Brand Voice! ')).toBe('brand-voice');
     expect(commandOf('أسلوب المنزل')).toBe('أسلوب-المنزل');
     expect(commandOf('SEO 2.0')).toBe('seo-2-0');
+  });
+});
+
+describe('inline prompt skills', () => {
+  it('keeps a chosen token in the same prompt and permits more than three choices', () => {
+    const options = slashOptions(SKILLS, BUILT_INS, '');
+    expect(withInlineSkill('Rewrite /bra', { query: 'bra', start: 8 }, options[0]!)).toBe(
+      '/brand-voice Rewrite ',
+    );
+    expect(
+      inlineSkillIds('/brand-voice /أسلوب-المنزل /copywriting /arabic-rtl Write this', options),
+    ).toEqual(options.map(({ id }) => id));
+  });
+
+  it('selects enabled exact tokens once, ignoring unknown words, paths and the next prompt', () => {
+    const options = slashOptions(SKILLS, BUILT_INS, '');
+    expect(
+      inlineSkillIds(
+        '/brand-voice /BRAND-VOICE /off-skill /missing ./copywriting https://example.test/copywriting',
+        options,
+      ),
+    ).toEqual(['user.skill-1']);
+    expect(inlineSkillIds('Write another hero', options)).toEqual([]);
+  });
+
+  it('removes only enabled choices from the semantic brief, retaining unknown slash text', () => {
+    const options = slashOptions(SKILLS, BUILT_INS, '');
+    expect(inlineSkillRequest('/copywriting سوي جدارية وبدي تضيف صور', options)).toBe(
+      'سوي جدارية وبدي تضيف صور',
+    );
+    expect(
+      inlineSkillRequest(
+        'Keep /missing ./copywriting https://example.test/copywriting /off-skill',
+        options,
+      ),
+    ).toBe('Keep /missing ./copywriting https://example.test/copywriting /off-skill');
+  });
+
+  it('does not interpret a relative URL in the request body as an explicit skill', () => {
+    const options = slashOptions(SKILLS, BUILT_INS, '');
+    const request = 'Link the CTA to /copywriting';
+    expect(inlineSkillIds(request, options)).toEqual([]);
+    expect(inlineSkillRequest(request, options)).toBe(request);
+    expect(inlineSkillRequest('/brand-voice Link the CTA to /copywriting', options)).toBe(request);
+    expect(inlineSkillIds('/brand-voice Link the CTA to /copywriting', options)).toEqual([
+      'user.skill-1',
+    ]);
+  });
+
+  it('keeps a selected user skill distinct from built-ins and executable slash commands', () => {
+    const options = slashOptions(
+      [own('user.skill-1', 'Copywriting'), own('user.skill-2', 'Batch')],
+      BUILT_INS,
+      '',
+    );
+    const ownCopy = options.find(({ id }) => id === 'user.skill-1')!;
+    const ownBatch = options.find(({ id }) => id === 'user.skill-2')!;
+    expect(inlineSkillIds('/copywriting', options)).toEqual(['craftkit.copywriting']);
+    expect(inlineSkillIds(`/${ownCopy.command} /${ownBatch.command}`, options)).toEqual([
+      'user.skill-1',
+      'user.skill-2',
+    ]);
+    expect(batchCommandText(`/${ownBatch.command} Write`)).toBeUndefined();
   });
 });
 

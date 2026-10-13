@@ -22,6 +22,7 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { ArEntry, ArPlural, Key } from './keys';
+import { EDIT_RESULT_AR } from './edit-results';
 
 /**
  * One sentence for every count from one to other, and its own sentence at zero. The noun
@@ -657,12 +658,7 @@ export const ar = {
   // a direction without fonts, or without swatches, says only what it has.
   'direction.aria.colors': 'الأسلوب: {mood}. الألوان: {colors}.',
   'direction.aria.fonts': 'الأسلوب: {mood}. الخطوط: {fonts}.',
-  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
-  // edit with no target to name. Passive, like «عُدِّل «{target}»».
-  'edit.title.donePage': 'عُدِّلت الصفحة',
-  'edit.title.noChangePage': 'لا تغيير في الصفحة',
-  // (added) §4.13: the page-wide twin of `proposal.applied`.
-  'proposal.appliedPage': 'طُبِّق الاقتراح',
+  ...EDIT_RESULT_AR,
 
   // WP-13-decisions additions
   // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control

@@ -5,6 +5,7 @@
 import { type NodeId, pixiSkillIdsFor, type RunAiAgentOptions } from '@craftkit/builder';
 
 import { historyOf, type SentContext, type Turn } from '../../model/turns';
+import { skillRequestText, type PromptSkillSnapshot } from '../../model/prompt-skills';
 
 import type { Env, Flow } from './controller-state';
 import { locateTurn, patchKind, patchTurn, sessionOf } from './turn-plumbing';
@@ -20,6 +21,7 @@ export interface Outgoing {
   readonly request?: string | undefined;
   /** The words are a catalog suggestion, picked and sent unedited (answered from the catalog). */
   readonly catalog?: boolean | undefined;
+  readonly skillSnapshot?: PromptSkillSnapshot | undefined;
 }
 
 export function engineRequest(outgoing: Outgoing): string {
@@ -32,7 +34,8 @@ export function engineRequest(outgoing: Outgoing): string {
  * the planner's creative brief. Read once, when the build starts.
  */
 export function creativeMark(env: Env, request: string): { readonly creative?: true } {
-  return env.options.freeCode === true && pixiSkillIdsFor(env.registry, request).length > 0
+  return env.options.freeCode === true &&
+    pixiSkillIdsFor(env.registry, skillRequestText(env.options, request)).length > 0
     ? { creative: true }
     : {};
 }
@@ -74,7 +77,13 @@ export function openExchange(
   const userId = sessions.nextId('turn');
   sessions.updateTurns(placement.sessionId, (turns) => [
     ...turns,
-    { id: userId, kind: 'user', text: outgoing.text, context: outgoing.context },
+    {
+      id: userId,
+      kind: 'user',
+      text: outgoing.text,
+      context: outgoing.context,
+      ...(outgoing.skillSnapshot === undefined ? {} : { skillSnapshot: outgoing.skillSnapshot }),
+    },
     ...(record === null ? [] : [record]),
   ]);
   return userId;

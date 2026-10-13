@@ -45,7 +45,7 @@ export function createCacheGate(options: CacheGateOptions = {}): CacheGate {
       if ((warmUntil.get(shape) ?? 0) > now()) return noop;
       const pending = writing.get(shape);
       if (pending !== undefined && now() - pending.since < maxWaitMs) {
-        await waitFor(pending.done, maxWaitMs, signal);
+        await waitFor(pending.done, Math.max(0, maxWaitMs - (now() - pending.since)), signal);
         return noop;
       }
       let open = (): void => undefined;

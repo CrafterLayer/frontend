@@ -21,6 +21,7 @@ import {
 } from '../skills';
 import type { AiPlan, AiPlanProvider, AssembledAiContext } from '../types';
 import { runAiAgent } from './run-agent';
+import { SCENE } from './run-agent.incident-fixtures';
 import { sceneEditContext } from './scene-edit-context';
 import type { AiAgentEvent, RunAiAgentOptions } from './types';
 
@@ -153,14 +154,14 @@ interface Recorded {
   readonly contexts: AssembledAiContext[];
 }
 
-function recording(): Recorded {
+function recording(plan: AiPlan = relabel): Recorded {
   const contexts: AssembledAiContext[] = [];
   return {
     contexts,
     provider: {
       propose: (_request, context) => {
         contexts.push(context);
-        return Promise.resolve(relabel);
+        return Promise.resolve(plan);
       },
     },
   };
@@ -534,7 +535,12 @@ function readyScenes(context: AssembledAiContext | undefined): string | undefine
 
 describe('runAiAgent — a new mural is offered the ready scenes that fit (2026-10-13)', () => {
   it('a mural added to a page hands the model the fitting ready scenes and the one-step tool', async () => {
-    const { provider, contexts } = recording();
+    const { provider, contexts } = recording({
+      rationale: 'Place the aurora.',
+      commands: [
+        { command: 'tool', args: { name: 'scene.preset', input: { preset: 'aurora-curtains' } } },
+      ],
+    });
     await runAiAgent(
       options(kernelFor(PLAIN_PAGE), provider, {
         request: 'Add a calm aurora mural section below the menu',
@@ -554,9 +560,69 @@ describe('runAiAgent — a new mural is offered the ready scenes that fit (2026-
       { request: 'Make the menu copy friendlier' },
       { request: 'Add a calm aurora mural section below the menu', freeCode: false },
     ]) {
-      const { provider, contexts } = recording();
+      const { provider, contexts } = recording(
+        extra.freeCode === false
+          ? {
+              rationale: 'Place a closed mural.',
+              commands: [
+                {
+                  command: 'tool',
+                  args: { name: 'media.add', input: { kind: 'scene', scene: 'mesh-gradient' } },
+                },
+              ],
+            }
+          : relabel,
+      );
       await runAiAgent(options(kernelFor(PLAIN_PAGE), provider, { selection: [], ...extra }));
       expect(readyScenes(contexts[0]), extra.request).toBeUndefined();
+    }
+  });
+
+  it('a new story pins its director, graphics and dialogue companions automatically', async () => {
+    const { provider } = recording(SCENE);
+    const result = await runAiAgent(
+      options(kernelFor(PLAIN_PAGE), provider, {
+        request: 'Create an interactive story section',
+        selection: [],
+      }),
+    );
+    expect(pixiActivations(result)).toEqual(
+      expect.arrayContaining([
+        'craftkit.pixi-stories:explicit',
+        'craftkit.pixi-director:explicit',
+        'craftkit.pixi-dialogue:explicit',
+        'craftkit.pixi-v8-graphics:explicit',
+      ]),
+    );
+  });
+
+  it('a standalone creative creation on a blank page pins its companions too', async () => {
+    const { provider } = recording(SCENE);
+    const result = await runAiAgent(
+      options(kernelFor([]), provider, { request: 'Create an interactive story', selection: [] }),
+    );
+    expect(pixiActivations(result)).toEqual(
+      expect.arrayContaining([
+        'craftkit.pixi-stories:explicit',
+        'craftkit.pixi-director:explicit',
+        'craftkit.pixi-dialogue:explicit',
+      ]),
+    );
+  });
+
+  it('optional new-story companions fit the skill budget and respect automatic skills off', async () => {
+    for (const autoSkills of [true, false]) {
+      const { provider } = recording(SCENE);
+      const result = await runAiAgent(
+        options(kernelFor(PLAIN_PAGE), provider, {
+          request: 'Create an interactive story section',
+          selection: [],
+          autoSkills,
+          policy: { maxActiveSkills: 2, maxSkillTokens: 12_000 },
+        }),
+      );
+      expect(result.proposal.skillActivations.length).toBeLessThanOrEqual(2);
+      if (!autoSkills) expect(pixiActivations(result)).toEqual([]);
     }
   });
 });

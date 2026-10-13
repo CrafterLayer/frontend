@@ -34,6 +34,7 @@ import type {
 } from '../model/view-types';
 
 import type { PluralCategory } from './format';
+import { EDIT_RESULT_KEYS } from './edit-results';
 
 /** Every catalog key, grouped by the SPEC section that owns it. */
 export const KEYS = [
@@ -568,9 +569,7 @@ export const KEYS = [
   'message.aria',
   'direction.aria.colors',
   'direction.aria.fonts',
-  'edit.title.donePage',
-  'edit.title.noChangePage',
-  'proposal.appliedPage',
+  ...EDIT_RESULT_KEYS,
 
   // WP-13-decisions additions: what the decision cards need that no SPEC table prints
   // (each value says why in the catalogs).

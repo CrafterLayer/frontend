@@ -18,6 +18,7 @@
     "./code-runtime/compiler": "./src/code-runtime.compiler.ts",
     "./code-runtime/export": "./src/code-runtime.export.ts",
     "./testing": "./src/testing.ts",
+    "./marketing-styles": "./src/marketing-styles.ts",
     "./css": {
       "types": "./src/chrome.css.d.ts",
       "default": "./src/chrome.css"

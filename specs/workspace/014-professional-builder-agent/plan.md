@@ -15,6 +15,14 @@ The fresh external runtime review is waived here; no CLI execution or pass is cl
 condition: a new explicit user instruction authorizing external review for this increment. The
 generic constitution and other feature/release gates remain unchanged.
 
+User-authorized speed/reliability and visual follow-up (“1+2”, 2026-10-13) is specified in
+[SP-005..007 and T261..264](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13).
+It preserves package direction through public marketing/Builder stylesheet entries and the existing
+Playground export rendered-class CSS callback. The same local-only review preference applies to this
+continuation; owner: primary integration agent; remove that review exception only after a new
+explicit user instruction authorizing an external review action. Local verification remains distinct
+from live provider measurements and the broader feature release gates.
+
 Extend the existing one-site kernel with versioned authored React projects. Render code-backed pages
 through an isolated page runtime, connect visual selection to stable source identities, add reliable
 draft recovery and page commands, then route the Agent through small deterministic tools and
@@ -409,3 +417,11 @@ Ownership followed this plan: runtime in `media-engines/src/studio/libs/`, data 
 `ai/src/skills/creative/` and the new `ai/src/creative/` domain, fixtures in
 `apps/evals/src/pixi-creative/`, UI in `apps/playground/src/features/agent/`. Evidence:
 [verification-creative-engines-2026-10-12.md](verification-creative-engines-2026-10-12.md).
+
+## Empty-canvas incident and request-skills follow-up — 2026-10-13
+
+Execute the bounded implementation and verification plan for SP-008..011 in
+[the canonical scene increment](scene-speed-2026-10-13.md#authorized-empty-canvas-and-request-skills-repair--2026-10-13).
+The continuing user instruction to use local review supersedes the external CLI review requirement
+for this incident follow-up; primary owns the scoped exception until new explicit authorization. Use
+fresh native independent review, preserve earlier diffs and report live-provider limits.

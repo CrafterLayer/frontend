@@ -12,6 +12,8 @@ import type { BuildProgress } from './build-progress';
 import type { RunProgress } from './run-progress';
 import { readRunTelemetry, type RunTelemetryState } from './run-telemetry';
 import type { SectionOutcome } from './run-view';
+import { reviveUserTurn, type UserTurn } from './sent-request';
+export type { SentContext, UserTurn } from './sent-request';
 import {
   TURN_KINDS,
   type AssistantMode,
@@ -54,25 +56,6 @@ import {
 export const SESSIONS_KEY = 'pg-agent-sessions-v2';
 
 /* ── Turns ───────────────────────────────────────────────────────────────── */
-
-/**
- * The context a request was sent with (SPEC §4.5, FR-024): the page scope, or the blocks
- * it named, with the label they had when it was sent. `UserMessageView.chips` adds
- * `stale` at render time; a sent message never changes its own words.
- */
-export type SentContext =
-  | { readonly kind: 'page' }
-  | { readonly kind: 'selection' | 'mention'; readonly id: string; readonly label: string };
-
-/** The person's own turn (SPEC §4.5). */
-export interface UserTurn {
-  readonly id: string;
-  readonly kind: 'user';
-  readonly text: string;
-  readonly context: readonly SentContext[];
-  /** Its run was stopped before any output (SPEC §4.5 `message.notRun`). */
-  readonly notRun?: true | undefined;
-}
 
 /**
  * What became of a landed change after it landed: a build section's row Undo, or an
@@ -534,6 +517,7 @@ function reviveTurnRecord(turn: Turn): Turn {
     case 'step-plan':
       return turn.status === 'drafting' ? interrupted(turn.id) : turn;
     case 'user':
+      return reviveUserTurn(turn);
     case 'answer':
     case 'error':
     case 'end':

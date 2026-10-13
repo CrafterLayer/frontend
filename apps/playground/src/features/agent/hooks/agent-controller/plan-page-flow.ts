@@ -7,6 +7,7 @@ import { type IntentTarget, planAiPage, runAiBuild } from '@craftkit/builder';
 import { draftFromEnginePagePlan } from '../../model/page-plan-draft';
 import { reduceRunTelemetry } from '../../model/run-telemetry';
 import type { PagePlanTurn } from '../../model/turns';
+import { skillRequestText } from '../../model/prompt-skills';
 
 import { plannedSections } from './page-build';
 import { type Flow, stoppedError } from './controller-state';
@@ -62,17 +63,28 @@ export async function runPlanPage(
   try {
     let ready: PagePlanTurn | null = null;
     if (env.capabilities.editablePlan && env.provider.proposePagePlan !== undefined) {
-      const answer = await planAiPage(request, {
-        ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
-        ...(landing === undefined ? {} : { target: landing }),
-        onEvent: (event) => {
-          if (!holds(flow, slot)) return;
-          patchTurn(flow, slot.sessionId, turnId, (turn) => {
-            const telemetry = reduceRunTelemetry(turn.telemetry, event);
-            return telemetry === turn.telemetry ? turn : { ...turn, telemetry };
-          });
+      const answer = await planAiPage(
+        skillRequestText(env.options, request, outgoing.skillSnapshot),
+        {
+          ...commonRunOptions(
+            flow,
+            kernel,
+            slot,
+            request,
+            outgoing.pointed,
+            history,
+            outgoing.skillSnapshot,
+          ),
+          ...(landing === undefined ? {} : { target: landing }),
+          onEvent: (event) => {
+            if (!holds(flow, slot)) return;
+            patchTurn(flow, slot.sessionId, turnId, (turn) => {
+              const telemetry = reduceRunTelemetry(turn.telemetry, event);
+              return telemetry === turn.telemetry ? turn : { ...turn, telemetry };
+            });
+          },
         },
-      });
+      );
       if (!holds(flow, slot)) throw stoppedError();
       if ('plan' in answer) {
         const draft = draftFromEnginePagePlan(answer.plan);
@@ -95,7 +107,15 @@ export async function runPlanPage(
     if (ready === null) {
       // The scaffold's planning: the section list and the direction, nothing written.
       const result = await runAiBuild({
-        ...commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history),
+        ...commonRunOptions(
+          flow,
+          kernel,
+          slot,
+          request,
+          outgoing.pointed,
+          history,
+          outgoing.skillSnapshot,
+        ),
         ...(landing === undefined ? {} : { target: landing }),
         apply: 'never',
         onEvent: (event) => {

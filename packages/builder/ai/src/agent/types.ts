@@ -4,6 +4,7 @@ import type { AiContextProvider, ClockPort, JsonValue, NodeId } from '@craftkit/
 
 import type { AiCompositionPolicy } from '../context/composition-policy';
 import type { AiHostSkillOptions } from './host-skills';
+import type { AiRunDeadlineOptions } from './run-deadline';
 import type { AppliedAiPlan } from '../plan/apply-plan';
 import type { AiValidatedProposal } from '../plan/validated-proposal';
 import type { IntentTarget } from '../intent';
@@ -50,7 +51,7 @@ export interface AiAgentPolicy extends AiCommandPolicy {
   allowUntrustedSkills: boolean;
 }
 
-export interface RunAiAgentOptions extends AiHostSkillOptions {
+export interface RunAiAgentOptions extends AiHostSkillOptions, AiRunDeadlineOptions {
   runId: string;
   clock: ClockPort;
   kernel: BuilderKernel;
@@ -89,7 +90,6 @@ export interface RunAiAgentOptions extends AiHostSkillOptions {
   composition?: AiCompositionPolicy;
   apply?: 'never' | 'auto';
   label?: string;
-  signal?: AbortSignal;
   /**
    * Synchronous host lease check. Once a newer run owns the surface/session,
    * return false for this run id so no stale cached/provider result can apply.

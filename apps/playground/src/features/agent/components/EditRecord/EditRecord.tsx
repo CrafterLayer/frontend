@@ -66,6 +66,11 @@ function titleOf(view: EditRecordView): { readonly key: Key; readonly params: Co
         ? { key: 'edit.title.runningPage', params: {} }
         : { key: 'edit.title.running', params: { target } };
     case 'done':
+      if (view.partial !== undefined) {
+        return target === undefined
+          ? { key: 'edit.title.partialPage', params: {} }
+          : { key: 'edit.title.partial', params: { target } };
+      }
       if (view.origin === 'proposal') {
         return target === undefined
           ? { key: 'proposal.appliedPage', params: {} }
@@ -132,6 +137,13 @@ export function EditRecord({
   /* ── Body ─────────────────────────────────────────────────────────────── */
 
   const body: ReactNode[] = [];
+  if (view.partial !== undefined && phase !== 'running' && phase !== 'stopped') {
+    body.push(
+      <p key="partial" className="ck-agent-edit__line" data-tone="warning">
+        {t(locale, 'edit.partial', { kept: view.partial.kept, total: view.partial.total })}
+      </p>,
+    );
+  }
   switch (phase) {
     case 'running':
       body.push(
@@ -155,7 +167,7 @@ export function EditRecord({
     case 'noChange':
       body.push(
         <p key="no-change" className="ck-agent-edit__line">
-          {t(locale, 'edit.noChange')}
+          {t(locale, view.partial === undefined ? 'edit.noChange' : 'edit.pageUnchanged')}
         </p>,
       );
       break;

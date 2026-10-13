@@ -13,6 +13,7 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { EnEntry, Key } from './keys';
+import { EDIT_RESULT_EN } from './edit-results';
 
 export const en = {
   /* §4.2 AgentHeader and the phone sheet */
@@ -643,12 +644,7 @@ export const en = {
   // a direction without fonts, or without swatches, says only what it has.
   'direction.aria.colors': 'Style: {mood}. Colours: {colors}.',
   'direction.aria.fonts': 'Style: {mood}. Fonts: {fonts}.',
-  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
-  // edit with no target to name (`edit.title.runningPage` is the running one).
-  'edit.title.donePage': 'Page updated',
-  'edit.title.noChangePage': 'No change to the page',
-  // (added) §4.13: the page-wide twin of `proposal.applied`.
-  'proposal.appliedPage': 'Proposal applied',
+  ...EDIT_RESULT_EN,
 
   // WP-13-decisions additions
   // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control

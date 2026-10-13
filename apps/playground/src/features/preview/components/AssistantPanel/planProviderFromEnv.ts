@@ -47,19 +47,27 @@ export function planProviderFromEnv(
   const token = typeof rawToken === 'string' ? rawToken.trim() : '';
   const chosen = model?.trim() ?? '';
   const budget = effort?.trim() ?? '';
+  const rawTimeout = env['VITE_AI_PLAN_TIMEOUT_MS'];
+  const requestedTimeout =
+    typeof rawTimeout === 'string' || typeof rawTimeout === 'number'
+      ? Number(rawTimeout)
+      : Number.NaN;
+  const timeoutMs =
+    Number.isSafeInteger(requestedTimeout) &&
+    requestedTimeout > 0 &&
+    requestedTimeout <= 2_147_483_647
+      ? requestedTimeout
+      : 240_000;
   const headers = {
     ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
     ...(chosen === '' ? {} : { 'x-craftkit-ai-model': chosen }),
     ...(budget === '' ? {} : { 'x-craftkit-ai-effort': budget }),
   };
   /*
-    Eleven minutes, and it has to be this long. A plan is 15-25k output tokens
-    — three to five minutes through the dev CLI backend and minutes through the
-    API — so the previous two-minute deadline aborted every real run in flight
-    and reported the server's healthy work as a provider failure. It sits just
-    above the server's own ten-minute cap so a real timeout is reported by the
-    side that knows why. The cache makes a repeated ask on an unchanged page
-    instant and free.
+    One transport attempt has a four-minute default. The engine's cumulative edit/creative
+    signal ends all proposals, corrections and transport retries at the earlier run budget.
+    Explicit VITE_AI_PLAN_TIMEOUT_MS retains capacity for a deliberately deep/custom host;
+    changing the transport cap never gives a repair a fresh cumulative run budget.
   */
   /*
     The order is cache OUTSIDE retry, and it is the only correct one. Inverted,
@@ -78,7 +86,7 @@ export function planProviderFromEnv(
     createRetryingAiPlanProvider(
       createRemoteAiPlanProvider({
         endpoint,
-        timeoutMs: 660_000,
+        timeoutMs,
         ...(Object.keys(headers).length === 0 ? {} : { headers }),
         allowInsecureHttp: isLoopbackDevelopmentEndpoint(endpoint, env),
       }),

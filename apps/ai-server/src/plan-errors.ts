@@ -37,6 +37,7 @@ function isMissingCredentials(cause: unknown): boolean {
 const BACKEND_ERROR_NAMES: ReadonlySet<string> = new Set([
   'CliBackendError',
   'OpenRouterBackendError',
+  'PlanCallTimeoutError',
 ]);
 
 function isBackendFailure(cause: unknown): cause is Error {

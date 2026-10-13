@@ -26,11 +26,6 @@ export interface UserSkillsView {
   readonly importMarkdown: (markdown: string) => UserSkillWrite;
   /** The skill as a SKILL.md, to copy or keep. */
   readonly exportMarkdown: (id: string) => string | undefined;
-  /** Skills the composer's `/` pinned to the next message, by registry id. */
-  readonly pinned: readonly string[];
-  /** Pin a skill; `false` when the message already holds `MAX_PINNED_SKILLS`. */
-  readonly pin: (id: string) => boolean;
-  readonly unpin: (id: string) => void;
   /** The default skills every project starts with, in the panel's language (2026-10-12). */
   readonly defaults: readonly DefaultSkillView[];
   /** Switch a default skill on or off for this viewer. */

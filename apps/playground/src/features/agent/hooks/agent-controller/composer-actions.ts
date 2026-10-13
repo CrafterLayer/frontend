@@ -2,6 +2,11 @@
  * The composer's actions: send (or queue) the draft, Stop, the draft and its chips,
  * ✨ Improve and Restore, the clarify panel, and the queued request.
  */
+import {
+  promptSkillPrefix,
+  skillRequestText,
+  updatePromptSkillSnapshot,
+} from '../../model/prompt-skills';
 import { blockName } from '../../model/block-name';
 import { answersOf, requestWithAnswers } from '../../model/enhance';
 import { consumeMentionFragment } from '../../model/mentions';
@@ -31,7 +36,12 @@ export function composerActions(flow: Flow) {
       const outgoing = outgoingOf(flow, text);
       flow.ui.setState((state) => ({
         ...state,
-        queue: queueRequest(text, outgoing.context, env().options.kernel.getDocument()),
+        queue: queueRequest(
+          text,
+          outgoing.context,
+          env().options.kernel.getDocument(),
+          outgoing.skillSnapshot,
+        ),
       }));
       say(flow, 'queue.queued');
       return;
@@ -61,10 +71,11 @@ export function composerActions(flow: Flow) {
     lease.controller.abort();
   };
 
-  const setDraft = (text: string): void => {
+  const setDraft = (text: string, improved = false): void => {
     const enhancer = env().enhancer;
     // Typing over an Improve in flight: the person's words win.
-    if (enhancer.view.status === 'enhancing' && !flow.ui.getState().checking) enhancer.cancel();
+    if (!improved && enhancer.view.status === 'enhancing' && !flow.ui.getState().checking)
+      enhancer.cancel();
     flow.ui.setState((ui) => {
       if (ui.draft === text) return ui;
       const queue = ui.queue;
@@ -73,7 +84,20 @@ export function composerActions(flow: Flow) {
       return {
         ...ui,
         draft: text,
-        queue: live ? (text.trim() === '' ? null : { ...queue, text: text.trim() }) : queue,
+        queue: live
+          ? text.trim() === ''
+            ? null
+            : {
+                ...queue,
+                text: text.trim(),
+                skillSnapshot: updatePromptSkillSnapshot(
+                  env().options,
+                  queue.text,
+                  text.trim(),
+                  queue.skillSnapshot,
+                ),
+              }
+          : queue,
       };
     });
     enhancer.edited(text);
@@ -107,28 +131,33 @@ export function composerActions(flow: Flow) {
     const enhancer = env().enhancer;
     if (text === '' || !enhancer.available || enhancer.view.status === 'enhancing') return;
     const outgoing = outgoingOf(flow, text);
-    const route = routeRequest(text, {
+    const route = routeRequest(skillRequestText(env().options, text, outgoing.skillSnapshot), {
       kernel: env().options.kernel,
       mentions: outgoing.pointed,
       selection: outgoing.pointed,
     });
-    void enhancer.improve(enhanceInputOf(flow, outgoing, route)).then((rewritten) => {
-      if (rewritten === null) return;
-      // Only while the draft is still what was sent to be improved; else the note goes too.
-      const now = flow.ui.getState().draft;
-      if (now.trim() !== text) {
-        env().enhancer.edited(now);
-        return;
-      }
-      flow.ui.setState((ui) => ({ ...ui, draft: rewritten }));
-      say(flow, 'enhance.ready');
-    });
+    void enhancer
+      .improve(
+        enhanceInputOf(flow, outgoing, route),
+        promptSkillPrefix(text, outgoing.skillSnapshot),
+      )
+      .then((rewritten) => {
+        if (rewritten === null) return;
+        // Only while the draft is still what was sent to be improved; else the note goes too.
+        const now = flow.ui.getState().draft;
+        if (now.trim() !== text) {
+          env().enhancer.edited(now);
+          return;
+        }
+        setDraft(rewritten, true);
+        say(flow, 'enhance.ready');
+      });
   };
 
   const restoreDraft = (): void => {
     const original = env().enhancer.restore();
     if (original === null) return;
-    flow.ui.setState((ui) => ({ ...ui, draft: original }));
+    setDraft(original, true);
   };
 
   const answerClarify = (questionId: string, answer: string): void => {
@@ -149,11 +178,15 @@ export function composerActions(flow: Flow) {
     if (!complete) return;
     const outgoing: Outgoing = {
       text: clarify.request,
+      skillSnapshot: clarify.skillSnapshot,
       context: clarify.context,
       pointed: clarify.pointed,
     };
     void (async () => {
-      let text = requestWithAnswers(clarify.request, questions);
+      let text = requestWithAnswers(
+        skillRequestText(env().options, clarify.request, clarify.skillSnapshot),
+        questions,
+      );
       try {
         const result = await env().enhancer.ask({
           ...enhanceInputOf(flow, outgoing, clarify.route),
@@ -173,7 +206,17 @@ export function composerActions(flow: Flow) {
         selection: clarify.pointed,
       });
       // The person's turn shows the rewritten request: it is the request that runs.
-      await send(flow, { ...outgoing, text }, { skipClarify: true, route });
+      await send(
+        flow,
+        {
+          ...outgoing,
+          text: `${promptSkillPrefix(clarify.request, clarify.skillSnapshot)}${text}`,
+          ...(clarify.skillSnapshot === undefined
+            ? {}
+            : { skillSnapshot: { ...clarify.skillSnapshot, request: text } }),
+        },
+        { skipClarify: true, route },
+      );
     })();
   };
 
@@ -183,7 +226,12 @@ export function composerActions(flow: Flow) {
     flow.ui.setState((ui) => ({ ...ui, clarify: null }));
     void send(
       flow,
-      { text: clarify.request, context: clarify.context, pointed: clarify.pointed },
+      {
+        text: clarify.request,
+        context: clarify.context,
+        pointed: clarify.pointed,
+        skillSnapshot: clarify.skillSnapshot,
+      },
       { skipClarify: true, route: clarify.route },
     );
   };

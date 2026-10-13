@@ -64,6 +64,16 @@ kernel.extensions.hydrateDeclarative(marketingTemplates);
 - Links and form actions reject unsafe schemes such as `javascript:` at the schema door.
 - Optional slots do not leak editing placeholders into a published or visually complete section.
 
+Static publishers also include this pack's owner stylesheet: Tailwind utilities alone cannot
+reproduce the dark-slab contrast corrections and ComparisonTable's container layout. The dedicated
+`@craftkit/builder-blocks-marketing/stylesheet` entry exposes
+`marketingSectionStylesheet(classNames)` without importing block renderers or schemas. It returns
+the exact `section-layout.css` text when rendered classes reference that file's rules, or an empty
+string otherwise, and requires a bundler that supports raw CSS imports. Applications use
+`@craftkit/builder/marketing-styles`; the Playground publisher includes the text once per page's
+stylesheet, considering its shared header and footer too. Pages whose rendered markup uses only
+Tailwind utilities do not carry this sheet.
+
 ## Development
 
 ```bash

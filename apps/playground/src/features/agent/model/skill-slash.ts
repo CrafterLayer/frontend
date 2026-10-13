@@ -1,15 +1,12 @@
 /**
  * The composer's `/` (2026-10-12): as in other agents, a slash at the start of the message or
  * after a space lists the skills, and the words after it narrow the list. Picking one takes
- * the `/words` out of the draft and pins the skill to the next message, where the engine must
- * use it (an explicit selection). Pure functions; `useSkillSlash` and SkillSlash draw it.
+ * the partial `/words` into a complete inline token for this request. The queued request keeps
+ * that same text. Pure functions; SkillSlash draws it.
  */
 import type { DefaultSkillView } from './default-skills';
 import type { BuiltInSkillView } from './knowledge';
 import type { UserSkill } from './user-skills';
-
-/** A request carries at most this many pinned skills (explicit skills are mandatory). */
-export const MAX_PINNED_SKILLS = 3;
 
 /**
  * The commands the `/` list offers before the skills (2026-10-12): keep the message as a
@@ -80,6 +77,40 @@ export function withoutSlash(draft: string, token: SlashToken): string {
     .replace(/\s+$/u, (space) => (token.start === 0 ? '' : space.slice(0, 1)));
 }
 
+/** Complete the chosen token at the prompt's start; links elsewhere are never skill syntax. */
+export function withInlineSkill(draft: string, token: SlashToken, option: SlashOption): string {
+  return `/${option.command} ${withoutSlash(draft, token).trimStart()}`;
+}
+
+function skillPrefix(request: string, options: readonly SlashOption[]) {
+  const commands = new Map(options.map((option) => [fold(option.command), option.id]));
+  const ids = new Set<string>();
+  let end = 0;
+  for (;;) {
+    const match = /^\s*\/([^\s/]+)(?=\s|$)/u.exec(request.slice(end));
+    if (match === null) break;
+    const id = commands.get(fold(match[1] ?? ''));
+    if (id === undefined) break;
+    ids.add(id);
+    end += match[0].length;
+  }
+  return { ids: [...ids], end };
+}
+
+/** Only contiguous enabled skill tokens at the beginning are explicit selections. */
+export function inlineSkillIds(
+  request: string,
+  options: readonly SlashOption[],
+): readonly string[] {
+  return skillPrefix(request, options).ids;
+}
+
+/** Leave ordinary prose, relative links, unknown slash words and paths byte-for-byte intact. */
+export function inlineSkillRequest(request: string, options: readonly SlashOption[]): string {
+  const { end } = skillPrefix(request, options);
+  return end === 0 ? request : request.slice(end).trimStart();
+}
+
 /** A name as a command: lower case, words joined by `-` (Arabic letters kept). */
 export function commandOf(name: string): string {
   return name
@@ -101,14 +132,14 @@ function fold(text: string): string {
 
 /**
  * The options for a query: the person's enabled skills first, then the enabled default skills,
- * then the built-ins; a skill already pinned is left out. A query matches the start of a command
+ * then the built-ins; a skill already selected in this prompt is left out. A query matches the start of a command
  * or any word of the name, then anywhere in the name or description.
  */
 export function slashOptions(
   skills: readonly UserSkill[],
   builtIns: readonly BuiltInSkillView[],
   query: string,
-  pinned: readonly string[] = [],
+  selected: readonly string[] = [],
   defaults: readonly DefaultSkillView[] = [],
 ): readonly SlashOption[] {
   const options: SlashOption[] = [
@@ -137,9 +168,30 @@ export function slashOptions(
       command: skill.id.replace(/^craftkit\./u, ''),
       source: 'builtin',
     })),
-  ].filter((option) => !pinned.includes(option.id));
+  ];
+  // A person's skill must not shadow a built-in token or an executable slash command.
+  const reserved = new Set(
+    Object.values(COMMAND_WORDS)
+      .flat()
+      .map((word) => fold(commandOf(word))),
+  );
+  const counts = new Map<string, number>();
+  for (const option of options) {
+    const command = fold(option.command);
+    counts.set(command, (counts.get(command) ?? 0) + 1);
+  }
+  const vocabulary = options
+    .map((option) =>
+      option.source === 'user' &&
+      (option.command === '' ||
+        reserved.has(fold(option.command)) ||
+        (counts.get(fold(option.command)) ?? 0) > 1)
+        ? { ...option, command: `${option.command || 'skill'}-${commandOf(option.id)}` }
+        : option,
+    )
+    .filter((option) => !selected.includes(option.id));
   const wanted = fold(query.trim());
-  if (wanted === '') return options;
+  if (wanted === '') return vocabulary;
   const rank = (option: SlashOption): number => {
     const command = fold(option.command);
     const name = fold(option.name);
@@ -149,7 +201,7 @@ export function slashOptions(
     if (fold(option.description).includes(wanted)) return 2;
     return 3;
   };
-  return options
+  return vocabulary
     .map((option, index) => ({ option, index, rank: rank(option) }))
     .filter((entry) => entry.rank < 3)
     .sort((a, b) => a.rank - b.rank || a.index - b.index)

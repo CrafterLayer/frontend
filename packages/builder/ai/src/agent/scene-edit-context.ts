@@ -18,8 +18,9 @@ import {
   type CreativeMemoryV1,
 } from '../creative/creative-memory';
 import type { IntentRoute } from '../intent';
+import { creativeCreationRequest } from '../intent/route-intent';
 import type { GenerateAiPlanOptions } from '../plan/generate-plan';
-import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
+import type { AiSkillRegistry } from '../skills';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
 import {
   compileKeyword,
@@ -27,7 +28,8 @@ import {
   requestHasKeyword,
   type CompiledKeyword,
 } from '../skills/keyword-match';
-import { fittingSkillIds, isArabicPage } from './plan-page';
+import { isArabicPage } from './plan-page';
+import { pinningRegistry } from './pinning-registry';
 import { createReadyScenesContextProvider, offersReadyScenes } from './scene-ready';
 import type { RunAiAgentOptions } from './types';
 
@@ -329,34 +331,6 @@ function servesBrief(options: RunAiAgentOptions): boolean {
   ].some(({ id }) => id === CREATIVE_BRIEF_PROVIDER_ID);
 }
 
-/**
- * The registry as a scene edit sees it: every `prepare` also selects the scene's playbooks after
- * the person's own picks, shed from the end until they fit the run's budget (explicit skills are
- * mandatory to the resolver, so one that did not fit would fail the run). A view, like the
- * run's `explicitSkillsOnly`: nothing is read until skills are prepared, so a direct edit, which
- * is tried first, never pays for it.
- */
-function pinningRegistry(
-  registry: AiSkillRegistry,
-  policy: RunAiAgentOptions['policy'],
-  pins: () => readonly string[],
-): AiSkillRegistry {
-  return Object.freeze({
-    list: () => registry.list(),
-    get: (id: string) => registry.get(id),
-    readSkill: (id: string) => registry.readSkill(id),
-    listReferences: (id: string) => registry.listReferences(id),
-    readReference: (id: string, path: string) => registry.readReference(id, path),
-    prepare: (prepare: AiSkillPrepareOptions) => {
-      const picks = prepare.selectedSkillIds ?? [];
-      const extra = pins().filter((id) => !picks.includes(id));
-      if (extra.length === 0) return registry.prepare(prepare);
-      const selectedSkillIds = fittingSkillIds(registry, policy, picks, extra);
-      return registry.prepare({ ...prepare, selectedSkillIds });
-    },
-  });
-}
-
 /** The brief, planned when the context is assembled — never on a direct edit. */
 function lazyBrief(scene: () => SceneEditContext | undefined, request: string): AiContextProvider {
   return {
@@ -384,10 +358,15 @@ function newMuralOptions(
   registry: AiSkillRegistry | undefined,
   own: SceneEditOptions,
 ): SceneEditOptions {
-  if (!offersReadyScenes(pixiSkillIdsFor(registry, options.request))) return own;
+  const ids = pixiSkillIdsFor(registry, options.request);
+  const pinned =
+    registry === undefined || options.autoSkills === false || ids.length === 0
+      ? own
+      : { ...own, skillRegistry: pinningRegistry(registry, options.policy, () => ids) };
+  if (!offersReadyScenes(ids)) return pinned;
   const lang = isArabicPage(options.kernel, options.request) ? 'ar' : 'en';
   return {
-    ...own,
+    ...pinned,
     additionalContextProviders: [
       ...(own.additionalContextProviders ?? []),
       createReadyScenesContextProvider(options.request, lang),
@@ -476,7 +455,8 @@ export function withSceneEdit(
   };
   if (reading === undefined || options.freeCode !== true) return own;
   const kind = reading.route.kind;
-  if (kind !== 'edit' && kind !== 'add-section') return own;
+  if (kind !== 'edit' && kind !== 'add-section' && !creativeCreationRequest(options.request))
+    return own;
   let answer = ANSWERS.get(reading);
   if (answer === undefined) {
     try {

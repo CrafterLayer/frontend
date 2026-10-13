@@ -338,6 +338,119 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     );
   });
 
+  it('retries a mural provider that ignores its deadline and refuses its late answer', async () => {
+    vi.useFakeTimers();
+    const given = script(() => '@preset:aurora-curtains');
+    const propose = given.provider.propose.bind(given.provider);
+    const stop = new AbortController();
+    const asked: string[] = [];
+    const events: unknown[] = [];
+    let firstSignal: AbortSignal | undefined;
+    let lateAnswer: AiPlan | undefined;
+    let release: (answer: AiPlan) => void = () => undefined;
+    const pending = new Promise<AiPlan>((resolve) => {
+      release = resolve;
+    });
+    const options = {
+      ...build({
+        ...given,
+        provider: {
+          ...given.provider,
+          propose: (request, context, live) => {
+            if (request.includes('ROLE: HERO')) {
+              asked.push(request);
+              if (asked.length === 1) {
+                firstSignal = live?.signal;
+                lateAnswer = writes(request, '@preset:flow-field-silk');
+                // This provider violates the cancellation contract and keeps waiting.
+                return pending;
+              }
+            }
+            return propose(request, context, live);
+          },
+        },
+      }),
+      request: 'Build a design studio website using aurora-curtains',
+      signal: stop.signal,
+    };
+    const done = runAiBuild({ ...options, onEvent: (event) => events.push(event) });
+
+    try {
+      await vi.advanceTimersByTimeAsync(DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS + 1_000);
+      expect(firstSignal?.aborted).toBe(true);
+      expect(asked).toHaveLength(2);
+      expect(asked[1]).toContain('The first attempt at this section failed');
+      const result = await done;
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      expect(result.outcome).toBe('completed');
+      expect(hero?.status).toBe('applied');
+      expect(hero?.attempts).toBe(2);
+      expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(AURORA);
+
+      const document = options.kernel.getDocument();
+      const transactions = options.kernel.transactions().length;
+      const eventCount = events.length;
+      if (lateAnswer === undefined) throw new Error('The first mural was never requested.');
+      release(lateAnswer);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(options.kernel.getDocument()).toBe(document);
+      expect(options.kernel.transactions()).toHaveLength(transactions);
+      expect(events).toHaveLength(eventCount);
+    } finally {
+      stop.abort();
+      if (lateAnswer !== undefined) release(lateAnswer);
+      await vi.advanceTimersByTimeAsync(0);
+      await done;
+    }
+  });
+
+  it('reports timeout after exactly two mural attempts even when both ignore cancellation', async () => {
+    vi.useFakeTimers();
+    const given = script(() => '@preset:aurora-curtains');
+    const propose = given.provider.propose.bind(given.provider);
+    const stop = new AbortController();
+    const signals: (AbortSignal | undefined)[] = [];
+    const options = {
+      ...build({
+        ...given,
+        provider: {
+          ...given.provider,
+          propose: (request, context, live) => {
+            if (!request.includes('ROLE: HERO')) return propose(request, context, live);
+            signals.push(live?.signal);
+            return new Promise<AiPlan>(() => undefined);
+          },
+        },
+      }),
+      taskTimeoutMs: 50,
+      signal: stop.signal,
+    };
+    let completed = false;
+    const done = runAiBuild(options).then((result) => {
+      completed = true;
+      return result;
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(completed).toBe(true);
+      const result = await done;
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      expect(result.outcome).toBe('completed');
+      expect(hero?.status).toBe('skipped');
+      expect(hero?.attempts).toBe(2);
+      expect(hero?.reasonCode).toBe('timeout');
+      expect(hero?.reason).toContain('50ms');
+      expect(signals).toHaveLength(2);
+      expect(signals.every((signal) => signal?.aborted === true)).toBe(true);
+      expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe('');
+    } finally {
+      stop.abort();
+      await vi.advanceTimersByTimeAsync(0);
+      await done;
+    }
+  });
+
   it('completes a marker-only repair with matching copy, scene code and metadata', async () => {
     const shown: unknown[] = [];
     const given = script(() => '@preset:aurora-curtains');

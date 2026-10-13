@@ -12,10 +12,12 @@ import { knowledgeLabels } from '../../copy/knowledge-labels';
 import type { UserSkillsView } from '../../model/knowledge';
 import {
   slashCommands,
+  inlineSkillIds,
   slashOptions,
   slashToken,
   textBeforeSlash,
   withoutSlash,
+  withInlineSkill,
   type SlashCommand,
   type SlashOption,
 } from '../../model/skill-slash';
@@ -64,9 +66,9 @@ const DONE_MS = 4_000;
  * The composer's `/` (2026-10-12), as other agents have it: a slash at the start of the
  * message or after a space lists the skills — the person's own, then the built-ins — and the
  * words after it narrow the list. ↑ ↓ move, Enter or Tab pick, Esc closes; the textarea keeps
- * focus and points at the active option, as it does for the `@` list. A picked skill leaves
- * the draft and is pinned above the composer for the next message, where the Agent must use
- * it; its × lets it go. The list ends with "Manage skills & memory".
+ * focus and points at the active option, as it does for the `@` list. A picked skill stays
+ * inline in this draft, so sending or queueing captures its choice with these words.
+ * The list ends with "Manage skills & memory".
  *
  * Above the skills, the commands act on the words typed before the slash: Remember keeps them
  * in the project memory, Save a checkpoint keeps the page under that name, New skill starts a
@@ -87,10 +89,11 @@ export function SkillSlash({
   const labels = knowledgeLabels(locale).slash;
   const token = slashToken(draft);
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
-  const [note, setNote] = useState<string | undefined>(undefined);
   const open = token !== null && dismissedFor !== draft;
+  const vocabulary = slashOptions(skills.skills, skills.builtIns, '', [], skills.defaults);
+  const selected = inlineSkillIds(token === null ? draft : draft.slice(0, token.start), vocabulary);
   const options = open
-    ? slashOptions(skills.skills, skills.builtIns, token.query, skills.pinned, skills.defaults)
+    ? slashOptions(skills.skills, skills.builtIns, token.query, selected, skills.defaults)
     : [];
   const commands =
     open && onCommand !== undefined
@@ -103,9 +106,9 @@ export function SkillSlash({
   ];
   const [done, setDone] = useState<string | undefined>(undefined);
   useEffect(() => {
-    const said = done ?? note;
+    const said = done;
     if (said !== undefined && said !== '') onAnnounce?.(said);
-  }, [done, note, onAnnounce]);
+  }, [done, onAnnounce]);
   useEffect(() => {
     if (done === undefined) return undefined;
     const timer = setTimeout(() => {
@@ -120,8 +123,6 @@ export function SkillSlash({
   if (activeFor !== token?.query) {
     setActiveFor(token?.query);
     setActive(0);
-    // The note answers the last pick only: new words, or a list closed and opened again, clear it.
-    setNote(undefined);
   }
   const activeIndex = Math.min(active, rows.length - 1);
   const optionId = (index: number) => `${id}-option-${String(index)}`;
@@ -142,12 +143,7 @@ export function SkillSlash({
       inputRef.current?.focus();
       return;
     }
-    if (!skills.pin(row.option.id)) {
-      setNote(labels.full);
-      return;
-    }
-    setNote(undefined);
-    onDraftChange(withoutSlash(draft, token));
+    onDraftChange(withInlineSkill(draft, token, row.option));
     inputRef.current?.focus();
   };
 
@@ -211,17 +207,6 @@ export function SkillSlash({
     }
   });
 
-  const pinned = skills.pinned.map((pinnedId) => {
-    const own = skills.skills.find((skill) => skill.id === pinnedId);
-    return {
-      id: pinnedId,
-      name:
-        own?.name ??
-        skills.defaults.find((skill) => skill.id === pinnedId)?.name ??
-        skills.builtIns.find((skill) => skill.id === pinnedId)?.name ??
-        pinnedId,
-    };
-  });
   const firstUser = rows.findIndex((row) => row.kind === 'skill' && row.option.source === 'user');
   const firstDefault = rows.findIndex(
     (row) => row.kind === 'skill' && row.option.source === 'default',
@@ -235,13 +220,6 @@ export function SkillSlash({
       {open ? (
         <div className="ck-agent-slash__popup">
           {options.length === 0 ? <p className="ck-agent-slash__empty">{labels.empty}</p> : null}
-          {/* In the tree while the list is open, so a note that fills it is announced. */}
-          <p
-            className="ck-agent-slash__note"
-            role={onAnnounce === undefined ? 'status' : undefined}
-          >
-            {note}
-          </p>
           <ul
             ref={list}
             id={`${id}-list`}
@@ -342,30 +320,6 @@ export function SkillSlash({
         <p className="ck-agent-slash__done" role={onAnnounce === undefined ? 'status' : undefined}>
           {done}
         </p>
-      )}
-      {pinned.length === 0 ? null : (
-        <div className="ck-agent-slash__pinned" role="group" aria-label={labels.pinned}>
-          <AgentIcon name="skills" className="ck-agent-slash__glyph" />
-          {pinned.map((skill) => (
-            <span key={skill.id} className="ck-agent-slash__chip">
-              <span className="ck-agent-slash__chip-name" dir="auto">
-                {skill.name}
-              </span>
-              <button
-                type="button"
-                className="ck-agent-slash__unpin"
-                aria-label={labels.unpin(skill.name)}
-                title={labels.unpin(skill.name)}
-                onClick={() => {
-                  skills.unpin(skill.id);
-                  inputRef.current?.focus();
-                }}
-              >
-                <AgentIcon name="close" />
-              </button>
-            </span>
-          ))}
-        </div>
       )}
     </div>
   );

@@ -150,7 +150,7 @@ describe('reviewScene', () => {
     const seen: Seen[] = [];
     await reviewScene(REQUEST, {
       client: seeing(JSON.stringify(VERDICT), 'end_turn', seen),
-      model: 'claude-haiku-4-5',
+      model: 'claude-sonnet-4-6',
       effort: 'high',
     });
     expect(seen[0]?.params).toMatchObject({
@@ -166,6 +166,13 @@ describe('reviewScene', () => {
     });
     expect(always[0]?.params).not.toHaveProperty('thinking');
     expect(always[0]?.params).toMatchObject({ output_config: { effort: 'low' } });
+  });
+
+  it('omits unsupported legacy effort while retaining the review schema and output budget', () => {
+    const params = sceneReviewParams(REQUEST, { model: 'claude-haiku-4-5', effort: 'high' });
+    expect(params.max_tokens).toBe(SCENE_REVIEW_DEEP_MAX_TOKENS);
+    expect(params.output_config).not.toHaveProperty('effort');
+    expect(params.output_config.format).toMatchObject({ type: 'json_schema' });
   });
 });
 

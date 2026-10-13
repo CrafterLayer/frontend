@@ -6,8 +6,8 @@
  * person's enabled skills, then the built-ins, then "Manage skills & memory"; the words
  * after it narrow the list. The textarea keeps focus and is the combobox (expanded,
  * controls, active option). ↑ ↓ move, Enter or Tab pick (the composer never sees them), Esc
- * closes for that draft. A pick takes the `/words` out of the draft and pins the skill as a
- * chip with ×; a fourth pin is refused in the status line.
+ * closes for that draft. A pick keeps an inline skill token in this prompt, with no persistent
+ * chip or UI-only three-selection limit.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -107,7 +107,9 @@ function options(): HTMLElement[] {
 }
 
 function chips(locale: Locale = 'en'): HTMLElement | null {
-  return screen.queryByRole('group', { name: locale === 'ar' ? AR.pinned : EN.pinned });
+  return screen.queryByRole('group', {
+    name: locale === 'ar' ? 'مهارات الرسالة التالية' : 'Skills for the next message',
+  });
 }
 
 describe('SkillSlash', () => {
@@ -185,18 +187,16 @@ describe('SkillSlash', () => {
     expect(options()[0]).toHaveTextContent(EN.manage);
   });
 
-  it('↓ and Enter pin the active skill and take the /words out; the composer never sends', async () => {
+  it('↓ and Enter keep the chosen skill inline in this prompt without sending or chips', async () => {
     const onSend = vi.fn();
     const { user, field } = setup({ onSend });
     await user.type(field, 'Write the hero /');
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onSend).not.toHaveBeenCalled();
-    expect(field).toHaveValue('Write the hero ');
+    expect(field).toHaveValue('/house-style Write the hero ');
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(field).toHaveAttribute('aria-expanded', 'false');
-    const pinned = chips();
-    expect(pinned).toHaveTextContent('House style');
-    expect(within(pinned!).getByRole('button', { name: 'Remove House style' })).toBeInTheDocument();
+    expect(chips()).toBeNull();
     // A pinned skill leaves the list.
     await user.type(field, '/');
     expect(
@@ -214,15 +214,15 @@ describe('SkillSlash', () => {
     const { user, field } = setup({ onManage });
     await user.type(field, '/');
     await user.keyboard('{Tab}');
-    expect(chips()).toHaveTextContent('Brand voice');
+    expect(chips()).toBeNull();
     expect(field).toHaveFocus();
-    expect(field).toHaveValue('');
+    expect(field).toHaveValue('/brand-voice ');
     await user.type(field, '/');
     await user.keyboard('{ArrowUp}');
     expect(options().at(-1)).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{Enter}');
     expect(onManage).toHaveBeenCalledTimes(1);
-    expect(field).toHaveValue('');
+    expect(field).toHaveValue('/brand-voice ');
   });
 
   it('Esc closes the list for that draft; the next letter opens it again', async () => {
@@ -236,12 +236,12 @@ describe('SkillSlash', () => {
     expect(theList()).toBeInTheDocument();
   });
 
-  it('a click pins an option and keeps focus in the field', async () => {
+  it('a click inserts the selected skill inline and keeps focus in the field', async () => {
     const { user, field } = setup();
     await user.type(field, 'Hero /');
     await user.click(options()[1]!);
-    expect(chips()).toHaveTextContent('House style');
-    expect(field).toHaveValue('Hero ');
+    expect(chips()).toBeNull();
+    expect(field).toHaveValue('/house-style Hero ');
     expect(field).toHaveFocus();
   });
 
@@ -255,34 +255,18 @@ describe('SkillSlash', () => {
     expect(chips()).toBeNull();
   });
 
-  it('refuses a fourth pin in the status line, and the note goes with the list', async () => {
+  it('allows four inline choices and removes a choice by editing this prompt', async () => {
     const { user, field } = setup();
-    for (let pick = 0; pick < 3; pick += 1) {
+    for (let pick = 0; pick < 4; pick += 1) {
       await user.type(field, '/');
       await user.keyboard('{Enter}');
     }
-    expect(within(chips()!).getAllByRole('button')).toHaveLength(3);
-    await user.type(field, '/');
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
-    await user.keyboard('{Enter}');
-    expect(screen.getByRole('status')).toHaveTextContent(EN.full);
-    expect(within(chips()!).getAllByRole('button')).toHaveLength(3);
-    expect(field).toHaveValue('/');
-    await user.keyboard('{Escape}');
-    await user.click(screen.getByRole('button', { name: 'Remove Brand voice' }));
-    await user.type(field, ' /');
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
-  });
-
-  it('the × on a chip unpins it and returns focus to the field', async () => {
-    const { user, field } = setup();
-    await user.type(field, '/');
-    await user.keyboard('{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Remove Brand voice' }));
+    expect((field as HTMLTextAreaElement).value.match(/\/[^\s]+/gu)).toHaveLength(4);
     expect(chips()).toBeNull();
-    expect(field).toHaveFocus();
+    await user.clear(field);
     await user.type(field, '/');
     expect(options()[0]).toHaveTextContent('Brand voice');
+    expect(field).toHaveFocus();
   });
 
   it('speaks Arabic, and finds «أسلوب» when «اسلوب» is typed', async () => {
@@ -296,8 +280,8 @@ describe('SkillSlash', () => {
     await user.type(field, 'اسلوب');
     expect(within(theList('ar')).getAllByRole('option')[0]).toHaveTextContent('أسلوب المنزل');
     await user.keyboard('{Enter}');
-    expect(chips('ar')).toHaveTextContent('أسلوب المنزل');
-    expect(screen.getByRole('button', { name: 'أزل أسلوب المنزل' })).toBeInTheDocument();
+    expect(chips('ar')).toBeNull();
+    expect(field).toHaveValue('/أسلوب-المنزل ');
   });
 
   it('styles with logical properties and theme tokens only', () => {

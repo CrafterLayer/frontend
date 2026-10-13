@@ -10,6 +10,7 @@ import { createAuthoredRunCoordinator } from './authored-run';
 import { parseAllowedOrigins, withCors } from './cors';
 import { createFreeModelCatalog } from './free-models';
 import { createHandler } from './handler';
+import { configuredCallTimeoutMs } from './call-lifetime';
 import {
   OPENROUTER_EFFORT_LEVELS,
   createOpenRouterClient,
@@ -157,6 +158,7 @@ for (const [signal, code] of [
 const answerDumpDir = setting('CRAFTKIT_AI_DUMP_DIR');
 const rawMaxTokens = Number(setting('CRAFTKIT_AI_MAX_TOKENS'));
 const maxTokens = Number.isInteger(rawMaxTokens) && rawMaxTokens > 0 ? rawMaxTokens : undefined;
+const callTimeoutMs = configuredCallTimeoutMs(setting('CRAFTKIT_AI_CALL_TIMEOUT_MS'));
 const runtimeWorkers = createProcessRuntimeSupervisor();
 const codeRuntime = createCodeRuntimeService({
   workers: runtimeWorkers,
@@ -181,13 +183,7 @@ const backend =
   BACKENDS.find((name) => name === rawBackend) ??
   refuseToStart(`CRAFTKIT_AI_BACKEND="${rawBackend}" is not one of ${BACKENDS.join(', ')}.`);
 
-/*
-  The CLI's whole-run cap. Left alone it is ten minutes, which is what a
-  full-page plan actually takes at the CLI's ~80 output tokens a second; it is
-  configurable because the honest answer depends on the size of the page being
-  asked for. A blank or unparseable value keeps the default rather than
-  silently becoming 0.
-*/
+/* The CLI process cap remains a backstop to the complete call deadline. */
 const rawCliTimeout = Number(setting('CRAFTKIT_AI_CLI_TIMEOUT_MS'));
 const cliTimeoutMs =
   Number.isFinite(rawCliTimeout) && rawCliTimeout > 0 ? rawCliTimeout : undefined;
@@ -508,6 +504,7 @@ console.log(
 );
 const handle = createHandler({
   client,
+  callTimeoutMs,
   codeRuntime,
   batches: batchBackendFor(backend, client, namedModels, setting('ANTHROPIC_API_KEY')),
   ...(enhanceModel === undefined ? {} : { enhanceModel }),

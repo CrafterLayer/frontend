@@ -154,6 +154,7 @@ export const SCROLL_CUE_WORDS: readonly string[] = [
   'scrolling',
   'scrollytelling',
   'بارالاكس',
+  'سكرول',
   // The matcher peels the clitics: this also reads «بالتمرير» and «التمرير».
   'تمرير',
 ];

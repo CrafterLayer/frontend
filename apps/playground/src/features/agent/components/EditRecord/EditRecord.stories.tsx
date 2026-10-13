@@ -266,6 +266,15 @@ export const DonePageWideRightToLeft: Story = arabic(editPageWide('ar'));
 export const DoneUnlisted: Story = { args: { view: editUnlisted('en') } };
 export const DoneUnlistedRightToLeft: Story = arabic(editUnlisted('ar'));
 
+/** A partial Auto result reports accepted/planned steps and retains its actual changes and Undo. */
+export const PartiallyApplied: Story = {
+  args: { view: { ...editPageWide('en', 'done'), partial: { kept: 2, total: 3 } } },
+};
+export const PartiallyAppliedRightToLeft: Story = arabic({
+  ...editPageWide('ar', 'done'),
+  partial: { kept: 2, total: 3 },
+});
+
 /** §3.8: an Ask proposal that was applied. */
 export const Applied: Story = { args: { view: editApplied('en') } };
 export const AppliedRightToLeft: Story = arabic(editApplied('ar'));

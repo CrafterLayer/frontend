@@ -31,6 +31,7 @@ import type { Flow } from './controller-state';
 import { followKernel } from './kernel-follow';
 import { setRun, type Slot } from './run-lease';
 import { commonRunOptions } from './run-options';
+import type { PromptSkillSnapshot } from '../../model/prompt-skills';
 import { say } from './run-outcomes';
 import { sceneProbeOptions } from './scene-probe-options';
 import { locateTurn, patchKind, patchTurn } from './turn-plumbing';
@@ -105,6 +106,7 @@ export interface PageBuild {
   readonly anchor: string | null;
   readonly plan: BuildPlan;
   readonly site?: SitePagePart | undefined;
+  readonly skillSnapshot?: PromptSkillSnapshot | undefined;
 }
 
 /**
@@ -216,7 +218,15 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
 
   try {
     const buildOptions: RunAiBuildOptions = {
-      ...commonRunOptions(flow, kernel, slot, request, page.pointed, page.history),
+      ...commonRunOptions(
+        flow,
+        kernel,
+        slot,
+        request,
+        page.pointed,
+        page.history,
+        page.skillSnapshot,
+      ),
       // One page of a site answers to its own run id, under the run that holds the lease.
       ...(page.site === undefined
         ? {}

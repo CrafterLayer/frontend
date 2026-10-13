@@ -80,7 +80,13 @@ const SKELETON_TAGS: ReadonlySet<string> = new Set([
   'h3',
 ]);
 /** Attributes that are content: a link goes somewhere, an image shows something. */
-const CONTENT_ATTRIBUTES: ReadonlySet<string> = new Set(['href', 'src', 'srcset', 'action']);
+const CONTENT_ATTRIBUTES: ReadonlySet<string> = new Set([
+  'href',
+  'src',
+  'srcset',
+  'action',
+  'data-ck-scene',
+]);
 /** A placeholder is a handful of nodes; a hostile tree costs nothing past this. */
 const PLACEHOLDER_MAX_NODES = 12;
 
@@ -96,6 +102,9 @@ const PLACEHOLDER_MAX_NODES = 12;
  */
 function isPlaceholder(node: Node): boolean {
   if (node.type !== CUSTOM_CODE) return false;
+  // A small DOM host can hold an entire authored canvas scene. Preserve its code.
+  const js = node.props['js'];
+  if (typeof js === 'string' && js.trim() !== '') return false;
   const tree: unknown = node.props['tree'];
   if (typeof tree !== 'object' || tree === null) return false;
   const stack: unknown[] = [...childList(tree)];

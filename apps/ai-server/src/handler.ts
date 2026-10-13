@@ -4,7 +4,8 @@ import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import type { ExportPage, RuntimeSnapshot } from '@craftkit/builder/code-runtime';
 
 import type { CacheDoctor } from './cache-doctor';
-import { proposerFor, type AnswerDraft, type ClaudeOptions } from './claude';
+import type { AnswerDraft } from './claude';
+import { callTimeoutMs } from './call-lifetime';
 import type { CodeRuntimeService } from './code-runtime-service';
 import { ENHANCE_PATH, ENHANCE_TIMEOUT_MS, enhancePrompt, readEnhanceRequest } from './enhance';
 import type { FreeModelCatalog } from './free-models';
@@ -15,13 +16,8 @@ import {
   type AuthoredRunRequest,
 } from './authored-run';
 import { createBatchRoutes, isBatchPath, type BatchCapability } from './batch-routes';
-import {
-  answerBody,
-  invalidOutputBody,
-  reportUsage,
-  type Answered,
-  type UsageTask,
-} from './plan-answer';
+import { invalidOutputBody, reportUsage, type UsageTask } from './plan-answer';
+import { answer } from './plan-call';
 import { errorResponse, describeFailure } from './plan-errors';
 import { SCENE_REVIEW_PATH, sceneReviewResponse } from './scene-review';
 import type { UsageReport } from './plan-params';
@@ -30,7 +26,6 @@ import {
   DEFAULT_CALL_EFFORT,
   DEFAULT_MAX_REQUEST_BYTES,
   authorized,
-  callEffort,
   pickedModel,
   readJsonBody,
   readPlanCall,
@@ -67,6 +62,8 @@ export interface HandlerOptions {
   /** Why a call did not read the prompt cache (cache-doctor.ts); the shared one by default. */
   readonly cacheDoctor?: CacheDoctor;
   readonly maxTokens?: number;
+  /** Complete generation-call cap, including streamed output and fallback; defaults to four minutes. */
+  readonly callTimeoutMs?: number;
   /** Bearer token required on every request. Omitted ⇒ no auth (local only). */
   readonly authToken?: string;
   /** Largest request body accepted, in bytes. */
@@ -211,6 +208,7 @@ async function modelsListing(options: HandlerOptions): Promise<{
 }
 
 export function createHandler(options: HandlerOptions) {
+  callTimeoutMs(options.callTimeoutMs);
   const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
   const batches = createBatchRoutes(options);
 
@@ -485,39 +483,6 @@ function taskOf(wire: AiPlanWireRequest): UsageTask {
   return wire.task ?? 'plan';
 }
 
-/**
- * The one answer both transports send: an `AiPlan` (or a page plan for
- * `task: 'page-plan'`), a refusal, or the versioned invalid-output report —
- * the shapes `remote-provider` reads, and nothing else.
- */
-async function answer(
-  wire: AiPlanWireRequest,
-  options: HandlerOptions,
-  signal: AbortSignal,
-  onProgress?: (text: string) => void,
-  onDraft?: (draft: AnswerDraft) => void,
-): Promise<Answered> {
-  let measured: UsageReport | undefined;
-  const call: ClaudeOptions = {
-    client: options.client,
-    signal,
-    onUsage: (usage) => {
-      measured = usage;
-    },
-    ...(options.model === undefined ? {} : { model: options.model }),
-    ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
-    ...(options.onAnswer === undefined ? {} : { onAnswer: options.onAnswer }),
-    ...(options.onLog === undefined ? {} : { onLog: options.onLog }),
-    ...(options.cacheDoctor === undefined ? {} : { cacheDoctor: options.cacheDoctor }),
-    ...callEffort(wire, options),
-    ...(onProgress === undefined ? {} : { onProgress }),
-    ...(onDraft === undefined ? {} : { onDraft }),
-  };
-  // A plan, a page plan, or a site plan (T230), by the request's task.
-  const outcome = await proposerFor(wire)(wire, call);
-  return answerBody(outcome, measured);
-}
-
 async function unary(
   wire: AiPlanWireRequest,
   options: HandlerOptions,
@@ -546,10 +511,13 @@ async function unary(
  */
 function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: AbortSignal): Response {
   const encoder = new TextEncoder();
+  const cancelled = new AbortController();
+  const caller = AbortSignal.any([signal, cancelled.signal]);
+  let closed = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: FrameEvent, data: unknown): void => {
-        controller.enqueue(encoder.encode(frame(event, data)));
+        if (!closed) controller.enqueue(encoder.encode(frame(event, data)));
       };
       const drafts =
         wire.task === 'page-plan' && options.planDrafts !== false
@@ -570,7 +538,7 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         const answered = await answer(
           wire,
           options,
-          signal,
+          caller,
           (text) => {
             send('status', { text });
           },
@@ -590,8 +558,15 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         send('result', invalidOutputBody(describeFailure(cause)));
       } finally {
         drafts?.dispose();
-        controller.close();
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
       }
+    },
+    cancel() {
+      closed = true;
+      cancelled.abort();
     },
   });
 

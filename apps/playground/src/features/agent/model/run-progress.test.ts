@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AiAgentEvent, AiPlan, AiRunFailure, AiValidatedProposal } from '@craftkit/builder';
+import {
+  runAiAgent,
+  type AiAgentEvent,
+  type AiPlan,
+  type AiRunFailure,
+  type AiValidatedProposal,
+} from '@craftkit/builder';
+import { fixedClock, seededIds } from '@craftkit/builder/testing';
+import { createEditKernel } from '../testing/scripted-engine';
 
 import {
   activeStageId,
@@ -80,6 +88,39 @@ describe('initialRunProgress', () => {
 });
 
 describe('reduceRunProgress', () => {
+  it('opens and settles application from actual Auto engine events', async () => {
+    const kernel = createEditKernel();
+    let progress = initialRunProgress('auto', 0);
+    let applyingKey: string | null = null;
+    await runAiAgent({
+      runId: 'progress-auto',
+      clock: fixedClock(0, 1),
+      kernel,
+      request: 'Give this hero a warmer welcome',
+      provider: {
+        propose: () =>
+          Promise.resolve({
+            rationale: 'A warmer welcome.',
+            commands: [
+              {
+                command: 'setProp',
+                args: { id: 'selected-hero', key: 'heading', value: 'Welcome home' },
+              },
+            ],
+          }),
+      },
+      validationPorts: { clock: fixedClock(0), ids: seededIds('progress-auto') },
+      directEdits: false,
+      apply: 'auto',
+      onEvent: (event) => {
+        progress = reduceRunProgress(progress, event);
+        if (event.type === 'plan.applying') applyingKey = runStageKey(progress);
+      },
+    });
+    expect(applyingKey).toBe('edit.applying');
+    expect(progress.stages.map(({ status }) => status)).toEqual(['done', 'done', 'done']);
+  });
+
   it('maps every stage to a catalog key, never to prose', () => {
     const event = script();
     const keys: (string | null)[] = [];

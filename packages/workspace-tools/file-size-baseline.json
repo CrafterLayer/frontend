@@ -55,7 +55,6 @@
     "packages/builder/ai/src/agent/page-plan/skeleton-from-plan.test.ts": 1421,
     "packages/builder/ai/src/agent/page-plan/skeleton-from-plan.ts": 1321,
     "packages/builder/ai/src/agent/page-plan/validate-page-plan.ts": 1194,
-    "packages/builder/ai/src/agent/plan-page.ts": 791,
     "packages/builder/ai/src/agent/run-agent.ts": 1169,
     "packages/builder/ai/src/agent/run-build.page-plan.test.ts": 1476,
     "packages/builder/ai/src/agent/run-build.safety.test.ts": 825,

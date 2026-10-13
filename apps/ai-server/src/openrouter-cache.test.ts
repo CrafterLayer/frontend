@@ -36,8 +36,8 @@ function answered(): Response {
   return new Response(ANSWER, { status: 200, headers: { 'content-type': 'text/event-stream' } });
 }
 
-function refusal(): Response {
-  return new Response(JSON.stringify({ error: { code: 400, message: 'cache_control: invalid' } }), {
+function refusal(message = 'cache_control: invalid'): Response {
+  return new Response(JSON.stringify({ error: { code: 400, message } }), {
     status: 400,
   });
 }
@@ -126,5 +126,38 @@ describe('the prompt cache through OpenRouter', () => {
     expect(fetch).toHaveBeenCalledTimes(3);
     const [system] = messagesOf(bodies[2]);
     expect((system?.content as { cache_control?: unknown }[])[0]?.cache_control).toEqual(HOUR);
+  });
+
+  it.each([
+    'reasoning.effort is not supported by this model',
+    'max_tokens exceeds the model output limit',
+    'response_format schema contains an invalid property ttl',
+    'response_format schema contains an invalid property cache_control',
+    'model not found',
+  ])('does not retry an unrelated 400: %s', async (message) => {
+    const { fetch, bodies } = fetchSequence(() => refusal(message), answered);
+    const client = createOpenRouterClient({ apiKey: 'k', model: 'anthropic/claude-opus-5', fetch });
+    await expect(client.messages.stream(REQUEST as never).finalMessage()).rejects.toThrow(message);
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    await client.messages.stream(REQUEST as never).finalMessage();
+    const [system] = messagesOf(bodies[1]);
+    expect((system?.content as { cache_control?: unknown }[])[0]?.cache_control).toEqual(HOUR);
+  });
+
+  it('retries a provider TTL refusal and retains the accepted shorter form', async () => {
+    const { fetch, bodies } = fetchSequence(
+      () => refusal('TTL 1h is not supported; use 5m'),
+      answered,
+      answered,
+    );
+    const client = createOpenRouterClient({ apiKey: 'k', model: 'anthropic/claude-opus-5', fetch });
+    await client.messages.stream(REQUEST as never).finalMessage();
+    await client.messages.stream(REQUEST as never).finalMessage();
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const [system] = messagesOf(bodies[2]);
+    expect((system?.content as { cache_control?: unknown }[])[0]?.cache_control).toEqual({
+      type: 'ephemeral',
+    });
   });
 });

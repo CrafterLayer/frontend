@@ -75,6 +75,8 @@ const COMPANIONS: Readonly<Record<string, readonly string[]>> = {
 const SCENE_CUES: readonly { readonly skill: string; readonly words: readonly string[] }[] = [
   { skill: 'craftkit.pixi-physics', words: PHYSICS_CUE_WORDS },
   { skill: 'craftkit.pixi-scroll-murals', words: SCROLL_CUE_WORDS },
+  // Characters inside a creative scene need motion expertise even without API vocabulary.
+  { skill: 'craftkit.pixi-animation', words: ['character', 'characters', 'شخصية', 'شخصيات'] },
 ];
 
 type RequestWords = ReturnType<typeof readRequestWords>;

@@ -1,7 +1,7 @@
 import type { BackgroundJobsHost } from '../../../jobs';
 import type { SiteRunSeam } from '../../../preview/components/AssistantPanel/use-site-run';
 import { batchAgentOptions } from '../../hooks/batch-agent-options';
-import { useAgentKnowledge, useReleasePinsAfterRun } from '../../hooks/use-agent-knowledge';
+import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
 import {
   useAgentController,
   type UseAgentControllerOptions,
@@ -45,9 +45,12 @@ export function LiveAgentPanel({
   ...options
 }: LiveAgentPanelProps) {
   // The person's skills, the project memory and the checkpoints (2026-10-12).
-  const knowledge = useAgentKnowledge({ storage: options.storage, checkpoints, locale: options.locale });
+  const knowledge = useAgentKnowledge({
+    storage: options.storage,
+    checkpoints,
+    locale: options.locale,
+  });
   const controller = useAgentController({ ...options, ...knowledge.controllerOptions });
-  useReleasePinsAfterRun(controller.state.run !== null, knowledge.view);
   useSiteSeam(controller, onSiteSeam);
   // Each page of a background job is asked and landed with what a live run would take.
   const runOptions = { ...options, ...knowledge.controllerOptions };

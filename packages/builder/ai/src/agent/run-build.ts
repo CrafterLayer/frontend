@@ -89,6 +89,9 @@ import {
   type PagePlanStepNote,
 } from './plan-page';
 import { runAiAgent } from './run-agent';
+import { sharedStepOptions } from './build-step-options';
+import { withInheritedRunDeadline, withScaffoldRun } from './run-deadline';
+import { settleOnAbort } from './settle-on-abort';
 import type { AiPagePlanDraftEvent, AiPlan, AiPlanProvider, AiPlanStep } from '../types';
 import type {
   AiAgentEvent,
@@ -208,61 +211,6 @@ function createBuildEmitter(options: RunAiBuildOptions): (payload: BuildEventPay
     } catch {
       // Observers are telemetry consumers; they cannot steer the build.
     }
-  };
-}
-
-/**
- * Everything a step inherits from the caller. `apply`, `label`, `runId` and
- * `request` are the orchestrator's to decide; nothing else is reinterpreted.
- *
- * `speaking` gates the steps' events. Once the build has reported its end, a
- * writer that ignored Stop and answered late has nothing left to say: the
- * person was told the build ended, and a step event after that would be a
- * section "working" on a page that already stopped.
- */
-function sharedStepOptions(
-  options: RunAiBuildOptions,
-  speaking: () => boolean,
-): Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'> {
-  const isCurrentRun = options.isCurrentRun;
-  const onEvent = options.onEvent;
-  return {
-    clock: options.clock,
-    kernel: options.kernel,
-    provider: options.provider,
-    validationPorts: options.validationPorts,
-    ...(options.selection === undefined ? {} : { selection: options.selection }),
-    ...(options.contextProviders === undefined
-      ? {}
-      : { contextProviders: options.contextProviders }),
-    ...(options.additionalContextProviders === undefined
-      ? {}
-      : { additionalContextProviders: options.additionalContextProviders }),
-    ...(options.history === undefined ? {} : { history: options.history }),
-    ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
-    ...(options.selectedSkillIds === undefined
-      ? {}
-      : { selectedSkillIds: options.selectedSkillIds }),
-    ...(options.policy === undefined ? {} : { policy: options.policy }),
-    ...(options.composition === undefined ? {} : { composition: options.composition }),
-    // Free code mode is the person's, for the whole build: every step's request carries it.
-    ...(options.freeCode === true ? { freeCode: true } : {}),
-    ...(options.signal === undefined ? {} : { signal: options.signal }),
-    /*
-      A step's run id is NOT the build's, so the caller's lease check would
-      reject every step if it were forwarded as-is. It is asked about the one
-      id it issued: the build's.
-    */
-    ...(isCurrentRun === undefined
-      ? {}
-      : { isCurrentRun: (): boolean => isCurrentRun(options.runId) }),
-    ...(onEvent === undefined
-      ? {}
-      : {
-          onEvent: (event) => {
-            if (speaking()) onEvent(event);
-          },
-        }),
   };
 }
 
@@ -695,7 +643,7 @@ async function underDeadline<T>(
   if (jobSignal?.aborted === true) forwardJob();
   else jobSignal?.addEventListener('abort', forwardJob, { once: true });
   try {
-    return await work(deadline.signal);
+    return await settleOnAbort(deadline.signal, work);
   } catch (cause) {
     if (state.timedOut && outer?.aborted !== true) {
       throw new SectionAttemptError(
@@ -866,28 +814,29 @@ function runFill(
     brief.completeStep === undefined
       ? step.provider
       : completingProvider(step.provider, brief.completeStep);
-  return runAiAgent({
-    ...step,
-    provider,
-    ...samples,
-    // A writer names only the section lane's tools — the ones its prompt lists.
-    toolLanes: SECTION_TOOL_LANES,
-    ...(brief.history && history !== undefined ? { history } : {}),
-    ...(skills === undefined ? {} : { skillRegistry: skills }),
-    additionalContextProviders: buildLessons.offered(options, brief.providers),
-    runId: stepRunId(
-      options.runId,
-      `fill-${String(position)}${invocation === 1 ? '' : `-${String(invocation)}`}`,
-    ),
-    request: brief.request,
-    selection: [task.id],
-    selectedSkillIds: brief.skillIds,
-    // The request carries the page's words for subject matter; they must not
-    // choose this writer's expertise as well.
-    autoSkills: false,
-    policy: { ...options.policy, allowedCommands: FILL_COMMANDS },
-    composition: fillComposition(options),
-    /*
+  return runAiAgent(
+    withInheritedRunDeadline({
+      ...step,
+      provider,
+      ...samples,
+      // A writer names only the section lane's tools — the ones its prompt lists.
+      toolLanes: SECTION_TOOL_LANES,
+      ...(brief.history && history !== undefined ? { history } : {}),
+      ...(skills === undefined ? {} : { skillRegistry: skills }),
+      additionalContextProviders: buildLessons.offered(options, brief.providers),
+      runId: stepRunId(
+        options.runId,
+        `fill-${String(position)}${invocation === 1 ? '' : `-${String(invocation)}`}`,
+      ),
+      request: brief.request,
+      selection: [task.id],
+      selectedSkillIds: brief.skillIds,
+      // The request carries the page's words for subject matter; they must not
+      // choose this writer's expertise as well.
+      autoSkills: false,
+      policy: { ...options.policy, allowedCommands: FILL_COMMANDS },
+      composition: fillComposition(options),
+      /*
       GENERATE only. Sections are written concurrently but must LAND in order,
       so the proposal comes back here and `applyAiPlan` runs it when its turn
       arrives. Safe because apply re-validates against the LIVE kernel, not
@@ -895,10 +844,11 @@ function runFill(
       guard (`guardFill`) keeps each fill inside its own region, so nothing two
       of them touch overlaps.
     */
-    apply: 'never',
-    label: stepLabel(position, total, task.title),
-    signal,
-  });
+      apply: 'never',
+      label: stepLabel(position, total, task.title),
+      signal,
+    }),
+  );
 }
 
 /**
@@ -2723,6 +2673,7 @@ async function planStep(
       kernel: options.kernel,
       provider: options.provider,
       request: options.request,
+      ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
       ...(options.history === undefined ? {} : { history: options.history }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       ...(isCurrentRun === undefined
@@ -3742,23 +3693,25 @@ async function buildFromScaffold(
   let scaffold: AiAgentRunResult | undefined;
   let scaffoldFailure: string | undefined;
   try {
-    scaffold = await runAiAgent({
-      ...shared,
-      ...pageStepSkills(options),
-      runId: stepRunId(options.runId, 'scaffold'),
-      // "Try another look" reaches the deck's B row as the line it reads.
-      request: withRequestedLook(options.request),
-      selectedSkillIds: scaffoldSkillIds(options),
-      additionalContextProviders: withPhotoCatalog(options, options.request),
-      policy: { ...options.policy, allowedCommands: SCAFFOLD_COMMANDS },
-      /*
+    scaffold = await runAiAgent(
+      withScaffoldRun({
+        ...shared,
+        ...pageStepSkills(options),
+        runId: stepRunId(options.runId, 'scaffold'),
+        // "Try another look" reaches the deck's B row as the line it reads.
+        request: withRequestedLook(options.request),
+        selectedSkillIds: scaffoldSkillIds(options),
+        additionalContextProviders: withPhotoCatalog(options, options.request),
+        policy: { ...options.policy, allowedCommands: SCAFFOLD_COMMANDS },
+        /*
         Landed at once only when nobody has to be asked. A build that asks PROPOSES its skeleton and
         lands it on approval. Measured 2026-09-28 (agent-audit.md P0-4): Ask mode laid 3-12 empty
         bands on the page before the approval card appeared, and "Stop build" left them there.
       */
-      apply: build.writes && !build.asks ? 'auto' : 'never',
-      label: SCAFFOLD_LABEL,
-    });
+        apply: build.writes && !build.asks ? 'auto' : 'never',
+        label: SCAFFOLD_LABEL,
+      }),
+    );
   } catch (cause) {
     if (options.signal?.aborted === true) throw cause;
     scaffoldFailure = errorMessage(cause);

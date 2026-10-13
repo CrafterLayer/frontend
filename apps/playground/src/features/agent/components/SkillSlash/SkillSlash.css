@@ -5,7 +5,7 @@
   heading line opens "Your skills" and "Built-in"; the last row opens Skills & memory. The active
   row is Mist under Ink with a 2px Indigo bar at its inline start, as the `@` list's is.
 
-  The pinned skills sit on the composer's text edge, above it: Indigo-wash chips with ×.
+  Picked skills stay inline in the composer; this owner renders only the chooser and command feedback.
 */
 
 .ck-agent-slash {
@@ -127,23 +127,6 @@
 }
 
 .ck-agent-slash__empty,
-.ck-agent-slash__note {
-  margin: 0;
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-md);
-  color: var(--bldr-panel-muted);
-  font-size: var(--bldr-font-size-meta);
-  line-height: var(--bldr-line-height-meta);
-}
-
-.ck-agent-slash__note {
-  color: var(--bldr-panel-text-soft);
-}
-
-.ck-agent-slash__note:empty {
-  display: none;
-}
-
 .ck-agent-slash__done {
   margin: 0;
   margin-block-end: var(--bldr-space-xs);
@@ -156,59 +139,6 @@
   display: none;
 }
 
-.ck-agent-slash__pinned {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--bldr-space-xs);
-  margin-block-end: var(--bldr-space-xs);
-}
-
-.ck-agent-slash__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--bldr-space-2xs);
-  max-inline-size: 100%;
-  min-block-size: var(--bldr-control-sm);
-  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
-  border-radius: var(--bldr-radius-full);
-  background-color: var(--bldr-accent-soft);
-  color: var(--bldr-accent-strong);
-  font-size: var(--bldr-font-size-meta);
-  font-weight: var(--bldr-font-weight-medium);
-  line-height: var(--bldr-line-height-meta);
-}
-
-.ck-agent-slash__chip-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ck-agent-slash__unpin {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  inline-size: var(--bldr-control-sm);
-  block-size: var(--bldr-control-sm);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--bldr-radius-full);
-  background-color: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.ck-agent-slash__unpin:hover {
-  background-color: var(--bldr-accent-soft-hover);
-}
-
-.ck-agent-slash__unpin:focus-visible {
-  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
-  outline-offset: var(--bldr-focus-ring-offset);
-}
-
 @media (pointer: coarse) {
   .ck-agent-slash__option {
     min-block-size: var(--bldr-hit-target-min);
@@ -216,11 +146,6 @@
 
   .ck-agent-slash__list {
     max-block-size: calc(4 * var(--bldr-hit-target-min));
-  }
-
-  .ck-agent-slash__unpin {
-    inline-size: var(--bldr-hit-target-min);
-    block-size: var(--bldr-hit-target-min);
   }
 }
 

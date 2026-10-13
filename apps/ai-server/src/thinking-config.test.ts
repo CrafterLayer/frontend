@@ -13,6 +13,7 @@ import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 
 import { createCacheGate } from './cache-gate';
 import { proposePlan } from './claude';
+import { createRoutingClient } from './routing-client';
 import { withModelThinking } from './thinking-config';
 
 const OFF = { type: 'disabled' } as const;
@@ -53,6 +54,37 @@ describe('withModelThinking', () => {
   it('never rewrites thinking that is on', () => {
     const params = { model: 'claude-opus-5-5', thinking: { type: 'adaptive' } };
     expect(withModelThinking(params)).toBe(params);
+  });
+
+  it.each(['api:claude-sonnet-4-6', 'api:claude-opus-4-5'])(
+    'retains supported modern effort on %s',
+    (model) => {
+      const params = { model, thinking: OFF, output_config: { effort: 'low' } };
+      expect(withModelThinking(params)).toBe(params);
+    },
+  );
+
+  it.each([
+    'api:claude-haiku-4-5',
+    'claude-sonnet-4-5-20250929',
+    'api:claude-opus-4-1',
+    'api:claude-sonnet-4-20250514',
+    'claude-opus-4-20250514',
+  ])('omits unsupported API effort on %s while preserving the schema and thinking', (model) => {
+    const format = { type: 'json_schema', schema: { type: 'object' } };
+    expect(
+      withModelThinking({
+        model,
+        max_tokens: 8_192,
+        thinking: OFF,
+        output_config: { format, effort: 'low' },
+      }),
+    ).toEqual({
+      model,
+      max_tokens: 8_192,
+      thinking: OFF,
+      output_config: { format },
+    });
   });
 });
 
@@ -99,5 +131,49 @@ describe('the plan request', () => {
     });
     expect(sent[0]).not.toHaveProperty('thinking');
     expect(sent[0]?.['output_config']).toMatchObject({ effort: 'low' });
+  });
+
+  it.each([
+    'claude-haiku-4-5',
+    'claude-sonnet-4-5-20250929',
+    'claude-sonnet-4-20250514',
+    'claude-opus-4-20250514',
+  ])('routes legacy %s initialization with valid thinking, cap and no effort', async (model) => {
+    const sent: Record<string, unknown>[] = [];
+    const api = {
+      messages: {
+        stream: (params: Record<string, unknown>) => {
+          sent.push(params);
+          return {
+            on: () => undefined,
+            finalMessage: () =>
+              Promise.resolve({
+                stop_reason: 'end_turn',
+                content: [{ type: 'text', text: '{"commands":[]}' }],
+                usage: { input_tokens: 1, output_tokens: 1 },
+              }),
+          };
+        },
+      },
+    } as unknown as Anthropic;
+    const client = createRoutingClient({
+      openrouter: api,
+      api,
+      cli: () => {
+        throw new Error('Unexpected CLI call.');
+      },
+    });
+    await proposePlan(REQUEST, {
+      client,
+      model: `api:${model}`,
+      thinkingOff: true,
+      effort: 'low',
+      maxTokens: 8_192,
+      cacheGate: createCacheGate(),
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ model, max_tokens: 8_192, thinking: OFF });
+    expect(sent[0]?.['output_config']).toBeUndefined();
+    expect(JSON.stringify(sent[0]?.['system'])).toContain('Required output format');
   });
 });

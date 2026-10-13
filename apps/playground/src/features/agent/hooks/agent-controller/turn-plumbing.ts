@@ -3,6 +3,7 @@
  * flow, always through the sessions store (never a render's closure).
  */
 import type { SentContext, Session, Turn } from '../../model/turns';
+import type { PromptSkillSnapshot } from '../../model/prompt-skills';
 
 import type { Flow } from './controller-state';
 
@@ -92,12 +93,17 @@ export function placeRecord(
 export function requestOf(
   flow: Flow,
   turnId: string,
-): { readonly text: string; readonly context: readonly SentContext[] } | null {
+): {
+  readonly text: string;
+  readonly context: readonly SentContext[];
+  readonly skillSnapshot?: PromptSkillSnapshot | undefined;
+} | null {
   const located = locateTurn(flow, turnId);
   if (located === null) return null;
   const turns = sessionOf(flow, located.sessionId)?.turns ?? [];
   const user = turns.slice(0, located.index).findLast((turn) => turn.kind === 'user');
-  if (user?.kind === 'user') return { text: user.text, context: user.context };
+  if (user?.kind === 'user')
+    return { text: user.text, context: user.context, skillSnapshot: user.skillSnapshot };
   const own = 'request' in located.turn ? located.turn.request : undefined;
   return own === undefined ? null : { text: own, context: [] };
 }

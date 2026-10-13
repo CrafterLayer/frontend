@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
-import { createCraftkitAiSkillRegistry, type AiSkillRegistry } from '@craftkit/builder';
+import {
+  createCraftkitAiSkillRegistry,
+  pixiSkillIdsFor,
+  type AiSkillRegistry,
+} from '@craftkit/builder';
 
 import type { AgentCheckpoint, AgentCheckpointPort } from '../model/checkpoints';
 import {
@@ -12,7 +16,7 @@ import type { AgentKnowledgeView, BuiltInSkillView } from '../model/knowledge';
 import type { AgentStorage } from '../model/migrate-sessions';
 import { createProjectMemoryStore } from '../model/project-memory';
 import { skillMarkdown } from '../model/skill-markdown';
-import { MAX_PINNED_SKILLS } from '../model/skill-slash';
+import { inlineSkillIds, inlineSkillRequest, slashOptions } from '../model/skill-slash';
 import { userSkillDefinitions, userSkillIdsFor } from '../model/user-skills';
 import { createUserSkillsStore } from '../model/user-skills-store';
 import type { Locale } from '../model/view-types';
@@ -59,7 +63,12 @@ export interface UseAgentKnowledgeOptions {
 
 export type KnowledgeControllerOptions = Pick<
   UseAgentControllerOptions,
-  'skillRegistry' | 'selectedSkillIds' | 'hostSkillIdsFor' | 'extraContextProviders' | 'checkpoints'
+  | 'skillRegistry'
+  | 'selectedSkillIdsFor'
+  | 'skillRequestTextFor'
+  | 'hostSkillIdsFor'
+  | 'extraContextProviders'
+  | 'checkpoints'
 >;
 
 export interface UseAgentKnowledgeResult {
@@ -130,28 +139,27 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     () => defaultSkillViews(locale, disabledDefaults),
     [locale, disabledDefaults],
   );
-  // The composer's `/` pins: kept while they name a skill the registry holds (one turned off
-  // or deleted drops out), sent as the request's explicit skills.
-  const [pinned, setPinned] = useState<readonly string[]>([]);
-  const activePins = useMemo(
-    () => pinned.filter((id) => registry.get(id) !== undefined),
-    [pinned, registry],
+  const vocabulary = useMemo(
+    () => slashOptions(skills, BUILT_INS, '', [], defaults),
+    [skills, defaults],
   );
   const controllerOptions = useMemo<KnowledgeControllerOptions>(
     () => ({
       ...(registry === BUILT_IN_REGISTRY ? {} : { skillRegistry: registry }),
       hostSkillIdsFor: (request: string) => [
         ...new Set([
-          ...activePins,
-          ...userSkillIdsFor(registry, skills, request),
-          ...defaultSkillIdsFor(registry, defaults, request),
+          ...inlineSkillIds(request, vocabulary),
+          ...pixiSkillIdsFor(registry, inlineSkillRequest(request, vocabulary)),
+          ...userSkillIdsFor(registry, skills, inlineSkillRequest(request, vocabulary)),
+          ...defaultSkillIdsFor(registry, defaults, inlineSkillRequest(request, vocabulary)),
         ]),
       ],
-      ...(activePins.length === 0 ? {} : { selectedSkillIds: activePins }),
+      selectedSkillIdsFor: (request: string) => inlineSkillIds(request, vocabulary),
+      skillRequestTextFor: (request: string) => inlineSkillRequest(request, vocabulary),
       extraContextProviders: notes.length === 0 ? [] : [stores.memory.provider],
       ...(checkpoints === undefined ? {} : { checkpoints }),
     }),
-    [registry, skills, defaults, activePins, notes.length, stores.memory.provider, checkpoints],
+    [registry, skills, defaults, vocabulary, notes.length, stores.memory.provider, checkpoints],
   );
 
   const view = useMemo<AgentKnowledgeView>(
@@ -167,17 +175,6 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
         exportMarkdown: (id) => {
           const skill = skills.find((entry) => entry.id === id);
           return skill === undefined ? undefined : skillMarkdown(skill);
-        },
-        pinned: activePins,
-        pin: (id) => {
-          if (activePins.includes(id)) return true;
-          if (activePins.length >= MAX_PINNED_SKILLS || registry.get(id) === undefined)
-            return false;
-          setPinned([...activePins, id]);
-          return true;
-        },
-        unpin: (id) => {
-          setPinned((current) => current.filter((entry) => entry !== id));
         },
         defaults,
         setDefaultEnabled: stores.defaults.setEnabled,
@@ -199,7 +196,7 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
             },
           }),
     }),
-    [skills, defaults, notes, items, stores, checkpoints, activePins, registry],
+    [skills, defaults, notes, items, stores, checkpoints],
   );
 
   return { controllerOptions, view };
@@ -221,19 +218,4 @@ function defaultSkillIdsFor(
   } catch {
     return [];
   }
-}
-
-/**
- * Pins hold for one message: they are let go once the run they went out with has finished
- * (every step of a build reads them, so they stay until the last one has).
- */
-export function useReleasePinsAfterRun(running: boolean, view: AgentKnowledgeView): void {
-  const wasRunning = useRef(running);
-  const { pinned, unpin } = view.skills;
-  useEffect(() => {
-    if (wasRunning.current && !running) {
-      for (const id of pinned) unpin(id);
-    }
-    wasRunning.current = running;
-  }, [running, pinned, unpin]);
 }

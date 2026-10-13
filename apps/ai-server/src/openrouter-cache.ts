@@ -94,15 +94,23 @@ export function chatMessages(
   return [...(system.length === 0 ? [] : [{ role: 'system', content: system }]), ...turns];
 }
 
-/** OpenRouter refusing a request outright (a 400 before any token), as the shim reports it. */
+/** Retry only a rejected cache form; another invalid parameter cannot improve with a shorter TTL. */
 function refused(error: unknown): boolean {
-  return isRecord(error) && error['httpStatus'] === 400;
+  return (
+    isRecord(error) &&
+    error['httpStatus'] === 400 &&
+    typeof error['message'] === 'string' &&
+    !/\b(?:response[_ ]format|json[_ ]schema|max[_ ]tokens|reasoning)\b/iu.test(error['message']) &&
+    /\bcache[_ -](?:control|ttl)\b|\b(?:ttl|time[- ]to[- ]live)\b[\s\S]{0,80}\b(?:cache|breakpoint|1h|5m)\b|\b(?:cache|caching|breakpoint)\b[\s\S]{0,80}\b(?:ttl|time[- ]to[- ]live)\b/iu.test(
+      error['message'],
+    )
+  );
 }
 
 /**
  * Sends in the extended form while OpenRouter accepts it. A refused call is sent once more in
  * the old form; only when that one is accepted is the extended form given up (`onRefused`), so
- * a request refused for another reason keeps it.
+ * a request refused for another reason is terminal without another provider call.
  */
 export async function sendWithCacheFallback<T>(
   send: (extended: boolean) => Promise<T>,

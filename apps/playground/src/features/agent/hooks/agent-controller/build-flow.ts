@@ -15,6 +15,7 @@ import {
 
 import { initialBuildProgress } from '../../model/build-progress';
 import { routeRequest } from '../../model/runs';
+import { skillRequestText } from '../../model/prompt-skills';
 import type { BuildTurn } from '../../model/turns';
 import type { AssistantMode, EndNoteKey } from '../../model/view-types';
 
@@ -138,11 +139,14 @@ export async function buildPlanned(
   pagePlan: PagePlan | undefined,
 ): Promise<void> {
   if (pagePlan === undefined) {
-    const routed = routeRequest(outgoing.text, {
-      kernel: flow.env().options.kernel,
-      mentions: [],
-      selection: [],
-    });
+    const routed = routeRequest(
+      skillRequestText(flow.env().options, outgoing.text, outgoing.skillSnapshot),
+      {
+        kernel: flow.env().options.kernel,
+        mentions: [],
+        selection: [],
+      },
+    );
     const route: IntentRoute =
       routed.kind === 'build-page' || routed.kind === 'build-site'
         ? routed
@@ -197,7 +201,16 @@ async function runBuild(
   say(flow, 'build.started');
   try {
     const { pointed } = outgoing;
-    await buildPage(flow, slot, { turnId, kernel, request, pointed, history, anchor, plan });
+    await buildPage(flow, slot, {
+      turnId,
+      kernel,
+      request,
+      pointed,
+      history,
+      anchor,
+      plan,
+      skillSnapshot: outgoing.skillSnapshot,
+    });
   } finally {
     release(flow, slot);
   }

@@ -283,6 +283,77 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     expect(menu?.check).toEqual({ issues: [], repaired: false });
   });
 
+  it('keeps the first checked scene when its repair ignores cancellation and never applies a late repair', async () => {
+    vi.useFakeTimers();
+    const script = scripted('hero', BROKEN, FIXED);
+    const stop = new AbortController();
+    const events: unknown[] = [];
+    let repairCalls = 0;
+    let repairSignal: AbortSignal | undefined;
+    let lateAnswer: AiPlan | undefined;
+    let release: (answer: AiPlan) => void = () => undefined;
+    const pending = new Promise<AiPlan>((resolve) => {
+      release = resolve;
+    });
+    const build = {
+      ...options(script, 'Build a website with a playable 2d game with stars'),
+      provider: {
+        ...script.provider,
+        repair: (request, _context, _plan, _issues, live) => {
+          repairCalls += 1;
+          repairSignal = live?.signal;
+          const id = regionIdOf(request);
+          lateAnswer = {
+            rationale: 'Late repair',
+            commands: [
+              { command: 'setProp', args: { id, key: 'tree', value: honestSection(request) } },
+              { command: 'setProp', args: { id, key: 'css', value: SCENE_CSS } },
+              { command: 'setProp', args: { id, key: 'js', value: FIXED } },
+            ],
+          };
+          return pending;
+        },
+      } satisfies AiPlanProvider,
+      taskTimeoutMs: 50,
+      signal: stop.signal,
+    };
+    let completed = false;
+    const done = runAiBuild({ ...build, onEvent: (event) => events.push(event) }).then((result) => {
+      completed = true;
+      return result;
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(repairSignal?.aborted).toBe(true);
+      expect(completed).toBe(true);
+      const result = await done;
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      expect(result.outcome).toBe('completed');
+      expect(hero?.status).toBe('applied');
+      expect(hero?.attempts).toBe(1);
+      expect(hero?.check?.repaired).toBe(true);
+      expect(hero?.check?.issues.some(({ code }) => code === 'scene-dom')).toBe(true);
+      expect(repairCalls).toBe(1);
+      expect(build.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(BROKEN);
+
+      const document = build.kernel.getDocument();
+      const transactions = build.kernel.transactions().length;
+      const eventCount = events.length;
+      if (lateAnswer === undefined) throw new Error('The repair was never requested.');
+      release(lateAnswer);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(build.kernel.getDocument()).toBe(document);
+      expect(build.kernel.transactions()).toHaveLength(transactions);
+      expect(events).toHaveLength(eventCount);
+    } finally {
+      stop.abort();
+      if (lateAnswer !== undefined) release(lateAnswer);
+      await vi.advanceTimersByTimeAsync(0);
+      await done;
+    }
+  });
+
   it('repairs a slip code can fix before the check: no repair round, the repaired scene lands', async () => {
     const script = scripted('hero', SLIPPED, BROKEN);
     const build = options(script, 'Build a website with a playable 2d game with stars');

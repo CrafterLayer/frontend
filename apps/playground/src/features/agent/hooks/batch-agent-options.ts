@@ -11,12 +11,14 @@ import { catalogPolicyFor } from '../../preview/components/AssistantPanel/catalo
 import type { UseAgentControllerOptions } from './agent-controller/options';
 
 import { preflightPorts } from '../model/runs';
+import { selectedSkillsForRequest } from '../model/prompt-skills';
 
 /** The panel's options a background job reads. */
 export type BatchAgentSource = Pick<
   UseAgentControllerOptions,
   | 'skillRegistry'
   | 'selectedSkillIds'
+  | 'selectedSkillIdsFor'
   | 'hostSkillIdsFor'
   | 'extraContextProviders'
   | 'freeCode'
@@ -31,10 +33,11 @@ export type BatchAgentSource = Pick<
  */
 export function batchAgentOptions(source: BatchAgentSource, request: string): AiBatchAgentOptions {
   const providers = source.extraContextProviders ?? [];
+  const selectedSkillIds = selectedSkillsForRequest(source, request);
   return {
     validationPorts: preflightPorts(),
     ...(source.skillRegistry === undefined ? {} : { skillRegistry: source.skillRegistry }),
-    ...(source.selectedSkillIds === undefined ? {} : { selectedSkillIds: source.selectedSkillIds }),
+    ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
     ...(source.hostSkillIdsFor === undefined
       ? {}
       : { hostSkillIds: source.hostSkillIdsFor(request) }),

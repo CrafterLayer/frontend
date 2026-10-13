@@ -125,7 +125,15 @@ export async function runEdit(
     (turn.kind === 'edit' || turn.kind === 'proposal') && turn.run !== undefined ? turn.run : run;
   let heard: (() => WordsOnly | null) | undefined;
   try {
-    const base = commonRunOptions(flow, kernel, slot, request, outgoing.pointed, history);
+    const base = commonRunOptions(
+      flow,
+      kernel,
+      slot,
+      request,
+      outgoing.pointed,
+      history,
+      outgoing.skillSnapshot,
+    );
     // A catalog example picked by name is answered from the catalog: no model, no wait.
     const recording = recordingWords(
       outgoing.catalog === true ? catalogFirst(kernel, base.provider) : base.provider,

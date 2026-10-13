@@ -7,7 +7,9 @@
 **Status**: Approved for implementation
 
 Current scoped speed increment: [scene initialization and server latency](scene-speed-2026-10-13.md)
-(SP-001..004), authorized by the user's 2026-10-13 request.
+(SP-001..004), authorized by the user's 2026-10-13 request. Authorized continuation:
+[deadline/CLI reliability and published marketing styles](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13)
+(SP-005..007), selected by the user as “1+2” on 2026-10-13.
 
 **Monorepo Scope**: Workspace, cross-cutting. Extends the site model, editing kernel, canvas,
 code-editing surface, AI generation, local persistence, evaluation application, and preview/export
@@ -482,3 +484,10 @@ stay.
 - QF-005: Local deterministic and browser evidence is separate from paid-provider output quality,
   blind human design scores and production readiness. No global/professional certification is
   implied.
+
+## Authorized empty-canvas and request-skills repair — 2026-10-13
+
+The owner's screenshots and automatic skill request authorize SP-008..011 in
+[the canonical scene increment](scene-speed-2026-10-13.md#authorized-empty-canvas-and-request-skills-repair--2026-10-13):
+cumulative edit/server deadlines, meaningful creative creation before success, accurate partial
+completion and progress, empty-page creative routing, and automatic/prompt-local skills.

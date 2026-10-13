@@ -219,21 +219,20 @@ export const NoMatch: Story = {
   },
 };
 
-/** Two skills picked: chips above the composer, each with ×. */
-export const Pinned: Story = {
+/** Choices remain inline, alongside the words that will be sent. */
+export const InlineSelections: Story = {
   play: async ({ canvasElement }) => {
     const field = await typeInto(canvasElement, 'en', '/');
     await userEvent.keyboard('{Enter}');
     await userEvent.type(field, 'Write the menu page /');
     await userEvent.keyboard('{Enter}');
-    const chips = within(canvasElement).getByRole('group', { name: EN.pinned });
-    await expect(within(chips).getAllByRole('button')).toHaveLength(2);
-    await expect(field).toHaveValue('Write the menu page ');
+    await expect(field).toHaveValue('/house-style /brand-voice Write the menu page ');
+    await expect(within(canvasElement).queryByRole('group')).toBeNull();
   },
 };
 
-/** A fourth pick: the message already holds three, and the status line says so. */
-export const Full: Story = {
+/** The UI permits more than three choices; the engine still enforces its skill budget. */
+export const FourSelections: Story = {
   play: async ({ canvasElement }) => {
     const field = await typeInto(canvasElement, 'en', '/');
     await userEvent.keyboard('{Enter}');
@@ -241,19 +240,17 @@ export const Full: Story = {
       await userEvent.type(field, '/');
       await userEvent.keyboard('{Enter}');
     }
-    await expect(within(canvasElement).getByRole('status')).toHaveTextContent(EN.full);
+    await expect((field as HTMLTextAreaElement).value.match(/\/[^\s]+/gu)).toHaveLength(4);
   },
 };
 
-export const PinnedRightToLeft: Story = {
+export const InlineRightToLeft: Story = {
   ...RTL,
   play: async ({ canvasElement }) => {
-    await typeInto(canvasElement, 'ar', '/اسلوب');
+    const field = await typeInto(canvasElement, 'ar', '/اسلوب');
     await userEvent.keyboard('{Enter}');
-    const chips = within(canvasElement).getByRole('group', { name: AR.pinned });
-    await expect(
-      within(chips).getByRole('button', { name: AR.unpin('أسلوب المنزل') }),
-    ).toBeVisible();
+    await expect(field).toHaveValue('/أسلوب-المنزل ');
+    await expect(within(canvasElement).queryByRole('group')).toBeNull();
   },
 };
 

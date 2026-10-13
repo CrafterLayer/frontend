@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
 
 import { subscriptionEnv } from './api-models';
+import { buildArgs, cliGenerationEnv } from './cli-generation-config';
 import type { CliWarmPool } from './cli-warm-pool';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
@@ -47,6 +48,7 @@ interface CliRequestOptions {
 interface CliStreamParams {
   /** The model the handler resolved for this call; honoured only when `allowedModels` lists it. */
   readonly model?: string;
+  readonly max_tokens?: number;
   readonly system?: readonly { readonly text: string }[];
   readonly messages?: readonly { readonly role: string; readonly content: unknown }[];
   readonly output_config?: { readonly format?: { readonly schema?: unknown } };
@@ -215,61 +217,6 @@ function writeSystemPromptFile(text: string): SystemPromptFile {
       rmSync(directory, { recursive: true, force: true });
     },
   };
-}
-
-/**
- * The CLI's switch for a call that turns thinking off. It has no `--thinking`
- * flag; `alwaysThinkingEnabled: false` is the setting it reads, and
- * `--settings` still applies under `--safe-mode`.
- *
- * Why it matters (measured 2026-09-29): the enhancer sends
- * `thinking: {type: 'disabled'}`, this shim dropped it, and haiku at
- * `--effort low` then thought for 56 s without writing a character — all 6
- * «Improve» runs on the scratch server ended in the 60 s cap. With this
- * setting the same call answered in 19 s, 351 tokens, at load 960.
- */
-const THINKING_OFF_SETTINGS = JSON.stringify({ alwaysThinkingEnabled: false });
-
-/**
- * The second half of turning thinking off. Measured 2026-09-30 on cli:haiku:
- * with the settings switch alone the enhancer still wrote ~4.3k output tokens,
- * mostly thinking, over 40-60 s, and every call hit the 45 s client cap. With
- * `MAX_THINKING_TOKENS=0` in the child's environment the same call answered
- * in 14-17 s with ~376 tokens.
- */
-const THINKING_OFF_ENV: Readonly<Record<string, string>> = { MAX_THINKING_TOKENS: '0' };
-
-function buildArgs(
-  model: string | undefined,
-  effort: CliEffort | undefined,
-  systemPromptPath: string | undefined,
-  thinkingOff: boolean,
-): string[] {
-  const args = [
-    '-p',
-    '--output-format',
-    'stream-json',
-    '--include-partial-messages',
-    '--verbose',
-    '--max-turns',
-    '1',
-    '--safe-mode',
-    '--disable-slash-commands',
-    '--no-session-persistence',
-    '--strict-mcp-config',
-    '--tools',
-    '',
-  ];
-  if (systemPromptPath !== undefined) args.push('--system-prompt-file', systemPromptPath);
-  if (model !== undefined && model !== '') args.push('--model', model);
-  /*
-    Left out entirely when unset: the CLI would otherwise fall back to whatever
-    CLAUDE_EFFORT the launching shell happened to export, which made the
-    server's reasoning budget depend on who started it.
-  */
-  if (effort !== undefined) args.push('--effort', effort);
-  if (thinkingOff) args.push('--settings', THINKING_OFF_SETTINGS);
-  return args;
 }
 
 /** What a CLI run actually cost, from its `result` event. */
@@ -625,9 +572,10 @@ export function cliShapeKey(
   effort: CliEffort | undefined,
   thinkingOff: boolean,
   system: string,
+  maxTokens?: number,
 ): string {
   return createHash('sha256')
-    .update(JSON.stringify([model ?? null, effort ?? null, thinkingOff, system]))
+    .update(JSON.stringify([model ?? null, effort ?? null, thinkingOff, system, maxTokens ?? null]))
     .digest('hex');
 }
 
@@ -674,11 +622,11 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       ) ?? options.effort;
     const model = callModel(params.model, options);
     const thinkingOff = params.thinking?.type === 'disabled';
-    const env = thinkingOff ? THINKING_OFF_ENV : undefined;
+    const env = cliGenerationEnv(effort, thinkingOff, params.max_tokens);
     /** Spawns this shape's child with its own system file, exactly as a cold call always has. */
     const spawnShape = (): { child: CliChildProcess; systemFile: SystemPromptFile | undefined } => {
       const systemFile = prompt.system === '' ? undefined : writeSystemPrompt(prompt.system);
-      const args = buildArgs(model, effort, systemFile?.path, thinkingOff);
+      const args = buildArgs(model, effort, systemFile?.path, thinkingOff, env);
       try {
         const child = env === undefined ? spawnCli('claude', args) : spawnCli('claude', args, env);
         return { child, systemFile };
@@ -689,7 +637,9 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
     };
 
     const key =
-      warmPool === undefined ? undefined : cliShapeKey(model, effort, thinkingOff, prompt.system);
+      warmPool === undefined
+        ? undefined
+        : cliShapeKey(model, effort, thinkingOff, prompt.system, params.max_tokens);
     const spare = key === undefined ? undefined : warmPool?.take(key);
     // A recently primed spare may still be starting; its age states the saved startup honestly.
     const startKind =

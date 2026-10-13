@@ -1813,6 +1813,6 @@ describe('page-plan drafts', () => {
     });
     // `text` is the public lifecycle signal (it releases the cache gate), not a draft relay:
     // drafts alone listen for the routing client's `restart`.
-    expect(live.subscribed).not.toContain('restart');
+    expect(live.subscribed).toContain('restart'); // Cache/progress subscription; the response is JSON.
   });
 });

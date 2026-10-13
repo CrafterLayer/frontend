@@ -85,9 +85,6 @@ export interface KnowledgeLabels {
     readonly builtIn: string;
     readonly manage: string;
     readonly empty: string;
-    readonly pinned: string;
-    readonly unpin: (name: string) => string;
-    readonly full: string;
     readonly commandsHeading: string;
     readonly commands: Readonly<
       Record<
@@ -235,9 +232,6 @@ const EN: KnowledgeLabels = {
     builtIn: 'Built-in',
     manage: 'Manage skills & memory',
     empty: 'No skill by that name.',
-    pinned: 'Skills for the next message',
-    unpin: (name) => `Remove ${name}`,
-    full: 'A message takes up to 3 skills.',
     commandsHeading: 'Commands',
     commands: {
       remember: { name: 'Remember', hint: 'Keep this message in the project memory' },
@@ -251,8 +245,7 @@ const EN: KnowledgeLabels = {
   },
   defaults: {
     title: 'Default skills',
-    intro:
-      'Every project starts with these. Switch one off, or make your own copy to change it.',
+    intro: 'Every project starts with these. Switch one off, or make your own copy to change it.',
     count: (on, total) => `${String(on)} of ${String(total)} on`,
     use: (name) => `Use ${name}`,
     teaches: 'What it teaches the Agent',
@@ -389,9 +382,6 @@ const AR: KnowledgeLabels = {
     builtIn: 'المدمجة',
     manage: 'إدارة المهارات والذاكرة',
     empty: 'لا مهارة بهذا الاسم.',
-    pinned: 'مهارات الرسالة التالية',
-    unpin: (name) => `أزل ${name}`,
-    full: 'تأخذ الرسالة 3 مهارات على الأكثر.',
     commandsHeading: 'الأوامر',
     commands: {
       remember: { name: 'تذكّر', hint: 'احفظ هذه الرسالة في ذاكرة المشروع' },

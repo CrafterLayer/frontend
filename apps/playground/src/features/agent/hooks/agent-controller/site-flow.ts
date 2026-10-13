@@ -21,6 +21,7 @@
  *   tool), the page's own link marked current: one labelled AI transaction per page, part
  *   of that page's record. A page with no menu is left as it is.
  */
+import { skillRequestText, type PromptSkillSnapshot } from '../../model/prompt-skills';
 import {
   type AiSitePlan,
   type BuilderDocument,
@@ -194,7 +195,12 @@ function heldPages(flow: Flow, slot: Slot): SitePagePart['hold'] {
 async function buildSite(
   flow: Flow,
   slot: Slot,
-  site: { readonly id: string; readonly plan: AiSitePlan; readonly mode: AssistantMode },
+  site: {
+    readonly id: string;
+    readonly plan: AiSitePlan;
+    readonly mode: AssistantMode;
+    readonly skillSnapshot?: PromptSkillSnapshot | undefined;
+  },
   history: ReturnType<typeof historyFor>,
 ): Promise<readonly SitePageBuilt[]> {
   const env = flow.env();
@@ -263,6 +269,10 @@ async function buildSite(
           anchor: null,
           plan: { approval: site.mode === 'ask', notes: [], landed: () => ledger.of(kernel) },
           site: { runId: run.runId, title: run.title, engine, hold },
+          skillSnapshot:
+            site.skillSnapshot === undefined
+              ? undefined
+              : { skillIds: site.skillSnapshot.skillIds, request: run.request },
         }),
       );
     }
@@ -344,7 +354,7 @@ export async function runSite(
     try {
       const signal = slot.controller.signal;
       plan = await planAiSite({
-        request,
+        request: skillRequestText(env.options, request, outgoing.skillSnapshot),
         provider: env.provider,
         signal,
         history,
@@ -367,7 +377,12 @@ export async function runSite(
     }
     const titles = plan.pages.map(({ title }) => title);
     patchTurn(flow, slot.sessionId, siteId, () => line(labels.building(titles)));
-    const pages = await buildSite(flow, slot, { id: siteId, plan, mode }, history);
+    const pages = await buildSite(
+      flow,
+      slot,
+      { id: siteId, plan, mode, skillSnapshot: outgoing.skillSnapshot },
+      history,
+    );
     const runs = pages.map(({ run }) => run);
     // Built as its record says "Page built": completed, with sections on the page.
     const records = runs.map((run) => locateTurn(flow, run.turnId)?.turn);

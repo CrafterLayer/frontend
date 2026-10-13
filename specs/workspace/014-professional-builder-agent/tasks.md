@@ -884,15 +884,65 @@ and ready scripts for what the agent does again and again.
       claimed. Do not retry the declined action without new user authorization. Native independent
       review and local implementation checks passed; see `verification-scene-speed-2026-10-13.md`.
 
-## Increment 2026-10-13 (f) — more mural libraries
+## Authorized reliability and visual follow-up — 2026-10-13
 
-- [x] T261 FastNoiseLite 1.1.1 and Bezier.js 6.1.4 (7cf96bd), on the owner's word: neither npm
+User selected speed/reliability plus open visual repairs (“1+2”). Requirements and plan:
+[SP-005..007](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13).
+
+- [x] T261 [P] Enforce section deadline settlement for non-cooperative providers in Builder AI;
+      preserve cancellation/timeout semantics and add helper plus real-build regressions.
+- [x] T262 [P] Forward CLI output caps and per-call effort to cold/warm processes in AI server;
+      separate warm generation shapes, remove avoidable cache waits/retries, retain known legacy API
+      compatibility, and verify using fake CLI children/providers.
+- [x] T263 [P] Export the marketing owner stylesheet through public marketing/Builder entries and
+      compose it into Playground static publishing; verify dark slabs and comparison rules.
+- [x] T264 Integrate T261..263, perform independent local review, repair findings, run focused
+      owner/consumer checks and record results/limits in the shared handoff. The user's local-only
+      review instruction remains in effect; do not launch the declined external reviewer.
+
+Evidence: [follow-up verification](verification-reliability-visual-2026-10-13.md), including final
+Chromium probes and current-catalog offline JSON measurement. Existing release tasks remain
+separate.
+
+## Empty-canvas incident and request-skills repair — 2026-10-13
+
+Requirements and bounded plan:
+[SP-008..011](scene-speed-2026-10-13.md#authorized-empty-canvas-and-request-skills-repair--2026-10-13).
+
+- [x] T265 [P] Bound complete edit/page-planning lifetimes and reject metadata-only scene creation
+      through ordinary validation, the existing one repair, and salvage; preserve metadata edits.
+- [x] T266 [P] Bound full server generation/streams/fallback and avoid stacked provider retries.
+- [x] T267 [P] Bind optional skill selection inline to each prompt, remove persistent chips and the
+      three-selection limit, disclose Auto salvage and advance real application progress.
+- [x] T268 Route explicit creative creation on empty pages through builds despite later modifiers;
+      integrate enabled automatic creative skills without weakening token/trust/ownership limits.
+- [x] T269 Review independently, repair findings, verify exact failures plus scoped consumer/gates,
+      and record local results and limits in shared continuity.
+
+## Phase 11: Convergence — request-skills continuation, 2026-10-14
+
+- [x] T270 Preserve the captured prior semantic brief when revising a pending page plan after a
+      skill rename/name collision, while keeping explicit choices limited to the current request;
+      add a real-controller regression, independent review and affected checks per SP-011 (partial).
+
+Evidence:
+[empty-canvas and request-skills verification](verification-empty-canvas-skills-2026-10-13.md),
+including final convergence, independent review, browser checks and live-provider limits.
+
+## Increment 2026-10-13 (f, libraries) — more mural libraries
+
+Merge reconciliation (2026-10-14): upstream library tasks `T261` (`7cf96bd`) and `T262` (`e0b682d`)
+are recorded as `T271` and `T272` here. `T261..T270` above retain their existing scene-plan and
+verification references. Both library tasks retain their completed status and original commit
+history.
+
+- [x] T271 FastNoiseLite 1.1.1 and Bezier.js 6.1.4 (7cf96bd), on the owner's word: neither npm
       tarball carries a LICENSE file, so both are COPIED verbatim under `media-engines/vendor/` with
       their upstream MIT licences and PROVENANCE.md (sha256 pinned by tests) and listed as
       `vendored`, like webgl-noise and zzfx — the licence audit is unchanged. `s.lib.noise` 1.1.0
       gains perlin / value / value-cubic / opensimplex2 / opensimplex2s; `s.lib.geom` 1.1.0 gains
       `curve()` with offsets and tapered outlines.
-- [x] T262 culori, lindenmayer, d3-shape and simplify-js (e0b682d), installed through the catalog:
+- [x] T272 culori, lindenmayer, d3-shape and simplify-js (e0b682d), installed through the catalog:
       `s.lib.color` (OKLCH ramps, harmonies, contrast, readable ink), `s.lib.lsys` (seeded L-system
       growth, capped), `s.lib.geom` 1.2.0 (splines, arcs, pie, simplify), and four set-E murals
       (botanical-garden, gradient-waves, arc-rings, arabesque-scroll), offered to build writers as

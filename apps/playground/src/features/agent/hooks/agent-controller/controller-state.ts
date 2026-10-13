@@ -18,6 +18,7 @@ import type { AppliedChangeMemory } from '../../../preview/components/AssistantP
 import type { MeasuredContext } from '../../model/context-meter';
 import type { HistoryShadow } from '../../model/kernel-history';
 import type { QueuedRequest } from '../../model/queue';
+import type { PromptSkillSnapshot } from '../../model/prompt-skills';
 import type { ActiveRunLease } from '../../model/runs';
 import type { StoryBibleStore } from '../../model/story-bible';
 import type { Store } from '../../model/tiny-store';
@@ -55,6 +56,7 @@ export interface LiveRun {
 /** A request docked above the composer while its questions are answered. */
 interface Clarifying {
   readonly request: string;
+  readonly skillSnapshot?: PromptSkillSnapshot | undefined;
   readonly context: readonly SentContext[];
   readonly pointed: readonly NodeId[];
   readonly route: IntentRoute;

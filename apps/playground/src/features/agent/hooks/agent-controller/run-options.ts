@@ -7,6 +7,11 @@ import type { BuilderKernel, NodeId, RunAiAgentOptions } from '@craftkit/builder
 import { catalogPolicyFor } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
 import { carriedSkillIdsOf, withCarriedSkills } from '../../model/conversation-memory';
 import { preflightPorts } from '../../model/runs';
+import {
+  selectedSkillsForRequest,
+  skillRequestText,
+  type PromptSkillSnapshot,
+} from '../../model/prompt-skills';
 
 import type { Flow } from './controller-state';
 import type { Slot } from './run-lease';
@@ -25,15 +30,24 @@ export function commonRunOptions(
   request: string,
   selection: readonly NodeId[],
   history: RunAiAgentOptions['history'],
+  snapshot?: PromptSkillSnapshot,
 ): Omit<RunAiAgentOptions, 'apply' | 'onEvent' | 'label'> {
   const env = flow.env();
   const { options } = env;
+  const selectedSkillIds = selectedSkillsForRequest(options, request, snapshot, env.registry);
+  const semanticRequest = skillRequestText(options, request, snapshot);
+  // A deliberately deeper choice retains capacity; an explicit host ceiling always wins.
+  const timeoutMs =
+    options.timeoutMs ??
+    (options.effort === 'high' || options.effort === 'xhigh' || options.effort === 'max'
+      ? 420_000
+      : undefined);
   return {
     runId: slot.runId,
     clock: flow.clock,
     kernel,
     provider: env.provider,
-    request,
+    request: semanticRequest,
     validationPorts: preflightPorts(),
     selection,
     ...(history === undefined ? {} : { history }),
@@ -45,13 +59,16 @@ export function commonRunOptions(
       env.registry,
       carriedSkillIdsOf(sessionOf(flow, slot.sessionId)?.turns ?? []),
     ),
-    ...(options.selectedSkillIds === undefined
-      ? {}
-      : { selectedSkillIds: options.selectedSkillIds }),
+    ...(selectedSkillIds === undefined ? {} : { selectedSkillIds }),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
     // The person's skills this request mentions, for a build's and a page plan's named steps.
     ...(options.hostSkillIdsFor === undefined
       ? {}
-      : { hostSkillIds: options.hostSkillIdsFor(request) }),
+      : {
+          hostSkillIds: [
+            ...new Set([...(selectedSkillIds ?? []), ...options.hostSkillIdsFor(semanticRequest)]),
+          ],
+        }),
     ...catalogPolicyFor(options.providerKind ?? 'offline', selection, options.agentPolicy),
     // The composer's free-code switch, read per run: only `true` ever reaches the engine.
     ...(options.freeCode === true ? { freeCode: true } : {}),

@@ -29,4 +29,34 @@ describe('targeted Pixi expertise for explicit build lanes', () => {
   it('does not create skills absent from the host registry', () => {
     expect(pixiSkillIdsFor(undefined, 'Make a playable 2d game')).toEqual([]);
   });
+
+  it('automatically brings scroll, character and drawing expertise from an Arabic mural brief', () => {
+    const ids = pixiSkillIdsFor(
+      createCraftkitAiSkillRegistry(),
+      'سوي الي جدارية افقية بواسطة سكرول مع شخصيات تتحرك بالماوس وجو بالليل',
+    );
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'craftkit.pixi-murals',
+        'craftkit.pixi-scroll-murals',
+        'craftkit.pixi-director',
+        'craftkit.pixi-animation',
+        'craftkit.pixi-effects',
+        'craftkit.pixi-v8-graphics',
+      ]),
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('keeps disabled or absent companion expertise out of the selection', () => {
+    const registry = createCraftkitAiSkillRegistry();
+    const enabled = {
+      ...registry,
+      get: (id: string) => (id === 'craftkit.pixi-animation' ? undefined : registry.get(id)),
+    };
+    expect(pixiSkillIdsFor(enabled, 'Design a mural with characters')).not.toContain(
+      'craftkit.pixi-animation',
+    );
+    expect(pixiSkillIdsFor(registry, 'Change the characters in a company headline')).toEqual([]);
+  });
 });

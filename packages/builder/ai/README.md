@@ -131,17 +131,37 @@ actual Free-code Pixi fill calls. Explicit deep effort and bespoke scene reasoni
 remain intact; supported thinking-off behavior and cache readiness are documented in the
 [AI server README](../../../apps/ai-server/README.md#ready-scene-initialization).
 
+The deadline settles the section attempt even if a provider fails to honor cancellation. The
+provider still receives the abort signal and must stop its actual work; late results cannot land
+after the attempt has expired. The normal single retry and caller deadline override stay intact.
+
+Single-request edits and page-planning steps also have one total budget across proposal, validation,
+repair and provider retries: 120 seconds normally, 180 seconds for an explicit creative creation
+request. Set `RunAiAgentOptions.timeoutMs` or `PlanAiPageOptions.timeoutMs` to a positive integer
+(at most 2,147,483,647) to retain a larger caller budget. Build section writers inherit their
+existing outer section budget when the override is absent. Stop settles promptly even if a provider
+ignores its signal; expiration reports `run.failed` with `source: 'run'`, `code: 'timeout'`, while
+Stop reports `run.cancelled`. Planning expiration returns a classified error and `page-plan.failed`;
+planning Stop throws `AbortError`.
+
+Explicit creative creation on an empty page or in an added section must produce scene content before
+a proposal, repair or salvaged subset can succeed. Root language, direction, CSS and empty regions
+alone are refused through the existing single repair round. The check rehearses the final reachable
+document without changing it; it accepts a drawn scene with a host, a closed scene layer or an SVG
+illustration. It preserves bespoke briefs and ordinary language/style edits. Runtime pixel quality
+remains the scene probe's responsibility.
+
 Measure local initialization and compact payload size without a model call or listener:
 
 ```bash
 pnpm --filter @craftkit/builder-ai benchmark:scene-init
 ```
 
-The recorded offline fixture covers 22 scenes and 1,100 measured initialization runs. Compact
-answers contain 98.25% fewer serialized JSON characters than fully expanded proposals. The script
-also reports local CPU percentiles; results depend on the machine and load. This is payload/local
-initialization evidence: provider token counts, bills, live latency, and visual quality are not
-measured.
+The initial offline fixture covered 22 scenes and 1,100 measured initialization runs (98.25% fewer
+serialized JSON characters). The post-merge catalog contains 28 ready scenes; a fresh 1,400-run
+measurement produced 98.08% fewer characters. The script enumerates the current catalog and reports
+local CPU percentiles; results depend on the machine and load. This is payload/local initialization
+evidence: provider token counts, bills, live latency, and visual quality are not measured.
 
 ## Skills and bounded agent runs
 

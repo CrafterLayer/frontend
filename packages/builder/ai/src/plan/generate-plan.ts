@@ -3,7 +3,6 @@ import type { AiContextProvider, NodeId } from '@craftkit/builder-schema';
 
 import {
   assembleAiContext,
-  resolveAiCompositionPolicy,
   type AiCompositionPolicy,
   type AssembleAiContextOptions,
 } from '../context';
@@ -45,19 +44,22 @@ import type {
   AssembledAiContext,
 } from '../types';
 import { withHistoryInBudget } from './history-budget';
-import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
-import { expandAgentTools } from '../tools/agent/expand';
 import type { AgentToolLane } from '../tools/agent/types';
-import { expandTreeEdits } from './tree-edits';
-import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
-import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
+import type { SalvagedAiPlan } from './salvage-plan';
+import {
+  isPlanShaped,
+  judgedCandidate,
+  salvageOrReject,
+  type AiPlanAcceptanceOptions,
+} from './judge-plan';
+import { AiPlanRejectedError } from './validate-plan';
 // script-wiring additions
 import { attachScriptCrossPage, planHasScriptStep } from '../script/cross-page';
 import type { ScriptExpansion, ScriptRunReport, ScriptSite } from '../script/expand-scripts';
 import { SCRIPT_TOOL_NAME, type ScriptRunner } from '../script/types';
 // end script-wiring additions
 
-export interface GenerateAiPlanOptions {
+export interface GenerateAiPlanOptions extends AiPlanAcceptanceOptions {
   kernel: BuilderKernel;
   provider: AiPlanProvider;
   request: string;
@@ -412,55 +414,6 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
   };
 }
 
-/**
- * A provider's answer with what could never render removed, when the host
- * enforces the utility vocabulary — the same condition under which the door
- * would otherwise refuse the whole plan for it. See `normalizeAiPlanTrees`.
- * Trees written as markup are read either way: markup is only a spelling,
- * and the context asks for it on every run (see `readAiPlanTreeMarkup`).
- */
-function normalizedCandidate(candidate: unknown, options: GenerateAiPlanOptions): unknown {
-  const composition = resolveAiCompositionPolicy(options.composition);
-  if (!composition.enforceUtilityVocabulary) return readAiPlanTreeMarkup(candidate);
-  const blockTypes = options.kernel.context.registry.blocks().map(({ schema }) => schema.type);
-  return normalizeAiPlanTrees(candidate, composition.colourPolicy, blockTypes).plan;
-}
-
-/**
- * A provider's answer made ready for the door, and the door's verdict on it:
- * `editTree` steps expanded against the live page (tree-edits.ts), the trees
- * normalized, then validated. An edit that could not be expanded is its own
- * verdict — its reason is exactly what the repair round needs.
- */
-function judgedCandidate(
-  raw: unknown,
-  options: GenerateAiPlanOptions,
-  policy: AiEffectiveCommandPolicy,
-): { readonly candidate: unknown; readonly result: AiPlanValidationResult } {
-  // agent-tools additions: tool steps expand first, then editTree, so both read earlier steps.
-  const tools = expandAgentTools(raw, options.kernel, {
-    ...(options.sampleValues === undefined ? {} : { sampleValues: options.sampleValues }),
-    ...(options.toolLanes === undefined ? {} : { lanes: options.toolLanes }),
-  });
-  const expanded = expandTreeEdits(tools.plan, options.kernel);
-  const issues = [...tools.issues, ...expanded.issues];
-  // end agent-tools additions
-  const candidate = normalizedCandidate(expanded.plan, options);
-  if (issues.length > 0) {
-    return { candidate, result: { ok: false, issues } };
-  }
-  return {
-    candidate,
-    result: validateAiPlan(
-      candidate,
-      options.kernel,
-      options.validationPorts,
-      policy,
-      resolveAiCompositionPolicy(options.composition),
-    ),
-  };
-}
-
 // script-wiring additions
 /** DESIGN §A.8 E_ENGINE, for an engine that could not even be loaded. */
 const SCRIPT_ENGINE_UNAVAILABLE =
@@ -753,44 +706,4 @@ export async function generateAiPlanWithPreparedSkills(
     follows, because a repair can also make things worse.
   */
   return salvageOrReject(options, policy, [repaired.candidate, candidate], repaired.issues);
-}
-
-/**
- * The third rung: keep whatever part of the answer the door will accept.
- *
- * Opt-in, and deliberately so. `generateAiPlan` is the primitive that promises
- * a plan or an error, and a caller that asked for a plan and silently received
- * a smaller one would have no way to know. `runAiAgent` turns it on and reports
- * what was dropped, which is where a person can actually be told.
- */
-function salvageOrReject(
-  options: GenerateAiPlanOptions,
-  policy: AiEffectiveCommandPolicy,
-  candidates: readonly unknown[],
-  issues: readonly AiPlanValidationIssue[],
-): AiPlan {
-  if (options.salvage !== true) throw new AiPlanRejectedError(issues);
-  for (const candidate of candidates) {
-    if (!isPlanShaped(candidate)) continue;
-    const salvaged = salvageAiPlan(
-      candidate,
-      options.kernel,
-      options.validationPorts,
-      policy,
-      resolveAiCompositionPolicy(options.composition),
-    );
-    if (salvaged === undefined) continue;
-    options.onSalvage?.(salvaged);
-    return salvaged.plan;
-  }
-  throw new AiPlanRejectedError(issues);
-}
-
-function isPlanShaped(candidate: unknown): candidate is AiPlan {
-  return (
-    typeof candidate === 'object' &&
-    candidate !== null &&
-    'rationale' in candidate &&
-    'commands' in candidate
-  );
 }

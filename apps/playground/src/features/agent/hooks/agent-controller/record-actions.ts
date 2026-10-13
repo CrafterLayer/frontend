@@ -2,6 +2,7 @@
  * The actions on a record: Apply, Discard and Preview a proposal, Try again, reuse a
  * request, and Copy.
  */
+import { skillRequestText } from '../../model/prompt-skills';
 import { applyAiPlan, previewAiPlan } from '@craftkit/builder';
 
 import { editEndAnnouncement } from '../../model/agent-status';
@@ -109,7 +110,14 @@ export function recordActions(flow: Flow) {
     const turns = sessionOf(flow, located.sessionId)?.turns ?? [];
     // The history as it was when the request was first sent.
     const history = historyOf(turns.slice(0, Math.max(0, located.index - 1)));
-    const route = routeRequest(origin.text, { kernel, mentions: pointed, selection: pointed });
+    const route = routeRequest(
+      skillRequestText(flow.env().options, origin.text, origin.skillSnapshot),
+      {
+        kernel,
+        mentions: pointed,
+        selection: pointed,
+      },
+    );
     const mode = env().sessions.store.getState().mode;
     void track(
       flow,
@@ -117,6 +125,7 @@ export function recordActions(flow: Flow) {
         flow,
         {
           text: origin.text,
+          skillSnapshot: origin.skillSnapshot,
           context: context.length === 0 ? [{ kind: 'page' }] : context,
           pointed,
         },

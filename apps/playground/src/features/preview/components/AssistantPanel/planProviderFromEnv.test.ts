@@ -40,6 +40,62 @@ describe('planProviderFromEnv', () => {
     expect(typeof provider?.repair).toBe('function');
   });
 
+  it.each([
+    [undefined, 240_000],
+    ['420000', 420_000],
+    ['-1', 240_000],
+    ['2147483648', 240_000],
+  ])(
+    'bounds the transport attempt at %s while preserving caller cancellation',
+    async (configured, deadline) => {
+      vi.useFakeTimers();
+      try {
+        const signals: AbortSignal[] = [];
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(
+            (_input: unknown, init?: RequestInit) =>
+              new Promise<Response>((_resolve, reject) => {
+                const signal = init?.signal;
+                if (signal === null || signal === undefined)
+                  throw new Error('Expected request cancellation.');
+                signals.push(signal);
+                signal.addEventListener(
+                  'abort',
+                  () => {
+                    reject(new DOMException('Stopped.', 'AbortError'));
+                  },
+                  { once: true },
+                );
+              }),
+          ),
+        );
+        const provider = planProviderFromEnv({
+          VITE_AI_PLAN_ENDPOINT: 'https://assistant.example.test/plan',
+          ...(configured === undefined ? {} : { VITE_AI_PLAN_TIMEOUT_MS: configured }),
+        });
+        const controller = new AbortController();
+        const context: AssembledAiContext = {
+          fragments: [],
+          totalTokens: 0,
+          blocks: [],
+          document: { schemaVersion: 1, surface: 'site', dir: 'ltr', rootId: 'root', nodes: [] },
+          selection: { ids: [] },
+        };
+        const work = provider!.propose('Add a hero.', context, { signal: controller.signal });
+        const ended = expect(work).rejects.toMatchObject({ name: 'AbortError' });
+        await vi.advanceTimersByTimeAsync(deadline - 1);
+        expect(signals[0]?.aborted).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(signals[0]?.aborted).toBe(true);
+        controller.abort();
+        await ended;
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it('sends an optional bridge bearer token', async () => {
     const fetch = vi.fn((_input: string | URL | Request, _init?: RequestInit) =>
       Promise.resolve(
@@ -109,14 +165,7 @@ describe('planProviderFromEnv', () => {
     expect(new Headers(unchosen?.[1]?.headers).get('x-craftkit-ai-model')).toBeNull();
   });
 
-  /*
-    A plan is 15-25k output tokens; through the dev CLI backend that is three
-    to five minutes, and through the API it is minutes too. A two-minute panel
-    deadline aborted every real run in flight and reported it as a provider
-    failure — the request has to outlive the server's own cap so the server's
-    specific message is the one the user reads.
-  */
-  it('waits longer than a plan takes instead of aborting a live run', async () => {
+  it('retains deliberately deep transport capacity with an explicit host setting', async () => {
     vi.useFakeTimers();
     let signal: AbortSignal | undefined;
     vi.stubGlobal(
@@ -128,6 +177,7 @@ describe('planProviderFromEnv', () => {
     );
     const provider = planProviderFromEnv({
       VITE_AI_PLAN_ENDPOINT: 'https://assistant.example.test/plan',
+      VITE_AI_PLAN_TIMEOUT_MS: '420000',
     });
     const context: AssembledAiContext = {
       fragments: [],
@@ -209,7 +259,13 @@ describe('planProviderFromEnv — the page plan and the enhancer through the who
       { label: 'Order', anchorId: 'order' },
     ],
     sections: [
-      { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and navigation.' },
+      {
+        key: 'header',
+        role: 'header',
+        title: 'Header',
+        anchorId: 'top',
+        purpose: 'Brand and navigation.',
+      },
       {
         key: 'hero',
         role: 'hero',
@@ -219,9 +275,30 @@ describe('planProviderFromEnv — the page plan and the enhancer through the who
         mustSay: ['Roasted daily in Amman'],
         variant: 'split',
       },
-      { key: 'menu', role: 'band', title: 'Menu', anchorId: 'menu', purpose: 'The drinks and beans, with prices.', variant: 'menu' },
-      { key: 'order', role: 'cta', title: 'Order', anchorId: 'order', purpose: 'One clear way to order.', variant: 'cta-split' },
-      { key: 'footer', role: 'footer', title: 'Footer', anchorId: 'footer', purpose: 'Address, hours and contact.', variant: 'footer' },
+      {
+        key: 'menu',
+        role: 'band',
+        title: 'Menu',
+        anchorId: 'menu',
+        purpose: 'The drinks and beans, with prices.',
+        variant: 'menu',
+      },
+      {
+        key: 'order',
+        role: 'cta',
+        title: 'Order',
+        anchorId: 'order',
+        purpose: 'One clear way to order.',
+        variant: 'cta-split',
+      },
+      {
+        key: 'footer',
+        role: 'footer',
+        title: 'Footer',
+        anchorId: 'footer',
+        purpose: 'Address, hours and contact.',
+        variant: 'footer',
+      },
     ],
     facts: [{ key: 'phone', sample: '+962 7 9000 0000', section: 'order' }],
   };

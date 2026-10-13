@@ -138,6 +138,7 @@ async function ask(
     visit = doctor.visit({ ...params, system });
     message = await streamOnce(params, system, visit, options);
   }
+  options.signal?.throwIfAborted();
   const miss = visit.done(message);
   const usage = usageOf(message);
   if (miss !== undefined) {
@@ -161,6 +162,10 @@ async function streamOnce(
   // A same-prefix call already writing the cache: wait until it streams, then read it.
   const shape = cacheShape([params.model, params.thinking, params.output_config, system]);
   const release = await (options.cacheGate ?? SHARED_CACHE_GATE).enter(shape, options.signal);
+  if (options.signal?.aborted === true) {
+    release(false);
+    options.signal.throwIfAborted();
+  }
   const headers = {
     ...visit.headers,
     // Kept for the CLI shim, which reads the budget from here and nowhere else.
@@ -170,29 +175,37 @@ async function streamOnce(
     options.client.messages.stream(
       { ...params, ...visit.body },
       {
+        // The app owns proposal/repair retries; SDK retries must not multiply them.
+        maxRetries: 0,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
         ...(Object.keys(headers).length === 0 ? {} : { headers }),
       },
     ),
   );
+  const releaseOnAbort = (): void => {
+    release(false);
+  };
+  if (options.signal?.aborted === true) releaseOnAbort();
+  else options.signal?.addEventListener('abort', releaseOnAbort, { once: true });
 
   // Real backend activity releases the prefix; a shim's timed narration proves nothing.
   (stream as unknown as { on: (event: 'streamEvent', listener: () => void) => unknown }).on(
     'streamEvent',
     () => {
-      release(true);
+      if (options.signal?.aborted !== true) release(true);
     },
   );
   // Drain private summaries while emitting only the first observable planning signal.
   let planning = false;
   stream.on('thinking', () => {
-    if (planning) return;
+    if (planning || options.signal?.aborted === true) return;
     planning = true;
     options.onProgress?.('Planning the layout…');
   });
   // SDK signals identify observable phases. Never forward the contents of `thinking`.
   let writing = false;
   const reportWriting = (): void => {
+    if (options.signal?.aborted === true) return;
     release(true);
     if (writing) return;
     writing = true;
@@ -202,6 +215,7 @@ async function streamOnce(
   if (options.onDraft !== undefined) {
     const onDraft = options.onDraft;
     const tell = (draft: AnswerDraft): void => {
+      if (options.signal?.aborted === true) return;
       try {
         onDraft(draft);
       } catch {
@@ -225,6 +239,7 @@ async function streamOnce(
   }
 
   return opened(release, () => stream.finalMessage()).finally(() => {
+    options.signal?.removeEventListener('abort', releaseOnAbort);
     release(false);
   });
 }

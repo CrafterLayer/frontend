@@ -6,6 +6,7 @@ import { type NodeId, outlineAiPlan } from '@craftkit/builder';
 
 import { catalogPolicyFor } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
 import { skillsForMode } from '../../model/runs';
+import { selectedSkillsForRequest, skillRequestText } from '../../model/prompt-skills';
 import { stepsOf } from '../../model/steps';
 import type { StepPlanTurn } from '../../model/turns';
 
@@ -66,14 +67,18 @@ export async function runWords(
   if (kind === 'steps') say(flow, 'plan.drafting');
   const startedAt = flow.clock.now();
   try {
+    const requestSkills = selectedSkillsForRequest(
+      env.options,
+      request,
+      outgoing.skillSnapshot,
+      env.registry,
+    );
     const selectedSkillIds =
-      kind === 'steps'
-        ? skillsForMode('plan', env.options.selectedSkillIds)
-        : env.options.selectedSkillIds;
+      kind === 'steps' ? skillsForMode('plan', requestSkills) : requestSkills;
     const outline = await outlineAiPlan({
       kernel,
       provider: env.provider,
-      request,
+      request: skillRequestText(env.options, request, outgoing.skillSnapshot),
       selection: outgoing.pointed,
       ...(history === undefined ? {} : { history }),
       // Answers and plans read the same memory a build does (the ledger, the bible, the project).

@@ -459,7 +459,7 @@ export const WithBackgroundJobs: Story = withJobs('en');
 export const WithBackgroundJobsRightToLeft: Story = withJobs('ar');
 export const WithBackgroundJobsDark: Story = withJobs('en', { parameters: DARK });
 
-/** "/" in the real composer opens the skills list above it; "/brand" + Enter pins that skill
+/** "/" in the real composer opens the skills list above it; "/brand" + Enter inserts that skill inline
     (a bare "/" lists the commands — Remember, Checkpoint… — first). */
 export const SlashMenu: Story = {
   args: { scenario: 'empty', locale: 'en' },
@@ -473,8 +473,10 @@ export const SlashMenu: Story = {
     await expect(list).toBeVisible();
     await expect(input).toHaveAttribute('aria-controls', list.id);
     await userEvent.keyboard('{Enter}');
-    await expect(within(panel).getByRole('group', { name: slash.pinned })).toBeVisible();
-    await expect(input).toHaveValue('');
+    await expect(
+      within(panel).queryByRole('group', { name: 'Skills for the next message' }),
+    ).toBeNull();
+    await expect(input).toHaveValue('/brand-voice ');
     await expect(input).toHaveAttribute('aria-expanded', 'false');
   },
 };

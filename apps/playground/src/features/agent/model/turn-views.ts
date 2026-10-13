@@ -229,7 +229,13 @@ export function editTurnView(turn: EditTurn, context: TurnViewContext): EditReco
     ...(undone === undefined ? {} : { undone }),
     laterPageChanges: false,
   };
-  const view = editRecordView(input, context);
+  const dropped = turn.salvaged?.dropped.length ?? 0;
+  const view = {
+    ...editRecordView(input, context),
+    ...(turn.salvaged !== undefined && dropped > 0
+      ? { partial: { kept: turn.salvaged.kept, total: turn.salvaged.kept + dropped } }
+      : {}),
+  };
   // Redo is a kernel redo too: once something else landed, it would redo nothing true.
   const redoGone = view.undo?.kind === 'redo' && history !== undefined && !history.canRedo;
   if ((buried && view.undo?.kind === 'undo') || redoGone) {

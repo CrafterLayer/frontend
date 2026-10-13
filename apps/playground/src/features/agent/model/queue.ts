@@ -1,6 +1,7 @@
 import type { BuilderDocument, NodeId } from '@craftkit/builder';
 
 import type { SentContext } from './turns';
+import type { PromptSkillSnapshot } from './prompt-skills';
 import type { ContextChipView, QueueStatus, QueueView } from './view-types';
 
 /**
@@ -33,6 +34,7 @@ export interface QueuedRequest {
   readonly paused: boolean;
   /** A revalidation found a target gone; sticky until the queue is removed or re-queued. */
   readonly missing: boolean;
+  readonly skillSnapshot?: PromptSkillSnapshot | undefined;
 }
 
 /** A request queued now, against `document`. */
@@ -40,13 +42,21 @@ export function queueRequest(
   text: string,
   context: readonly SentContext[],
   document: BuilderDocument,
+  skillSnapshot?: PromptSkillSnapshot,
 ): QueuedRequest {
   const targets = context.flatMap((entry): QueuedTarget[] => {
     if (entry.kind === 'page') return [];
     const node = document.nodes[entry.id];
     return node === undefined ? [] : [{ id: entry.id, type: node.type, node }];
   });
-  return { text, context, targets, paused: false, missing: false };
+  return {
+    text,
+    context,
+    targets,
+    paused: false,
+    missing: false,
+    ...(skillSnapshot === undefined ? {} : { skillSnapshot }),
+  };
 }
 
 /** What revalidation finds (FR-026): run it, run it rechecked, or it cannot run. */

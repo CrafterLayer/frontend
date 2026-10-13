@@ -70,7 +70,12 @@ export function planCardActions(flow: Flow) {
     if (flow.runtime.lease !== null) return;
     // Plan mode: a new run builds exactly the plan on the card (or re-plans: "may differ").
     const history = historyOf(sessionOf(flow, located.sessionId)?.turns ?? []);
-    const outgoing: Outgoing = { text: request, context: [{ kind: 'page' }], pointed: [] };
+    const outgoing: Outgoing = {
+      text: request,
+      context: [{ kind: 'page' }],
+      pointed: [],
+      skillSnapshot: requestOf(flow, turnId)?.skillSnapshot,
+    };
     runViewTransition(() => {
       patchTurn(flow, located.sessionId, turnId, () =>
         inked(initialBuildProgress(turnId, flow.clock.now())),
@@ -108,7 +113,12 @@ export function planCardActions(flow: Flow) {
       flow,
       runEdit(
         flow,
-        { text, context: context.length === 0 ? [{ kind: 'page' }] : context, pointed },
+        {
+          text,
+          context: context.length === 0 ? [{ kind: 'page' }] : context,
+          pointed,
+          skillSnapshot: origin?.skillSnapshot,
+        },
         { sessionId: located.sessionId, recordTurnId: turnId, history },
         'auto',
       ),

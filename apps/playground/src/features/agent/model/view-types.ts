@@ -25,6 +25,8 @@
 
 import type { StoryBibleView } from './story-bible';
 import type { RunTelemetryState } from './run-telemetry';
+import type { EditRecordView } from './edit-record-view';
+export type { EditRecordView } from './edit-record-view';
 
 /* ── Primitives ──────────────────────────────────────────────────────────────── */
 
@@ -429,30 +431,6 @@ export type EditStageKey = Extract<StatusKey, 'run.understanding' | `edit.${stri
  * `proposal.applied` (SPEC §4.13).
  */
 export type EditOrigin = 'request' | 'proposal';
-
-/**
- * One edit run (SPEC §4.9). Without `target` the title is `edit.title.runningPage`.
- * `changes` holds every line; the component shows three and "Show all changes (n)".
- * `undo` is a history action, available in every mode.
- */
-export interface EditRecordView {
-  readonly turnId: string;
-  readonly phase: EditPhase;
-  readonly origin: EditOrigin;
-  readonly target?: string | undefined;
-  readonly stage?: EditStageKey | undefined;
-  readonly changes: readonly ChangeLineView[];
-  /**
-   * `done` with no line to show: a transaction landed that no line describes. The record
-   * says `edit.unlisted` in ChangeLines' place and keeps Undo; it is never `noChange`, which
-   * would tell the person the page did not move when it did.
-   */
-  readonly unlisted?: true | undefined;
-  readonly elapsedMs?: number | undefined;
-  readonly revealNodeId?: string | undefined;
-  readonly undo?: UndoView | undefined;
-  readonly menu: readonly RecordMenuItem[];
-}
 
 /** A words-only answer to a `question` intent; nothing on the page changed (SPEC §4.10). */
 export interface AnswerView {

@@ -103,6 +103,12 @@ export interface UseAgentControllerOptions {
   readonly onToggleFreeCode?: ((enabled: boolean) => void) | undefined;
   readonly skillRegistry?: AiSkillRegistry | undefined;
   readonly selectedSkillIds?: readonly string[] | undefined;
+  /** Explicit inline choices read from this request, including a queued request's own text. */
+  readonly selectedSkillIdsFor?: ((request: string) => readonly string[]) | undefined;
+  /** Removes only recognized inline choices from routing/generation words, retaining unknown text. */
+  readonly skillRequestTextFor?: ((request: string) => string) | undefined;
+  /** Optional whole ordinary-run budget; the engine otherwise chooses its edit/creative default. */
+  readonly timeoutMs?: number | undefined;
   /**
    * The person's own skills a request turns on (`useAgentKnowledge`): a build and a page plan
    * name their steps' skills, so they are handed these by id (`hostSkillIds`).

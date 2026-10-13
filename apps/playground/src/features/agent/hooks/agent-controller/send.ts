@@ -13,6 +13,7 @@ import {
 } from '../../model/enhance';
 import { queueRequest, revalidateQueue } from '../../model/queue';
 import { routeRequest } from '../../model/runs';
+import { skillRequestText, snapshotPromptSkills } from '../../model/prompt-skills';
 import type { PagePlanTurn, SentContext } from '../../model/turns';
 
 import { type Flow, NO_SELECTION, selectionKey, type UiState } from './controller-state';
@@ -21,7 +22,7 @@ import { languageWork } from './language-flow';
 import type { Outgoing } from './exchange';
 import { track } from './run-lease';
 import { say } from './run-outcomes';
-import { patchTurn } from './turn-plumbing';
+import { patchTurn, requestOf } from './turn-plumbing';
 
 /* ── The queue ───────────────────────────────────────────────────────────────── */
 
@@ -41,7 +42,11 @@ export function drainQueue(flow: Flow): void {
   flow.ui.setState((state) => ({ ...state, queue: null, draft: '' }));
   say(flow, 'queue.started');
   const pointed = queue.targets.map((target) => target.id);
-  void send(flow, { text: queue.text, context: queue.context, pointed }, { skipClarify: true });
+  void send(
+    flow,
+    { text: queue.text, context: queue.context, pointed, skillSnapshot: queue.skillSnapshot },
+    { skipClarify: true },
+  );
 }
 
 /* ── Sending ─────────────────────────────────────────────────────────────────── */
@@ -80,6 +85,10 @@ export function outgoingOf(flow: Flow, text: string): Outgoing {
     text,
     context: blocks.length === 0 ? [{ kind: 'page' }] : blocks,
     pointed: blocks.flatMap((entry) => (entry.kind === 'page' ? [] : [entry.id])),
+    skillSnapshot:
+      ui.queue?.text === text && ui.queue.skillSnapshot !== undefined
+        ? ui.queue.skillSnapshot
+        : snapshotPromptSkills(env.options, text),
     // A suggestion fills the box and never sends; sent unedited, it was picked by name.
     ...(env.shownCatalog.current.has(text) ? { catalog: true } : {}),
   };
@@ -104,7 +113,7 @@ function pendingPlan(
 export function enhanceInputOf(flow: Flow, outgoing: Outgoing, route: IntentRoute): EnhanceInput {
   const env = flow.env();
   return {
-    text: outgoing.text,
+    text: skillRequestText(env.options, outgoing.text, outgoing.skillSnapshot),
     locale: env.options.locale,
     intent: route.kind,
     confidence: route.confidence,
@@ -117,12 +126,16 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
   const env = flow.env();
   const sessionsState = env.sessions.store.getState();
   const mode = sessionsState.mode;
-  let outgoing = input;
+  let outgoing = {
+    ...input,
+    skillSnapshot:
+      input.skillSnapshot ?? snapshotPromptSkills(env.options, input.request ?? input.text),
+  };
   // The clarify check failed on an unsure build: it is planned, whatever the mode.
   let planOnly = false;
   let route =
     options.route ??
-    routeRequest(input.text, {
+    routeRequest(skillRequestText(env.options, input.text, outgoing.skillSnapshot), {
       kernel: env.options.kernel,
       mentions: input.pointed,
       selection: input.pointed,
@@ -137,6 +150,11 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
   const pending = options.route === undefined ? pendingPlan(flow) : null;
   const held = pending === null ? undefined : flow.runtime.approvals.get(pending.turn.id);
   if (pending !== null && (route.kind !== 'question' || held !== undefined)) {
+    const priorRequest = skillRequestText(
+      env.options,
+      pending.turn.request ?? pending.turn.subject,
+      requestOf(flow, pending.turn.id)?.skillSnapshot,
+    );
     flow.runtime.superseded.add(pending.turn.id);
     if (held !== undefined) {
       held('stop');
@@ -152,6 +170,10 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
     outgoing = {
       ...input,
       request: `${pending.turn.request ?? pending.turn.subject}\n${input.text}`,
+      skillSnapshot: {
+        ...outgoing.skillSnapshot,
+        request: `${priorRequest}\n${outgoing.skillSnapshot.request}`,
+      },
     };
     route = { kind: 'build-page', confidence: 1, reason: 'A change to the plan on screen.' };
   }
@@ -173,6 +195,7 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
           ...(ui.draft.trim() === input.text.trim() ? { draft: '', mentions: [] } : {}),
           clarify: {
             request: outgoing.text,
+            skillSnapshot: outgoing.skillSnapshot,
             context: outgoing.context,
             pointed: outgoing.pointed,
             route: routed,
@@ -202,7 +225,8 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
     flow.ui.setState((ui) => ({
       ...ui,
       draft: ui.queue === null ? outgoing.text : ui.draft,
-      queue: ui.queue ?? queueRequest(outgoing.text, outgoing.context, document),
+      queue:
+        ui.queue ?? queueRequest(outgoing.text, outgoing.context, document, outgoing.skillSnapshot),
     }));
     say(flow, 'queue.queued');
     return;

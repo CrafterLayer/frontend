@@ -796,5 +796,15 @@ separation. Five bounded helpers, each verified in a clean worktree and committe
 - [x] T247 Code separation and first load: EditorCanvas.tsx 3,136 → 491 and AssistantPanel.tsx
       1,942 → 446 lines (tests split with every assertion kept); vendor chunks; entry 913.6 →
       625.7 KB gzip. The theme gate is green again (two runtime-written tokens declared).
-- [ ] T248 First-load JS back under its 1,151 KB budget by loading templates on demand (in
-      progress).
+- [x] T248 First-load JS back under its 1,151 KB budget: the page templates load on demand
+      (`@craftkit/builder-blocks-marketing/templates`, `loadMarketingTemplates`,
+      playground-templates.ts — idle preload once the canvas is live, at once when the Templates
+      tab or "Start from a template" asks); initial JS 1,181 → 1,080 KB gzip, entry 544 KB.
+- [x] T249 The agent remembers its conversation and the cache reads it (conversation-memory.ts):
+      up to 40 messages whole, a window that steps 16 at once with a digest of what it left
+      behind, builds and plans named by their sections, and the skills a conversation woke carried
+      into its next runs (`carriedSkillIds`). Measured over 48 turns through the real client and
+      server: the full prefix read on 39 turns instead of 3.
+- [ ] T250 Particle presets (fire, smoke, sparkles, snow, rain, confetti, magic, bubbles, leaves,
+      fireworks, embers) on `s.lib.emitter` and a `world()` helper on `s.lib.physics` (Matter.js),
+      taught and tested in Chromium (in progress).

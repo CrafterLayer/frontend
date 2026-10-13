@@ -9,9 +9,12 @@ agent); eight new elements; typography/forms/tw-animate plugins end to end; a bu
 (audit screenshots in the session scratchpad); EditorCanvas and AssistantPanel split, vendor
 chunks (entry −31%); the theme gate green again.
 
-- In progress: T248 — first-load JS is over its 1,151 KB budget (~1,161 KB); templates move behind
-  a lazy loader (measured −101.6 KB). Further measured options: the full lucide set (−86 KB),
-  react-dom/server for Library thumbnails (−56 KB).
+- T248 done: templates load on demand; first-load JS 1,080 of 1,151 KB. Further measured
+  options if it grows again: the full lucide set (−86 KB), react-dom/server for Library
+  thumbnails (−56 KB).
+- T249 done: the agent's conversation memory (40 messages, stepped window + digest, sections
+  named) and carried skills; full-prefix cache reads 3 → 39 of 48 turns in the reproduction.
+- In progress: T250 — particle presets on s.lib.emitter and a world() helper on s.lib.physics.
 - Open from the audit: the selection toolbar covers the selected element's name label; the
   Inspector's empty card could mention Layers; a two-way LTR | RTL switch in Settings.
 - Open from the blocks: `section-layout.css` never reaches the published stylesheet (dark-section

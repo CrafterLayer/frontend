@@ -170,6 +170,10 @@ export function cssVarName(token: ChromeTokenName): string {
  *    panel opens beside the rail instead of over it.
  *  - `inspector-head-size` — `InspectorHeader` measures its sticky head and
  *    writes the height on the panel, so a section header sticks just below it.
+ *  - `canvas-zoom` — `EditorCanvas` writes the canvas zoom (canvas-zoom.ts) so the
+ *    overlay and the quick bar counter-scale; a theme cannot know the zoom.
+ *  - `shell-rail-measure` — the host's rail measure (a captioned rail is wider);
+ *    `BuilderShell` reads it with a 48px fallback to place the panel beside it.
  */
 export const RUNTIME_WRITTEN_TOKENS: readonly string[] = [
   'arrow-x',
@@ -178,4 +182,6 @@ export const RUNTIME_WRITTEN_TOKENS: readonly string[] = [
   'shell-panel-track',
   'shell-aside-track',
   'shell-rail-size',
+  'canvas-zoom',
+  'shell-rail-measure',
 ];

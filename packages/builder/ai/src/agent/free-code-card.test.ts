@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CUSTOM_CODE_BEHAVIORS } from '@craftkit/builder-schema';
+
 import {
   FREE_CODE_CARD,
   FREE_CODE_CARD_MAX_CHARS,
@@ -120,9 +122,9 @@ describe('FREE_CODE_CARD', () => {
     expect(FREE_CODE_CARD).not.toContain('ck.find');
   });
 
-  it('has three examples that compile as the body of an async function of ck, in plain JavaScript', () => {
+  it('has two examples that compile as the body of an async function of ck, in plain JavaScript', () => {
     const examples = freeCodeCardExamples();
-    expect(examples).toHaveLength(3);
+    expect(examples).toHaveLength(2);
     for (const example of examples) {
       expect(() => compile(example)).not.toThrow();
       expect(example).not.toMatch(/:\s*(?:string|number|boolean|any|unknown)\b/u);
@@ -141,7 +143,8 @@ describe('FREE_CODE_CARD', () => {
     const live = fakeCk();
     await compile(pixi)({
       ...live.ck,
-      stage: () => Promise.resolve({ PIXI: { Graphics: moving.Graphics }, app: moving.app, canvas: {} }),
+      stage: () =>
+        Promise.resolve({ PIXI: { Graphics: moving.Graphics }, app: moving.app, canvas: {} }),
     });
     expect(moving.children).toHaveLength(5);
     expect(moving.ticks).toHaveLength(1);
@@ -165,85 +168,29 @@ describe('FREE_CODE_CARD', () => {
     const calm = fakeCk({ reducedMotion: true });
     await compile(pixi)({
       ...calm.ck,
-      stage: () => Promise.resolve({ PIXI: { Graphics: still.Graphics }, app: still.app, canvas: {} }),
+      stage: () =>
+        Promise.resolve({ PIXI: { Graphics: still.Graphics }, app: still.app, canvas: {} }),
     });
     expect(still.children).toHaveLength(5);
     expect(still.ticks).toHaveLength(0);
   });
 
-  describe('the DOM example', () => {
-    function domStubs() {
-      const frames: ((time: number) => void)[] = [];
-      let observed: ((entries: { isIntersecting: boolean }[]) => void) | undefined;
-      const io = { disconnect: vi.fn(), observe: vi.fn() };
-      class FakeObserver {
-        constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
-          observed = callback;
-        }
-        disconnect = io.disconnect;
-        observe = io.observe;
-      }
-      vi.stubGlobal('IntersectionObserver', FakeObserver);
-      vi.stubGlobal('requestAnimationFrame', (fn: (time: number) => void) => frames.push(fn));
-      const cancel = vi.fn();
-      vi.stubGlobal('cancelAnimationFrame', cancel);
-      const el = { dataset: { count: '250' }, textContent: '' };
-      const root = { querySelector: (selector: string) => (selector === '[data-count]' ? el : null) };
-      return { frames, io, cancel, el, root, enter: () => observed?.([{ isIntersecting: true }]) };
+  it('points at the ready behaviours instead of a hand-written counter (2026-10-13)', () => {
+    // A counter, typed words or a filter is an attribute the renderer's audited packs run: the
+    // model writes one attribute, not ~400 characters of script, and the page ships no new code.
+    const ready = FREE_CODE_CARD.split('\n').find((line) => line.startsWith('READY, no js:'));
+    expect(ready).toContain('data-ck-behavior="count-up" data-ck-to="250"');
+    const named = ready?.match(
+      /[a-z]+(?:-[a-z]+)+|\b(?:tabs|marquee|countdown|filter|dismiss)\b/gu,
+    );
+    for (const name of named?.filter((word) => !word.startsWith('data-')) ?? []) {
+      expect(CUSTOM_CODE_BEHAVIORS, name).toContain(name);
     }
-
-    it('waits for the element to scroll in, then counts up to the number and cleans up', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck, disposers } = fakeCk({ root: stubs.root });
-
-      await compile(example)(ck);
-      expect(stubs.io.observe).toHaveBeenCalledWith(stubs.el);
-      expect(stubs.frames).toHaveLength(0);
-
-      stubs.enter();
-      expect(stubs.io.disconnect).toHaveBeenCalled();
-      const start = performance.now();
-      // The first frame is drawn at once; the rest follow the animation clock.
-      expect(stubs.el.textContent).toBe(0);
-      for (let step = 0; step < 4 && stubs.frames.length > 0; step += 1) {
-        stubs.frames.shift()?.(start + 400 * (step + 1));
-      }
-      expect(stubs.el.textContent).toBe(250);
-      expect(disposers).toHaveLength(1);
-      disposers[0]?.();
-      expect(stubs.cancel).toHaveBeenCalled();
-    });
-
-    it('shows the final number at once under reduced motion', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck } = fakeCk({ root: stubs.root, reducedMotion: true });
-
-      await compile(example)(ck);
-      stubs.enter();
-
-      expect(stubs.el.textContent).toBe(250);
-      expect(stubs.frames).toHaveLength(0);
-    });
-
-    it('does nothing when the region has no counter', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck, disposers } = fakeCk({ root: { querySelector: () => null } });
-
-      await compile(example)(ck);
-
-      expect(stubs.io.observe).not.toHaveBeenCalled();
-      expect(disposers).toHaveLength(0);
-    });
+    expect(FREE_CODE_CARD).not.toContain('IntersectionObserver');
   });
 
   it('runs the cleanup example: the resize listener it adds is the one onDispose removes', async () => {
-    const example = freeCodeCardExamples()[2];
+    const example = freeCodeCardExamples()[1];
     if (example === undefined) throw new Error('no cleanup example');
     const added: unknown[] = [];
     const removed: unknown[] = [];

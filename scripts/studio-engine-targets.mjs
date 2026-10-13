@@ -197,6 +197,45 @@ export const TARGETS = {
     budget: 7_900,
     versionPackage: 'gifuct-js',
   },
+  // mural libraries (2026-10-13): seeded noise fields (Worley cells, ridged/billow fractals, domain
+  // warp, 4-D loops, sampled grids) on simplex-noise (MIT), the kit's own noise package. Measured
+  // 4,375 bytes gzip; budget + 5 % rounded up to 100 bytes.
+  noise: {
+    entry: 'src/studio/libs/noise-entry.ts',
+    factory: 'createNoiseLibrary',
+    pixi: false,
+    budget: 4_600,
+    version: '1.0.0',
+  },
+  // mural geometry: d3-contour (ISC) bands and isolines, polybooljs (MIT) booleans (its four
+  // algorithm modules, not its window-assigning entry), and our own mosaics (on the kit's
+  // s.delaunay), ribbons, insets and arches. Measured 10,473.
+  geom: {
+    entry: 'src/studio/libs/geom-entry.ts',
+    factory: 'createGeomLibrary',
+    pixi: false,
+    budget: 11_000,
+    version: '1.0.0',
+  },
+  // hex art: 28 Kenney Hexagon Pack tiles (CC0 1.0) as one lossless WebP data: URL, packed by
+  // scripts/build-hex-atlas.mjs from the kenney-hexagon-pack devDependency (a generated module, so
+  // the notice travels as a vendored licence), and a first-party board. Measured 75,575, nearly all
+  // the 67.6 kB WebP (base64 does not gzip back much below the image itself).
+  hex: {
+    entry: 'src/studio/libs/hex-entry.ts',
+    factory: 'createHexLibrary',
+    pixi: false,
+    budget: 79_400,
+    version: '1.0.0',
+    vendored: [
+      {
+        name: 'kenney-hexagon-pack',
+        version: '1.0.0',
+        declared: 'CC0-1.0',
+        licence: 'vendor/kenney-hexagon-pack/LICENSE',
+      },
+    ],
+  },
   sound: {
     entry: 'src/sound/entry.ts',
     budget: 10_000,

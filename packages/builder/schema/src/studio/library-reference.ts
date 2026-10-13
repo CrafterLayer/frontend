@@ -296,6 +296,54 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     source: 'gifuct-js',
     since: MEDIA,
   },
+  {
+    key: 'noise',
+    pixiBound: false,
+    purpose: {
+      en: 'Seeded noise fields for murals in design units, beyond the kit’s s.noise2/s.fbm: Worley cells (stone, scales, cracked glaze), ridged and billowed fractals, domain warp (marbling, liquid), a seamless loop and sampled grids for s.lib.geom contours; the same seed draws the same field.',
+      ar: 'حقول ضوضاء ببذرة المشهد للجداريات بوحدات التصميم، أبعد مما يعطيه s.noise2 وs.fbm: خلايا ورلي (حجر، حراشف، تشقق الطلاء)، وكسوريات حادة ومنتفخة، وتشويه المجال (رخامي، سائل)، وحلقة بلا انقطاع، وشبكات عيّنات لخطوط s.lib.geom؛ البذرة نفسها ترسم الحقل نفسه.',
+    },
+    api: [
+      "const n = s.lib.noise.create(s, { type: 'simplex' | 'cellular', fractal: 'fbm' | 'ridged' | 'billow' | 'none', scale: 240, warp: 60, cell: 'edge' | 'f1' | 'f2' | 'id' })",
+      'n.at(x, y, t) / n.loop(x, y, phase) → [-1, 1]; phase 0 and 1 are the same frame',
+      'const grid = n.grid({ width: 1280, height: 720, cell: 16, t }) → s.lib.geom.bands(grid, 8)',
+    ],
+    source: 'simplex-noise',
+    since: MEDIA,
+  },
+  {
+    key: 'geom',
+    pixiBound: false,
+    purpose: {
+      en: 'Mural geometry as flat polygons for Graphics.poly: terraced contour bands and isolines of any grid (d3-contour), cut, joined and clipped shapes (polybooljs), relaxed Voronoi mosaics with grout trimmed to an arch, ribbons, insets, smoothing and round, pointed or horseshoe arches.',
+      ar: 'هندسة الجداريات كمضلعات مسطحة لـ Graphics.poly: أشرطة كنتور متدرجة وخطوط تساوٍ لأي شبكة (d3-contour)، وأشكال تُقص وتُدمج وتُقتطع (polybooljs)، وفسيفساء فورونوي مُرخاة بفواصل ومقصوصة على قوس، وأشرطة، وإزاحة للداخل، وتنعيم، وأقواس دائرية أو مدببة أو حدوة فرس.',
+    },
+    api: [
+      'const bands = s.lib.geom.bands(grid, 8); bands.forEach((b, i) => s.lib.geom.draw(g, b.shapes, colours[i]))',
+      's.lib.geom.lines(grid, 12) → [{ value, lines: [flat polyline…] }] (no runs along the border)',
+      "s.lib.geom.mosaic(s, { width: 1280, height: 720, cells: s.count(160), relax: 2, gap: 3, clip: s.lib.geom.arch(340, 60, 600, 640, 'pointed') }) → [{ tile, cell, cx, cy, tone }]",
+      's.lib.geom.difference(a, b) / union / intersect / xor → rings; s.lib.geom.draw(g, rings, fill, stroke?) cuts the holes',
+      's.lib.geom.ribbon(points, (t) => 30 * Math.sin(Math.PI * t)) / smooth(points, { closed, iterations }) / inset(poly, d)',
+    ],
+    source: 'd3-contour + polybooljs',
+    since: MEDIA,
+  },
+  {
+    key: 'hex',
+    pixiBound: false,
+    purpose: {
+      en: 'Kenney’s Hexagon Pack (CC0): 28 hand-drawn hex tiles — grass, dirt, sand, mars and stone with trees, rocks, cacti and crystals, and eight buildings — bundled (nothing fetched), on a seeded pointy-top board in design units that mirrors in RTL, with palette-painted water, picking and neighbours, for map murals and hex-board games.',
+      ar: 'حزمة سداسيات Kenney (CC0): ‏28 بلاطة سداسية مرسومة — عشب وتراب ورمل وأرض حمراء وحجر مع أشجار وصخور وصبار وبلورات، وثمانية مبانٍ — مضمّنة (لا تحميل من الشبكة)، على رقعة ببذرة المشهد بوحدات التصميم تنعكس في RTL، مع ماء بألوان الموقع وتحديد الخلية وجيرانها، لجداريات الخرائط وألعاب الرقع السداسية.',
+    },
+    api: [
+      'const hex = await s.lib.hex.load(s); const board = hex.board({ cols: 9, rows: 6 }) → a seeded island on s.world',
+      "hex.board({ cols, rows, size, terrain: (cell) => cell.height < -0.1 ? 'water' : 'grass' })",
+      "board.at(q, r) / board.pick(x, y) / board.neighbours(q, r) / board.set(q, r, 'castle')",
+      "hex.tile('windmill', 96) → PIXI.Sprite; s.lib.hex.names / terrains / buildings / credit",
+    ],
+    source: 'kenney-hexagon-pack (art, CC0 1.0)',
+    since: MEDIA,
+  },
 ];
 
 /** One library's entry, or undefined for `kit` and unknown keys. */

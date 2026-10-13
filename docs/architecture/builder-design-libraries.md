@@ -366,6 +366,51 @@ admitted, as plain (not Pixi-bound) lazy assets.
   are all reachable, a maze walked as a tilemap world, a `data:` GIF whose read-back pixels change
   colour, at 390 and 1280 px in LTR and RTL, and reduced motion's first frame.
 
+### Mural libraries and hex art: `noise`, `geom`, `hex` (2026-10-13)
+
+Asked (in Arabic) for helper libraries that strengthen murals, installed without hesitation, and
+free art packs, so the Agent makes richer murals with less code of its own, we measured each
+candidate against the same bar — licence read from the tarball, gzip of the lazy asset, the preview
+CSP, what the kit already gives (`s.noise2/3`, `s.fbm`, `s.poisson`, `s.delaunay(…).voronoi`,
+`s.palette`) — and admitted three plain lazy assets plus six ready presets.
+
+| Key     | Source / licence                                  | gzip / budget  | What it gives an authored scene                                                                                                                      |
+| ------- | ------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `noise` | simplex-noise 4.0.3 (MIT) + first-party           | 4.4 / 4.6 kB   | Worley cells, ridged/billow fractals, domain warp, a seamless 4-D loop and sampled grids, in design units, seeded by the scene                       |
+| `geom`  | d3-contour 4.0.2 (ISC), polybooljs 1.2.2 (MIT)    | 10.5 / 11.0 kB | Terraced contour bands and isolines, polygon booleans with holes cut, arch-trimmed Voronoi mosaics with grout, ribbons, insets, smoothing, arches    |
+| `hex`   | Kenney Hexagon Pack via kenney-hexagon-pack (CC0) | 75.6 / 79.4 kB | 28 hex tiles (5 terrains with trees, rocks, cacti, crystals; 8 buildings) in one lossless WebP, and a seeded board that mirrors in RTL, with picking |
+
+- **Presets first.** Set D of the scene-preset catalogue — terraced-topography, paper-cut-landscape,
+  ribbon-flow, hex-island (mural), mosaic-arch-window, ebru-marbling (pattern) — is applied with one
+  `scene.preset` call of 6–8 tokens instead of 240–440 tokens of scene code (4 characters a token),
+  code that would itself be several times longer without the libraries (the hand-written
+  topographic-contours preset spends 838 tokens on line contours alone). The mural playbook opens
+  with every mural, pattern and type preset and asks new scene code to stay under ~9,000 characters;
+  set D stays out of the cached tool menu (its edit lane is at its cap) as the kits do.
+- **Why our own noise on simplex-noise over fastnoise-lite.** fastnoise-lite 1.1.1 (MIT) is 16.1 kB
+  gzip as one class nothing tree-shakes, duplicates the kit's simplex, and its tarball carries no
+  LICENSE file (the MIT text sits only in the source header), which the build's licence audit
+  refuses. Cellular noise, fractals, warp and loops on the kit's own simplex-noise cost 4.4 kB.
+- **Why polybooljs.** polygon-clipping 0.15.7 and martinez-polygon-clipping 0.9.0 depend on
+  robust-predicates (Unlicense, outside the licence list — the reason the kit's Delaunay is our own
+  code); @velipso/polybool 2.0.11 (0BSD + tslib) is 8.9 kB; polybooljs's four algorithm modules are
+  3.5 kB. Its entry file assigns `window.PolyBool`, so it is never imported.
+- **Hex art.** kenney.nl, opengameart.org, itch.io and github.com are unreachable from here; npm's
+  kenney-hexagon-pack (Lukas Bach, 2019) is Kenney's own sprite sheets and CC0 notice, identical to
+  its GitHub repository read through raw.githubusercontent.com. It is a devDependency only:
+  `scripts/build-hex-atlas.mjs` packs 28 tiles; the notice and the CC0 1.0 legal code travel in the
+  asset banner. The atlas is decoded by an `<img>` because Pixi's Assets loader fetches `data:`
+  URLs, which the unreviewed preview's `connect-src 'none'` refuses.
+- **Not admitted:** d3-delaunay / delaunator 5 (the kit has it; robust-predicates), bezier-js 6.1.4
+  (no LICENSE file), chromotome / nice-color-palettes (the page palette wins), Game Icons
+  (`@iconify-json/game-icons`, CC BY 3.0 — attribution an agent-built page cannot guarantee;
+  `@icongo/gi` relabels the same icons MIT), `@anabis/kenney-space-kit-mirror` (3-D models).
+- **Proof.** `apps/evals/src/pixi-creative/mural-libs.browser.test.ts`: bands from a noise grid, a
+  boolean hole that reads back as background, an arch-trimmed mosaic, the hex atlas decoded offline
+  with a green grass tile and a board mirrored in RTL; each set-D preset draws, moves within a
+  second, runs in RTL, holds one unchanged frame under reduced motion with the ticker stopped, and
+  leaves `Ticker.shared` untouched after its region goes; 390 and 1280 px.
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

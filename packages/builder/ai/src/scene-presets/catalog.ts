@@ -1,7 +1,7 @@
 /**
  * The builtin scene preset catalogue (pixi-studio DESIGN.md §B.3): every curated preset of
- * set A and set B, and the game and story kits of set C, in one typed, frozen list, for the
- * agent's `scene.preset` tool and the Studio's builtin library.
+ * set A and set B, the library murals of set D, and the game and story kits of set C, in one
+ * typed, frozen list, for the agent's `scene.preset` tool and the Studio's builtin library.
  *
  * A preset is ready to place as it stands: its `code` is the customCode `js` (it passes
  * `scriptCodeIssues` and fits the 32 000-character region limit), `libs` are exactly the
@@ -22,6 +22,7 @@ import type {
 import { PRESETS_SET_A } from './set-a';
 import { PRESETS_SET_B } from './set-b';
 import { KITS_SET_C, type KitRegion, type SceneKit } from './set-c';
+import { PRESETS_SET_D } from './set-d';
 
 export type { KitLang, KitRegion } from './set-c';
 export { KIT_LANGS } from './set-c';
@@ -142,11 +143,21 @@ function kitOf(kit: SceneKit): ScenePreset {
   return { ...presetOf(kit.entry, kit.category), region: kit.region };
 }
 
-/** Every builtin scene preset, set A, set B, then the set-C kits, deeply frozen. */
+/** Every builtin scene preset, set A, set B, set D, then the set-C kits, deeply frozen. */
 export const SCENE_PRESETS: readonly ScenePreset[] = deepFreeze([
   ...[...PRESETS_SET_A, ...PRESETS_SET_B].map((entry) => presetOf(entry)),
+  ...PRESETS_SET_D.map(([entry, category]) => presetOf(entry, category)),
   ...KITS_SET_C.map(kitOf),
 ]);
+
+/**
+ * The set-D library murals (mural libraries, 2026-10-13): taught by the mural playbook and named
+ * in the tool's refusals, but kept out of the cached tool menu — its edit lane is at its cap — as
+ * the game and story kits are.
+ */
+export const PLAYBOOK_PRESET_IDS: ReadonlySet<string> = new Set(
+  PRESETS_SET_D.map(([entry]) => entry.id),
+);
 
 const BY_ID: ReadonlyMap<string, ScenePreset> = new Map(
   SCENE_PRESETS.map((preset) => [preset.id, preset]),

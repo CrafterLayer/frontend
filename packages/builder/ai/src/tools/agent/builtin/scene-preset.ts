@@ -7,6 +7,7 @@ import {
 import { propKeys } from '../../../data-tools/data-place';
 import { insertSection } from '../../../media-tools/placement';
 import {
+  PLAYBOOK_PRESET_IDS,
   SCENE_PRESET_CATEGORIES,
   SCENE_PRESETS,
   scenePreset,
@@ -111,14 +112,18 @@ const ENGINE_ATTRIBUTES = ['data-ck-scene', 'data-ck-density', 'data-ck-palette'
 export const SCENE_PRESET_PROMPT_CATEGORIES: readonly ScenePresetCategory[] =
   SCENE_PRESET_CATEGORIES.filter((category) => category !== 'game' && category !== 'story');
 
-/** Preset ids grouped by category: `mural:a|b … toy:y|z` (every category: `… story:x|y`). */
-export function scenePresetMenu(
-  categories: readonly ScenePresetCategory[] = SCENE_PRESET_PROMPT_CATEGORIES,
-): string {
-  return categories
+/**
+ * Preset ids grouped by category: `mural:a|b … toy:y|z` (every category: `… story:x|y`). With no
+ * categories it is the cached tool menu: the backdrop categories without the set-D library murals,
+ * which the mural playbook names instead (PLAYBOOK_PRESET_IDS; the edit lane is at its cap).
+ */
+export function scenePresetMenu(categories?: readonly ScenePresetCategory[]): string {
+  const cached = categories === undefined;
+  return (categories ?? SCENE_PRESET_PROMPT_CATEGORIES)
     .map(
       (category) =>
         `${category}:${scenePresetsIn(category)
+          .filter(({ id }) => !cached || !PLAYBOOK_PRESET_IDS.has(id))
           .map(({ id }) => id)
           .join('|')}`,
     )

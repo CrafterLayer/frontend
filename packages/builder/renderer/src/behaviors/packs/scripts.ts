@@ -170,7 +170,7 @@ export function mountScripts(
   // STUDIO_PIXI_BOUND_KEYS by scripts.studio.test.ts (this body cannot import them).
   const PARAMS_ATTRIBUTE = 'data-ck-params';
   const LIB_KEYS: readonly string[] =
-    'kit filters emitter physics brush rough viewport anim fx dialogue ink tilemap audio gameai hud peeps procgen gif'.split(
+    'kit filters emitter physics brush rough viewport anim fx dialogue ink tilemap audio gameai hud peeps procgen gif noise geom hex'.split(
       ' ',
     );
   const PIXI_BOUND: readonly string[] = 'kit filters emitter viewport fx tilemap audio hud'.split(

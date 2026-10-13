@@ -400,6 +400,9 @@ catalogs:
     culori:
       specifier: 4.0.2
       version: 4.0.2
+    d3-contour:
+      specifier: 4.0.2
+      version: 4.0.2
     embla-carousel:
       specifier: 8.6.0
       version: 8.6.0
@@ -445,6 +448,9 @@ catalogs:
     jsonrepair:
       specifier: 3.15.0
       version: 3.15.0
+    kenney-hexagon-pack:
+      specifier: 1.0.0
+      version: 1.0.0
     lucide:
       specifier: 1.38.0
       version: 1.38.0
@@ -484,6 +490,9 @@ catalogs:
     pngjs:
       specifier: 7.0.0
       version: 7.0.0
+    polybooljs:
+      specifier: 1.2.2
+      version: 1.2.2
     prettier:
       specifier: 3.9.6
       version: 3.9.6
@@ -1696,6 +1705,9 @@ importers:
       '@pixi/ui':
         specifier: 'catalog:'
         version: 2.3.2(pixi.js@8.22.0)
+      d3-contour:
+        specifier: 'catalog:'
+        version: 4.0.2
       embla-carousel:
         specifier: 'catalog:'
         version: 8.6.0
@@ -1720,6 +1732,9 @@ importers:
       pixi.js:
         specifier: 'catalog:'
         version: 8.22.0
+      polybooljs:
+        specifier: 'catalog:'
+        version: 1.2.2
       rot-js:
         specifier: 'catalog:'
         version: 2.2.1
@@ -1760,6 +1775,9 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 30.0.1
+      kenney-hexagon-pack:
+        specifier: 'catalog:'
+        version: 1.0.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -7524,6 +7542,14 @@ packages:
     resolution: {integrity: sha512-1+BhOB8ahCn4O0cep0Sh2l9KCOfOdY+BXJnKMHFFzDEouSr/el18QwXEMRlOj9UY5nCeA8UN3a/82rUWRBeyBw==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
+  d3-array@3.2.4:
+    resolution: {integrity: sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==}
+    engines: {node: '>=12'}
+
+  d3-contour@4.0.2:
+    resolution: {integrity: sha512-4EzFTRIikzs47RGmdxbeUvLWtGedDUNkTcmzoeyg4sP/dvCexO47AaQL7VKy/gul85TOxw+IBgA8US2xwbToNA==}
+    engines: {node: '>=12'}
+
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
     engines: {node: '>= 12'}
@@ -8513,6 +8539,10 @@ packages:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
     engines: {node: '>= 0.4'}
 
+  internmap@2.0.3:
+    resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
+    engines: {node: '>=12'}
+
   ip-address@10.7.0:
     resolution: {integrity: sha512-BGFsyJd5mpXp3rK6jIdADLNgpJUK1jnjzvYF8lK+VyDab9JAmqN0YOKDdP17HlgKb2+ehPgDc8EtnRLbGCAMhA==}
     engines: {node: '>= 12'}
@@ -8817,6 +8847,9 @@ packages:
   kareem@3.3.0:
     resolution: {integrity: sha512-kpSuLD3/7RenBnjnJdOHXCKC8dTd1JzeOiJhN0necWWci6cC+qX+VuwPnMVgb+a4+KNJSfgqahpnfWaeDXCimw==}
     engines: {node: '>=18.0.0'}
+
+  kenney-hexagon-pack@1.0.0:
+    resolution: {integrity: sha512-pn7o4iOqIAFDCa5eE8aHF+IX7h+V2s0TfExz/K8isIj+5JPNccgHL/DEW1jG9EBPPjuv9gh6HRGYfK7fvRVdcg==}
 
   keyv-file@5.3.5:
     resolution: {integrity: sha512-0JFTTi55d1HdhIrSOnPngUw0fyHLn3BHqoLJ8TyGKM/fQfuZsz8HkcFxpl6YzU2mj1ZfRF/6BXlSqOpyfXYAmw==}
@@ -9749,6 +9782,9 @@ packages:
 
   points-on-path@0.2.1:
     resolution: {integrity: sha512-25ClnWWuw7JbWZcgqY/gJ4FQWadKxGWk+3kR/7kD0tCaDtPPMj7oHu2ToLaVhfpnHrZzYby2w6tUA0eOIuUg8g==}
+
+  polybooljs@1.2.2:
+    resolution: {integrity: sha512-ziHW/02J0XuNuUtmidBc6GXE8YohYydp3DWPWXYsd7O721TjcmN+k6ezjdwkDqep+gnWnFY+yqZHvzElra2oCg==}
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -16013,6 +16049,14 @@ snapshots:
 
   culori@4.0.2: {}
 
+  d3-array@3.2.4:
+    dependencies:
+      internmap: 2.0.3
+
+  d3-contour@4.0.2:
+    dependencies:
+      d3-array: 3.2.4
+
   data-uri-to-buffer@4.0.1: {}
 
   data-uri-to-buffer@8.0.0: {}
@@ -17147,6 +17191,8 @@ snapshots:
       hasown: 2.0.4
       side-channel: 1.1.1
 
+  internmap@2.0.3: {}
+
   ip-address@10.7.0: {}
 
   ipaddr.js@1.9.1: {}
@@ -17477,6 +17523,8 @@ snapshots:
 
   kareem@3.3.0:
     optional: true
+
+  kenney-hexagon-pack@1.0.0: {}
 
   keyv-file@5.3.5:
     dependencies:
@@ -18389,6 +18437,8 @@ snapshots:
     dependencies:
       path-data-parser: 0.1.0
       points-on-curve: 0.2.0
+
+  polybooljs@1.2.2: {}
 
   possible-typed-array-names@1.1.0: {}
 

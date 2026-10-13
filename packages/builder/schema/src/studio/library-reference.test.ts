@@ -84,4 +84,21 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(gif?.purpose.en).toMatch(/never an invented one/u);
     expect(gif?.purpose.en).toMatch(/reduced motion/u);
   });
+
+  it('describes the mural libraries and the hex tiles by the calls the mural playbook teaches', () => {
+    const noise = libraryEntry('noise');
+    expect(noise?.pixiBound).toBe(false);
+    expect(noise?.api.join('\n')).toContain('s.lib.noise.create(s,');
+    expect(noise?.api.join('\n')).toContain('n.grid({ width: 1280, height: 720');
+    const geom = libraryEntry('geom');
+    expect(geom?.pixiBound).toBe(false);
+    expect(geom?.source).toBe('d3-contour + polybooljs');
+    for (const call of ['s.lib.geom.bands(grid', 's.lib.geom.mosaic(s,', 's.lib.geom.draw(g,'])
+      expect(geom?.api.join('\n')).toContain(call);
+    const hex = libraryEntry('hex');
+    expect(hex?.pixiBound).toBe(false);
+    expect(hex?.purpose.en).toMatch(/Kenney.*CC0/u);
+    expect(hex?.purpose.en).toMatch(/mirrors in RTL/u);
+    expect(hex?.api.join('\n')).toContain('await s.lib.hex.load(s)');
+  });
 });

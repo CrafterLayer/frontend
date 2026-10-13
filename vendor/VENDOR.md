@@ -612,6 +612,56 @@ Evaluated and **not admitted** (2026-10-13), each read from its installed tarbal
 | @pixi/layout + yoga-layout | 3.2.1 + 3.2.1 | MIT (c) 2025 PixiJS + MIT (`package.json` only: the yoga-layout tarball has **no LICENSE file**, which the build's audit refuses) | 59.8 kB gzip (Yoga's base64 WebAssembly is 127 kB of the 152 kB raw bundle). In Chromium the 71.7 kB module compiles under the preview CSP only because `'unsafe-eval'` is present; it is refused without `'unsafe-eval'`/`'wasm-unsafe-eval'`. Mixes `layout` into Container/Text/ViewContainer prototypes page-wide; its `LayoutSystem` must be registered before `app.init`, while Studio opens the stage as libraries load. Canvas menus stay DOM. |
 | poisson-disk-sampling     | 2.3.1   | MIT (c) 2015 Kevin Chapelier (+ moore MIT) | 2.8 kB gzip for what the kit's own seeded `s.poisson(w, h, r, max?)` already does.                                                                                                                                                                                                                                                  |
 
+## Studio mural libraries and hex art — d3-contour, polybooljs, Kenney Hexagon Pack (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-geom.js` (generated
+`packages/builder/renderer/src/engines/studio/geom-source.ts`, 10.5 kB gzip, budget 11.0 kB),
+`assets/ck-lib-noise.js` (`noise-source.ts`, 4.4 kB, budget 4.6 kB; simplex-noise 4.0.3 is already in
+the catalog for the kit, nothing new) and `assets/ck-lib-hex.js` (`hex-source.ts`, 75.6 kB, budget
+79.4 kB), shipped only on pages whose code names `geom`, `noise` or `hex`.
+`scripts/build-studio-engines.mjs` audits each bundled package's licence text against its declared
+licence; the hex art reaches the bundle through a generated module, so its notice is audited from
+`packages/builder/extensions/media-engines/vendor/kenney-hexagon-pack/LICENSE` (Kenney's notice
+followed by the CC0 1.0 legal code it links to; `PROVENANCE.json` beside it). No asset evaluates
+code, fetches or bundles Pixi.
+
+| Package                | Version | Licence                                              | Asset                         |
+| ---------------------- | ------- | ---------------------------------------------------- | ----------------------------- |
+| d3-contour             | 4.0.2   | ISC (c) 2012-2023 Mike Bostock                       | `ck-lib-geom.js`              |
+| d3-array               | 3.2.4   | ISC (c) 2010-2023 Mike Bostock (d3-contour's dep)    | `ck-lib-geom.js`              |
+| internmap              | 2.0.3   | ISC (c) 2021 Mike Bostock (d3-array's dep)           | none (0 bytes in the bundle)  |
+| polybooljs             | 1.2.2   | MIT (c) 2016 Sean Connelly                           | `ck-lib-geom.js`              |
+| kenney-hexagon-pack    | 1.0.0   | **CC0 1.0** (art; `package.json` says "CC0 1.0")     | `ck-lib-hex.js` (28 tiles)    |
+
+Read on 2026-10-13 from each tarball (extracted as data into a scratch directory, no script run):
+`d3-contour/LICENSE` and `d3-array/LICENSE` are the ISC text; `polybooljs/LICENSE` the MIT text, and
+its `index.js` assigns `window.PolyBool` when a window exists, so only its five `lib/` algorithm
+modules are imported. `kenney-hexagon-pack` (published 2019-08-05 by Lukas Bach, repository
+lukasbach/kenney-hexagon-pack) holds Kenney's unmodified sprite sheets (TexturePacker Starling XML,
+120 × 140 tiles) and Kenney's standard `License.txt` ("License (Creative Commons Zero, CC0) … Credit
+(Kenney or www.kenney.nl) would be nice but is not mandatory"); its terrain sheet XML and licence are
+identical to the GitHub repository read through raw.githubusercontent.com (kenney.nl itself is not
+reachable from this environment). Credit is given anyway: `s.lib.hex.credit` reads "Hexagon Pack by
+Kenney (www.kenney.nl), CC0 1.0". The package is a devDependency (23 MB unpacked, 1,301 files) read
+only by `scripts/build-hex-atlas.mjs`, which packs 20 terrain tiles and 8 buildings (military
+tiles and the stereotyped `western_indians` tile left out) into one 67.6 kB lossless WebP.
+
+Evaluated and **not admitted** (2026-10-13), each read from its tarball or registry entry:
+
+| Package                         | Version  | Licence (as read)                     | Why not                                                                                                                                                                        |
+| ------------------------------- | -------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| d3-delaunay (+ delaunator 5)    | 6.0.4    | ISC; delaunator → robust-predicates   | The kit's own `s.delaunay` already gives triangles, Voronoi cells and `find`; delaunator 5 depends on robust-predicates (**Unlicense**, outside the licence list).           |
+| polygon-clipping                | 0.15.7   | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
+| martinez-polygon-clipping       | 0.9.0    | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
+| @velipso/polybool               | 2.0.11   | 0BSD (+ tslib 0BSD)                   | 8.9 kB gzip for the booleans polybooljs's modules give in 3.5 kB; 0BSD is not yet in the build's audited list.                                                               |
+| fastnoise-lite                  | 1.1.1    | MIT (source header only)              | 16.1 kB gzip as one class nothing tree-shakes; its tarball has **no LICENSE file** (the audit refuses it, as it did yoga-layout); `s.lib.noise` gives cells, fractals, warp and loops in 4.4 kB on the kit's simplex-noise. |
+| bezier-js                       | 6.1.4    | MIT (package.json only)               | No LICENSE file in the tarball; a ribbon needs only a polyline offset (`G.ribbon`).                                                                                          |
+| chromotome / nice-color-palettes | 1.21.4 / 4.0.0 | MIT                           | Curated palettes, but the page palette (`s.palette`) wins, and the `palette` param already takes up to six colours of the person's own.                                       |
+| @iconify-json/game-icons        | 1.2.4    | **CC BY 3.0**                         | Attribution on every page that shows an icon, which an agent-built page cannot guarantee; this policy admits no CC BY art. `@icongo/gi` 1.2.0 relabels the same icons "MIT" (unclear licence). |
+| @anabis/kenney-space-kit-mirror | 2.0.0    | CC0-1.0                               | Kenney's Space Kit is 3-D models, not 2-D art for Pixi; "unofficial mirror".                                                                                                 |
+| hexagonopolis-assets            | 1.0.0    | ISC (registry entry)                  | Read from its registry entry only: "Assets for the webbased game Hexagonopolis", art declared ISC with no stated source; not admitted without clear provenance.               |
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

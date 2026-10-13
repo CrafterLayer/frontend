@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isLucideIconName, utilityVocabulary } from '@craftkit/builder-schema';
 
+import { SCENE_PRESETS } from '../scene-presets/catalog';
 import { PIXI_CREATIVE_SKILL_IDS } from './creative/creative-skill-ids.test-util';
 import {
   CRAFTKIT_AI_SKILL_DEFINITIONS,
@@ -180,8 +181,7 @@ describe('Craftkit built-in AI skills', () => {
       /** Skills left out, as `id:code`; none unless listed. */
       readonly omitted?: readonly string[];
     }
-    // Every Arabic request carries the RTL skill: activation is by script, not
-    // by which imperative the writer happened to use. English requests never do.
+    // Every Arabic request carries the RTL skill (by script, not verb); English ones never do.
     const rows: readonly Row[] = [
       {
         request: 'صمم لي صفحة سيرة ذاتية',
@@ -472,7 +472,7 @@ describe('Craftkit built-in AI skills', () => {
         for (const match of text.matchAll(
           /\b(?:arrow|chevron|circle|badge|graduation|map)-[a-z-]+\b/gu,
         )) {
-          candidates.add(match[0]);
+          if (!SCENE_PRESETS.some(({ id }) => id === match[0])) candidates.add(match[0]);
         }
         expect([...candidates].filter((name) => !isLucideIconName(name))).toEqual([]);
       },

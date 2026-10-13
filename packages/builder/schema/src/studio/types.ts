@@ -29,6 +29,9 @@ export const STUDIO_LIB_KEYS = [
   'peeps',
   'procgen',
   'gif',
+  'noise',
+  'geom',
+  'hex',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 

@@ -108,6 +108,26 @@ describe('Pixi creative skills — actual prompt activation', () => {
     expect(PIXI_STORY_CONTROLS).toContain("aria-label='Story navigation'");
   });
 
+  // mural libraries (2026-10-13): presets first, then the noise/geom/hex calls, in the same budget.
+  it('opens the mural playbook with its presets and teaches the mural libraries by their calls', () => {
+    const mural = PIXI_CREATIVE_SKILLS.find(({ id }) => id === MURAL)?.instructions ?? '';
+    expect(mural.split('\n')[0]).toMatch(
+      /^PRESETS FIRST: scene\.preset mural:.* pattern:.* type:/u,
+    );
+    expect(mural).toContain('under ~9,000 characters');
+    for (const call of [
+      's.lib.noise.create(s,',
+      'n.grid({width,height,cell,t})',
+      'G.bands(grid,8)',
+      'G.draw(g,shapes,fill) cuts holes',
+      "G.mosaic(s,{cells,gap,clip:G.arch(x,y,w,h,'pointed')})",
+      'await s.lib.hex.load(s)',
+    ])
+      expect(mural).toContain(call);
+    const game = PIXI_CREATIVE_SKILLS.find(({ id }) => id === GAME)?.instructions ?? '';
+    expect(game).toContain('Hex board: (await s.lib.hex.load(s)).board({cols,rows})');
+  });
+
   it('teaches calm bedtime pacing and an optional, visible read-aloud toggle', () => {
     const story = PIXI_CREATIVE_SKILLS.find(({ id }) => id === STORY)?.instructions ?? '';
     expect(story).toContain('BEDTIME');

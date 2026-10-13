@@ -1,0 +1,20 @@
+{
+  "name": "kenney-hexagon-pack",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "declaredInPackageJson": "CC0 1.0",
+  "author": "Kenney Vleugels (www.kenney.nl); npm package by Lukas Bach (lukasbach)",
+  "upstream": "https://kenney.nl/assets/hexagon-pack (pack) · https://github.com/lukasbach/kenney-hexagon-pack (npm mirror)",
+  "installedFrom": "pnpm catalog (pnpm-workspace.yaml, pixi-studio:mural-libs additions), devDependency of @craftkit/builder-media-engines",
+  "npmIntegrity": "sha512-pn7o4iOqIAFDCa5eE8aHF+IX7h+V2s0TfExz/K8isIj+5JPNccgHL/DEW1jG9EBPPjuv9gh6HRGYfK7fvRVdcg==",
+  "verified": "2026-10-13: assets/spritesheets/hexagonTerrain_sheet.xml and License.txt (line endings aside) are identical to raw.githubusercontent.com/lukasbach/kenney-hexagon-pack/master; the sheets are Kenney's own TexturePacker exports (Starling XML, 120 × 140 tiles) and License.txt is Kenney's standard CC0 notice.",
+  "files": [
+    "assets/spritesheets/hexagonTerrain_sheet.png",
+    "assets/spritesheets/hexagonTerrain_sheet.xml",
+    "assets/spritesheets/hexagonBuildings_sheet.png",
+    "assets/spritesheets/hexagonBuildings_sheet.xml",
+    "License.txt"
+  ],
+  "adaptedInto": "packages/builder/extensions/media-engines/src/studio/libs/hex/atlas.generated.ts (scripts/build-hex-atlas.mjs)",
+  "note": "Installed, not copied: 28 tiles are cut out unscaled and re-encoded as one lossless WebP at build time. LICENSE here is Kenney's notice followed by the CC0 1.0 legal code it links to, so ck-lib-hex.js carries both in its banner."
+}

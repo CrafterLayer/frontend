@@ -18,6 +18,7 @@ import {
 import { checkScene } from '../../../agent/page-plan/check-scene';
 import { validateAiPlan } from '../../../plan/validate-plan';
 import {
+  PLAYBOOK_PRESET_IDS,
   SCENE_PRESET_CATEGORIES,
   SCENE_PRESETS,
   scenePreset,
@@ -43,7 +44,11 @@ import {
   scenePresetMenu,
   scenePresetTool,
 } from './scene-preset';
-import { PIXI_GAME_SKILL, PIXI_STORY_SKILL } from '../../../skills/creative/pixi-creative';
+import {
+  PIXI_GAME_SKILL,
+  PIXI_MURAL_SKILL,
+  PIXI_STORY_SKILL,
+} from '../../../skills/creative/pixi-creative';
 
 /*
   scene.preset (creative-power Phase 2 F, 2026-10-12): a curated scene lands as ordinary kernel
@@ -176,11 +181,15 @@ describe('scene.preset — registered and catalogued', () => {
       const prompt = agentToolPrompt(lane);
       expect(prompt).toContain(`scene.preset ${scenePresetTool.signature}`);
       for (const category of SCENE_PRESET_PROMPT_CATEGORIES) {
-        const ids = scenePresetsIn(category).map(({ id }) => id);
+        const ids = scenePresetsIn(category)
+          .filter(({ id }) => !PLAYBOOK_PRESET_IDS.has(id))
+          .map(({ id }) => id);
         expect(prompt).toContain(`${category}:${ids.join('|')}`);
       }
-      // The kits ride in the game and story playbooks, not in the cached lanes (+0 tokens there).
+      // The kits ride in the game and story playbooks, not in the cached lanes (+0 tokens there);
+      // so do the set-D library murals, in the mural playbook.
       expect(prompt).not.toMatch(/\b(?:game|story):/u);
+      for (const id of PLAYBOOK_PRESET_IDS) expect(prompt).not.toContain(id);
     }
     const section = agentToolPrompt('section');
     expect(section).toContain("kit.section {id,kit,slots,heading?:'h1'|'h2'}");
@@ -326,6 +335,12 @@ describe('scene.preset — game and story kits', () => {
       `KITS FIRST: scene.preset ${games} is a tested whole game set by params; write code only for what no kit covers.`,
     );
     expect(PIXI_STORY_SKILL.instructions.split('\n')[0]).toContain(`scene.preset ${stories} `);
+    // The mural playbook opens with every mural, pattern and type preset, the set-D library
+    // murals included (they are not in the cached menu).
+    expect(PIXI_MURAL_SKILL.instructions.split('\n')[0]).toBe(
+      `PRESETS FIRST: scene.preset ${scenePresetMenu(['mural', 'pattern', 'type'])} is a tested whole mural set by params, in the page palette; write code only for what no preset covers, and keep new scene code short (under ~9,000 characters).`,
+    );
+    for (const id of PLAYBOOK_PRESET_IDS) expect(PIXI_MURAL_SKILL.instructions).toContain(id);
     expect(scenePresetMenu(SCENE_PRESET_CATEGORIES)).toContain(` ${games} ${stories}`);
     expect(door(sceneKernel(), { preset: 'snake-game' }).issues[0]).toMatch(
       /no scene preset "snake-game" \(did you mean snake\?\); use one of mural:.* game:arcade\|/u,

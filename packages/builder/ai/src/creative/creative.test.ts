@@ -237,6 +237,21 @@ describe('creative planner', () => {
     expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('procgen');
   });
 
+  it('adds the mural geometry libraries for contour, marbling and mosaic briefs, hex for hex maps', () => {
+    const topo = planCreativeBrief('A topographic mural with contour lines behind the hero');
+    expect(topo.libs).toEqual(expect.arrayContaining(['noise', 'geom']));
+    expect(topo.mechanics.join(' ')).toContain('mosaic-arch-window');
+    expect(planCreativeBrief('جدارية رخامي بأسلوب الإبرو').libs).toContain('geom');
+    expect(planCreativeBrief('A stained glass mosaic window').libs).toContain('geom');
+    const board = planCreativeBrief('A strategy game on a hex map with castles');
+    expect(board.libs).toContain('hex');
+    expect(board.mechanics.join(' ')).toContain(
+      '(await s.lib.hex.load(s)).board({cols,rows,terrain})',
+    );
+    expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('geom');
+    expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('hex');
+  });
+
   it("animates the person's own GIF only when they bring one", () => {
     const brief = planCreativeBrief('A platformer where my cat.gif is the hero');
     expect(brief.libs).toContain('gif');

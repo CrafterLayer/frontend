@@ -31,6 +31,7 @@
     "@pixi/sound": "catalog:",
     "@pixi/tilemap": "catalog:",
     "@pixi/ui": "catalog:",
+    "d3-contour": "catalog:",
     "embla-carousel": "catalog:",
     "gifuct-js": "catalog:",
     "inkjs": "catalog:",
@@ -39,6 +40,7 @@
     "pixi-filters": "catalog:",
     "pixi-viewport": "catalog:",
     "pixi.js": "catalog:",
+    "polybooljs": "catalog:",
     "rot-js": "catalog:",
     "roughjs": "catalog:",
     "simplex-noise": "catalog:",
@@ -54,6 +56,7 @@
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "catalog:",
     "jsdom": "catalog:",
+    "kenney-hexagon-pack": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

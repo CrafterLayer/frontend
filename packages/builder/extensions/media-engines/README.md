@@ -391,6 +391,92 @@ Budgets: `ck-lib-procgen.js` 12,400 bytes gzip (measured 11,745), `ck-lib-gif.js
 `gif-encoder.test-util.ts`); Chromium:
 `CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/procgen-gif.browser.test.ts`.
 
+## Mural libraries and hex art: `noise`, `geom`, `hex` (2026-10-13)
+
+Three plain (not Pixi-bound) lazy libraries for murals: `ck-lib-noise.js` (`createNoiseLibrary`, on
+simplex-noise 4.0.3, MIT — the kit's own noise package), `ck-lib-geom.js` (`createGeomLibrary`,
+d3-contour 4.0.2, ISC, and polybooljs 1.2.2, MIT) and `ck-lib-hex.js` (`createHexLibrary`, 28 tiles
+of Kenney's Hexagon Pack, CC0 1.0). None evaluates code, fetches or bundles Pixi; every polygon is a
+flat `[x0, y0, …]` array in design units for `Graphics.poly`.
+
+```js
+const s = await ck.scene({ libs: ['noise', 'geom', 'hex'], design: { width: 1280, height: 720 } });
+const n = s.lib.noise.create(s, { type: 'simplex', fractal: 'fbm', scale: 420, warp: 80 });
+n.at(x, y, t); // [-1, 1]; t in seconds drifts the field
+n.loop(x, y, phase); // seamless: loop(…, 0) === loop(…, 1)
+const cells = s.lib.noise.create(s, { type: 'cellular', cell: 'edge' | 'f1' | 'f2' | 'id' });
+const grid = n.grid({ width: 1280, height: 720, cell: 16, t }); // { values, cols, rows, min, max }
+const G = s.lib.geom;
+G.bands(grid, 8).forEach((b, i) => G.draw(g, b.shapes, colours[i])); // terraces, holes cut
+G.lines(grid, 12); // isolines, no runs along the grid border
+G.draw(g, G.difference(sheet, sun), paper); // also union / intersect / xor, shapes(rings)
+const tiles = G.mosaic(s, {
+  cells: s.count(200),
+  relax: 2,
+  gap: 4,
+  clip: G.arch(x, y, w, h, 'pointed'),
+});
+G.ribbon(G.smooth(points), (t) => 40 * Math.sin(Math.PI * t));
+G.inset(cell, 3);
+const hex = await s.lib.hex.load(s);
+const board = hex.board({
+  cols: 9,
+  rows: 6,
+  terrain: (cell) => (cell.height < -0.1 ? 'water' : 'grass'),
+});
+board.pick(x, y);
+board.neighbours(q, r);
+board.set(q, r, 'castle');
+hex.tile('windmill', 96);
+```
+
+- **noise** (`libs/noise/field.ts`): what the kit's `s.noise2`/`s.noise3`/`s.fbm` do not give —
+  Worley (cellular) cells with an orbiting jitter so they animate and loop, ridged and billowed
+  fractals, domain warp (marbling), a 4-D `loop` that returns to its first frame, and bounded grids
+  (160 000 samples at most; a finer request widens the cell). Seeded by one draw from the scene's
+  seeded random (or `seed`), so the editor, preview and page sample the same field. Nothing to
+  dispose.
+- **geom** (`libs/geom/`): `contours.ts` maps d3-contour's grid-unit GeoJSON to design units (sample
+  i at `x + i·cell`), bands nested low to high for painter's-order terraces, isolines split off the
+  border; `boolean.ts` imports polybooljs's four algorithm modules, never its entry (which assigns
+  `window.PolyBool` and carries GeoJSON and debug-log helpers), and pairs rings into outer + holes
+  from a point just inside each ring (touching rings — two L shapes at a corner — stay apart);
+  `draw` fills and `cut()`s holes on the scene's own Graphics. `mosaic.ts` relaxes points through
+  the kit's `s.delaunay(…).voronoi` (no second Voronoi), insets each cell by half the grout
+  (half-plane clipping, so short Voronoi edges simply collapse) and trims cells across a mask with
+  `intersect`. `paths.ts`: area, centroid, even-odd `contains`, Chaikin `smooth`, `ribbon`, `inset`,
+  `arch` (round, two-centred pointed, horseshoe; symmetric, so no RTL mirroring).
+- **hex** (`libs/hex/`): `scripts/build-hex-atlas.mjs` cuts 28 unscaled 120 × 140 tiles (grass,
+  dirt, sand, mars, stone — plain, trees, forest, grove, rocks, hills, cacti, crystals — and house,
+  cabin, farm, windmill, castle, tower, lumber, camp) out of kenney-hexagon-pack's own sprite sheets
+  and packs one lossless WebP (868 × 576, 67.6 kB) into `atlas.generated.ts`. The atlas is a `data:`
+  URL decoded by an `<img>`: Pixi's Assets loader fetches data URLs, which the unreviewed preview's
+  `connect-src 'none'` refuses (as it does for `s.texture(data:…)`), while `img-src` admits `data:`.
+  Boards are odd-r offset rows of pointy-top hexes in design units, column 0 on the inline-start
+  side (mirrored in RTL), a seeded island by default (fbm height, rim falloff, palette water — the
+  pack has none — and a share of buildings), `pick`, `neighbours` and `set`. The atlas and its
+  frames are destroyed with the scene; a board queues the reduced-motion still frame.
+- **Presets** (set D, `packages/builder/ai/src/scene-presets/set-d/`): terraced-topography,
+  paper-cut-landscape, ribbon-flow, hex-island (mural), mosaic-arch-window, ebru-marbling (pattern)
+  — each one `scene.preset` call (6–8 tokens) instead of 240–440 tokens of code that itself leans on
+  these libraries.
+- **Not admitted** (2026-10-13, reasons in `vendor/VENDOR.md`): d3-delaunay and delaunator 5 (the
+  kit's own `s.delaunay` already gives Delaunay, Voronoi and `find`; delaunator 5 needs
+  robust-predicates, Unlicense, outside the licence list), polygon-clipping 0.15.7 and
+  martinez-polygon-clipping 0.9.0 (both need robust-predicates, Unlicense), @velipso/polybool 2.0.11
+  (0BSD + tslib, 8.9 kB against polybooljs's 3.5 kB for the same booleans), fastnoise-lite 1.1.1
+  (16.1 kB gzip, one class nothing tree-shakes, and no LICENSE file in the tarball — the MIT text
+  lives only in the source header, which the build's audit does not read), bezier-js 6.1.4 (no
+  LICENSE file; a ribbon needs only a polyline offset), chromotome and nice-color-palettes (the page
+  palette wins, and `palette` already takes six colours of the person's own),
+  @iconify-json/game-icons (CC BY 3.0: attribution on every page that shows one, which an
+  agent-built page cannot promise; VENDOR.md admits no CC BY art).
+
+Budgets: `ck-lib-noise.js` 4,600 bytes gzip (measured 4,375), `ck-lib-geom.js` 11,000 (10,473),
+`ck-lib-hex.js` 79,400 (75,575, nearly all the WebP). Unit tests: `libs/noise/noise.test.ts`,
+`libs/geom/geom.test.ts`, `libs/hex/hex.test.ts`; Chromium:
+`CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/mural-libs.browser.test.ts`.
+
 ## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

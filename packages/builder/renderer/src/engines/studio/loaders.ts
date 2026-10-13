@@ -34,6 +34,9 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-peeps': async () => (await import('./peeps-source')).PEEPS_SOURCE,
   'lib-procgen': async () => (await import('./procgen-source')).PROCGEN_SOURCE,
   'lib-gif': async () => (await import('./gif-source')).GIF_SOURCE,
+  'lib-noise': async () => (await import('./noise-source')).NOISE_SOURCE,
+  'lib-geom': async () => (await import('./geom-source')).GEOM_SOURCE,
+  'lib-hex': async () => (await import('./hex-source')).HEX_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

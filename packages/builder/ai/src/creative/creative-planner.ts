@@ -60,6 +60,16 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
   gif: [
     "the person's GIF on the canvas: await s.lib.gif.load(s,url) with their own URL only (never invent one), a Sprite that holds its first frame under reduced motion",
   ],
+  // mural libraries and hex art (2026-10-13).
+  noise: [
+    'seeded fields from s.lib.noise.create(s,{type,fractal,scale,warp}): n.loop(x,y,phase) loops without a jump, n.grid({width,height,cell}) feeds s.lib.geom',
+  ],
+  geom: [
+    'mural geometry from s.lib.geom: bands(grid,n) terraces, mosaic(s,{cells,gap,clip:arch(x,y,w,h)}), difference(a,b) cut-outs, ribbon(points,width) — or a ready preset (terraced-topography, ebru-marbling, mosaic-arch-window, paper-cut-landscape, ribbon-flow)',
+  ],
+  hex: [
+    'a hex board from (await s.lib.hex.load(s)).board({cols,rows,terrain}): Kenney CC0 tiles, mirrored in RTL; board.pick(x,y) for taps, board.neighbours(q,r) for moves',
+  ],
 };
 
 /* Scroll-driven pieces (creative power, 2026-10-12): the kit's s.scroll, no library. */
@@ -247,6 +257,41 @@ const LEVEL_WORDS = [
 ];
 /* animated GIFs (2026-10-13): only when the person brings one. */
 const GIF_WORDS = ['gif', 'gifs', 'giphy', 'animated gif'];
+/* mural libraries (2026-10-13): contour, marbling, mosaic and cut-paper pictures; hex maps. */
+const MURAL_GEOMETRY_WORDS = [
+  'topographic',
+  'contour',
+  'contours',
+  'terraced',
+  'marbling',
+  'marbled',
+  'ebru',
+  'paper cut',
+  'papercut',
+  'cut paper',
+  'mosaic',
+  'stained glass',
+  'voronoi',
+  'تضاريس',
+  'كنتور',
+  'رخامي',
+  'إبرو',
+  'ورق مقصوص',
+  'فسيفساء',
+  'زجاج معشق',
+];
+const HEX_WORDS = [
+  'hex map',
+  'hex board',
+  'hex tiles',
+  'hex grid',
+  'hexagon map',
+  'hexagon board',
+  'hexagonal map',
+  'خريطة سداسية',
+  'رقعة سداسية',
+  'بلاطات سداسية',
+];
 
 const ACCESSIBILITY_EN = [
   'objective, controls and story text live in the DOM; the canvas is decoration or role=img with a label',
@@ -345,6 +390,8 @@ function briefFrom(
       ? (['procgen'] as const)
       : []),
     ...(asked(GIF_WORDS) ? (['gif'] as const) : []),
+    ...(asked(MURAL_GEOMETRY_WORDS) ? (['noise', 'geom'] as const) : []),
+    ...(asked(HEX_WORDS) ? (['hex'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([

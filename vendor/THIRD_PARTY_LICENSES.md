@@ -916,6 +916,81 @@ SOFTWARE.
 
 <!-- end pixi-studio:procgen+gif additions -->
 
+<!-- pixi-studio:mural-libs additions (2026-10-13) -->
+
+## d3-contour 4.0.2 and d3-array 3.2.4 — ISC; polybooljs 1.2.2 — MIT; Kenney Hexagon Pack — CC0 1.0
+
+`d3-contour@4.0.2` (with the parts of its dependency `d3-array@3.2.4` it calls: extent, nice, ticks, thresholdSturges) and `polybooljs@1.2.2` (only `lib/epsilon.js`, `lib/intersecter.js`, `lib/linked-list.js`, `lib/segment-chainer.js` and `lib/segment-selector.js`; never its entry, which assigns `window.PolyBool`) are installed from the pnpm catalog into `@craftkit/builder-media-engines` only and bundled into `packages/builder/renderer/src/engines/studio/geom-source.ts`, shipped as `assets/ck-lib-geom.js` only on pages whose code names the `geom` library. `ck-lib-noise.js` (`noise`) bundles `simplex-noise@4.0.3` (MIT (c) 2018 Jonas Wagner), whose text is kept in `packages/builder/extensions/media-engines/vendor/simplex-noise/LICENSE` and already travels in `ck-lib-kit.js`. `kenney-hexagon-pack@1.0.0` is a devDependency only: `scripts/build-hex-atlas.mjs` packs 28 of its tiles into `packages/builder/extensions/media-engines/src/studio/libs/hex/atlas.generated.ts`, bundled into `hex-source.ts` and shipped as `assets/ck-lib-hex.js` only on pages whose code names `hex`. Each asset's banner carries these texts whole. Upstream: https://github.com/d3/d3-contour · https://github.com/d3/d3-array · https://github.com/velipso/polybooljs · https://kenney.nl/assets/hexagon-pack (npm mirror https://github.com/lukasbach/kenney-hexagon-pack)
+
+`d3-contour` LICENSE (ISC), verbatim; `d3-array`'s is the same text under "Copyright 2010-2023 Mike Bostock":
+
+```text
+Copyright 2012-2023 Mike Bostock
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+```
+
+`polybooljs` LICENSE, verbatim:
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2016 Sean Connelly (@voidqk, web: syntheti.cc)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+`kenney-hexagon-pack` License.txt (Kenney's notice), verbatim (CRLF line endings normalised). The CC0 1.0 Universal legal code it links to is reproduced whole after it in `packages/builder/extensions/media-engines/vendor/kenney-hexagon-pack/LICENSE` and in the `ck-lib-hex.js` banner:
+
+```text
+	Hexagon pack
+	by Kenney Vleugels for Kenney (www.kenney.nl)
+
+			------------------------------
+
+	License (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	You may use these textures/photographs in personal and commercial projects.
+	Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Request:  http://request.kenney.nl
+
+	Follow on Twitter for updates:
+	@KenneyWings
+```
+
+<!-- end pixi-studio:mural-libs additions -->
+
 <!-- tailwind-plugins additions (2026-10-13) -->
 
 ## Tailwind plugins — tw-animate-css 1.4.0, @tailwindcss/typography 0.5.20, @tailwindcss/forms 0.5.11 — MIT

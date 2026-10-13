@@ -169,6 +169,21 @@ catalog:
   gifuct-js: 2.1.2
   rot-js: 2.2.1
   # end pixi-studio:procgen+gif additions
+  # pixi-studio:mural-libs additions (2026-10-13): mural geometry and hex-tile art, in
+  # @craftkit/builder-media-engines only and shipped only as the lazy ck-lib-geom.js and
+  # ck-lib-hex.js assets (ck-lib-noise.js needs nothing new: simplex-noise is above). Licences read
+  # from each tarball on 2026-10-13: d3-contour LICENSE ISC (c) 2012-2023 Mike Bostock (its d3-array
+  # 3.2.4 and internmap 2.0.3, ISC, come with it); polybooljs LICENSE MIT (c) 2016 Sean Connelly;
+  # kenney-hexagon-pack License.txt "Creative Commons Zero, CC0" by Kenney Vleugels (art only, a
+  # build-time input: scripts/build-hex-atlas.mjs packs 28 of its tiles; the package itself never
+  # ships). d3-contour 4.0.2 was published 2023-01-11, polybooljs 1.2.2 2024-03-18,
+  # kenney-hexagon-pack 1.0.0 2019-08-05. Not admitted: d3-delaunay, polygon-clipping,
+  # martinez-polygon-clipping, @velipso/polybool, fastnoise-lite, bezier-js, chromotome,
+  # nice-color-palettes, @iconify-json/game-icons (reasons in vendor/VENDOR.md).
+  d3-contour: 4.0.2
+  kenney-hexagon-pack: 1.0.0
+  polybooljs: 1.2.2
+  # end pixi-studio:mural-libs additions
   # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
   # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
   # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json

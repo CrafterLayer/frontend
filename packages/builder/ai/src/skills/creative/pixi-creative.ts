@@ -75,22 +75,23 @@ export const PIXI_GAME_CONTROLS = `<p>Collect three lights, avoid the red obstac
   <button type='button' data-game-key='ArrowDown'>Down</button>
 </div><output data-game-status role='status' aria-live='polite'></output>`;
 
-export const PIXI_GAME_EXAMPLE = `const s=await ck.scene({seed:7});
-const P=s.PIXI,root=ck.root,status=root.querySelector('[data-game-status]');
-const hero=new P.Graphics().circle(0,0,10).fill(0x67e8f9);
-const goal=new P.Graphics().star(0,0,5,12,6).fill(0xfde68a);
-const hazard=new P.Graphics().circle(0,0,16).fill(0xfb7185);
-s.stage.addChild(hazard,goal,hero);s.canvas.setAttribute('role','img');s.canvas.setAttribute('aria-label','Game area. Use arrow keys or the movement buttons.');
+export const PIXI_GAME_EXAMPLE = `const s=await ck.scene({seed:7,design:{width:1280,height:720,align:'bottom'}});
+const P=s.PIXI,root=ck.root,status=root.querySelector('[data-game-status]'),W=1280,H=720;
+const field=new P.Graphics().rect(0,0,W,H).fill({color:s.palette.accent,alpha:.08});
+const hero=new P.Graphics().circle(0,0,22).fill(0x67e8f9);
+const goal=new P.Graphics().star(0,0,5,26,13).fill(0xfde68a);
+const hazard=new P.Graphics().circle(0,0,36).fill(0xfb7185);
+s.world.addChild(field,hazard,goal,hero);s.canvas.setAttribute('role','img');s.canvas.setAttribute('aria-label','Game area. Use arrow keys or the movement buttons.');
 const goals=[[.72,.3],[.25,.25],[.8,.75]];
 let x=.18,y=.78,score=0,seconds=30,mode='ready',last='';
-const draw=()=>{hero.position.set(x*s.width,y*s.height);const g=goals[Math.min(score,2)];goal.position.set(g[0]*s.width,g[1]*s.height);goal.visible=mode!=='won';hazard.position.set(s.width*.5,s.height*.5);const text=mode+' · '+score+'/3 · '+Math.ceil(seconds)+'s';if(status&&last!==text){status.textContent=text;last=text}if(s.reducedMotion)s.app.render()};
+const draw=()=>{hero.position.set(x*W,y*H);const g=goals[Math.min(score,2)];goal.position.set(g[0]*W,g[1]*H);goal.visible=mode!=='won';hazard.position.set(W*.5,H*.5);const text=mode+' · '+score+'/3 · '+Math.ceil(seconds)+'s';if(status&&last!==text){status.textContent=text;last=text}if(s.reducedMotion)s.app.render()};
 const reset=()=>{x=.18;y=.78;score=0;seconds=30;s.input.clear();mode='ready';draw()};
-const distance=(a,b)=>Math.hypot((x-a)*s.width,(y-b)*s.height);
-const step=dt=>{if(mode!=='running')return;let dx=s.input.axis(['ArrowLeft','KeyA'],['ArrowRight','KeyD']),dy=s.input.axis(['ArrowUp','KeyW'],['ArrowDown','KeyS']);const n=Math.max(1,Math.hypot(dx,dy));x=Math.max(.03,Math.min(.97,x+dx/n*dt*.42));y=Math.max(.03,Math.min(.97,y+dy/n*dt*.42));if(!s.reducedMotion)seconds=Math.max(0,seconds-dt);const g=goals[Math.min(score,2)];if(distance(.5,.5)<=26||seconds===0)mode='lost';else if(distance(g[0],g[1])<=22){score++;if(score===3)mode='won'}draw()};
+const distance=(a,b)=>Math.hypot((x-a)*W,(y-b)*H);
+const step=dt=>{if(mode!=='running')return;let dx=s.input.axis(['ArrowLeft','KeyA'],['ArrowRight','KeyD']),dy=s.input.axis(['ArrowUp','KeyW'],['ArrowDown','KeyS']);const n=Math.max(1,Math.hypot(dx,dy));x=Math.max(.03,Math.min(.97,x+dx/n*dt*.42));y=Math.max(.03,Math.min(.97,y+dy/n*dt*.42));if(!s.reducedMotion)seconds=Math.max(0,seconds-dt);const g=goals[Math.min(score,2)];if(distance(.5,.5)<=58||seconds===0)mode='lost';else if(distance(g[0],g[1])<=48){score++;if(score===3)mode='won'}draw()};
 const listen=(el,type,fn)=>{if(el){el.addEventListener(type,fn);s.dispose(()=>el.removeEventListener(type,fn))}};
 for(const action of ['start','pause','restart'])listen(root.querySelector('[data-game-action='+action+']'),'click',()=>{if(s.editor)return;if(action==='pause'){if(mode==='running')mode='paused';else if(mode==='paused')mode='running';s.input.clear()}else{reset();mode='running'}if(mode==='running'){s.input.down('ArrowLeft');s.canvas.focus()}draw()});
 for(const b of root.querySelectorAll('[data-game-key]')){const code=b.getAttribute('data-game-key');listen(b,'pointerdown',e=>{if(s.editor)return;b.setPointerCapture(e.pointerId);s.input.set(code,true)});for(const type of ['pointerup','pointercancel','lostpointercapture'])listen(b,type,()=>s.input.set(code,false));listen(b,'click',e=>{if(s.editor)return;if(s.reducedMotion||e.detail===0){s.input.set(code,true);step(.2);s.input.set(code,false)}})}
-draw();s.onResize(draw);if(!s.editor&&!s.reducedMotion)s.dispose(s.fixedTick(step,{step:1/60,maxSteps:5}));`;
+draw();if(!s.editor&&!s.reducedMotion)s.dispose(s.fixedTick(step,{step:1/60,maxSteps:5}));`;
 
 export const PIXI_STORY_CONTROLS = `<article><h2 data-story-title></h2><p data-story-copy></p>
 <div role='group' aria-label='Story navigation'><button type='button' data-story-action='back'>Previous</button>
@@ -98,17 +99,16 @@ export const PIXI_STORY_CONTROLS = `<article><h2 data-story-title></h2><p data-s
 <button type='button' data-story-voice aria-pressed='false'>Read aloud</button></div>
 <output data-story-status role='status' aria-live='polite'></output></article>`;
 
-export const PIXI_STORY_EXAMPLE = `const s=await ck.scene({seed:11});
+export const PIXI_STORY_EXAMPLE = `const s=await ck.scene({seed:11,design:{width:1280,height:720,align:'bottom'}});
 const P=s.PIXI,root=ck.root;
 const content=[['dawn','Dawn','A traveller discovers a light.',0xfde68a],['crossing','Crossing','The traveller carries it across the valley.',0x67e8f9],['home','Home','The light becomes a beacon for everyone.',0xc4b5fd]];
-const layers=content.map(c=>{const layer=new P.Container();const orb=new P.Graphics().circle(0,0,38).fill(c[3]);layer.addChild(orb);layer.visible=false;s.stage.addChild(layer);return layer});
+const layers=content.map((c,i)=>{const layer=new P.Container();layer.addChild(new P.Graphics().circle(0,0,90).fill(c[3]));layer.position.set(320+i*320,360);layer.visible=false;s.world.addChild(layer);return layer});
 const title=root.querySelector('[data-story-title]'),copy=root.querySelector('[data-story-copy]'),status=root.querySelector('[data-story-status]');
 const back=root.querySelector('[data-story-action=back]'),next=root.querySelector('[data-story-action=next]');
 const voice=root.querySelector('[data-story-voice]'),speech=globalThis.speechSynthesis;let reading=false;
 const speak=i=>{if(!speech||s.editor)return;speech.cancel();if(reading){const u=new SpeechSynthesisUtterance(content[i][1]+'. '+content[i][2]);u.lang=s.lang;u.rate=.9;speech.speak(u)}};
-const layout=()=>layers.forEach((layer,i)=>layer.position.set(s.width*(.25+i*.25),s.height*.5));
 const show=i=>{layers[i].visible=true;if(title)title.textContent=content[i][1];if(copy)copy.textContent=content[i][2];if(status)status.textContent='Chapter '+(i+1)+' of 3';if(back)back.disabled=i===0;if(next)next.disabled=i===2;if(reading)speak(i)};
-layout();s.onResize(layout);s.canvas.setAttribute('aria-hidden','true');
+s.canvas.setAttribute('aria-hidden','true');
 const story=s.story(content.map((c,i)=>({id:c[0],enter:()=>show(i),leave:()=>{layers[i].visible=false}})));
 for(const action of ['back','next','reset']){const button=root.querySelector('[data-story-action='+action+']');if(button){const fn=()=>{if(!s.editor)story[action]()};button.addEventListener('click',fn);s.dispose(()=>button.removeEventListener('click',fn))}}
 if(voice){voice.hidden=!speech;const fn=()=>{if(s.editor)return;reading=!reading;voice.setAttribute('aria-pressed',String(reading));speak(content.findIndex(c=>c[0]===story.current))};voice.addEventListener('click',fn);s.dispose(()=>{voice.removeEventListener('click',fn);speech?.cancel()})}
@@ -143,7 +143,7 @@ export const PIXI_GAME_SKILL: AiSkillDefinitionV1 = {
   instructions: `PLAYABLE, not a decorative hero: define objective, controls and ready/running/paused/won/lost; make restart reset score, clock, bodies and input. No fake multiplayer, save server or authentication.
 FREE CODE OFF: closed media.add only; explain the opt-in. ON: await ck.scene, one v8 namespace, no imports/CDN/new Application. Put instructions, status, labelled start/pause/restart/direction buttons and any dialogue lines (s.lib.dialogue.fromDom) in the tree; scope queries to ck.root. Match the user's language; expose status changes politely, not every frame.
 INPUT: s.input.down(code), axis(negativeCodes,positiveCodes), set(code,held), clear(). Keyboard is focused-scene only; never install window key handlers or capture editor typing. Virtual buttons must release on pointerup/cancel/lostcapture and support keyboard clicks. Use seconds in s.fixedTick(fn,{step:1/60,maxSteps:5}); unsubscribe via s.dispose. It does not simulate in editor/reduced motion: draw a finished frame and offer manual steps there.
-Use normalized positions with pixel-space collision radii matching the rendered shapes; resize layout. Existing libs:['physics'] exposes s.lib.physics (Matter): Engine.update(engine,dt*1000), not Runner.run. libs:['viewport'] exposes s.lib.viewport.Viewport; release viewport/plugins. Audio only via audio:true and s.sound after a gesture, with mute. People: s.lib.peeps (director). Limit entities, no frame allocations.
+Design at 1280×720 (core SIZE): positions and collision radii in world units matching the rendered shapes. Existing libs:['physics'] exposes s.lib.physics (Matter): Engine.update(engine,dt*1000), not Runner.run. A big map: design zoom:true plus libs:['viewport'] makes s.world the camera (else s.lib.viewport.Viewport; release viewport/plugins). Audio only via audio:true and s.sound after a gesture, with mute. People: s.lib.peeps (director). Limit entities, no frame allocations.
 Example tree: data-game-action=start/pause/restart, data-game-key=ArrowLeft/ArrowRight/ArrowUp/ArrowDown and output[data-game-status]; include an accessible objective.
 e.g. collect three lights: ${inlineExample(PIXI_GAME_EXAMPLE)}`,
 };
@@ -160,7 +160,7 @@ export const PIXI_STORY_SKILL: AiSkillDefinitionV1 = {
   dependencies: ['craftkit.pixi-v8-core'],
   activation: { mode: 'auto', keywords: playbookKeywords(PIXI_STORY_KEYWORDS, 'story') },
   tags: ['pixi', 'story', 'accessibility'],
-  instructions: `STORY, not business-history copy: a beginning, discovery, meaningful choice or chapter progression, and an ending. Give each scene a foreground/midground/background, strong focal point and intentional palette; people are s.lib.peeps (director), a mood per page. Keep narrative, headings, controls and dialogue lines (s.lib.dialogue.fromDom) in the DOM; translate all copy and labels to the brief, Arabic shaping stays whole.
+  instructions: `STORY, not business-history copy: a beginning, discovery, meaningful choice or chapter progression, and an ending. Compose each scene at design 1280×720 in s.world (core SIZE) with a foreground/midground/background, strong focal point and intentional palette; people are s.lib.peeps (director), a mood per page. Keep narrative, headings, controls and dialogue lines (s.lib.dialogue.fromDom) in the DOM; translate all copy and labels to the brief, Arabic shaping stays whole.
 Free code OFF means closed media.add only plus explain opt-in. ON use await ck.scene; no arbitrary packages/CDN or new Application. s.story([{id,enter,leave}],initial?) enters the first/initial chapter once. current reads the id; go(id), next(), back(), reset() return booleans; no wrapping or autoplay. Unique bounded ids, lightweight enter/leave; dispose ends the active chapter. Reuse containers, toggle visible, reset chapter-owned input/effects; never recreate a scene per click.
 Use native previous/next/replay buttons, disabled boundaries, a polite chapter status and visible focus. No forced scroll, auto-advancing narration or flashing; reduced motion preserves manual navigation and a finished frame. Prefer s.tick/onResize/s.dispose for transitions and listeners. Use given image URLs via s.texture with fallback; optional sound requires audio:true, gesture unlock and mute, never fabricate a voice asset. Story content is not a hidden canvas-only experience.
 BEDTIME (bedtime story, picture book, lullaby): calm pacing — one short idea per page, slow fades (about a second) or none, a soft night palette that still meets contrast, no flash, shake, sudden sound, timer or auto-advance; the last page says goodnight. READ ALOUD is optional and visible: a button[data-story-voice] with aria-pressed toggles speechSynthesis reading the current page's title and text (u.lang=s.lang, rate about .9); speak only after that press, cancel on every page change, toggle-off and dispose, hide the button where speechSynthesis is missing.

@@ -110,7 +110,7 @@
     "packages/builder/extensions/code-view/src/CodeViewPanel/CodeViewPanel.tsx": 626,
     "packages/builder/extensions/custom-code/src/ScriptParamsForm/ScriptParamsForm.tsx": 692,
     "packages/builder/extensions/media-engines/src/sound/engine.ts": 602,
-    "packages/builder/extensions/media-engines/src/studio/kit/create-scene.ts": 686,
+    "packages/builder/extensions/media-engines/src/studio/kit/create-scene.ts": 680,
     "packages/builder/extensions/richtext/src/RichTextField/RichTextField.test.tsx": 802,
     "packages/builder/renderer/src/behaviors/behaviors.css": 675,
     "packages/builder/renderer/src/behaviors/packs/scripts.ts": 1027,

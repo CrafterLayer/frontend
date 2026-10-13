@@ -18,6 +18,7 @@
 */
 
 import { delaunay as buildDelaunay } from './delaunay';
+import { createDesign } from './design';
 import { createFixedStep } from './fixed-step';
 import { createSceneInput } from './input';
 import { createStory } from './story';
@@ -26,6 +27,7 @@ import { buildScenePalette, paletteOverride, readPaletteRoles } from './palette-
 import { createPointerTracker } from './pointer';
 import { poissonDisk } from './poisson';
 import { createRandom } from './random';
+import { numberParam, readDirection, readFontFamily, readLang } from './region-reads';
 import { createScrollTracker } from './scroll';
 import { createShaderFilter, type ShaderHandle } from './shader';
 import { admittedMediaUrl } from '../libs/shared/media-url';
@@ -98,39 +100,6 @@ interface EmitterLib {
   Emitter?: new (...args: never[]) => { destroy(): void };
 }
 
-function readDirection(root: HTMLElement, given: boolean | undefined): boolean {
-  if (typeof given === 'boolean') return given;
-  const marked = root.closest('[dir]');
-  if (marked !== null) return marked.getAttribute('dir')?.toLowerCase() === 'rtl';
-  try {
-    return root.ownerDocument.defaultView?.getComputedStyle(root).direction === 'rtl';
-  } catch {
-    return false;
-  }
-}
-
-function readLang(root: HTMLElement, given: string | undefined): string {
-  if (typeof given === 'string' && given !== '') return given;
-  const marked = root.closest('[lang]');
-  return (
-    marked?.getAttribute('lang') ?? root.ownerDocument.documentElement.getAttribute('lang') ?? ''
-  );
-}
-
-function readFontFamily(root: HTMLElement): string | undefined {
-  try {
-    const family = root.ownerDocument.defaultView?.getComputedStyle(root).fontFamily;
-    return family === undefined || family === '' ? undefined : family;
-  } catch {
-    return undefined;
-  }
-}
-
-function numberParam(params: Record<string, ScriptParamValue>, key: string): number | undefined {
-  const value = params[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 export function createScene(
   ck: SceneHost,
   PIXI: unknown,
@@ -180,8 +149,22 @@ export function createScene(
   /* ── palette ─────────────────────────────────────────────────────────── */
   const palette = buildScenePalette(readPaletteRoles(root), paletteOverride(params['palette']));
 
+  /* ── design mode (responsive scenes, 2026-10-13): s.world in design units, kit/design.ts ── */
+  const designed = options.design
+    ? createDesign(PIXI, app, options.design, libs.viewport, {
+        canvas,
+        root,
+        interactive: !editor,
+        calm: reducedMotion,
+        render,
+        // The letterbox takes the theme surface, unless the scene chose a background (null: none).
+        letterbox: options.background === undefined ? palette.surface : null,
+      })
+    : undefined;
+  if (designed !== undefined) cleanups.push(designed.dispose);
+
   /* ── pointer, scroll, clock, governor ───────────────────────────────── */
-  const pointerTracker = createPointerTracker(root, win);
+  const pointerTracker = createPointerTracker(root, win, undefined, designed?.map);
   const input = createSceneInput(root, canvas, editor);
   cleanups.push(() => {
     input.dispose();
@@ -279,6 +262,8 @@ export function createScene(
   const tickFns: ((time: SceneTime) => void)[] = [];
   const stillFns: (() => void)[] = [];
   const resizeFns: ((width: number, height: number) => void)[] = [];
+  // The world refits before any of the scene's own resize callbacks run.
+  if (designed !== undefined) resizeFns.push(designed.layout);
   /** Why the ticker is stopped; it runs only when the set is empty. */
   const pauses = new Set<string>();
   let stillMode = reducedMotion;
@@ -550,6 +535,15 @@ export function createScene(
     get dpr(): number {
       return app.renderer.resolution;
     },
+    world: designed?.world ?? app.stage,
+    design: designed?.design ?? null,
+    get compact(): boolean {
+      return app.screen.width < 600;
+    },
+    get portrait(): boolean {
+      return app.screen.height > app.screen.width;
+    },
+    ui: designed?.ui ?? ((px: number): number => px),
     params,
     palette,
     pointer: pointerTracker.pointer,

@@ -65,12 +65,13 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
             expect(await game.getByRole('status').textContent()).toContain('ready');
             await game.getByRole('button', { name: 'Start', exact: true }).click();
             expect(await game.getByRole('status').textContent()).toContain('running');
-            const readX = () => game.evaluate<number>('window.__creativeScene.stage.children[2].x');
+            // The taught game draws in design mode: the hero is the world's fourth child.
+            const readX = () => game.evaluate<number>('window.__creativeScene.world.children[3].x');
             const before = await readX();
             await game.locator('canvas').focus();
             await page.keyboard.down('ArrowRight');
             await game.waitForFunction(
-              `window.__creativeScene.stage.children[2].x > ${String(before + 8)}`,
+              `window.__creativeScene.world.children[3].x > ${String(before + 8)}`,
             );
             await page.keyboard.up('ArrowRight');
             await game.getByRole('button', { name: 'Pause / resume', exact: true }).click();

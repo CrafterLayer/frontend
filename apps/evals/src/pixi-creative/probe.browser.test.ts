@@ -270,6 +270,29 @@ const BROKEN: readonly {
   },
 ];
 
+/*
+  responsive scenes (2026-10-13): a design-mode scene — drawn at 1280 × 720 in s.world, the
+  backdrop over s.design.view — fills a 390 px phone's region with nothing past the screen, and
+  s.pointer reads design units there: the scene moves a pointer to the region's centre and its
+  top-left corner and writes what it read on a control, which the probe reports by its label.
+*/
+const DESIGN_SCENE = `const s=await ck.scene({seed:5,design:{width:1280,height:720}});
+const P=s.PIXI,sky=new P.Graphics(),sun=new P.Graphics().circle(640,360,120).fill(0xfbbf24);
+s.world.addChild(sky,sun);s.canvas.setAttribute('aria-hidden','true');
+const paint=()=>{const v=s.design.view;sky.clear().rect(v.x,v.y,v.width,v.height).fill(0x1e293b).rect(0,0,1280,720).fill(0x334155)};paint();s.onResize(paint);
+const out=ck.root.querySelector('[data-map]'),r=ck.root.getBoundingClientRect();
+const at=(x,y)=>{dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+x,clientY:r.top+y}));return Math.round(s.pointer.x)+','+Math.round(s.pointer.y)};
+if(out)out.textContent='map '+at(r.width/2,r.height/2)+' '+at(0,0)+' '+(s.compact?'compact':'wide');`;
+
+/** What the design scene must read: the centre is the design's, the corner sits in the letterbox. */
+function expectedMap(region: { readonly width: number; readonly height: number }): string {
+  const scale = Math.min(region.width / 1280, region.height / 720);
+  const left = (region.width - 1280 * scale) / 2;
+  const top = (region.height - 720 * scale) / 2;
+  const corner = `${String(Math.round(-left / scale) + 0)},${String(Math.round(-top / scale) + 0)}`;
+  return `map 640,360 ${corner} ${region.width < 600 ? 'compact' : 'wide'}`;
+}
+
 /* ── the browser ── */
 
 let browser: Browser | undefined;
@@ -364,6 +387,34 @@ describe.skipIf(QA)('the scene probe in Chromium (creative-power Phase 2 E)', ()
     expect(mobile?.report?.click).toBeNull();
     expect(desktop?.report?.canvas?.rect).toEqual(desktop?.report?.region);
     expect(mobile?.report?.canvas?.rect.width).toBe(390);
+  }, 30_000);
+
+  it('fits a design-mode scene to a 390 px phone with no overflow, its pointer in design units', async () => {
+    const report = await probe({
+      html: taughtRegion(DESIGN_SCENE, "<button type='button' data-map>map</button>"),
+    });
+    expect(report.status).toBe('done');
+    expect(sceneProbeIssues(report, { js: DESIGN_SCENE })).toEqual([]);
+    const [desktop, mobile] = report.passes;
+    expect(mobile?.pass.width).toBe(390);
+    for (const pass of [desktop, mobile]) {
+      const frame = pass?.report;
+      const region = frame?.region;
+      if (frame === undefined || frame === null || region === null || region === undefined) {
+        throw new Error(`${String(pass?.pass.name)}: no report — ${summary(report)}`);
+      }
+      // The canvas covers the region exactly, and nothing runs past the screen's edge.
+      expect(frame.canvas?.rect).toEqual(region);
+      expect(frame.overflowX).toBe(0);
+      expect(frame.blank).toBe(false);
+      const label = frame.controls.find((control) => control.label.startsWith('map '))?.label;
+      expect(label, pass?.pass.name).toBe(expectedMap(region));
+    }
+    // The phone letterboxes the 16:9 design inside its 320 px tall stage: the corner reads above 0.
+    expect(expectedMap(mobile?.report?.region ?? { width: 0, height: 0 })).toMatch(
+      /^map 640,360 0,-\d+ compact$/u,
+    );
+    expect(pageErrors).toEqual([]);
   }, 30_000);
 
   it('keeps to the default 6 s budget, skipping a pass it has no room for', async () => {

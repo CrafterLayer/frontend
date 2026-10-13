@@ -118,6 +118,13 @@ invent these.
   `next()`, `back()`, `reset()` and `dispose()`. IDs are unique (1..64 letters/digits/_/-), chapters
   1..32. Navigation does not wrap or autoplay. Keep narrative/control text in the DOM and callbacks
   synchronous/lightweight. Manual chapter changes render even when motion is reduced.
+- `ck.scene({ design: { width: 1280, height: 720, fit?, align?, zoom?, maxZoom? } })` (responsive
+  scenes, 2026-10-13, `src/studio/kit/design.ts`): draw in `s.world` in design units; the kit fits
+  it to the region on every resize, paints the letterbox with the theme surface (unless
+  `background`), maps `s.pointer.x/y` into design units and adds `s.design` (`scale`, `view`),
+  `s.compact`, `s.portrait` and `s.ui(px)`. `zoom: true` with `libs: ['viewport']` makes `s.world` a
+  clamped pixi-viewport camera (`src/studio/libs/viewport/zoom-world.ts`); the page keeps its
+  scroll.
 
 After scene-kit edits, run `node scripts/build-studio-engines.mjs kit` from repository root. It
 regenerates only the renderer's kit asset and verifies the unchanged 16 kB gzip budget. The

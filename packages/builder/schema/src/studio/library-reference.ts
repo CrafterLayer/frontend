@@ -79,8 +79,14 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
   {
     key: 'viewport',
     pixiBound: true,
-    purpose: { en: 'Pan/zoom camera viewport.', ar: 'كاميرا تحريك وتكبير.' },
-    api: ['new s.lib.viewport.Viewport({ … })'],
+    purpose: {
+      en: 'Pan/zoom camera viewport. With ck.scene design.zoom, s.world itself is one, fitted to the design (drag, two-finger pinch, ctrl/⌘ + wheel; the page still scrolls).',
+      ar: 'كاميرا تحريك وتكبير. مع design.zoom في ck.scene تصبح s.world نفسها كاميرا ملائمة للتصميم (سحب وقرص بإصبعين وعجلة مع ctrl/⌘؛ وتبقى الصفحة قابلة للتمرير).',
+    },
+    api: [
+      "ck.scene({ libs: ['viewport'], design: { width: 2560, height: 1440, zoom: true } }) → s.world",
+      'new s.lib.viewport.Viewport({ … })',
+    ],
     source: 'pixi-viewport',
     since: STUDIO,
   },

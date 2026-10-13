@@ -49,6 +49,18 @@ export interface CkSceneOptions {
   readonly quality?: 'auto' | 'low' | 'high';
   readonly seed?: number;
   readonly maxFps?: 30 | 60 | 120;
+  /**
+   * Design-resolution mode (responsive scenes, 2026-10-13): the kit scales `s.world` (this size)
+   * to the region; passed through to the kit untouched. `zoom` needs `libs: ['viewport']`.
+   */
+  readonly design?: {
+    readonly width: number;
+    readonly height: number;
+    readonly fit?: 'contain' | 'cover' | 'width' | 'height';
+    readonly align?: 'center' | 'top' | 'bottom';
+    readonly zoom?: boolean;
+    readonly maxZoom?: number;
+  } | null;
 }
 
 /**

@@ -11,13 +11,16 @@
 export type PointerListener = (pointer: ScenePointer) => void;
 
 export interface ScenePointer {
-  /** CSS px relative to the region's top-left. Starts at the centre. */
+  /**
+   * CSS px relative to the region's top-left — design units in design mode (`ck.scene({ design })`).
+   * Starts at the centre.
+   */
   x: number;
   y: number;
-  /** x / width and y / height (0..1 inside the region). */
+  /** 0..1 across the region (always the region, design mode or not). */
   nx: number;
   ny: number;
-  /** Smoothed velocity, CSS px per second; decays when the pointer rests. */
+  /** Smoothed velocity in x/y units per second; decays when the pointer rests. */
   vx: number;
   vy: number;
   down: boolean;
@@ -44,10 +47,14 @@ interface ClientPoint {
   clientY: number;
 }
 
+/** Region CSS px → the scene's units (design mode maps them into the design). */
+export type PointerMap = (x: number, y: number) => [number, number];
+
 export function createPointerTracker(
   el: Element,
   win: Window,
   now: () => number = () => Date.now(),
+  map: PointerMap = (x, y) => [x, y],
 ): PointerTracker {
   const downFns: PointerListener[] = [];
   const upFns: PointerListener[] = [];
@@ -65,9 +72,10 @@ export function createPointerTracker(
   }
 
   const initial = box();
+  const [startX, startY] = map(initial.width / 2, initial.height / 2);
   const pointer: ScenePointer = {
-    x: initial.width / 2,
-    y: initial.height / 2,
+    x: startX,
+    y: startY,
     nx: 0.5,
     ny: 0.5,
     vx: 0,
@@ -101,8 +109,9 @@ export function createPointerTracker(
 
   function locate(point: ClientPoint, moving: boolean): void {
     const rect = box();
-    const x = point.clientX - rect.left;
-    const y = point.clientY - rect.top;
+    const left = point.clientX - rect.left;
+    const top = point.clientY - rect.top;
+    const [x, y] = map(left, top);
     const time = now();
     if (moving && Number.isFinite(lastMoveAt)) {
       const dt = Math.max(1, time - lastMoveAt) / 1000;
@@ -114,9 +123,9 @@ export function createPointerTracker(
     lastEventAt = time;
     pointer.x = x;
     pointer.y = y;
-    pointer.nx = rect.width > 0 ? x / rect.width : 0.5;
-    pointer.ny = rect.height > 0 ? y / rect.height : 0.5;
-    pointer.inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height;
+    pointer.nx = rect.width > 0 ? left / rect.width : 0.5;
+    pointer.ny = rect.height > 0 ? top / rect.height : 0.5;
+    pointer.inside = left >= 0 && top >= 0 && left <= rect.width && top <= rect.height;
     pointer.active = true;
   }
 

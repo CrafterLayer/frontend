@@ -9,6 +9,7 @@
 */
 
 import type { Delaunay, Point2Like } from './delaunay';
+import type { SceneDesign, SceneDesignOptions } from './design';
 import type { FixedStepOptions } from './fixed-step';
 import type { SceneInput } from './input';
 import type { SceneStory, StoryChapter } from './story';
@@ -60,6 +61,8 @@ export interface SceneOptions {
   quality?: QualityMode;
   seed?: number;
   maxFps?: 30 | 60 | 120;
+  /** Design-resolution mode: draw in s.world at this size; the kit scales it to the region. */
+  design?: SceneDesignOptions | null;
   /** The values ck.params merged (runtime-wiring passes them; {} when ck.params was not called). */
   params?: Record<string, ScriptParamValue>;
 }
@@ -115,6 +118,8 @@ export interface SceneApp {
   readonly renderer: {
     readonly resolution: number;
     resize?(width: number, height: number, resolution?: number): void;
+    /** The clear colour (Pixi's BackgroundSystem): design mode paints the letterbox with it. */
+    readonly background?: { color: unknown; alpha: number };
   };
   render(): void;
   resize?(): void;
@@ -131,6 +136,16 @@ export interface Scene {
   readonly width: number;
   readonly height: number;
   readonly dpr: number;
+  /** Design mode: the container in design units, scaled to the region; s.stage otherwise. */
+  world: unknown;
+  /** Design mode's size, fit and live scale/offset/view; null without `design`. */
+  design: SceneDesign | null;
+  /** The region is under 600 CSS px wide (a phone): stack or enlarge what the scene lays out. */
+  readonly compact: boolean;
+  /** The region is taller than wide. */
+  readonly portrait: boolean;
+  /** Design units that show as `px` CSS px now (px itself without design): readable minimums. */
+  ui(px: number): number;
   params: Record<string, ScriptParamValue>;
   palette: ScenePaletteApi;
   pointer: ScenePointer;
@@ -181,6 +196,11 @@ export const SCENE_MEMBERS = [
   'width',
   'height',
   'dpr',
+  'world',
+  'design',
+  'compact',
+  'portrait',
+  'ui',
   'params',
   'palette',
   'pointer',

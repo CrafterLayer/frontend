@@ -175,6 +175,9 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
             expect(await level.getByRole('status').textContent()).toContain('running');
             const heroOf = 'window.__creativeScene.stage.children[0].children.at(-1).x';
             const start = await level.evaluate<number>(heroOf);
+            // Keyboard input switches on (the canvas becomes focusable) at the first running step;
+            // focusing before that frame lands on nothing, so wait for it (a race on slow frames).
+            await level.waitForFunction('window.__creativeScene.canvas.tabIndex === 0');
             await level.locator('canvas').focus();
             await page.keyboard.down('ArrowRight');
             await level.waitForFunction(`${heroOf} > ${String(start + 24)}`);

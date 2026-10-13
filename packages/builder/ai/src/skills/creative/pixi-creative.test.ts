@@ -221,6 +221,9 @@ function harness(PIXI: PixiNamespace, reducedMotion = false, editor = false) {
   const scene = {
     PIXI,
     stage,
+    // Design mode (responsive scenes, 2026-10-13): the kit's world is scaled; here it is the stage.
+    world: stage,
+    design: { width: DESIGN_W, height: DESIGN_H, zoom: false, scale: 1 },
     editor,
     reducedMotion,
     get width() {
@@ -309,6 +312,10 @@ function harness(PIXI: PixiNamespace, reducedMotion = false, editor = false) {
   };
 }
 
+/** The taught game and story compose at 1280 × 720 design units (ck.scene design mode). */
+const DESIGN_W = 1280;
+const DESIGN_H = 720;
+
 const mediaEngines = fileURLToPath(
   new URL('../../../../extensions/media-engines/package.json', import.meta.url),
 );
@@ -324,7 +331,7 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
     const run = harness(PIXI);
     await new AsyncFunction('ck', PIXI_GAME_EXAMPLE)(run.ck);
     const status = run.controls.get('[data-game-status]');
-    const hero = run.stage.children[2];
+    const hero = run.stage.children[3];
     expect(status?.textContent).toContain('ready');
     expect(run.fixed).toHaveLength(1);
     run.controls.get('[data-game-action=start]')?.click();
@@ -344,8 +351,9 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
     for (let frame = 0; frame < 1_801; frame += 1) run.fixed[0]?.(1 / 60);
     expect(status?.textContent).toContain('lost');
     run.controls.get('[data-game-action=restart]')?.click();
+    // A resize refits the world (the kit's job); the game's design-unit positions stay.
     run.resize();
-    expect(hero?.x).toBeCloseTo(400 * 0.18);
+    expect(hero?.x).toBeCloseTo(DESIGN_W * 0.18);
     run.dispose();
     const settled = status?.textContent;
     run.controls.get('[data-game-action=pause]')?.click();
@@ -357,9 +365,9 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
     const run = harness(PIXI, true);
     await new AsyncFunction('ck', PIXI_GAME_EXAMPLE)(run.ck);
     run.controls.get('[data-game-action=start]')?.click();
-    const before = run.stage.children[2]?.x ?? 0;
+    const before = run.stage.children[3]?.x ?? 0;
     run.buttons[1]?.click();
-    expect(run.stage.children[2]?.x).toBeGreaterThan(before);
+    expect(run.stage.children[3]?.x).toBeGreaterThan(before);
     expect(run.fixed).toEqual([]);
     expect(run.held.size).toBe(0);
     expect(run.controls.get('[data-game-status]')?.textContent).toContain('30s');
@@ -371,9 +379,9 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
     const run = harness(PIXI);
     await new AsyncFunction('ck', PIXI_GAME_EXAMPLE)(run.ck);
     run.controls.get('[data-game-action=start]')?.click();
-    const hero = run.stage.children[2];
+    const hero = run.stage.children[3];
     const move = (axis: 'x' | 'y', target: number) => {
-      const dimension = axis === 'x' ? run.scene.width : run.scene.height;
+      const dimension = axis === 'x' ? DESIGN_W : DESIGN_H;
       for (let frame = 0; frame < 200; frame += 1) {
         const current = (hero?.[axis] ?? 0) / dimension;
         if (Math.abs(current - target) < 0.008) break;
@@ -400,7 +408,7 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
     move('x', 0.8);
     move('y', 0.75);
     expect(run.controls.get('[data-game-status]')?.textContent).toContain('won · 3/3');
-    expect(run.stage.children[1]?.visible).toBe(false);
+    expect(run.stage.children[2]?.visible).toBe(false);
     run.dispose();
   });
 
@@ -422,57 +430,62 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
   it.each([
     [1_600, 360],
     [360, 900],
-  ])('matches rendered hazard and collectible contact on a %sx%s scene', async (width, height) => {
-    const run = harness(PIXI);
-    run.resize(width, height);
-    await new AsyncFunction('ck', PIXI_GAME_EXAMPLE)(run.ck);
-    const hero = run.stage.children[2];
-    const hazard = run.stage.children[0];
-    const goal = run.stage.children[1];
-    const status = run.controls.get('[data-game-status]');
-    const frame = () => run.fixed[0]?.(1 / 240);
-    const alignY = (target: number) => {
-      for (let step = 0; step < 400; step += 1) {
-        const current = (hero?.y ?? 0) / height;
-        if (Math.abs(current - target) < 0.002) break;
+  ])(
+    'matches rendered hazard and collectible contact in design units on a %sx%s region',
+    async (width, height) => {
+      const run = harness(PIXI);
+      run.resize(width, height);
+      await new AsyncFunction('ck', PIXI_GAME_EXAMPLE)(run.ck);
+      const hero = run.stage.children[3];
+      const hazard = run.stage.children[1];
+      const goal = run.stage.children[2];
+      const status = run.controls.get('[data-game-status]');
+      const frame = () => run.fixed[0]?.(1 / 240);
+      const alignY = (target: number) => {
+        for (let step = 0; step < 400; step += 1) {
+          const current = (hero?.y ?? 0) / DESIGN_H;
+          if (Math.abs(current - target) < 0.002) break;
+          run.held.clear();
+          run.held.add(current < target ? 'ArrowDown' : 'ArrowUp');
+          frame();
+        }
         run.held.clear();
-        run.held.add(current < target ? 'ArrowDown' : 'ArrowUp');
+      };
+      const distance = (target: DisplayObject | undefined) =>
+        Math.hypot((hero?.x ?? 0) - (target?.x ?? 0), (hero?.y ?? 0) - (target?.y ?? 0));
+
+      run.controls.get('[data-game-action=start]')?.click();
+      alignY(0.5);
+      run.held.add('ArrowRight');
+      let previous = distance(hazard);
+      for (let step = 0; step < 400 && !status?.textContent.startsWith('lost'); step += 1) {
+        previous = distance(hazard);
         frame();
       }
-      run.held.clear();
-    };
-    const distance = (target: DisplayObject | undefined) =>
-      Math.hypot((hero?.x ?? 0) - (target?.x ?? 0), (hero?.y ?? 0) - (target?.y ?? 0));
+      expect(status?.textContent).toContain('lost');
+      // hero radius 22 + hazard radius 36
+      expect(distance(hazard)).toBeLessThanOrEqual(58);
+      expect(previous).toBeGreaterThan(58);
 
-    run.controls.get('[data-game-action=start]')?.click();
-    alignY(0.5);
-    run.held.add('ArrowRight');
-    let previous = distance(hazard);
-    for (let step = 0; step < 400 && !status?.textContent.startsWith('lost'); step += 1) {
-      previous = distance(hazard);
-      frame();
-    }
-    expect(status?.textContent).toContain('lost');
-    expect(distance(hazard)).toBeLessThanOrEqual(26);
-    expect(previous).toBeGreaterThan(26);
-
-    run.controls.get('[data-game-action=restart]')?.click();
-    alignY(0.3);
-    run.held.add('ArrowRight');
-    let previousGoal = distance(goal);
-    for (let step = 0; step < 400 && !status?.textContent.includes('1/3'); step += 1) {
-      previousGoal = distance(goal);
-      frame();
-    }
-    expect(status?.textContent).toContain('running · 1/3');
-    const firstGoalDistance = Math.hypot(
-      (hero?.x ?? 0) - width * 0.72,
-      (hero?.y ?? 0) - height * 0.3,
-    );
-    expect(firstGoalDistance).toBeLessThanOrEqual(22);
-    expect(previousGoal).toBeGreaterThan(22);
-    run.dispose();
-  });
+      run.controls.get('[data-game-action=restart]')?.click();
+      alignY(0.3);
+      run.held.add('ArrowRight');
+      let previousGoal = distance(goal);
+      for (let step = 0; step < 400 && !status?.textContent.includes('1/3'); step += 1) {
+        previousGoal = distance(goal);
+        frame();
+      }
+      expect(status?.textContent).toContain('running · 1/3');
+      const firstGoalDistance = Math.hypot(
+        (hero?.x ?? 0) - DESIGN_W * 0.72,
+        (hero?.y ?? 0) - DESIGN_H * 0.3,
+      );
+      // hero radius 22 + the star's outer radius 26
+      expect(firstGoalDistance).toBeLessThanOrEqual(48);
+      expect(previousGoal).toBeGreaterThan(48);
+      run.dispose();
+    },
+  );
 
   it('does not start or capture manual game input while editing', async () => {
     const run = harness(PIXI, false, true);

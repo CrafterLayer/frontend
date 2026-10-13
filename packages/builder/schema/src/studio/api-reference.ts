@@ -21,6 +21,7 @@ export interface CkApiMember {
 
 const FREE_CODE = '2026-10-09';
 const STUDIO = '2026-10-10';
+const RESPONSIVE = '2026-10-13';
 
 function member(
   name: string,
@@ -100,9 +101,9 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     'ck.scene',
     'method',
-    'ck.scene({ libs?, background?, pointer?, blend?, audio?, quality?, seed?, maxFps? }): Promise<Scene>',
-    'The scene API: a stage plus kit helpers and the listed libraries. Start every visual script here.',
-    'واجهة المشهد: مسرح مع أدوات kit والمكتبات المذكورة. ابدأ كل سكربت مرئي من هنا.',
+    "ck.scene({ libs?, background?, pointer?, blend?, audio?, quality?, seed?, maxFps?, design?: { width, height, fit?: 'contain'|'cover'|'width'|'height', align?: 'center'|'top'|'bottom', zoom?, maxZoom? } }): Promise<Scene>",
+    'The scene API: a stage plus kit helpers and the listed libraries. Start every visual script here. design: draw in s.world at that size (stories and games: 1280×720, or 720×1280 portrait-first) and the kit scales it to every screen.',
+    'واجهة المشهد: مسرح مع أدوات kit والمكتبات المذكورة. ابدأ كل سكربت مرئي من هنا. design: ارسم في s.world بهذا المقاس (القصص والألعاب: ‎1280×720‎ أو ‎720×1280‎ للطولي) وتكيّفه الأداة مع كل شاشة.',
   ),
   member(
     'ck.sound',
@@ -184,6 +185,46 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
     'كثافة البكسل للجهاز، بحد أقصى 2.',
   ),
   member(
+    's.world',
+    'property',
+    's.world: PIXI.Container',
+    "Design mode: the container in design units, scaled and centred to fit the region on every resize (contain letterboxes with the background or theme surface; background: null keeps it clear). With design.zoom and libs: ['viewport'] it is a pixi-viewport Viewport: drag, two-finger pinch, ctrl/⌘ + wheel, clamped to the design. Without design it is s.stage.",
+    "وضع التصميم: حاوية بوحدات التصميم تُكبّر وتُوسّط لتلائم المنطقة عند كل تغيير حجم (contain يملأ الهوامش بلون الخلفية أو سطح القالب؛ background: null يتركها شفافة). مع design.zoom وlibs: ['viewport'] تصبح Viewport من pixi-viewport: سحب وقرص بإصبعين وعجلة مع ctrl/⌘، محصورة في التصميم. دون design هي s.stage.",
+    RESPONSIVE,
+  ),
+  member(
+    's.design',
+    'property',
+    's.design: { width, height, zoom, scale, view: { x, y, width, height } } | null',
+    'Design mode: the design size, CSS px per design unit (zoom included) and view, the part of design space the region shows — paint backdrops over view so the letterbox matches. null without design.',
+    'وضع التصميم: مقاس التصميم، وبكسلات CSS لكل وحدة تصميم (مع التكبير)، وview الجزء الظاهر من مساحة التصميم — ارسم الخلفيات عليه لتطابق الهوامش. null دون design.',
+    RESPONSIVE,
+  ),
+  member(
+    's.compact',
+    'property',
+    's.compact: boolean',
+    'The region is under 600 CSS px wide (a phone): stack the HUD, enlarge targets. Live on resize.',
+    'المنطقة أضيق من 600 بكسل CSS (هاتف): رتّب العناصر عمودياً وكبّر الأهداف. تتحدث عند تغيير الحجم.',
+    RESPONSIVE,
+  ),
+  member(
+    's.portrait',
+    'property',
+    's.portrait: boolean',
+    'The region is taller than wide. Live on resize.',
+    'المنطقة أطول من عرضها. تتحدث عند تغيير الحجم.',
+    RESPONSIVE,
+  ),
+  member(
+    's.ui',
+    'method',
+    's.ui(px: number): number',
+    'Design units that show as px CSS px right now: Math.max(28, s.ui(16)) keeps canvas text and hit radii readable on a phone. px itself without design.',
+    'وحدات تصميم تظهر الآن بمقدار px بكسل CSS: ‏Math.max(28, s.ui(16))‏ يبقي نص اللوحة وأنصاف أقطار اللمس مقروءة على الهاتف. px نفسها دون design.',
+    RESPONSIVE,
+  ),
+  member(
     's.params',
     'property',
     's.params: Record<string, number|string|boolean|string[]>',
@@ -201,8 +242,8 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
     's.pointer',
     'property',
     's.pointer: { x, y, nx, ny, vx, vy, down, inside, active, onDown(fn), onUp(fn), onMove(fn) }',
-    'The pointer, region-relative and passive (works with pointer:false; touch included).',
-    'المؤشر بالنسبة للمنطقة، دون التقاط (يعمل مع pointer:false ويشمل اللمس).',
+    'The pointer, region-relative and passive (works with pointer:false; touch included). Design mode: x, y, vx, vy in design units; nx, ny stay 0..1 of the region.',
+    'المؤشر بالنسبة للمنطقة، دون التقاط (يعمل مع pointer:false ويشمل اللمس). وضع التصميم: x وy وvx وvy بوحدات التصميم؛ nx وny تبقى 0..1 من المنطقة.',
   ),
   member(
     's.scroll',

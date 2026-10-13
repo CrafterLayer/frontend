@@ -260,6 +260,33 @@ time.
   the story and game playbooks point people there; the planner adds `peeps` to visual novels and to
   briefs that name people (girl, family, أصدقاء…).
 
+### Responsive scenes: design mode (2026-10-13)
+
+`ck.scene({ design: { width: 1280, height: 720, fit?, align?, zoom?, maxZoom? } })` gives a scene
+`s.world`, a container in design units that the kit scales and centres to the region on every resize
+(`fit`: `contain` default, `cover`, `width`, `height`; `align`: `center`, `top`, `bottom`), so a
+story or game composed for a desktop stage keeps its whole composition on a 390 px phone. The
+letterbox takes the theme surface (the canvas clear colour) unless the scene set `background`
+(`null` keeps it clear); `s.pointer.x/y` read design units (`nx/ny` stay fractions of the region);
+`s.design` gives `scale` and `view`, the visible part of design space, to paint backdrops over;
+`s.compact` (< 600 CSS px), `s.portrait` and `s.ui(px)` (design units that show as `px` CSS px)
+switch layouts and keep canvas text and hit radii readable. Copy and controls stay native-size DOM.
+
+- **Why not pixi-viewport by default.** Fitting a fixed design is one scale and one offset per
+  resize: a plain Container in `ck-lib-kit.js` (15.8 kB gzip budget unchanged). pixi-viewport's
+  drag, pinch, wheel, inertia and clamps earn their 12.9 kB only for a big map: `zoom: true` with
+  `libs: ['viewport']` makes `s.world` a Viewport fitted to the design (the fit is the furthest zoom
+  out), built inside `ck-lib-viewport.js` (`zoomWorld`) so the camera code ships only with scenes
+  that list it.
+- **Never trapping the page.** The wheel zooms only with ctrl/⌘ (a trackpad pinch) or while the
+  canvas has focus; a plain wheel scrolls the page. On touch one finger scrolls the page
+  (`touch-action: pan-x pan-y`) and two fingers pan and pinch. No inertia under reduced motion,
+  where each move clamps and renders at once; the editor canvas gets the fitted world, no gestures.
+- **Teaching.** The core skill's SIZE line carries the API; the game and story playbooks compose at
+  1280 × 720 (`align: 'bottom'` keeps the art under the DOM copy on a phone). The scene probe holds
+  a design-mode scene filling a 390 px phone with its pointer in design units
+  (`apps/evals/src/pixi-creative/probe.browser.test.ts`), and `design.browser.test.ts` the camera.
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

@@ -230,13 +230,18 @@ export function createDirectPlanProvider(options: DirectAiPlanProviderOptions): 
             fallback,
           ) satisfies AiPlanProvider['enhancePrompt'],
         }),
-    // A site plan (T230) is never a catalog example either.
+    // A site plan (T230) is never a catalog example either, nor is a scene review (2026-10-13).
     ...(fallback?.proposeSitePlan === undefined
       ? {}
       : {
           proposeSitePlan: fallback.proposeSitePlan.bind(
             fallback,
           ) satisfies AiPlanProvider['proposeSitePlan'],
+        }),
+    ...(fallback?.reviewScene === undefined
+      ? {}
+      : {
+          reviewScene: fallback.reviewScene.bind(fallback) satisfies AiPlanProvider['reviewScene'],
         }),
   };
 }

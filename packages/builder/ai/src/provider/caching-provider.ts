@@ -140,8 +140,8 @@ async function remembered<T>(
  * because a repair exists precisely because the cached shape of an answer was
  * wrong.
  *
- * The optional capabilities are mirrored exactly: `proposePagePlan`,
- * `proposeSitePlan` and `enhancePrompt` exist on the decorator only when the
+ * The optional capabilities are mirrored exactly: `proposePagePlan`, `proposeSitePlan`,
+ * `reviewScene` and `enhancePrompt` exist on the decorator only when the
  * inner provider has them, because their ABSENCE is a signal — the build falls back to its
  * scaffold without `proposePagePlan`, and the panel hides Improve without
  * `enhancePrompt`. A decorator that dropped them made the page-plan path
@@ -161,6 +161,7 @@ export function createCachingAiPlanProvider(
   const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
   const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
   const innerProposeSitePlan = inner.proposeSitePlan?.bind(inner);
+  const innerReviewScene = inner.reviewScene?.bind(inner);
 
   const provider: AiPlanProvider = {
     // async, so a key that cannot be computed rejects like every other failure.
@@ -262,6 +263,19 @@ export function createCachingAiPlanProvider(
           notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
         },
       );
+  }
+  if (innerReviewScene !== undefined) {
+    /*
+      A scene review (2026-10-13) passes through, never remembered: a picture of a running scene
+      is never the same twice, and a key of 200 KB of base64 would buy nothing. Its absence stays
+      a signal — a build reviews nothing without it.
+    */
+    provider.reviewScene = async (request, live) => {
+      throwIfAborted(live?.signal);
+      const review = await innerReviewScene(request, live);
+      throwIfAborted(live?.signal);
+      return review;
+    };
   }
   if (innerEnhancePrompt !== undefined) {
     const rewrites = lruMemory<AiPromptEnhancement>(capacity);

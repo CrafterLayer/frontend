@@ -38,6 +38,7 @@ import {
 import { nextSection } from './section-order';
 import { fillConcurrencyFor, withWriterPermit } from './writer-pool';
 import {
+  buildLessons,
   creativeRequestOf,
   sectionProviders,
   withPhotoCatalog,
@@ -859,7 +860,7 @@ function runFill(
     toolLanes: SECTION_TOOL_LANES,
     ...(brief.history && history !== undefined ? { history } : {}),
     ...(skills === undefined ? {} : { skillRegistry: skills }),
-    additionalContextProviders: brief.providers,
+    additionalContextProviders: buildLessons.offered(options, brief.providers),
     runId: stepRunId(
       options.runId,
       `fill-${String(position)}${invocation === 1 ? '' : `-${String(invocation)}`}`,
@@ -1529,7 +1530,7 @@ async function checkAndRepair(
         outOfScope: Object.freeze([...guarded.outOfScope, ...second.outOfScope]),
       },
       proposal,
-      check: Object.freeze({ issues: remaining, repaired: true }),
+      check: buildLessons.learned(options, issues, remaining), // what it fixed: a lesson for later writers
     };
   } catch (cause) {
     // A repair that failed costs the repair, never the section: the first answer lands.
@@ -2883,8 +2884,7 @@ function planJobs(
       options.request,
       ...(options.history ?? []).filter(({ role }) => role === 'user').map(({ text }) => text),
     ].join('\n'),
-    sceneProbe: options.sceneProbe, // creative-power Phase 2 E: a browser host runs scene sections
-    signal: options.signal,
+    scene: options, // Phase 2 E: a browser host runs (and may look at) scene sections; Stop stops it
   };
   const ownPhotos = ownPhotoAddresses(checkOptions.request);
   const jobs: SectionJob[] = [];

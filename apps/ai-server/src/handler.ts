@@ -23,6 +23,7 @@ import {
   type UsageTask,
 } from './plan-answer';
 import { errorResponse, describeFailure } from './plan-errors';
+import { SCENE_REVIEW_PATH, sceneReviewResponse } from './scene-review';
 import type { UsageReport } from './plan-params';
 import {
   CALL_EFFORT_LEVELS,
@@ -242,9 +243,8 @@ export function createHandler(options: HandlerOptions) {
     if (url.pathname === '/v1/agent/run') {
       return authoredRunResponse(body, options, request);
     }
-    if (url.pathname === ENHANCE_PATH) {
-      return enhanceResponse(body, options, request);
-    }
+    if (url.pathname === ENHANCE_PATH) return enhanceResponse(body, options, request);
+    if (url.pathname === SCENE_REVIEW_PATH) return sceneReviewResponse(body, options, request);
     if (url.pathname !== '/plan' && url.pathname !== '/') {
       return json({ error: 'Endpoint not found.' }, 404);
     }

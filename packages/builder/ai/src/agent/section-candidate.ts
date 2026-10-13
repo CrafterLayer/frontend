@@ -9,7 +9,13 @@ import type {
   SectionCheckIssue,
   SectionContract,
 } from './page-plan/types';
-import { isProbedScene, sceneProbeFindings, type SceneProbe } from './scene-probe';
+import {
+  isProbedScene,
+  sceneProbeRun,
+  type SceneProbe,
+  type SceneProbeContext,
+} from './scene-probe';
+import { claimSceneReview, sceneReviewFindings, type SceneCheckHost } from './scene-review';
 import type { AiBuildSectionValues } from './types';
 
 /*
@@ -19,16 +25,23 @@ import type { AiBuildSectionValues } from './types';
   that holds them to the contract (`checkSection`) and the scene to its code
   (`checkScene`), with what both found phrased for the repair round. A
   browser host may also RUN a scene section before it lands (creative-power
-  Phase 2 E, scene-probe.ts): what that finds joins the same round.
+  Phase 2 E, scene-probe.ts): what that finds joins the same round — and,
+  once per section, what the model SEES wrong in a picture of it
+  (scene-review.ts, 2026-10-13).
 */
 
 /** Step E's findings: at once, or — when a scene is run — once it has run. */
 export type WrittenIssues = readonly SectionCheckIssue[] | Promise<readonly SectionCheckIssue[]>;
 
 export interface CheckWrittenOptions extends CheckSectionOptions {
-  /** Runs a scene section in a browser (RunAiBuildOptions.sceneProbe); absent, nothing runs. */
+  /**
+   * The build (its `RunAiBuildOptions`): its `sceneProbe` runs a scene section in a browser,
+   * its provider may look at a picture of it (`visualReview`), its signal stops both.
+   */
+  readonly scene?: SceneCheckHost | undefined;
+  /** Runs a scene section in a browser when no `scene` is given; absent, nothing runs. */
   readonly sceneProbe?: SceneProbe | undefined;
-  /** The build's signal: a Stop also stops a scene being run. */
+  /** The build's signal when no `scene` is given: a Stop also stops a scene being run. */
   readonly signal?: AbortSignal | undefined;
 }
 
@@ -96,8 +109,9 @@ export function checkedIssues(
  * lookups may name any section's anchor. Each half guarded on its own, so a
  * contract check that throws never hides what the scene check found. Given a
  * `sceneProbe`, a scene section whose code the static check passed is then
- * RUN (in the page's language and direction) and what that found is added;
- * otherwise the findings are returned at once, exactly as before.
+ * RUN (in the page's language and direction) and what that found is added —
+ * then, at the section's FIRST check only, what a look at its picture found
+ * (scene-review.ts); otherwise the findings are returned at once, exactly as before.
  */
 export function checkWritten(
   plan: PagePlan,
@@ -109,12 +123,25 @@ export function checkWritten(
     checkScene(section, { pageIds: plan.sections.map(({ anchorId }) => anchorId) }),
   );
   const found = [...guardedCheck(() => checkSection(plan, contract, section, options)), ...scene];
-  const probe = options.sceneProbe;
-  if (probe === undefined || scene.length > 0 || !isProbedScene(section)) return found;
+  const host = options.scene;
+  const probe = host?.sceneProbe ?? options.sceneProbe;
+  if (probe === undefined || !isProbedScene(section)) return found;
+  // The one look is claimed at the first check, even one the static check fails.
+  const look = claimSceneReview(host, contract.key);
+  if (scene.length > 0) return found;
   const { lang, dir } = plan.locale;
-  const context =
-    options.signal === undefined ? { lang, dir } : { lang, dir, signal: options.signal };
-  return sceneProbeFindings(probe, section, context).then((ran) => [...found, ...ran]);
+  const signal = host === undefined ? options.signal : host.signal;
+  const context: SceneProbeContext = {
+    lang,
+    dir,
+    ...(signal === undefined ? {} : { signal }),
+    ...(look ? { thumbnails: true as const } : {}),
+  };
+  return sceneProbeRun(probe, section, context).then(async ({ issues: ran, report }) => {
+    const seen =
+      look && host !== undefined ? await sceneReviewFindings(host, plan, contract, report) : [];
+    return [...found, ...ran, ...seen];
+  });
 }
 
 /** The checker's findings on the repair wire: each one the instruction that fixes it. */

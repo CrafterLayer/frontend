@@ -46,6 +46,14 @@ export {
   type AiPlanWireResponse,
   // T230: the site-plan task's page limit, which the ai-server's answer schema holds to.
   AI_SITE_PLAN_WIRE_MAX_PAGES,
+  // visual self-review (2026-10-13): the scene review's route, limits and readers.
+  AI_SCENE_REVIEW_MAX_FINDINGS,
+  AI_SCENE_REVIEW_PATH,
+  readAiSceneReviewFindings,
+  readAiSceneReviewWireRequest,
+  type AiSceneReviewFinding,
+  type AiSceneReviewWireImage,
+  type AiSceneReviewWireRequest,
   // background batches (2026-10-12): the routes and limits the ai-server holds a batch to.
   AI_BATCH_ITEM_ID_PATTERN,
   AI_BATCH_MAX_ITEMS,

@@ -5,8 +5,8 @@
 */
 import { AiProviderError } from './errors';
 
-/** The optional tasks a server may predate: the page plan (T1), the enhancer, the site plan. */
-export type AiRemoteTask = 'page-plan' | 'prompt-enhance' | 'site-plan';
+/** The optional tasks a server may predate: page plan (T1), enhancer, site plan, scene review. */
+export type AiRemoteTask = 'page-plan' | 'prompt-enhance' | 'site-plan' | 'scene-review';
 
 /**
  * The server does not do this task: it answered a page-plan (or enhance)

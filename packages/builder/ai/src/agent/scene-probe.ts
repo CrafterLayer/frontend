@@ -42,6 +42,17 @@ export interface SceneProbeFrame {
   /** How long it waited for the canvas, and how long the scene then ran before it was measured. */
   readonly waitedMs: number;
   readonly ranMs: number;
+  /** A picture of the page as it was measured, when the context asked for `thumbnails`. */
+  readonly thumbnail?: SceneProbeThumbnail | null | undefined;
+}
+
+/** A small JPEG of one pass (the renderer's `SceneProbeThumbnail`): what a visual review sees. */
+export interface SceneProbeThumbnail {
+  readonly dataUrl: string;
+  readonly width: number;
+  readonly height: number;
+  /** The share of the picture unlike its dominant colour, 0–1 (near 0: blank). */
+  readonly ink: number;
 }
 
 export interface SceneProbePassReport {
@@ -69,6 +80,8 @@ export interface SceneProbeContext {
   readonly lang: string;
   readonly dir: 'ltr' | 'rtl';
   readonly signal?: AbortSignal;
+  /** Take a picture of the desktop and phone passes too: the build will look at it (scene-review.ts). */
+  readonly thumbnails?: true;
 }
 
 /** Runs a scene section and reports what it found (a browser host's `probeScene`). */
@@ -333,6 +346,18 @@ export async function sceneProbeFindings(
   section: LandedSection,
   context: SceneProbeContext,
 ): Promise<readonly SectionCheckIssue[]> {
+  return (await sceneProbeRun(probe, section, context)).issues;
+}
+
+/** `sceneProbeFindings`, with the report they were read from (null: the probe found nothing). */
+export async function sceneProbeRun(
+  probe: SceneProbe,
+  section: LandedSection,
+  context: SceneProbeContext,
+): Promise<{
+  readonly issues: readonly SectionCheckIssue[];
+  readonly report: SceneProbeReport | null;
+}> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const late = new Promise<null>((resolve) => {
@@ -340,9 +365,10 @@ export async function sceneProbeFindings(
         resolve(null);
       }, SCENE_PROBE_TIMEOUT_MS);
     });
-    return sceneProbeIssues(await Promise.race([probe(section, context), late]), section);
+    const report = await Promise.race([probe(section, context), late]);
+    return { issues: sceneProbeIssues(report, section), report };
   } catch {
-    return [];
+    return { issues: [], report: null };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }

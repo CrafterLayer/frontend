@@ -6,6 +6,7 @@ import { CustomCode } from '../components/CustomCode';
 import type { PageEngine } from '../behaviors/script';
 import type { EngineLoader } from '../engines/inject';
 import { buildStudioPreviewHtml, type StudioPreviewTrust } from './preview-document';
+import type { StudioProbeThumbnailSettings } from './scene-probe-capture';
 import type {
   SceneProbeFrameResult,
   SceneProbePass,
@@ -64,6 +65,11 @@ export interface SceneProbeOptions {
   readonly skipReducedMotion?: boolean | undefined;
   /** Click the first visible Start/Next/Play control once (desktop pass). Default true. */
   readonly click?: boolean | undefined;
+  /**
+   * Also take a small picture of the page in the desktop pass (640×360) and the phone pass
+   * (≈ 200×360), before any click, for a visual review of the scene (2026-10-13). Default off.
+   */
+  readonly thumbnails?: boolean | undefined;
   /** All passes together, ms. Default 6000. */
   readonly budgetMs?: number | undefined;
   readonly signal?: AbortSignal | undefined;
@@ -96,6 +102,29 @@ const PASS_WEIGHT: Readonly<Record<SceneProbePassName, number>> = {
 };
 /** A pass with less than this left is skipped: it could not settle and measure. */
 const MIN_PASS_MS = 900;
+/** The pictures' bounds and size caps: both together stay under 200,000 characters of base64. */
+const THUMBNAIL_BOX = { width: 640, height: 360 } as const;
+const THUMBNAIL_MAX_CHARS: Readonly<Record<SceneProbePassName, number>> = {
+  desktop: 140_000,
+  mobile: 60_000,
+  'reduced-motion': 0,
+};
+
+/** What a pass's picture is taken as: a JPEG fitted into 640×360 (none under reduced motion). */
+export function sceneProbeThumbnail(
+  pass: SceneProbePass,
+): StudioProbeThumbnailSettings | undefined {
+  const maxChars = THUMBNAIL_MAX_CHARS[pass.name];
+  if (maxChars === 0) return undefined;
+  const scale = Math.min(1, THUMBNAIL_BOX.width / pass.width, THUMBNAIL_BOX.height / pass.height);
+  return {
+    width: Math.round(pass.width * scale),
+    height: Math.round(pass.height * scale),
+    type: 'image/jpeg',
+    quality: 0.72,
+    maxChars,
+  };
+}
 const RTL_LANGUAGES = /^(?:ar|fa|he|ur|ps|ckb|yi|dv)(?:-|$)/iu;
 /** The code opens a Pixi stage (`ck.pixi()` alone draws nothing). */
 const OPENS_STAGE = /\bck\s*\.\s*(?:scene|stage)\s*\(/u;
@@ -242,6 +271,7 @@ export async function probeScene(options: SceneProbeOptions): Promise<SceneProbe
     const passStarted = now();
     // The frame posts by `deadline`; the host waits no longer than the pass's own share.
     const deadline = Date.now() + timeoutMs - 250;
+    const thumbnail = options.thumbnails === true ? sceneProbeThumbnail(pass) : undefined;
     const html = await buildStudioPreviewHtml({
       code: source.code,
       markup: source.markup,
@@ -258,6 +288,7 @@ export async function probeScene(options: SceneProbeOptions): Promise<SceneProbe
         settleMs: 600,
         expectCanvas,
         click: pass.click,
+        ...(thumbnail === undefined ? {} : { thumbnail }),
       },
     });
     const result = await run(

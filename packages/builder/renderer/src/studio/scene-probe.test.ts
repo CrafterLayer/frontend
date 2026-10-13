@@ -5,6 +5,7 @@ import {
   probeScene,
   sceneProbePasses,
   sceneProbeSource,
+  sceneProbeThumbnail,
   type SceneProbeSection,
 } from './scene-probe';
 import type { SceneProbeFrameReport, SceneProbeFrameResult } from './scene-probe-report';
@@ -212,6 +213,29 @@ describe('probeScene', () => {
     expect(seen[2]?.html).toMatch(
       /\}\)\(window, function mountScripts\([\s\S]*, true, function probe\(/u,
     );
+  });
+
+  it('asks the desktop and phone passes for a picture when told to, and carries it back', async () => {
+    const thumbnail = { dataUrl: 'data:image/jpeg;base64,QQ==', width: 640, height: 360, ink: 0.3 };
+    const { seen, runPass } = fakeRunner({ status: 'done', report: { ...FRAME, thumbnail } });
+    const report = await probeScene({ section: SECTION, loaders, runPass, thumbnails: true });
+
+    expect(report.passes[0]?.report?.thumbnail).toEqual(thumbnail);
+    expect(seen[0]?.html).toContain(
+      '"thumbnail":{"width":640,"height":360,"type":"image/jpeg","quality":0.72,"maxChars":140000}',
+    );
+    expect(seen[1]?.html).toContain('"thumbnail":{"width":201,"height":360,');
+    // The capture rides along only where a picture is asked for.
+    expect(seen.map(({ html }) => html.includes('function studioProbeCapture('))).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(sceneProbeThumbnail(sceneProbePasses({})[2]!)).toBeUndefined();
+
+    const plain = fakeRunner();
+    await probeScene({ section: SECTION, loaders, runPass: plain.runPass });
+    expect(plain.seen.some(({ html }) => html.includes('studioProbeCapture'))).toBe(false);
   });
 
   it('skips the passes its budget has no room for, the desktop pass first in line', async () => {

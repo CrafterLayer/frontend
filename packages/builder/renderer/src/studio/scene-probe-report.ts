@@ -69,6 +69,21 @@ export interface SceneProbeFrameReport {
   readonly waitedMs: number;
   /** How long the scene then ran before it was measured (0: cut short by the deadline). */
   readonly ranMs: number;
+  /**
+   * A picture of the page as it was measured, before any click (scene-probe-capture.ts), when the
+   * probe asked for one (`SceneProbeOptions.thumbnails`); null when it could not be taken.
+   */
+  readonly thumbnail?: SceneProbeThumbnail | null;
+}
+
+/** A small JPEG of what a visitor sees in one pass (visual self-review, 2026-10-13). */
+export interface SceneProbeThumbnail {
+  /** `data:image/jpeg;base64,…` (or PNG). */
+  readonly dataUrl: string;
+  readonly width: number;
+  readonly height: number;
+  /** The share of sampled pixels unlike the picture's dominant colour, 0–1 (near 0: blank). */
+  readonly ink: number;
 }
 
 export type SceneProbePassName = 'desktop' | 'mobile' | 'reduced-motion';

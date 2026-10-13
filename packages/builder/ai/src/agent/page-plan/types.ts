@@ -394,7 +394,9 @@ export type SectionCheckCode =
   | 'scene-layout'
   | 'scene-control'
   // T231c (2026-10-12): a literal level whose exit or pickups the player cannot reach.
-  | 'scene-level';
+  | 'scene-level'
+  // 2026-10-13: what the model SAW wrong in a picture of the rendered scene (scene-review.ts).
+  | 'scene-visual';
 
 export interface SectionCheckIssue {
   readonly code: SectionCheckCode;

@@ -23,7 +23,7 @@ import type { ScriptRunner } from '../script/types';
 // end script-wiring additions
 import type { AiContextReadyDetails } from './context-report';
 import type { AiRunFailure } from './errors';
-import type { SceneProbe } from './scene-probe';
+import type { AiBuildSceneOptions } from './scene-review';
 import type { AiBuildWriterOptions } from './writer-pool';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
@@ -460,15 +460,17 @@ export type AiBuildOwnEvent =
 export type AiBuildEvent = AiAgentEvent | AiBuildOwnEvent;
 
 /**
- * `apply`, `label` and `onEvent` are owned by the orchestrator: a build decides
- * when each step writes (see `apply` and `onPlanned` below), labels every step
- * itself, and widens the observer to the events above. Everything else is
- * forwarded to each step verbatim — except `signal`, which a section writer
- * receives chained with its own deadline, and `selectedSkillIds`, which the
- * build names per step. `fillConcurrency` and `writerPool` live in writer-pool.ts.
+ * `apply`, `label` and `onEvent` are owned by the orchestrator: a build decides when each step
+ * writes (see `apply` and `onPlanned` below), labels every step itself, and widens the observer
+ * to the events above. Everything else is forwarded to each step verbatim — except `signal`,
+ * which a section writer receives chained with its own deadline, and `selectedSkillIds`, which
+ * the build names per step. Writers' options: writer-pool.ts; scenes' options: scene-review.ts.
  */
 export interface RunAiBuildOptions
-  extends Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'>, AiBuildWriterOptions {
+  extends
+    Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'>,
+    AiBuildWriterOptions,
+    AiBuildSceneOptions {
   /**
    * Whether this build may WRITE.
    *
@@ -578,8 +580,6 @@ export interface RunAiBuildOptions
    * sends no drafts gets that same build either way.
    */
   streamPlan?: boolean;
-  /** Run a scene section in a browser before it lands (scene-probe.ts); Node builds omit it. */
-  sceneProbe?: SceneProbe | undefined;
   onEvent?: (event: AiBuildEvent) => void;
 }
 

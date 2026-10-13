@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { AiProviderError } from './errors';
 import { RemoteAiProviderError, remoteStatusError } from './remote-errors';
+import { remoteSceneReview } from './remote-scene-review';
 import { remoteSitePlan } from './remote-site-plan';
 import { AiTaskUnsupportedError, type AiRemoteTask } from './remote-task';
 import { notifyProviderUsage } from './usage';
@@ -492,14 +493,13 @@ interface RemoteExchange<T> {
  * (the model's raw answer text) feed `live.onDraft` — `start` when the stream
  * begins or the server resets it, then `text` slices; a JSON answer emits none.
  *
- * Three tasks, one transport (auth, deadline, cancellation, size cap, SSE):
- * `propose`/`repair` post a plan request to the endpoint; `proposePagePlan`
- * posts the same request with `task: 'page-plan'` (and the refused candidate
- * as `pagePlanAttempt` on its one repair); `enhancePrompt` posts the draft to
- * `/v1/prompt/enhance` on the endpoint's origin, under its own shorter
- * deadline. A server that turns out to predate a task is remembered for the
- * provider's lifetime (`AiTaskUnsupportedError`), so its misread answer is
- * paid for once, not once per build.
+ * Several tasks, one transport (auth, deadline, cancellation, size cap, SSE): `propose`/`repair`
+ * post a plan request to the endpoint; `proposePagePlan` posts the same request with
+ * `task: 'page-plan'` (and the refused candidate as `pagePlanAttempt` on its one repair);
+ * `enhancePrompt` posts the draft to `/v1/prompt/enhance` on the endpoint's origin, and
+ * `reviewScene` a scene's pictures to `/v1/scene/review`, each under its own shorter deadline.
+ * A server that turns out to predate a task is remembered for the provider's lifetime
+ * (`AiTaskUnsupportedError`), so its misread answer is paid for once, not once per build.
  */
 export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions) {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -716,10 +716,9 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       );
     },
     /*
-      Step T1 over the page-plan wire (2026-09-28). Before this the playground's
-      provider had no `proposePagePlan`, so every build silently took the
-      scaffold path — the ~25k-character model-written skeleton the PagePlan
-      pipeline was built to replace (engine wave-2 verifier, same day).
+      Step T1 over the page-plan wire (2026-09-28). Before this the playground's provider had no
+      `proposePagePlan`, so every build silently took the scaffold path — the ~25k-character
+      model-written skeleton the PagePlan pipeline was built to replace (wave-2 verifier).
     */
     async proposePagePlan(
       request: string,
@@ -748,11 +747,12 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
         live,
       );
     },
-    // The site plan (T230, remote-site-plan.ts): the same POST, `task: 'site-plan'`.
+    // The site plan (remote-site-plan.ts) and the scene review (remote-scene-review.ts).
     ...remoteSitePlan((body, read, live) => post(planExchange(body, read), live), {
       refuseKnownUnsupported,
       remember,
     }),
+    ...remoteSceneReview(post, options, { refuseKnownUnsupported, remember }),
     async enhancePrompt(
       input: AiPromptEnhanceInput,
       live?: AiEnhancePromptOptions,

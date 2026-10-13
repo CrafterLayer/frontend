@@ -3,6 +3,7 @@ import { codeEngines, type PageEngine } from '../behaviors/script';
 import { ensureCkEngines } from '../engines/ck-engines-shim';
 import { ENGINE_LOADERS, type EngineLoader } from '../engines/inject';
 import { STUDIO_LIB_KEYS, STUDIO_PIXI_BOUND_KEYS, type StudioLibKey } from './contract';
+import { studioProbeCapture } from './scene-probe-capture';
 import {
   studioProbeContexts,
   studioSceneProbe,
@@ -26,7 +27,8 @@ import {
  * - out: `ck-preview:ready`, `ck-preview:thumbnail` {dataUrl} (320×180 WebP),
  *   `ck-preview:error` {message, line}, `ck-preview:fps` {fps, paused} every second, and — when
  *   built with `probe` (creative-power Phase 2 E) — one `ck-preview:probe` {report} once the
- *   region has settled (scene-probe-frame.ts).
+ *   region has settled (scene-probe-frame.ts), with a picture of the page when `probe.thumbnail`
+ *   asks for one (scene-probe-capture.ts).
  */
 
 export type StudioPreviewTrust = 'trusted' | 'unreviewed';
@@ -442,7 +444,7 @@ export async function buildStudioPreviewHtml(options: StudioPreviewOptions): Pro
   const probe =
     options.probe === undefined
       ? 'null'
-      : `function probe(w, seen, post) { (${studioSceneProbe.toString()})(w, seen, post, ${inlineJson(options.probe)}); }`;
+      : `function probe(w, seen, post) { (${studioSceneProbe.toString()})(w, seen, post, ${inlineJson(options.probe)}, ${options.probe.thumbnail === undefined ? 'null' : studioProbeCapture.toString()}); }`;
   const bridge = `(${studioPreviewBridge.toString()})(window, ${mountScripts.toString()}, ${String(options.reducedMotion === true)}, ${probe});`;
 
   return [

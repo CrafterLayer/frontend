@@ -11,6 +11,7 @@ import type {
 } from '@craftkit/builder-schema';
 
 import type { IntentKind } from './intent/route-intent';
+import type { AiSceneReviewCapability } from './provider/scene-review-wire';
 import type { AiSkillActivationPin, AiSkillManifestV1 } from './skills';
 
 export interface AiBlockSlotContext {
@@ -258,7 +259,7 @@ export interface AiProposeOptions {
 }
 
 /** The provider boundary. A network-backed provider implements the same contract. */
-export interface AiPlanProvider {
+export interface AiPlanProvider extends AiSceneReviewCapability {
   propose(
     request: string,
     context: AssembledAiContext,

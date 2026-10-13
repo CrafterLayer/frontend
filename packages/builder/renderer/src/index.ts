@@ -203,6 +203,7 @@ export {
   SCENE_PROBE_BUDGET_MS,
   probeScene,
   sceneProbePasses,
+  sceneProbeThumbnail,
   type ProbeViewport,
   type SceneProbeOptions,
   type SceneProbePassRunner,
@@ -216,4 +217,5 @@ export type {
   SceneProbePass,
   SceneProbePassReport,
   SceneProbeReport,
+  SceneProbeThumbnail,
 } from './studio/scene-probe-report';

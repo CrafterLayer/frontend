@@ -11,6 +11,12 @@ import {
 import { readCreativeMemory, type CreativeMemoryV1 } from '../creative/creative-memory';
 import { createStoryArcContextProvider, STORY_ARC_PROVIDER_ID } from '../creative/story-arc';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
+import {
+  BUILD_LESSONS_PROVIDER_ID,
+  buildLessonsOf,
+  createBuildLessonsProvider,
+  repairedCheck,
+} from './build-lessons';
 import type { PagePlan, SectionContract } from './page-plan/types';
 import type { RunAiBuildOptions } from './types';
 
@@ -20,7 +26,8 @@ import type { RunAiBuildOptions } from './types';
   briefed for that section, and — for a scene — the creative brief.
   `sectionProviders` is the ONE place a page-plan section's fragments are
   assembled; a new fragment for scene writers (a richer brief, a story bible)
-  goes there and nowhere else.
+  goes there and nowhere else. The one fragment that is decided as the writer STARTS — the
+  build's lessons so far (build-lessons.ts) — is added by `withBuildLessons`, at that moment.
 */
 
 /**
@@ -59,7 +66,10 @@ export function withPhotoCatalog(
  * creative brief, while ordinary supporting bands never inherit it just from
  * page-level words.
  */
-export function creativeRequestOf(options: RunAiBuildOptions, contract: SectionContract): string {
+export function creativeRequestOf(
+  options: Pick<RunAiBuildOptions, 'request'>,
+  contract: SectionContract,
+): string {
   return [
     contract.title,
     contract.purpose,
@@ -80,6 +90,20 @@ export function writesScene(options: RunAiBuildOptions, contract: SectionContrac
   );
 }
 
+/** The host's story bible, read; undefined without one, or when it fails to load. */
+export function hostCreativeMemory(
+  options: Pick<RunAiBuildOptions, 'creativeMemory'>,
+): CreativeMemoryV1 | undefined {
+  try {
+    return options.creativeMemory === undefined
+      ? undefined
+      : readCreativeMemory(options.creativeMemory()).memory;
+  } catch {
+    // A host memory that fails to load never blocks a build; the brief plans without it.
+    return undefined;
+  }
+}
+
 /**
  * A creative scene writer also gets the planner's brief (creative agent, 2026-10-12): genre,
  * literal libraries, beats, effects, rig states and the cast — the cast read from the host's
@@ -93,16 +117,7 @@ function withCreativeBrief(
   options: RunAiBuildOptions,
 ): readonly AiContextProvider[] {
   if (providers.some(({ id }) => id === CREATIVE_BRIEF_PROVIDER_ID)) return providers;
-  let memory: CreativeMemoryV1 | undefined;
-  try {
-    memory =
-      options.creativeMemory === undefined
-        ? undefined
-        : readCreativeMemory(options.creativeMemory()).memory;
-  } catch {
-    // A host memory that fails to load never blocks a build; the brief plans without it.
-    memory = undefined;
-  }
+  const memory = hostCreativeMemory(options);
   return Object.freeze([
     ...providers,
     createCreativeBriefContextProvider(creativeRequest, {
@@ -146,3 +161,22 @@ export function sectionProviders(
   if (scenes.length < 2 || briefed.some(({ id }) => id === STORY_ARC_PROVIDER_ID)) return briefed;
   return Object.freeze([...briefed, createStoryArcContextProvider(scenes, contract.key)]);
 }
+
+/**
+ * A writer's providers as it STARTS (build lessons, 2026-10-13): its briefing's, plus — once
+ * this build has learned any — the lessons so far, fixed at that moment. A writer that started
+ * before a lesson was learned never sees it; one with no lessons to learn from is unchanged.
+ */
+export function withBuildLessons(
+  options: Pick<RunAiBuildOptions, 'runId'>,
+  providers: readonly AiContextProvider[],
+): readonly AiContextProvider[] {
+  const lessons = buildLessonsOf(options);
+  if (lessons.length === 0 || providers.some(({ id }) => id === BUILD_LESSONS_PROVIDER_ID)) {
+    return providers;
+  }
+  return Object.freeze([...providers, createBuildLessonsProvider(lessons)]);
+}
+
+/** What one build's writers learn from each other: handed out as they start, learned as repairs land. */
+export const buildLessons = Object.freeze({ offered: withBuildLessons, learned: repairedCheck });

@@ -297,8 +297,8 @@ export function answerBody(
   };
 }
 
-/** Which call a usage line belongs to: a plan, a page plan, a site plan, or an enhancement. */
-export type UsageTask = 'plan' | 'page-plan' | 'site-plan' | 'enhance';
+/** Which call a usage line belongs to: a plan, a page plan, a site plan, an enhancement, a review. */
+export type UsageTask = 'plan' | 'page-plan' | 'site-plan' | 'enhance' | 'scene-review';
 
 /** Where a call's usage line goes: `HandlerOptions.onUsage`. */
 export interface UsageSink {

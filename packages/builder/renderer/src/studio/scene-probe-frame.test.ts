@@ -98,7 +98,11 @@ async function reported(probe: Probe): Promise<SceneProbeFrameReport> {
   return message?.['report'] as SceneProbeFrameReport;
 }
 
-function run(probe: Probe, over: Partial<StudioProbeSettings> = {}): void {
+function run(
+  probe: Probe,
+  over: Partial<StudioProbeSettings> = {},
+  capture?: Parameters<typeof studioSceneProbe>[4],
+): void {
   studioSceneProbe(
     probe.win,
     probe.seen,
@@ -106,8 +110,17 @@ function run(probe: Probe, over: Partial<StudioProbeSettings> = {}): void {
       probe.posted.push(message);
     },
     settings(over),
+    capture,
   );
 }
+
+const PICTURE = {
+  width: 640,
+  height: 360,
+  type: 'image/jpeg',
+  quality: 0.72,
+  maxChars: 140_000,
+} as const;
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -234,6 +247,43 @@ describe('studioSceneProbe (in the preview document)', () => {
       document.body.innerHTML = '';
     }
   }, 10_000);
+});
+
+describe('studioSceneProbe — the picture (visual self-review, 2026-10-13)', () => {
+  it('takes one picture as the scene is measured and posts it on the report', async () => {
+    const probe = frame('<canvas width="320" height="180"></canvas>');
+    place(probe.doc.querySelector('canvas')!, { x: 0, y: 0, width: 320, height: 180 });
+    paint(probe.win, () => true);
+    const thumbnail = { dataUrl: 'data:image/jpeg;base64,QQ==', width: 640, height: 360, ink: 0.4 };
+    const capture = vi.fn((_win: Window, _settings: unknown, done: (value: never) => void) => {
+      setTimeout(() => {
+        done(thumbnail as never);
+      }, 20);
+    });
+
+    run(probe, { thumbnail: PICTURE }, capture);
+    const report = await reported(probe);
+
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture.mock.calls[0]?.[1]).toEqual(PICTURE);
+    expect(report.thumbnail).toEqual(thumbnail);
+  });
+
+  it('posts by its deadline without a picture that never comes, and asks for none unasked', async () => {
+    const probe = frame('<canvas width="320" height="180"></canvas>');
+    place(probe.doc.querySelector('canvas')!, { x: 0, y: 0, width: 320, height: 180 });
+    paint(probe.win, () => true);
+    run(probe, { thumbnail: PICTURE, deadline: Date.now() + 700 }, () => undefined);
+    expect((await reported(probe)).thumbnail).toBeNull();
+
+    const plain = frame('<canvas width="320" height="180"></canvas>');
+    place(plain.doc.querySelector('canvas')!, { x: 0, y: 0, width: 320, height: 180 });
+    const capture = vi.fn();
+    run(plain, {}, capture);
+    const report = await reported(plain);
+    expect(capture).not.toHaveBeenCalled();
+    expect(report).not.toHaveProperty('thumbnail');
+  });
 });
 
 describe('studioProbeContexts', () => {

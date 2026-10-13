@@ -9,8 +9,10 @@
  * Start/Next/Play control once, and posts ONE `ck-preview:probe` {report} by `deadline`.
  *
  * Serialised with `Function.prototype.toString` like the bridge: self-contained (named function
- * expressions, no module-scope reference, no spread). Never throws into the page.
+ * expressions, no module-scope reference, no spread). Never throws into the page. With `thumbnail`
+ * and `capture` (scene-probe-capture.ts) it also posts a picture of the page as it was measured.
  */
+import type { StudioProbeThumbnailSettings, studioProbeCapture } from './scene-probe-capture';
 
 export interface StudioProbeSettings {
   /** Wall-clock time (`Date.now()`) by which the report is posted, whatever was measured. */
@@ -23,6 +25,8 @@ export interface StudioProbeSettings {
   readonly expectCanvas: boolean;
   /** Click the first visible Start/Next/Play control once and watch what changes. */
   readonly click: boolean;
+  /** Take a picture of the page as it is measured (visual self-review, 2026-10-13). */
+  readonly thumbnail?: StudioProbeThumbnailSettings | undefined;
 }
 
 /** What the bridge saw before and during the probe (it records every error it reports). */
@@ -62,6 +66,7 @@ export function studioSceneProbe(
   seen: StudioProbeSeen,
   post: (message: Record<string, unknown>) => void,
   settings: StudioProbeSettings,
+  capture?: typeof studioProbeCapture | null,
 ): void {
   const doc = win.document;
   const started = Date.now();
@@ -364,11 +369,33 @@ export function studioSceneProbe(
       },
     };
   }
+  /* ── the picture, taken as the scene is measured; the report waits for it until its deadline ── */
+  let shooting = false;
+  let shot: unknown = null;
+  function picture(): void {
+    if (settings.thumbnail === undefined || typeof capture !== 'function' || shooting) return;
+    shooting = true;
+    try {
+      capture(win, settings.thumbnail, function taken(thumbnail): void {
+        shot = thumbnail;
+        shooting = false;
+      });
+    } catch {
+      shooting = false; // No picture: the report goes without one.
+    }
+  }
   function finish(report: Record<string, unknown>): void {
     if (posted) return;
+    if (shooting && left() > 80) {
+      later(30, function wait(): void {
+        finish(report);
+      });
+      return;
+    }
     posted = true;
     report['errors'] = seen.errors.slice(0, 8);
     report['hidden'] = hidden;
+    if (settings.thumbnail !== undefined) report['thumbnail'] = shooting ? null : shot;
     post({ type: 'ck-preview:probe', report });
   }
 
@@ -445,7 +472,9 @@ export function studioSceneProbe(
       afterFrame(200, function shoot(): void {
         if (posted) return;
         try {
-          clickOnce(measure());
+          const measured = measure();
+          picture();
+          clickOnce(measured);
         } catch (error) {
           post({ type: 'ck-preview:probe', report: null, failure: String(error) });
           posted = true;

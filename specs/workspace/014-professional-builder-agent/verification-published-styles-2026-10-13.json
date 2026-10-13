@@ -1,0 +1,102 @@
+{
+  "check": "actual exported stylesheet in Chromium; no HTTP listener or provider",
+  "cases": 8,
+  "results": [
+    {
+      "palette": "light",
+      "dir": "ltr",
+      "width": 390,
+      "background": "oklch(0.210081 0.031757 264.68)",
+      "ink": "oklch(0.984619 0.00167125 249.008)",
+      "backgroundL": 0.210081,
+      "inkL": 0.984619,
+      "table": "none",
+      "cards": "grid",
+      "overflow": 0
+    },
+    {
+      "palette": "light",
+      "dir": "ltr",
+      "width": 1280,
+      "background": "oklch(0.210081 0.031757 264.68)",
+      "ink": "oklch(0.984619 0.00167125 249.008)",
+      "backgroundL": 0.210081,
+      "inkL": 0.984619,
+      "table": "block",
+      "cards": "none",
+      "overflow": 0
+    },
+    {
+      "palette": "light",
+      "dir": "rtl",
+      "width": 390,
+      "background": "oklch(0.210081 0.031757 264.68)",
+      "ink": "oklch(0.984619 0.00167125 249.008)",
+      "backgroundL": 0.210081,
+      "inkL": 0.984619,
+      "table": "none",
+      "cards": "grid",
+      "overflow": 0
+    },
+    {
+      "palette": "light",
+      "dir": "rtl",
+      "width": 1280,
+      "background": "oklch(0.210081 0.031757 264.68)",
+      "ink": "oklch(0.984619 0.00167125 249.008)",
+      "backgroundL": 0.210081,
+      "inkL": 0.984619,
+      "table": "block",
+      "cards": "none",
+      "overflow": 0
+    },
+    {
+      "palette": "dark",
+      "dir": "ltr",
+      "width": 390,
+      "background": "oklch(0.27 0.00167125 249.008)",
+      "ink": "oklch(0.97 0.02 264.68)",
+      "backgroundL": 0.27,
+      "inkL": 0.97,
+      "table": "none",
+      "cards": "grid",
+      "overflow": 0
+    },
+    {
+      "palette": "dark",
+      "dir": "ltr",
+      "width": 1280,
+      "background": "oklch(0.27 0.00167125 249.008)",
+      "ink": "oklch(0.97 0.02 264.68)",
+      "backgroundL": 0.27,
+      "inkL": 0.97,
+      "table": "block",
+      "cards": "none",
+      "overflow": 0
+    },
+    {
+      "palette": "dark",
+      "dir": "rtl",
+      "width": 390,
+      "background": "oklch(0.27 0.00167125 249.008)",
+      "ink": "oklch(0.97 0.02 264.68)",
+      "backgroundL": 0.27,
+      "inkL": 0.97,
+      "table": "none",
+      "cards": "grid",
+      "overflow": 0
+    },
+    {
+      "palette": "dark",
+      "dir": "rtl",
+      "width": 1280,
+      "background": "oklch(0.27 0.00167125 249.008)",
+      "ink": "oklch(0.97 0.02 264.68)",
+      "backgroundL": 0.27,
+      "inkL": 0.97,
+      "table": "block",
+      "cards": "none",
+      "overflow": 0
+    }
+  ]
+}

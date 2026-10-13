@@ -136,6 +136,11 @@ export interface AiSkillPrepareOptions {
   intent?: IntentKind;
   selectedSkillIds?: readonly string[];
   selectedBlockTypes?: readonly string[];
+  /**
+   * Skills that woke earlier in this conversation (2026-10-13): each counts as an auto match
+   * while its intent gate allows, so a follow-up keeps the skill set its cached prompt holds.
+   */
+  carriedSkillIds?: readonly string[];
   auto?: boolean;
   allowUntrusted?: boolean;
   maxActiveSkills?: number;

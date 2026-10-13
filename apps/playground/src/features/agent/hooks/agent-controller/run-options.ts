@@ -5,10 +5,12 @@
 import type { BuilderKernel, NodeId, RunAiAgentOptions } from '@craftkit/builder';
 
 import { catalogPolicyFor } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
+import { carriedSkillIdsOf, withCarriedSkills } from '../../model/conversation-memory';
 import { preflightPorts } from '../../model/runs';
 
 import type { Flow } from './controller-state';
 import type { Slot } from './run-lease';
+import { sessionOf } from './turn-plumbing';
 import { contextProvidersOf } from './story-bible-context';
 // script-wiring additions
 import { agentScriptSiteFor, scriptRunLine } from '../../model/script-site';
@@ -38,7 +40,11 @@ export function commonRunOptions(
     ...contextProvidersOf(env),
     // A creative writer's planner brief takes its cast from the bible (read per run).
     creativeMemory: () => env.storyBible.get(),
-    skillRegistry: env.registry,
+    // Skills that woke earlier in this conversation stay awake (conversation-memory.ts).
+    skillRegistry: withCarriedSkills(
+      env.registry,
+      carriedSkillIdsOf(sessionOf(flow, slot.sessionId)?.turns ?? []),
+    ),
     ...(options.selectedSkillIds === undefined
       ? {}
       : { selectedSkillIds: options.selectedSkillIds }),

@@ -101,6 +101,7 @@ function matchesAuto(
   skill: AiDefinedSkillV1,
   request: AutoRequest,
   selectedBlockTypes: ReadonlySet<string>,
+  carried: ReadonlySet<string>,
 ): boolean {
   const activation = skill.manifest.activation;
   if (activation.mode !== 'auto') return false;
@@ -111,7 +112,7 @@ function matchesAuto(
     activation.selectedBlockTypes?.some((type) => selectedBlockTypes.has(type)) ?? false;
   const scriptMatch =
     activation.scripts?.some((script) => requestUsesScript(request.text, script)) ?? false;
-  if (!(keywordMatch || blockMatch || scriptMatch)) return false;
+  if (!(keywordMatch || blockMatch || scriptMatch || carried.has(skill.manifest.id))) return false;
   /*
     The gate, after the triggers so the route is only computed for a skill
     that would otherwise activate.
@@ -374,10 +375,12 @@ export function resolveAiSkills(
       (options.selectedBlockTypes ?? []).map((type) => type.trim().toLowerCase()),
     );
     const request = autoRequest(options.request, options.intent);
+    const carried = new Set(options.carriedSkillIds ?? []);
     const autoMatches = [...entries.values()]
       .filter(
         (skill) =>
-          !candidates.has(skill.manifest.id) && matchesAuto(skill, request, selectedBlockTypes),
+          !candidates.has(skill.manifest.id) &&
+          matchesAuto(skill, request, selectedBlockTypes, carried),
       )
       .sort(compareAuto);
 

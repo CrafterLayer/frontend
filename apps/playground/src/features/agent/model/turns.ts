@@ -1,6 +1,5 @@
 import type {
   AiBuildSectionValues,
-  AiChatTurn,
   AiPlan,
   AiRunFailure,
   AiSkillActivationPin,
@@ -374,33 +373,6 @@ export function highestIdSuffix(sessions: readonly Session[]): number {
   return highest;
 }
 
-/** The assistant's own words for one turn, or null when it said nothing the model needs. */
-function assistantWords(turn: Exclude<Turn, UserTurn>): string | null {
-  switch (turn.kind) {
-    case 'build':
-      return turn.progress.direction;
-    case 'edit':
-      return turn.summary ?? null;
-    case 'proposal':
-      return turn.plan?.rationale ?? null;
-    case 'page-plan':
-      return turn.direction?.mood ?? null;
-    case 'step-plan':
-      /*
-        The plan the assistant just wrote IS the answer, so it belongs in the history.
-        Dropping it meant a person could say "do option two" and the next request arrived
-        without the answer that had the options in it.
-      */
-      return turn.text;
-    case 'answer':
-      return turn.text;
-    case 'error':
-      return turn.failure.message;
-    case 'end':
-      return null;
-  }
-}
-
 /**
  * A run whose plan proposed no command but has words (its rationale, or a follow-up to
  * send next) is the model answering, most often asking what was meant. It is recorded as
@@ -433,17 +405,7 @@ export function answerFromPlan(input: {
   };
 }
 
-/** The newest 12 messages, opening on a user turn (the Messages API's rule). Never an empty one. */
-export function historyOf(turns: readonly Turn[]): AiChatTurn[] {
-  const said = turns.flatMap<AiChatTurn>((turn) => {
-    if (turn.kind === 'user') return [{ role: 'user', text: turn.text }];
-    const text = assistantWords(turn);
-    return text === null || text.trim() === '' ? [] : [{ role: 'assistant', text }];
-  });
-  const recent = said.slice(-12);
-  const first = recent.findIndex(({ role }) => role === 'user');
-  return first === -1 ? [] : recent.slice(first);
-}
+export { historyOf } from './conversation-memory';
 
 /**
  * Saved conversations from before ids continued across reloads can hold two turns with

@@ -32,6 +32,8 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-gameai': async () => (await import('./gameai-source')).GAMEAI_SOURCE,
   'lib-hud': async () => (await import('./hud-source')).HUD_SOURCE,
   'lib-peeps': async () => (await import('./peeps-source')).PEEPS_SOURCE,
+  'lib-procgen': async () => (await import('./procgen-source')).PROCGEN_SOURCE,
+  'lib-gif': async () => (await import('./gif-source')).GIF_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

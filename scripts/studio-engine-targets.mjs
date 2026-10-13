@@ -177,6 +177,26 @@ export const TARGETS = {
     budget: 116_900,
     versionPackage: '@dicebear/open-peeps',
   },
+  // procedural maps (2026-10-13): rot.js (BSD-3-Clause) dungeons, caves and mazes, imported module
+  // by module (six generators, the RNG and precise shadowcasting; rot's display, scheduler, noise
+  // and A* stay out), plus first-party BFS, scatter, tilemap rows and a Graphics drawer. Measured
+  // 11,745 bytes gzip; budget + 5 % rounded up to 100 bytes.
+  procgen: {
+    entry: 'src/studio/libs/procgen-entry.ts',
+    factory: 'createProcgenLibrary',
+    pixi: false,
+    budget: 12_400,
+    versionPackage: 'rot-js',
+  },
+  // animated GIFs (2026-10-13): gifuct-js (MIT) decodes, first-party compositing and a sprite on
+  // the scene's own PIXI.Sprite; plain, so it never waits for or bundles Pixi. Measured 7,480.
+  gif: {
+    entry: 'src/studio/libs/gif-entry.ts',
+    factory: 'createGifLibrary',
+    pixi: false,
+    budget: 7_900,
+    versionPackage: 'gifuct-js',
+  },
   sound: {
     entry: 'src/sound/entry.ts',
     budget: 10_000,

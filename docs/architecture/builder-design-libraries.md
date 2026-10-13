@@ -322,6 +322,50 @@ this round adds a thin, optional layer on top of each, upstream APIs unchanged:
   mirrors, the reduced-motion still frame, a world settling on its floor, a pointer drag and a
   disposal that leaves no body, constraint or ticker behind.
 
+### Procedural maps and animated GIFs: `procgen`, `gif` (2026-10-13)
+
+Asked to strengthen PixiJS results with packages, we evaluated rot-js, poisson-disk-sampling,
+@pixi/gif and @pixi/layout with yoga-layout against the same bar: a permissive licence read from the
+installed tarball, the gzip size of the lazy asset, the Studio preview's CSP
+(`script-src 'unsafe-inline' 'unsafe-eval'`; the unreviewed preview has `connect-src 'none'`) and
+the export's (none of its own), Pixi v8 fit, and what the Agent's scenes gain. Two libraries were
+admitted, as plain (not Pixi-bound) lazy assets.
+
+| Key       | Source / licence                              | gzip / budget  | What it gives an authored scene                                                                                                                                                                                                     |
+| --------- | --------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `procgen` | rot-js 2.2.1 (BSD-3-Clause)                   | 11.7 / 12.4 kB | Dungeons (rooms + corridors), cellular caves and perfect mazes seeded by the scene, always connected, with a reachable start (inline-start side) and exit, BFS paths, field of view, spaced scattering, tilemap rows and a Graphics |
+| `gif`     | gifuct-js 2.1.2 (MIT, Pixi's own GIF decoder) | 7.5 / 7.9 kB   | A GIF the person supplied, animated as a `PIXI.Sprite` with AnimatedSprite controls on the scene's ticker; first frame under reduced motion; bounded, thinned when long; `data:` URLs need no network                               |
+
+- **Why procgen.** Hand-written ASCII levels are where generated mazes go wrong: an exit walled off,
+  a key behind a wall. `s.lib.procgen` returns a map that is connected by construction (what a
+  generator leaves cut off is filled), so the planner adds it to maze, dungeon, cave and roguelike
+  games, and the same scene seed always draws the same level. rot.js is imported module by module
+  (six generators, its RNG, precise shadowcasting); paths are our BFS (exact on a unit-cost grid),
+  and open-space scattering stays the kit's `s.poisson`.
+- **Why our own GIF sprite over `@pixi/gif` 3.0.1.** `@pixi/gif`'s entry registers a global `.gif`
+  Assets loader on the page's one Pixi namespace when imported, steps frames on `Ticker.shared`,
+  keeps every frame's pixels with no bound, would have to be Pixi-bound, and ships gifuct-js and
+  js-binary-schema-parser inside its own `lib/` without their licence notice. PixiJS has since
+  merged it into `pixi.js/gif`, whose files import Pixi internals by path, so bundling it would ship
+  a second copy of Texture/Sprite beside the page's namespace. `s.lib.gif` uses the same decoder
+  (gifuct-js 2.1.2, already in the lockfile as pixi.js 8.22's dependency), composites in plain
+  arrays, and subclasses the scene's own `PIXI.Sprite`.
+- **Not admitted:** `@pixi/layout` 3.2.1 + yoga-layout 3.2.1 — 59.8 kB gzip, nearly all of it Yoga's
+  base64 WebAssembly (71.7 kB binary). Measured in Chromium, it compiles under the preview CSP only
+  because `'unsafe-eval'` is present and is refused under a policy without it or
+  `'wasm-unsafe-eval'`. It also mixes `layout` into Container/Text prototypes for every scene on the
+  page, needs its renderer system registered before `app.init` (Studio opens the stage while
+  libraries load), and the yoga-layout tarball carries no LICENSE file for the build's audit. Canvas
+  menus stay DOM (the HUD rule); responsive canvas layout is design mode plus `s.compact`/`s.ui`.
+  `poisson-disk-sampling` 2.3.1 (MIT, 2.8 kB) duplicates `s.poisson`.
+- **Teaching.** `CK_LIBRARY_REFERENCE` lists both (EN/AR). The physics playbook teaches a marble
+  maze on `s.lib.procgen.maze`, the scroll-mural playbook the person's own GIF; the creative planner
+  adds `procgen` (with a mechanic line carrying the API) to maze/dungeon/cave games and procedural
+  or roguelike briefs, and `gif` when the brief brings a GIF.
+- **Proof.** `apps/evals/src/pixi-creative/procgen-gif.browser.test.ts`: a drawn dungeon whose rooms
+  are all reachable, a maze walked as a tilemap world, a `data:` GIF whose read-back pixels change
+  colour, at 390 and 1280 px in LTR and RTL, and reduced motion's first frame.
+
 ### The creative agent
 
 `packages/builder/ai/src/creative/` is the Agent's creative domain:

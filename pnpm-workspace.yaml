@@ -158,6 +158,17 @@ catalog:
   '@dicebear/core': 9.4.3
   '@dicebear/open-peeps': 9.4.3
   # end pixi-studio:peeps additions
+  # pixi-studio:procgen+gif additions (2026-10-13): procedural maps and animated GIF frames, in
+  # @craftkit/builder-media-engines only and shipped only as the lazy ck-lib-procgen.js and
+  # ck-lib-gif.js assets. Licences read from each tarball on 2026-10-13: rot-js license.txt
+  # BSD-3-Clause (c) 2012-now() Ondrej Zara (its Alea RNG notes "(C) 2010 Johannes Baagoe, MIT");
+  # gifuct-js LICENSE MIT (c) 2015 Matt Way. rot-js 2.2.1 was published 2024-11-13; gifuct-js 2.1.2
+  # (2021-11-04) is the decoder pixi.js 8.22 itself depends on, so the lockfile gains no new code.
+  # Not admitted: @pixi/gif 3.0.1, @pixi/layout 3.2.1 + yoga-layout 3.2.1 and poisson-disk-sampling
+  # (reasons in vendor/VENDOR.md).
+  gifuct-js: 2.1.2
+  rot-js: 2.2.1
+  # end pixi-studio:procgen+gif additions
   # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
   # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
   # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json

@@ -107,6 +107,16 @@ describe('scene engine skills', () => {
     expect(skill?.instructions).toContain('settles synchronously');
   });
 
+  // procedural maps and animated GIFs (2026-10-13): one line each, inside the same budget.
+  it('teaches a seeded procgen maze for marble toys and only the person’s own GIF for murals', () => {
+    const physics = SCENE_ENGINE_SKILLS.find((skill) => skill.id === PHYSICS)?.instructions ?? '';
+    expect(physics).toContain("libs:['physics','procgen']");
+    expect(physics).toContain('s.lib.procgen.maze(s,{width:21,height:13})');
+    const mural = SCENE_ENGINE_SKILLS.find((skill) => skill.id === SCROLL)?.instructions ?? '';
+    expect(mural).toContain('await s.lib.gif.load(s,url)');
+    expect(mural).toContain('never invent a URL');
+  });
+
   it('drives the mural from s.scroll, mirrors RTL and never adds input plugins', () => {
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('s.scroll.progress');
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('s.dir>0?p:1-p');

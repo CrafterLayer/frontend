@@ -578,6 +578,40 @@ v9 LTS that `@dicebear/open-peeps` peers on; the older 9.2.4 lacks 9.4's XML esc
 rotate options. Texts: THIRD_PARTY_LICENSES.md. Kenney packs were not used (kenney.nl is not reachable
 from this environment).
 
+## Studio procedural maps and animated GIFs — rot.js, gifuct-js (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-procgen.js` (generated
+`packages/builder/renderer/src/engines/studio/procgen-source.ts`, 11.7 kB gzip, budget 12.4 kB) and
+`assets/ck-lib-gif.js` (`gif-source.ts`, 7.5 kB gzip, budget 7.9 kB), shipped only on pages whose
+code names `procgen` or `gif`. `scripts/build-studio-engines.mjs` audits each bundled package's
+`LICENSE` text against its declared licence and carries the texts in the asset's banner. Neither
+asset evaluates code, compiles WebAssembly or bundles Pixi.
+
+| Package                 | Version | Licence                                       | Asset               |
+| ----------------------- | ------- | --------------------------------------------- | ------------------- |
+| rot-js                  | 2.2.1   | **BSD-3-Clause** (c) 2012-now() Ondrej Zara   | `ck-lib-procgen.js` |
+| gifuct-js               | 2.1.2   | MIT (c) 2015 Matt Way                         | `ck-lib-gif.js`     |
+| js-binary-schema-parser | 2.0.3   | MIT (c) 2015 Matt Way (gifuct-js's parser)    | `ck-lib-gif.js`     |
+
+Read on 2026-10-13 from the installed tarballs: `rot-js/license.txt` is the three-clause BSD text
+("Neither the name of Ondrej Zara…"), `package.json` declares `BSD-3-Clause`; its `lib/rng.js` (in
+the bundle) notes "This code is an implementation of Alea algorithm; (C) 2010 Johannes Baagøe. Alea
+is licensed according to the MIT License" — that notice is reproduced in THIRD_PARTY_LICENSES.md.
+Only `lib/rng.js`, six `lib/map/*` generators and `lib/fov/precise-shadowcasting.js` are imported.
+`gifuct-js/LICENSE` and `js-binary-schema-parser/LICENSE` are the MIT text, both "Copyright (c)
+2015 Matt Way"; gifuct-js 2.1.2 is the version pixi.js 8.22.0 itself depends on (for
+`pixi.js/gif`), so the lockfile gained no new package for it. rot-js 2.2.1 was published
+2024-11-13.
+
+Evaluated and **not admitted** (2026-10-13), each read from its installed tarball:
+
+| Package                   | Version | Licence (as read)                          | Why not                                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | ------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| @pixi/gif                 | 3.0.1   | MIT (c) 2021 Matt Karl, LLC                | Its entry calls `extensions.add` for a `.gif` Assets loader on the page's one Pixi namespace; frames step on `Ticker.shared`; every frame's pixels kept with no bound; it would have to be Pixi-bound; it copies gifuct-js and js-binary-schema-parser into `lib/external/` without their notice. Superseded by `pixi.js/gif`, whose modules import Pixi internals by path (a second Pixi copy if bundled). Replaced by `s.lib.gif` on the same decoder. |
+| @pixi/layout + yoga-layout | 3.2.1 + 3.2.1 | MIT (c) 2025 PixiJS + MIT (`package.json` only: the yoga-layout tarball has **no LICENSE file**, which the build's audit refuses) | 59.8 kB gzip (Yoga's base64 WebAssembly is 127 kB of the 152 kB raw bundle). In Chromium the 71.7 kB module compiles under the preview CSP only because `'unsafe-eval'` is present; it is refused without `'unsafe-eval'`/`'wasm-unsafe-eval'`. Mixes `layout` into Container/Text/ViewContainer prototypes page-wide; its `LayoutSystem` must be registered before `app.init`, while Studio opens the stage as libraries load. Canvas menus stay DOM. |
+| poisson-disk-sampling     | 2.3.1   | MIT (c) 2015 Kevin Chapelier (+ moore MIT) | 2.8 kB gzip for what the kit's own seeded `s.poisson(w, h, r, max?)` already does.                                                                                                                                                                                                                                                  |
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

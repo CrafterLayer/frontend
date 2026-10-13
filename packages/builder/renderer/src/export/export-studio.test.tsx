@@ -45,6 +45,8 @@ vi.mock('../engines/studio/loaders', () => {
     'gameai',
     'hud',
     'peeps',
+    'procgen',
+    'gif',
   ];
   const loaders: Record<string, () => Promise<string>> = {
     sound: () => Promise.resolve('/* ck-sound stand-in */'),

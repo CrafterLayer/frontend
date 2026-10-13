@@ -36,6 +36,8 @@ export const STUDIO_LIB_KEYS = [
   'gameai',
   'hud',
   'peeps',
+  'procgen',
+  'gif',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 /** Keys whose asset binds to the page's Pixi namespace (D2); the others are plain. */

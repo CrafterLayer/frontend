@@ -164,7 +164,7 @@ describe('creative planner', () => {
       'A maze adventure to find the treasure',
       'maze-adventure',
       'game',
-      ['tilemap', 'anim', 'fx', 'dialogue'],
+      ['tilemap', 'anim', 'fx', 'dialogue', 'procgen'],
     ],
     [
       'بدي رواية مرئية فيها خيارات ونهايات مختلفة',
@@ -221,6 +221,29 @@ describe('creative planner', () => {
     expect(girl.mechanics.join(' ')).toContain('s.lib.peeps');
     expect(planCreativeBrief('قصة تفاعلية عن بنت اسمها ليلى').libs).toContain('peeps');
     expect(planCreativeBrief('A bedtime story about a fox named Rumi').libs).not.toContain('peeps');
+  });
+
+  it('generates the level of a maze, dungeon or roguelike game, never of a story set in a cave', () => {
+    const dungeon = planCreativeBrief('A dungeon crawler where a knight looks for the exit');
+    expect(dungeon.libs).toContain('procgen');
+    const text = dungeon.mechanics.join(' ');
+    expect(text).toContain('s.lib.procgen.maze|dungeon|cave(s,{width,height})');
+    expect(text).toContain('map.rows() into s.lib.tilemap.world');
+    expect(planCreativeBrief('اعمل لعبة متاهة فيها كنز ووحوش').libs).toContain('procgen');
+    expect(planCreativeBrief('A roguelike with a new level every time').libs).toContain('procgen');
+    expect(planCreativeBrief('A bedtime story about a bear asleep in a cave').libs).not.toContain(
+      'procgen',
+    );
+    expect(planCreativeBrief('A platformer in a forest').libs).not.toContain('procgen');
+  });
+
+  it("animates the person's own GIF only when they bring one", () => {
+    const brief = planCreativeBrief('A platformer where my cat.gif is the hero');
+    expect(brief.libs).toContain('gif');
+    expect(brief.mechanics.join(' ')).toContain(
+      'await s.lib.gif.load(s,url) with their own URL only',
+    );
+    expect(planCreativeBrief('A platformer where my cat is the hero').libs).not.toContain('gif');
   });
 
   it('adds Ink, viewport and filters only when asked', () => {

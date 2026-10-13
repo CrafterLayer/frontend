@@ -70,4 +70,18 @@ describe('CK_LIBRARY_REFERENCE', () => {
     expect(peeps?.api.join('\n')).toContain('s.lib.peeps.cast(');
     expect(peeps?.api.join('\n')).toContain('s.lib.dialogue.cast(people.members())');
   });
+
+  it('describes procedural maps and animated GIFs by the calls the creative agent writes', () => {
+    const procgen = libraryEntry('procgen');
+    expect(procgen?.pixiBound).toBe(false);
+    expect(procgen?.source).toBe('rot-js');
+    expect(procgen?.api.join('\n')).toContain('s.lib.procgen.dungeon(s,');
+    expect(procgen?.api.join('\n')).toContain('rows: map.rows()');
+    expect(procgen?.purpose.en).toMatch(/always connected/u);
+    const gif = libraryEntry('gif');
+    expect(gif?.pixiBound).toBe(false);
+    expect(gif?.api.join('\n')).toContain('await s.lib.gif.load(s, url');
+    expect(gif?.purpose.en).toMatch(/never an invented one/u);
+    expect(gif?.purpose.en).toMatch(/reduced motion/u);
+  });
 });

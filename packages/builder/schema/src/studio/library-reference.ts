@@ -25,6 +25,7 @@ const STUDIO = '2026-10-10';
 const CREATIVE = '2026-10-12';
 const GAMES = '2026-10-12';
 const CHARACTERS = '2026-10-13';
+const MEDIA = '2026-10-13';
 
 export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
   {
@@ -262,6 +263,38 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     ],
     source: '@dicebear/core + @dicebear/open-peeps',
     since: CHARACTERS,
+  },
+  {
+    key: 'procgen',
+    pixiBound: false,
+    purpose: {
+      en: 'Procedural levels from rot.js: dungeons of rooms and corridors, cellular caves and perfect mazes, seeded by the scene (the same seed draws the same map) and always connected, with a reachable start and exit, shortest paths, field of view and spaced scattering for pickups; rows for s.lib.tilemap.world or one Graphics in the site colours.',
+      ar: 'مستويات مولّدة من rot.js: زنزانات من غرف وممرات، وكهوف خلوية، ومتاهات كاملة، ببذرة المشهد (البذرة نفسها ترسم الخريطة نفسها) ومتصلة دائماً، مع بداية ومخرج يمكن بلوغهما، وأقصر المسارات، ومجال الرؤية، وتوزيع متباعد للعناصر؛ صفوف لـ s.lib.tilemap.world أو رسم Graphics واحد بألوان الموقع.',
+    },
+    api: [
+      "const map = s.lib.procgen.dungeon(s, { width: 48, height: 30, style: 'digger' | 'rooms' }) / .cave(s, { fill: 0.46 }) / .maze(s, { style: 'divided' | 'icey' | 'eller' })",
+      "s.lib.tilemap.world(s.app, { tileSize: 24, rows: map.rows(), legend: { '#': { style: 'stone', solid: true }, p: { kind: 'player' }, e: { kind: 'exit' } } })",
+      'map.draw(s, { tile: 16 }) → PIXI.Graphics on s.world in s.palette colours',
+      'map.start / map.exit / map.rooms / map.path(a, b) / map.distance(a, b) / map.fov(x, y, 8).has(x, y) / map.scatter(6, { spacing: 4 }) / map.centre(cell, tile)',
+    ],
+    source: 'rot-js',
+    since: MEDIA,
+  },
+  {
+    key: 'gif',
+    pixiBound: false,
+    purpose: {
+      en: 'Animated GIFs on the canvas from a URL the person supplied or approved (https:, data:image/gif, blob: — never an invented one): a PIXI.Sprite with AnimatedSprite controls, stepped by the scene’s ticker, held on its first frame under reduced motion and destroyed with the scene; long GIFs are thinned to a memory budget.',
+      ar: 'صور GIF متحركة على اللوحة من رابط قدّمه الشخص أو اعتمده (https: أو data:image/gif أو blob: — لا رابط مخترع أبداً): PIXI.Sprite بأدوات تحكم AnimatedSprite، يتقدم مع مؤقت المشهد، ويثبت على إطاره الأول عند تقليل الحركة، ويُزال مع المشهد؛ وتُخفَّف إطارات الصور الطويلة لتناسب حد الذاكرة.',
+    },
+    api: [
+      'const gif = await s.lib.gif.load(s, url, { loop: true, animationSpeed: 1, pixelated: false })',
+      's.world.addChild(gif); gif.anchor.set(0.5)',
+      'gif.play() / gif.stop() / gif.gotoAndStop(0) / gif.currentFrame / gif.totalFrames / gif.onLoop = fn',
+      's.lib.gif.from(s, arrayBuffer) → the same from a file the person picked',
+    ],
+    source: 'gifuct-js',
+    since: MEDIA,
   },
 ];
 

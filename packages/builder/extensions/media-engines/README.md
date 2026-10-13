@@ -328,6 +328,69 @@ Budgets: `ck-lib-emitter.js` 17,400 bytes gzip (was 12,000; measured 16,545 with
 ParticleContainers) and `libs/physics/physics.test.ts` (real matter-js); Chromium:
 `CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/particles.browser.test.ts`.
 
+## Procedural maps and animated GIFs: `procgen`, `gif` (2026-10-13)
+
+Two plain (not Pixi-bound) lazy libraries: `ck-lib-procgen.js` (`createProcgenLibrary`, rot-js
+2.2.1, BSD-3-Clause) and `ck-lib-gif.js` (`createGifLibrary`, gifuct-js 2.1.2, MIT). Neither
+evaluates code, compiles WebAssembly or bundles Pixi: a map's Graphics and a GIF's Sprite come from
+the scene's own `s.PIXI`.
+
+```js
+const s = await ck.scene({ libs: ['procgen', 'tilemap', 'gif'] });
+const map = s.lib.procgen.dungeon(s, { width: 48, height: 30, style: 'digger' }); // or 'rooms'
+const cave = s.lib.procgen.cave(s, { width: 60, height: 36, fill: 0.46, steps: 4 });
+const maze = s.lib.procgen.maze(s, { width: 31, height: 21, style: 'divided' }); // icey, eller
+const world = s.lib.tilemap.world(s.app, {
+  tileSize: 24,
+  rows: map.rows(), // '#' wall, '.' floor, 'p' start, 'e' exit (legend overrides symbols)
+  legend: {
+    '#': { style: 'stone', solid: true },
+    p: { kind: 'player', marker: true },
+    e: { kind: 'exit' },
+  },
+});
+map.draw(s, { tile: 16 }); // or one Graphics on s.world in s.palette colours
+const coins = map.scatter(8, { spacing: 4 }); // seeded, spaced, away from start and exit
+const lit = map.fov(map.start.x, map.start.y, 8); // lit.has(x, y), lit.cells
+const way = map.path(map.start, map.exit); // BFS, { diagonal: true } never cuts a corner
+
+const cat = await s.lib.gif.load(s, url, { loop: true, animationSpeed: 1, pixelated: false });
+cat.anchor.set(0.5);
+s.world.addChild(cat); // play(), stop(), gotoAndStop(n), currentFrame, totalFrames, onLoop…
+```
+
+- **Seeded and connected** (`libs/procgen/`): the seed is one draw from the scene's seeded random
+  (or `seed`), so the editor, the preview and the published page draw the same map. rot's generators
+  share one module-level RNG; each call seeds it and generates synchronously. Whatever a generator
+  leaves cut off is filled, so every floor cell — and every room, the start and the exit — is
+  reachable. The start sits on the inline-start side (left in LTR, right in RTL); the exit is the
+  room (or cell) farthest from it. Sizes 7..160 a side; mazes are odd-sized; a room spans at most
+  half the map (rot places the first one unchecked). Only six generators, the RNG and precise
+  shadowcasting are imported, module by module; rot's display, scheduler, noise and A\* stay out
+  (BFS is exact on a unit-cost grid). Scattering of points in open space stays `s.poisson`.
+- **GIFs** (`libs/gif/`): `inspect.ts` walks the block structure first and refuses anything that is
+  not a GIF, over 12 MB, over 1024 px a side or over 4000 frames; `decode.ts` composites the frames
+  (disposal 1/2/3, transparency, inherited control blocks, 100 ms for tiny delays) in plain RGBA
+  arrays and keeps every n-th frame (with the skipped delays) when frames × pixels would pass 8 M
+  pixels or 240 frames. URLs follow `s.texture`'s rule: a `data:image/gif` URL is decoded in place
+  (it works under the unreviewed preview's `connect-src 'none'`); `https:` and `blob:` are fetched
+  without credentials, 15 s and 12 MB at most. The sprite subclasses the page's `PIXI.Sprite`,
+  advances on one `s.tick` per scene (never `Ticker.shared`), holds its first frame under reduced
+  motion (rendered once placed), and `s.dispose` destroys it, its texture and frames.
+- **Not admitted** (2026-10-13): `@pixi/gif` 3.0.1 (registers a global `.gif` Assets loader on the
+  page's one Pixi on import, steps on `Ticker.shared`, keeps every frame unbounded, would have to be
+  Pixi-bound, and ships gifuct-js inside its own `lib/` without that package's notice; PixiJS merged
+  it into `pixi.js/gif`, whose files import Pixi internals and so cannot bind to the page's
+  namespace), `@pixi/layout` 3.2.1 + yoga-layout 3.2.1 (59.8 kB gzip, WebAssembly that compiles only
+  because the preview allows `'unsafe-eval'`, prototype mixins and a renderer system that must exist
+  before `app.init`, no LICENSE file in the yoga tarball; menus stay DOM) and
+  `poisson-disk-sampling` (`s.poisson` already does it).
+
+Budgets: `ck-lib-procgen.js` 12,400 bytes gzip (measured 11,745), `ck-lib-gif.js` 7,900 (measured
+7,480). Unit tests: `libs/procgen/procgen.test.ts`, `libs/gif/gif.test.ts` (a GIF writer in
+`gif-encoder.test-util.ts`); Chromium:
+`CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/procgen-gif.browser.test.ts`.
+
 ## Bundled licences
 
 pixi.js is MIT. The bundle also carries `@pixi/colord` (MIT), `earcut` (ISC), `eventemitter3` (MIT),

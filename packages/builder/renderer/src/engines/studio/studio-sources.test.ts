@@ -12,11 +12,13 @@ import { EMITTER_BANNER, EMITTER_SHA256, EMITTER_SOURCE } from './emitter-source
 import { FILTERS_BANNER, FILTERS_SHA256, FILTERS_SOURCE } from './filters-source';
 import { FX_BANNER, FX_SHA256, FX_SOURCE } from './fx-source';
 import { GAMEAI_BANNER, GAMEAI_SHA256, GAMEAI_SOURCE } from './gameai-source';
+import { GIF_BANNER, GIF_SHA256, GIF_SOURCE } from './gif-source';
 import { HUD_BANNER, HUD_SHA256, HUD_SOURCE } from './hud-source';
 import { INK_BANNER, INK_SHA256, INK_SOURCE } from './ink-source';
 import { KIT_BANNER, KIT_SHA256, KIT_SOURCE } from './kit-source';
 import { PEEPS_BANNER, PEEPS_SHA256, PEEPS_SOURCE } from './peeps-source';
 import { PHYSICS_BANNER, PHYSICS_SHA256, PHYSICS_SOURCE } from './physics-source';
+import { PROCGEN_BANNER, PROCGEN_SHA256, PROCGEN_SOURCE } from './procgen-source';
 import { ROUGH_BANNER, ROUGH_SHA256, ROUGH_SOURCE } from './rough-source';
 import { SOUND_BANNER, SOUND_SHA256, SOUND_SOURCE } from './sound-source';
 import { TILEMAP_BANNER, TILEMAP_SHA256, TILEMAP_SOURCE } from './tilemap-source';
@@ -45,6 +47,9 @@ const ASSETS = [
   ['hud', HUD_SOURCE, HUD_BANNER, HUD_SHA256, 26_500],
   // character art (2026-10-13): measured 111.3 kB gzip, nearly all Open Peeps path data.
   ['peeps', PEEPS_SOURCE, PEEPS_BANNER, PEEPS_SHA256, 116_900],
+  // procedural maps and animated GIFs (2026-10-13): measured 11,745 and 7,480 bytes gzip.
+  ['procgen', PROCGEN_SOURCE, PROCGEN_BANNER, PROCGEN_SHA256, 12_400],
+  ['gif', GIF_SOURCE, GIF_BANNER, GIF_SHA256, 7_900],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;
 
@@ -53,9 +58,12 @@ describe('generated Studio engine assets', () => {
     '%s carries a valid notice, hash and single-file IIFE',
     (_key, source, banner, sha, budget) => {
       expect(banner.startsWith('/*!')).toBe(true);
-      // Third-party bundles carry their licences; first-party creative libraries say they have none.
+      // Third-party bundles carry their licences (MIT/ISC permission or BSD redistribution
+      // terms); first-party creative libraries say they have none.
       expect(
-        banner.includes('Permission is hereby granted') || banner.includes('first-party source'),
+        banner.includes('Permission is hereby granted') ||
+          banner.includes('Redistribution and use in source and binary forms') ||
+          banner.includes('first-party source'),
       ).toBe(true);
       expect(source.startsWith(banner)).toBe(true);
       expect(source).not.toMatch(/\bimport\s*\(/u);
@@ -74,5 +82,19 @@ describe('generated Studio engine assets', () => {
     );
     expect(PEEPS_BANNER).toContain('Copyright (c) 2024 Florian Körner');
     expect(PEEPS_SOURCE).not.toMatch(/https?:\/\/api\.dicebear\.com/u);
+  });
+
+  it('carries rot.js’s BSD-3-Clause terms and gifuct-js’s MIT notice, and never evaluates code', () => {
+    expect(PROCGEN_BANNER).toContain('Copyright (c) 2012-now(), Ondrej Zara');
+    expect(PROCGEN_BANNER).toContain('Neither the name of Ondrej Zara');
+    expect(GIF_BANNER).toContain('Copyright (c) 2015 Matt Way');
+    expect(GIF_BANNER).toContain('Permission is hereby granted');
+    for (const source of [PROCGEN_SOURCE, GIF_SOURCE]) {
+      expect(source).not.toMatch(/\beval\(|new Function\b|WebAssembly/u);
+    }
+    // Plain libraries: neither binds to nor bundles a second Pixi.
+    expect(PROCGEN_SOURCE).toContain('pixi:false');
+    expect(GIF_SOURCE).toContain('pixi:false');
+    expect(GIF_SOURCE).not.toMatch(/Ticker\.shared|autoDetectRenderer/u);
   });
 });

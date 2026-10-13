@@ -53,6 +53,13 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
   peeps: [
     'people as s.lib.peeps characters: cast by name (the same name keeps its look), a mood per line or page; animals and creatures stay drawn',
   ],
+  // procedural maps and animated GIFs (2026-10-13).
+  procgen: [
+    'the level from s.lib.procgen.maze|dungeon|cave(s,{width,height}) — always connected, start and exit reachable: map.rows() into s.lib.tilemap.world (p start, e exit) or map.draw(s,{tile}), map.scatter(n,{spacing}) for pickups and enemies, map.fov(x,y,r) for a lit radius; the scene seed fixes the layout',
+  ],
+  gif: [
+    "the person's GIF on the canvas: await s.lib.gif.load(s,url) with their own URL only (never invent one), a Sprite that holds its first frame under reduced motion",
+  ],
 };
 
 /* Scroll-driven pieces (creative power, 2026-10-12): the kit's s.scroll, no library. */
@@ -203,6 +210,43 @@ const PEOPLE_WORDS = [
   'معلمة',
 ];
 const ROUGH_WORDS = ['hand drawn', 'sketchy', 'doodle', 'crayon', 'مرسوم باليد', 'رسم يدوي'];
+/*
+  procedural maps (2026-10-13): a generated level whenever the brief asks for one by name; a maze,
+  dungeon or cave only in a game (a story set "in a cave" needs no map).
+*/
+const PROCGEN_WORDS = [
+  'roguelike',
+  'rogue like',
+  'procedural',
+  'procedurally',
+  'dungeon crawler',
+  'random level',
+  'random map',
+  'random maze',
+  'random dungeon',
+  'generated level',
+  'new level every time',
+  'متاهة عشوائية',
+  'خريطة عشوائية',
+  'مستويات عشوائية',
+  'زنزانات عشوائية',
+  'مولدة عشوائيا',
+];
+const LEVEL_WORDS = [
+  'maze',
+  'labyrinth',
+  'dungeon',
+  'cave',
+  'متاهة',
+  'متاهات',
+  'زنزانة',
+  'زنزانات',
+  'كهف',
+  'كهوف',
+  'سرداب',
+];
+/* animated GIFs (2026-10-13): only when the person brings one. */
+const GIF_WORDS = ['gif', 'gifs', 'giphy', 'animated gif'];
 
 const ACCESSIBILITY_EN = [
   'objective, controls and story text live in the DOM; the canvas is decoration or role=img with a label',
@@ -297,6 +341,10 @@ function briefFrom(
     ...(asked(BRUSH_WORDS) ? (['brush'] as const) : []),
     ...(asked(ROUGH_WORDS) ? (['rough'] as const) : []),
     ...(asked(PEOPLE_WORDS) ? (['peeps'] as const) : []),
+    ...(asked(PROCGEN_WORDS) || (rule.kind === 'game' && asked(LEVEL_WORDS))
+      ? (['procgen'] as const)
+      : []),
+    ...(asked(GIF_WORDS) ? (['gif'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([

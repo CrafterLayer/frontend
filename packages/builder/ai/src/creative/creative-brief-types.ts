@@ -33,7 +33,9 @@ export type CreativeLib =
   | 'hud'
   | 'brush'
   | 'rough'
-  | 'peeps';
+  | 'peeps'
+  | 'procgen'
+  | 'gif';
 
 export interface CreativeBeat {
   readonly id: string;

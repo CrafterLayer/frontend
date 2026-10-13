@@ -35,6 +35,7 @@ import {
   sectionOf,
   type WrittenIssues,
 } from './section-candidate';
+import { expandReadyScenes, markReadyScenes, withReadyScenes } from './scene-ready';
 import { nextSection } from './section-order';
 import { fillConcurrencyFor, withWriterPermit } from './writer-pool';
 import {
@@ -1450,7 +1451,7 @@ async function checkAndRepair(
   const emit = stepEmitter(build, step);
   emit({ type: 'run.started', apply: 'never' });
   emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
-  const landedPlan: AiPlan = { ...run.proposal.plan, commands: guarded.commands };
+  const landedPlan = markReadyScenes({ ...run.proposal.plan, commands: guarded.commands });
   try {
     const repaired = await underDeadline(
       options,
@@ -1480,7 +1481,7 @@ async function checkAndRepair(
                   usage,
                 });
               },
-            });
+            }).then(expandReadyScenes);
           },
         };
         return repairAiPlanForIssues(
@@ -2952,12 +2953,13 @@ function planJobs(
         if (briefed === undefined || at === -1) {
           return { request: '', skillIds: [], providers: [], history: false };
         }
-        const { kitBacked, kitSkillIds, skillIds, providers, sampleValues } = briefed;
+        const { kitBacked, kitSkillIds, skillIds, providers, sampleValues, scene } = briefed;
         const contract = current.sections[at];
         const completeStep =
           contract === undefined
             ? undefined
-            : (answer: AiPlan): AiPlan => completeKitSteps(current, contract, answer);
+            : (answer: AiPlan): AiPlan =>
+                expandReadyScenes(completeKitSteps(current, contract, answer));
         /*
           A kit-backed section (2026-09-30): the writer names the kit and fills
           its slots in ONE tool step — ~30-300 output tokens instead of the
@@ -2981,13 +2983,17 @@ function planJobs(
               ...(completeStep === undefined ? {} : { completeStep }),
             }
           : {
-              // The retry is SHORTER: the neighbours go, the contract stays.
-              request: contractRequest(
-                current,
-                at,
-                task,
-                attempt === 1 ? neighbourSummary(current, at, landedSections) : '',
-                ownPhotos,
+              // The retry is SHORTER: the neighbours go, the contract stays. A scene's is FAST.
+              request: withReadyScenes(
+                contractRequest(
+                  current,
+                  at,
+                  task,
+                  attempt === 1 ? neighbourSummary(current, at, landedSections) : '',
+                  ownPhotos,
+                ),
+                scene ? { options: build.options, plan: current, contract } : undefined,
+                attempt,
               ),
               skillIds,
               providers,
@@ -3482,10 +3488,9 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
     if (!checked.ok) return;
     const contract = contractOf(checked.plan, key);
     /*
-      Code jobs are never a writer's: the footer and a section whose slots the
-      planner filled are written by the finish transaction from the final
-      plan. And a brief that would move the outline the skeleton was laid
-      from is not built on.
+      Code jobs are never a writer's: the footer and a section whose slots the planner filled are
+      written by the finish transaction from the final plan. And a brief that would move the outline
+      the skeleton was laid from is not built on.
     */
     if (
       contract === undefined ||
@@ -3515,9 +3520,8 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
           return;
         }
         /*
-          A response after the one that speculated: only the speculating one
-          dispatches — the writers already running continue, everything else
-          waits for the final plan.
+          A response after the one that speculated: only the speculating one dispatches — the
+          writers already running continue, everything else waits for the final plan.
         */
         closed = true;
         speculation.fill.hold();
@@ -3589,11 +3593,10 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
       const current = speculation;
       if ('failure' in planned) {
         /*
-          T1 gave out (refused twice, or the provider failed mid-answer). The
-          streamed draft — its outline, the deck row's tokens and every brief
-          that closed — is a plan code can still validate; when it does, it is
-          built instead of the model-written scaffold, which cost 208 s on
-          2026-10-05 against ≈ 60 s for a planned page.
+          T1 gave out (refused twice, or the provider failed mid-answer). The streamed draft — its
+          outline, the deck row's tokens and every brief that closed — is a plan code can still
+          validate; when it does, it is built instead of the model-written scaffold, which cost 208
+          s on 2026-10-05 against ≈ 60 s for a planned page.
         */
         const rescued = rescuePlan();
         if (current !== undefined) {
@@ -3617,10 +3620,9 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
       const final = planned.plan;
       if (!reconcilePlans(current.plan, final).sameOutline) {
         /*
-          A different page. The plain path builds it: a `replace` skeleton
-          takes the speculative regions with the page's children (they are
-          all the page holds now); anywhere else they are removed first, so
-          the page never holds two copies.
+          A different page. The plain path builds it: a `replace` skeleton takes the speculative
+          regions with the page's children (they are all the page holds now); anywhere else they are
+          removed first, so the page never holds two copies.
         */
         withdraw(current, final.intent !== 'replace');
         return { kind: 'classic' };
@@ -3766,10 +3768,9 @@ async function buildFromScaffold(
   // Every result of a build that fell back here says so, whatever it ends as.
   const told = fellBack === undefined ? {} : { planFallback: fellBack };
   /*
-    A skeleton is an EXTRA request this path invented, so its failure must cost
-    nothing: the person asked for a page, not for a scaffold, and the single
-    call they would have got otherwise is still available. Only an abort is
-    re-thrown — that is the person stopping, not the strategy failing.
+    A skeleton is an EXTRA request this path invented, so its failure must cost nothing: the person
+    asked for a page, not for a scaffold, and the single call they would have got otherwise is still
+    available. Only an abort is re-thrown — that is the person stopping, not the strategy failing.
   */
   let scaffold: AiAgentRunResult | undefined;
   let scaffoldFailure: string | undefined;
@@ -3784,10 +3785,9 @@ async function buildFromScaffold(
       additionalContextProviders: withPhotoCatalog(options, options.request),
       policy: { ...options.policy, allowedCommands: SCAFFOLD_COMMANDS },
       /*
-        Landed at once only when nobody has to be asked. A build that asks
-        PROPOSES its skeleton and lands it on approval. Measured 2026-09-28
-        (agent-audit.md P0-4): Ask mode laid 3-12 empty bands on the page
-        before the approval card appeared, and "Stop build" left them there.
+        Landed at once only when nobody has to be asked. A build that asks PROPOSES its skeleton and
+        lands it on approval. Measured 2026-09-28 (agent-audit.md P0-4): Ask mode laid 3-12 empty
+        bands on the page before the approval card appeared, and "Stop build" left them there.
       */
       apply: build.writes && !build.asks ? 'auto' : 'never',
       label: SCAFFOLD_LABEL,

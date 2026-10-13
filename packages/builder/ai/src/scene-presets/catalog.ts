@@ -1,13 +1,15 @@
 /**
  * The builtin scene preset catalogue (pixi-studio DESIGN.md §B.3): every curated preset of
- * set A and set B in one typed, frozen list, for the agent's `scene.preset` tool and the
- * Studio's builtin library.
+ * set A and set B, and the game and story kits of set C, in one typed, frozen list, for the
+ * agent's `scene.preset` tool and the Studio's builtin library.
  *
  * A preset is ready to place as it stands: its `code` is the customCode `js` (it passes
  * `scriptCodeIssues` and fits the 32 000-character region limit), `libs` are exactly the
  * libraries that code loads, and `params` / `defaults` are its `jsMeta` param spec and the
- * values its own `ck.params({...})` falls back to. `presets.test.ts` holds all of that, and
- * `apps/evals` runs each one in the sandboxed Studio preview.
+ * values its own `ck.params({...})` falls back to. A kit (category `game` or `story`) also
+ * carries its `region`: the tree of words and controls its code drives, per page language, and
+ * the region css. `presets.test.ts` and `set-c/kits.test.ts` hold all of that, and `apps/evals`
+ * runs each one in the sandboxed Studio preview (the kits also played, in Chromium).
  */
 import type {
   Bilingual,
@@ -19,6 +21,10 @@ import type {
 
 import { PRESETS_SET_A } from './set-a';
 import { PRESETS_SET_B } from './set-b';
+import { KITS_SET_C, type KitRegion, type SceneKit } from './set-c';
+
+export type { KitLang, KitRegion } from './set-c';
+export { KIT_LANGS } from './set-c';
 
 /**
  * What kind of scene a preset is, for choosing one:
@@ -27,7 +33,9 @@ import { PRESETS_SET_B } from './set-b';
  * - `type`: words as the subject (calligraphy, kinetic and falling words, particle text);
  * - `particles`: flocks, sparks, fireflies, confetti and stars;
  * - `photo`: a picture brought to life (ripple, spotlight, parallax, tilt cards);
- * - `toy`: a playful surface that answers the pointer (magnetic grid, soft blobs).
+ * - `toy`: a playful surface that answers the pointer (magnetic grid, soft blobs);
+ * - `game`: a whole playable game section — states, score, keyboard, touch and on-screen controls;
+ * - `story`: a whole story section — chapters or a branching dialogue, navigation and read-aloud.
  */
 export const SCENE_PRESET_CATEGORIES = [
   'mural',
@@ -36,6 +44,8 @@ export const SCENE_PRESET_CATEGORIES = [
   'particles',
   'photo',
   'toy',
+  'game',
+  'story',
 ] as const;
 export type ScenePresetCategory = (typeof SCENE_PRESET_CATEGORIES)[number];
 
@@ -60,6 +70,11 @@ export interface ScenePreset {
   readonly code: string;
   /** The builtin library entry it came from (author craftkit, trust trusted, MIT). */
   readonly entry: Readonly<ScriptEntry>;
+  /**
+   * Kits only (`game`, `story`): the section the code drives — its tree per page language, its
+   * css, and the text-param values a page in that language stores. A backdrop preset has none.
+   */
+  readonly region?: KitRegion;
 }
 
 const CATEGORY_OF: Readonly<Record<string, ScenePresetCategory>> = {
@@ -103,8 +118,8 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function presetOf(entry: ScriptEntry): ScenePreset {
-  const category = CATEGORY_OF[entry.id];
+function presetOf(entry: ScriptEntry, kind?: ScenePresetCategory): ScenePreset {
+  const category = kind ?? CATEGORY_OF[entry.id];
   if (category === undefined) {
     throw new Error(`Scene preset "${entry.id}" has no category in the catalogue.`);
   }
@@ -123,10 +138,15 @@ function presetOf(entry: ScriptEntry): ScenePreset {
   };
 }
 
-/** Every builtin scene preset, set A then set B, deeply frozen. */
-export const SCENE_PRESETS: readonly ScenePreset[] = deepFreeze(
-  [...PRESETS_SET_A, ...PRESETS_SET_B].map(presetOf),
-);
+function kitOf(kit: SceneKit): ScenePreset {
+  return { ...presetOf(kit.entry, kit.category), region: kit.region };
+}
+
+/** Every builtin scene preset, set A, set B, then the set-C kits, deeply frozen. */
+export const SCENE_PRESETS: readonly ScenePreset[] = deepFreeze([
+  ...[...PRESETS_SET_A, ...PRESETS_SET_B].map((entry) => presetOf(entry)),
+  ...KITS_SET_C.map(kitOf),
+]);
 
 const BY_ID: ReadonlyMap<string, ScenePreset> = new Map(
   SCENE_PRESETS.map((preset) => [preset.id, preset]),

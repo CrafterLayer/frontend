@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildStudioPreviewHtml } from '@craftkit/builder';
 
+import { kitMarkup, type KitUnderTest } from './kit-section';
+
 /*
   creative-power Phase 1 (2026-10-12): every builtin scene preset, run in the generated, sandboxed
   Studio preview (`buildStudioPreviewHtml`: real Pixi v8 + WebGL, the add-on libraries the code
@@ -15,13 +17,13 @@ import { buildStudioPreviewHtml } from '@craftkit/builder';
 
   The catalogue has no public door yet (Phase 2 adds the agent's `scene.preset` tool and exports
   it), so it is loaded by path; the presets' static checks live beside it in `presets.test.ts`.
+
+  Game and story kits (set C, 2026-10-13) run in their own section — the kit's tree in the page's
+  language around the region, its css with the theme — as `scene.preset` lands them; their
+  scripted play is kits.browser.test.ts.
 */
 
-interface PresetUnderTest {
-  readonly id: string;
-  readonly code: string;
-  readonly params: readonly { readonly key: string; readonly type: string }[];
-}
+type PresetUnderTest = KitUnderTest;
 
 const CATALOGUE = fileURLToPath(
   new URL('../../../../packages/builder/ai/src/scene-presets/catalog.ts', import.meta.url),
@@ -161,14 +163,20 @@ async function run(
   try {
     // The only instrumentation: the body runs as written inside one async function (a preset may
     // `return` early), and a flag says it finished.
+    const code = `await (async () => {\n${preset.code}\n})();\nwindow.__presetDone = true;`;
+    const kit = preset.region;
     const html = await buildStudioPreviewHtml({
-      code: `await (async () => {\n${preset.code}\n})();\nwindow.__presetDone = true;`,
+      code,
       trust: options.trust ?? 'unreviewed',
       reducedMotion: options.reducedMotion,
       dir: options.dir,
       lang: options.dir === 'rtl' ? 'ar' : 'en',
-      params: options.params,
-      themeCss: QA_STYLE,
+      ...(kit === undefined
+        ? { params: options.params, themeCss: QA_STYLE }
+        : {
+            markup: kitMarkup(preset, options.dir, code, options.params),
+            themeCss: `${QA_STYLE}\n${kit.css}`,
+          }),
     });
     await page.setContent(HOST);
     await page.locator('iframe').evaluate((element, srcdoc) => {
@@ -243,8 +251,9 @@ describe.skipIf(!QA)('builtin scene presets in the Studio preview runtime', () =
     await browser.close();
   });
 
-  it('covers the whole catalogue', () => {
-    expect(SCENE_PRESETS.length).toBeGreaterThanOrEqual(30);
+  it('covers the whole catalogue, the eleven game and story kits included', () => {
+    expect(SCENE_PRESETS.length).toBeGreaterThanOrEqual(41);
+    expect(SCENE_PRESETS.filter((preset) => preset.region !== undefined)).toHaveLength(11);
   });
 
   it.each(SCENE_PRESETS.map((preset): [string, PresetUnderTest] => [preset.id, preset]))(

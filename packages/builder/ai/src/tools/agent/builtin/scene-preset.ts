@@ -1,10 +1,7 @@
 import {
-  paramsDiffFromDefaults,
   validateParamValues,
-  type CustomCodeJsMeta,
   type CustomCodeJsParams,
   type MediaRecipe,
-  type ScriptParamSpec,
 } from '@craftkit/builder-schema';
 
 import { propKeys } from '../../../data-tools/data-place';
@@ -15,6 +12,7 @@ import {
   scenePreset,
   scenePresetsIn,
   type ScenePreset,
+  type ScenePresetCategory,
 } from '../../../scene-presets/catalog';
 import { finish, step } from '../../../style-tools/finish';
 import {
@@ -37,11 +35,36 @@ import {
   type AgentToolRun,
   type AgentToolStep,
 } from '../types';
+import {
+  clone,
+  codeSteps,
+  kitInRegion,
+  kitLang,
+  kitValues,
+  metaOf,
+  note,
+  storedParams,
+  title,
+  type ScenePlacement,
+  type ScenePresetInput,
+} from './scene-preset-region';
+
+export type { ScenePlacement, ScenePresetInput } from './scene-preset-region';
 
 /**
- * scene.preset (creative-power Phase 2 F, 2026-10-12) — one of the 30 curated, tested Pixi
- * scenes (scene-presets/catalog.ts) on the page in one step, instead of thousands of tokens of
- * scene code the model would write and the door would then have to repair.
+ * scene.preset (creative-power Phase 2 F, 2026-10-12) — one of the curated, tested Pixi scenes
+ * (scene-presets/catalog.ts) on the page in one step, instead of thousands of tokens of scene
+ * code the model would write and the door would then have to repair.
+ *
+ * Game and story KITS (set C, 2026-10-13; listed in the game and story playbooks and in this
+ * tool's refusals, not in the cached menu — SCENE_PRESET_PROMPT_CATEGORIES) are whole sections:
+ * the code drives a tree of words and controls (title, instructions, buttons, status, pages,
+ * dialogue) that the kit carries per page language, with its css. A kit lands as its own
+ * section in the page's language — on an Arabic page the Arabic tree, and the Arabic values of
+ * its word params (the quiz's questions) stored as jsParams — and `id` swaps a region's scene for
+ * a kit together with its tree and css (or only its code and params when that region already
+ * holds the same kit, so edited words stay). `behind` / `into` are refused for a kit: its
+ * controls cannot live inside another section's content.
  *
  * The preset lands as a customCode region's page code: `js` is its code as catalogued, `jsMeta`
  * its library reference (builtin tier), name, tags, libs and param spec — so the Studio's scene
@@ -63,17 +86,6 @@ import {
  * the same sentence any other `js` gets) — a tool sees no run options.
  */
 
-export type ScenePlacement = 'after' | 'into' | 'behind' | 'id';
-
-export interface ScenePresetInput {
-  readonly preset: ScenePreset;
-  /** The `params` given, coerced to the preset's spec (only the keys given). */
-  readonly values: CustomCodeJsParams;
-  /** Values the spec clamped or cut, said in the note. */
-  readonly adjusted: readonly string[];
-  readonly place?: { readonly key: ScenePlacement; readonly id: string } | undefined;
-}
-
 const KEYS = ['preset', 'after', 'into', 'behind', 'id', 'params'] as const;
 const PLACEMENTS: readonly ScenePlacement[] = ['after', 'into', 'behind', 'id'];
 const MAX_ID = 120;
@@ -89,14 +101,28 @@ const HOST_CLASS = 'ck-scene-host';
 const OPENS_STAGE = /\bck\s*\.\s*(?:stage|scene)\s*\(/u;
 const ENGINE_ATTRIBUTES = ['data-ck-scene', 'data-ck-density', 'data-ck-palette'] as const;
 
-/** Every preset id, grouped by category: `mural:a|b … toy:y|z`. */
-export function scenePresetMenu(): string {
-  return SCENE_PRESET_CATEGORIES.map(
-    (category) =>
-      `${category}:${scenePresetsIn(category)
-        .map(({ id }) => id)
-        .join('|')}`,
-  ).join(' ');
+/**
+ * The backdrop categories the cached tool prompt lists (catalog-prompt.ts): the kits are not
+ * there — the edit lane is at its character cap and the edit prompt must stay smaller than a
+ * build's (apps/ai-server prompt.test.ts) — but in the game and story playbooks, which load
+ * exactly when a game or a story is asked for (+0 tokens on every other request), and in this
+ * tool's own refusals.
+ */
+export const SCENE_PRESET_PROMPT_CATEGORIES: readonly ScenePresetCategory[] =
+  SCENE_PRESET_CATEGORIES.filter((category) => category !== 'game' && category !== 'story');
+
+/** Preset ids grouped by category: `mural:a|b … toy:y|z` (every category: `… story:x|y`). */
+export function scenePresetMenu(
+  categories: readonly ScenePresetCategory[] = SCENE_PRESET_PROMPT_CATEGORIES,
+): string {
+  return categories
+    .map(
+      (category) =>
+        `${category}:${scenePresetsIn(category)
+          .map(({ id }) => id)
+          .join('|')}`,
+    )
+    .join(' ');
 }
 
 /** The ids sharing the most words with an unknown name, for a refusal that names the near miss. */
@@ -154,14 +180,14 @@ function parse(input: unknown): AgentToolParse<ScenePresetInput> {
   if (extra.length > 0) return fail(`unknown keys ${extra.join(', ')}; use ${KEYS.join(', ')}.`);
   const name = record['preset'];
   if (typeof name !== 'string' || name.trim() === '') {
-    return fail(`"preset" is required, one of ${scenePresetMenu()}.`);
+    return fail(`"preset" is required, one of ${scenePresetMenu(SCENE_PRESET_CATEGORIES)}.`);
   }
   // A title as shown ("Flow-field silk") reads as its id.
   const preset = scenePreset(name.trim().toLowerCase().replace(/\s+/gu, '-'));
   if (preset === undefined) {
     const near = nearIds(name);
     return fail(
-      `no scene preset "${name}"${near.length === 0 ? '' : ` (did you mean ${near.join(' or ')}?)`}; use one of ${scenePresetMenu()}.`,
+      `no scene preset "${name}"${near.length === 0 ? '' : ` (did you mean ${near.join(' or ')}?)`}; use one of ${scenePresetMenu(SCENE_PRESET_CATEGORIES)}.`,
     );
   }
   const places: { key: ScenePlacement; id: string }[] = [];
@@ -183,41 +209,6 @@ function parse(input: unknown): AgentToolParse<ScenePresetInput> {
   return okParse({ preset, ...params.value, place: places[0] });
 }
 
-// ── What the region carries ─────────────────────────────────────────────────
-
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-/** The library reference and spec the Studio's scene settings read (never rendered). */
-function metaOf(preset: ScenePreset): CustomCodeJsMeta {
-  return {
-    ref: { tier: 'builtin', id: preset.id, version: preset.entry.version },
-    name: { en: preset.title.en, ar: preset.title.ar },
-    tags: [...preset.tags],
-    params: clone(preset.params) as ScriptParamSpec[],
-    libs: [...preset.libs],
-  };
-}
-
-/** Only what differs from the preset's defaults, as the Studio stores it. */
-function storedParams(preset: ScenePreset, values: CustomCodeJsParams): CustomCodeJsParams {
-  return clone(paramsDiffFromDefaults(preset.params, { ...preset.defaults, ...values }));
-}
-
-function title(context: AgentToolContext, preset: ScenePreset): string {
-  return isArabicLocale(context) ? preset.title.ar : preset.title.en;
-}
-
-function note(input: ScenePresetInput, where: string, stored: CustomCodeJsParams): string {
-  const keys = Object.keys(stored);
-  return [
-    `scene ${input.preset.id} (${input.preset.category}) ${where}`,
-    ...(keys.length === 0 ? [] : [`params ${keys.join(', ')}`]),
-    ...input.adjusted,
-  ].join(' · ');
-}
-
 function codeProps(context: AgentToolContext): readonly string[] | string {
   const keys = propKeys(context.kernel, 'customCode');
   return keys.includes('js')
@@ -233,27 +224,32 @@ function insertScene(
   declared: readonly string[],
 ): AgentToolRun {
   const { preset } = input;
+  const region = preset.region;
   const recipe: MediaRecipe = {
     label: { en: preset.title.en, ar: preset.title.ar },
-    tree: {
-      kind: 'root',
-      children: [
-        {
-          kind: 'element',
-          tag: 'section',
-          className: 'ck-scene',
-          attributes: { 'aria-hidden': 'true' },
-        },
-      ],
-    },
-    css: SCENE_SECTION_CSS,
+    tree:
+      region === undefined
+        ? {
+            kind: 'root',
+            children: [
+              {
+                kind: 'element',
+                tag: 'section',
+                className: 'ck-scene',
+                attributes: { 'aria-hidden': 'true' },
+              },
+            ],
+          }
+        : clone(region.tree[kitLang(context)]),
+    css: region === undefined ? SCENE_SECTION_CSS : region.css,
   };
-  const placed = insertSection(context, recipe, { after: input.place?.id, anchor: 'scene' });
+  const anchor = region === undefined ? 'scene' : preset.category;
+  const placed = insertSection(context, recipe, { after: input.place?.id, anchor });
   if (!placed.ok) return placed;
   const [first, ...rest] = placed.steps;
   /* v8 ignore next -- insertSection always returns its one insertNode step. */
   if (first === undefined) return { ok: false, error: 'nothing to insert.' };
-  const stored = storedParams(preset, input.values);
+  const stored = storedParams(preset, kitValues(preset, input.values, context));
   const props = isRecord(first.args['props']) ? first.args['props'] : {};
   const code: Record<string, unknown> = { js: preset.code };
   if (declared.includes('jsMeta')) code['jsMeta'] = metaOf(preset);
@@ -325,29 +321,6 @@ function hostSteps(
     );
   }
   return { steps, removed };
-}
-
-function codeSteps(
-  context: AgentToolContext,
-  id: string,
-  preset: ScenePreset,
-  stored: CustomCodeJsParams,
-  declared: readonly string[],
-): AgentToolStep[] {
-  const steps = [setProp(id, 'js', preset.code)];
-  if (declared.includes('jsMeta')) steps.push(setProp(id, 'jsMeta', metaOf(preset)));
-  const before = context.readProp(id, 'jsParams');
-  const had = isRecord(before) && Object.keys(before).length > 0;
-  if (declared.includes('jsParams') && (had || Object.keys(stored).length > 0)) {
-    steps.push(setProp(id, 'jsParams', stored));
-  }
-  // A region named after the preset it showed is renamed after the one it shows now.
-  const meta = context.readProp(id, 'jsMeta');
-  const name = isRecord(meta) ? meta['name'] : undefined;
-  const old = isRecord(name) ? Object.values(name) : typeof name === 'string' ? [name] : [];
-  if (old.includes(context.readProp(id, 'label')))
-    steps.push(setProp(id, 'label', title(context, preset)));
-  return steps;
 }
 
 function sceneInRegion(
@@ -440,6 +413,7 @@ function run(input: ScenePresetInput, context: AgentToolContext): AgentToolRun {
   if (typeof declared === 'string') return { ok: false, error: declared };
   const { place } = input;
   if (place === undefined || place.key === 'after') return insertScene(input, context, declared);
+  if (input.preset.region !== undefined) return kitInRegion(input, context, place, declared);
   return sceneInRegion(input, context, place, declared);
 }
 

@@ -15,6 +15,7 @@ import {
   type TrustedExtensionManifest,
 } from '@craftkit/builder-schema';
 
+import { checkScene } from '../../../agent/page-plan/check-scene';
 import { validateAiPlan } from '../../../plan/validate-plan';
 import {
   SCENE_PRESET_CATEGORIES,
@@ -35,7 +36,14 @@ import {
 import { agentToolPrompt } from '../catalog-prompt';
 import { expandAgentTools } from '../expand';
 import { agentTool, agentToolsForLane } from '../registry';
-import { SCENE_HOST_CSS, SCENE_SECTION_CSS, scenePresetTool } from './scene-preset';
+import {
+  SCENE_HOST_CSS,
+  SCENE_PRESET_PROMPT_CATEGORIES,
+  SCENE_SECTION_CSS,
+  scenePresetMenu,
+  scenePresetTool,
+} from './scene-preset';
+import { PIXI_GAME_SKILL, PIXI_STORY_SKILL } from '../../../skills/creative/pixi-creative';
 
 /*
   scene.preset (creative-power Phase 2 F, 2026-10-12): a curated scene lands as ordinary kernel
@@ -160,14 +168,19 @@ describe('scene.preset — registered and catalogued', () => {
     expect(scenePresetTool.signature.length).toBeLessThanOrEqual(120);
   });
 
-  it('lists every preset id by category in both lanes, and keeps the section lane signatures', () => {
+  it('lists every backdrop preset id by category in both lanes, and keeps the section lane signatures', () => {
+    expect(SCENE_PRESET_PROMPT_CATEGORIES).toEqual(
+      SCENE_PRESET_CATEGORIES.filter((category) => category !== 'game' && category !== 'story'),
+    );
     for (const lane of ['section', 'edit'] as const) {
       const prompt = agentToolPrompt(lane);
       expect(prompt).toContain(`scene.preset ${scenePresetTool.signature}`);
-      for (const category of SCENE_PRESET_CATEGORIES) {
+      for (const category of SCENE_PRESET_PROMPT_CATEGORIES) {
         const ids = scenePresetsIn(category).map(({ id }) => id);
         expect(prompt).toContain(`${category}:${ids.join('|')}`);
       }
+      // The kits ride in the game and story playbooks, not in the cached lanes (+0 tokens there).
+      expect(prompt).not.toMatch(/\b(?:game|story):/u);
     }
     const section = agentToolPrompt('section');
     expect(section).toContain("kit.section {id,kit,slots,heading?:'h1'|'h2'}");
@@ -216,14 +229,23 @@ describe('scene.preset — a new scene section', () => {
       expect(added).toHaveLength(1);
       const region = props(kernel, added[0] ?? '');
       expect(region['js']).toBe(preset.code);
-      expect(region['css']).toBe(SCENE_SECTION_CSS);
-      expect(String(region['css'])).toMatch(/aspect-ratio:16\/9;min-height:320px/u);
       expect(String(region['css'])).not.toMatch(/\d\s*vh/u);
       const outer = treeOf(kernel, added[0] ?? '').children[0];
-      expect(outer?.kind === 'element' ? outer.attributes : undefined).toMatchObject({
-        id: 'scene',
-        'aria-hidden': 'true',
-      });
+      if (preset.region === undefined) {
+        expect(region['css']).toBe(SCENE_SECTION_CSS);
+        expect(String(region['css'])).toMatch(/aspect-ratio:16\/9;min-height:320px/u);
+        expect(outer?.kind === 'element' ? outer.attributes : undefined).toMatchObject({
+          id: 'scene',
+          'aria-hidden': 'true',
+        });
+      } else {
+        // A kit lands as its own section: its words and controls, its css, an anchor named after it.
+        expect(region['css']).toBe(preset.region.css);
+        expect(outer?.kind === 'element' ? outer.attributes?.id : undefined).toMatch(
+          new RegExp(`^${category}(?:-\\d+)?$`, 'u'),
+        );
+        expect(outer?.kind === 'element' ? outer.className : undefined).toMatch(/^ck-kit /u);
+      }
       kernel.undo();
       expect(rootSlots(kernel)).toEqual(before);
     },
@@ -239,6 +261,136 @@ describe('scene.preset — a new scene section', () => {
     expect(door(sceneKernel(), { preset: SILK.id, after: 'r-nope' }).issues[0]).toMatch(
       /"after": no section "r-nope" on the page; use one of r-header, r-hero/u,
     );
+  });
+});
+
+const KITS = SCENE_PRESETS.filter((preset) => preset.region !== undefined);
+
+describe('scene.preset — game and story kits', () => {
+  it('offers eight games and three stories, each a whole section in English and Arabic', () => {
+    expect(scenePresetsIn('game').map(({ id }) => id)).toEqual([
+      'arcade',
+      'platformer',
+      'runner',
+      'breakout',
+      'memory',
+      'quiz',
+      'snake',
+      'catch',
+    ]);
+    expect(scenePresetsIn('story').map(({ id }) => id)).toEqual([
+      'picture-book',
+      'visual-novel',
+      'scroll-story',
+    ]);
+    expect(KITS.map(({ category }) => category).every((c) => c === 'game' || c === 'story')).toBe(
+      true,
+    );
+  });
+
+  it.each(KITS.map((preset): [string, ScenePreset] => [preset.id, preset]))(
+    '%s lands in the page language, and its code finds everything it needs in that section',
+    (_id, preset) => {
+      for (const locale of ['en', 'ar'] as const) {
+        const kernel = sceneKernel({ locale });
+        const before = rootSlots(kernel);
+        const landed = land(kernel, { preset: preset.id });
+        expect(landed.result?.ok).toBe(true);
+        const id = rootSlots(kernel).find((slot) => !before.includes(slot)) ?? '';
+        const region = props(kernel, id);
+        const tree = JSON.stringify(region['tree']);
+        // The section's words are the kit's, in this language (Arabic letters on an Arabic page).
+        expect(/[\u0600-\u06ff]/u.test(tree)).toBe(locale === 'ar');
+        const words = preset.region?.params?.[locale] ?? {};
+        expect(region['jsParams'] ?? {}).toEqual(words);
+        // The scene check reads the code against its landed section: nothing to repair.
+        const issues = checkScene({
+          tree: region['tree'],
+          css: region['css'],
+          js: region['js'],
+          jsParams: region['jsParams'],
+        } as Parameters<typeof checkScene>[0]);
+        expect(issues.map(({ code, message }) => `${code}: ${message}`)).toEqual([]);
+      }
+    },
+  );
+
+  it('are named by the game and story playbooks and by every refusal of the tool', () => {
+    const games = `game:${scenePresetsIn('game')
+      .map(({ id }) => id)
+      .join('|')}`;
+    const stories = `story:${scenePresetsIn('story')
+      .map(({ id }) => id)
+      .join('|')}`;
+    expect(PIXI_GAME_SKILL.instructions.split('\n')[0]).toBe(
+      `KITS FIRST: scene.preset ${games} is a tested whole game set by params; write code only for what no kit covers.`,
+    );
+    expect(PIXI_STORY_SKILL.instructions.split('\n')[0]).toContain(`scene.preset ${stories} `);
+    expect(scenePresetMenu(SCENE_PRESET_CATEGORIES)).toContain(` ${games} ${stories}`);
+    expect(door(sceneKernel(), { preset: 'snake-game' }).issues[0]).toMatch(
+      /no scene preset "snake-game" \(did you mean snake\?\); use one of mural:.* game:arcade\|/u,
+    );
+  });
+
+  it('keeps the words a page asks for over the kit language defaults', () => {
+    const quiz = scenePreset('quiz') ?? presetWith(() => true);
+    const result = door(sceneKernel({ locale: 'ar' }), {
+      preset: quiz.id,
+      params: { question1: 'كم لوناً في قوس قزح؟ | سبعة | خمسة | تسعة', time: 0 },
+    });
+    expect(result.issues).toEqual([]);
+    const stored = insertedProps(result.steps)['jsParams'] as Record<string, unknown>;
+    expect(stored['question1']).toBe('كم لوناً في قوس قزح؟ | سبعة | خمسة | تسعة');
+    expect(stored['question2']).toBe(quiz.region?.params?.ar?.['question2']);
+    expect(stored['time']).toBe(0);
+  });
+
+  it('refuses a kit behind or into a region, and on a region of plain content', () => {
+    for (const key of ['behind', 'into'] as const) {
+      expect(door(sceneKernel(), { preset: 'snake', [key]: 'r-hero' }).issues[0]).toMatch(
+        /snake is a game kit: a whole section with its own words and controls, so it cannot fill another region · send "after":"r-hero"/u,
+      );
+    }
+    expect(door(sceneKernel(), { preset: 'picture-book', id: 'r-hero' }).issues[0]).toMatch(
+      /"r-hero" holds page content, not a scene, and a story kit brings its own · send "after":"r-hero"/u,
+    );
+    expect(door(sceneKernel(), { preset: 'snake', id: 'r-nope' }).issues[0]).toMatch(
+      /"id": no region "r-nope" on the page/u,
+    );
+  });
+
+  it('swaps a scene for a kit by "id" (tree and css too), and retunes the same kit keeping its words', () => {
+    const kernel = sceneKernel();
+    const before = rootSlots(kernel);
+    land(kernel, { preset: SILK.id });
+    const id = rootSlots(kernel).find((slot) => !before.includes(slot)) ?? '';
+    const breakout = scenePreset('breakout') ?? presetWith(() => true);
+    const swapped = land(kernel, { preset: breakout.id, id });
+    expect(swapped.steps.slice(0, 3).map(({ args }) => args['key'])).toEqual(['tree', 'css', 'js']);
+    expect(props(kernel, id)['css']).toBe(breakout.region?.css);
+    expect(JSON.stringify(props(kernel, id)['tree'])).toContain('data-game-action');
+    // A person retitles the game; applying the kit again with new params keeps that title.
+    kernel.dispatchGroup(
+      [
+        {
+          command: 'setProp',
+          args: {
+            id,
+            key: 'tree',
+            value: JSON.parse(
+              JSON.stringify(props(kernel, id)['tree']).replace('Brick breaker', 'Wall smash'),
+            ) as unknown,
+          },
+        },
+      ],
+      { author: 'user', label: 'Rename' },
+    );
+    const retuned = land(kernel, { preset: breakout.id, id, params: { rows: 7 } });
+    expect(retuned.steps.map(({ args }) => args['key'])).not.toContain('tree');
+    expect(JSON.stringify(props(kernel, id)['tree'])).toContain('Wall smash');
+    expect(props(kernel, id)['jsParams']).toEqual({ rows: 7 });
+    kernel.undo();
+    expect(props(kernel, id)['jsParams'] ?? {}).toEqual({});
   });
 });
 

@@ -14,6 +14,16 @@ export const PIXI_GAME_KEYWORDS = [
   'interactive game',
   'game with',
   'game where',
+  // The game kits by name (scene.preset game:…): each request should see its kit.
+  'snake game',
+  'quiz game',
+  'trivia game',
+  'trivia quiz',
+  'interactive quiz',
+  'breakout game',
+  'brick breaker',
+  'catch game',
+  'catching game',
   'بدي لعبة',
   'اعمل لعبة',
   'اصنع لعبة',
@@ -28,6 +38,11 @@ export const PIXI_GAME_KEYWORDS = [
   'لعبة ثنائية الأبعاد',
   'ألعاب تفاعلية',
   'ألعاب ثنائية الأبعاد',
+  'لعبة الثعبان',
+  'لعبة أسئلة',
+  'مسابقة أسئلة',
+  'لعبة تكسير',
+  'لعبة التقاط',
 ] as const;
 
 /** No bare "story": business history and ordinary copy do not need a scene. */
@@ -140,10 +155,11 @@ export const PIXI_GAME_SKILL: AiSkillDefinitionV1 = {
   dependencies: ['craftkit.pixi-v8-core'],
   activation: { mode: 'auto', keywords: playbookKeywords(PIXI_GAME_KEYWORDS, 'game') },
   tags: ['pixi', 'game', 'interaction'],
-  instructions: `PLAYABLE, not a decorative hero: define objective, controls and ready/running/paused/won/lost; make restart reset score, clock, bodies and input. No fake multiplayer, save server or authentication.
-FREE CODE OFF: closed media.add only; explain the opt-in. ON: await ck.scene, one v8 namespace, no imports/CDN/new Application. Put instructions, status, labelled start/pause/restart/direction buttons and any dialogue lines (s.lib.dialogue.fromDom) in the tree; scope queries to ck.root. Match the user's language; expose status changes politely, not every frame.
-INPUT: s.input.down(code), axis(negativeCodes,positiveCodes), set(code,held), clear(). Keyboard is focused-scene only; never install window key handlers or capture editor typing. Virtual buttons must release on pointerup/cancel/lostcapture and support keyboard clicks. Use seconds in s.fixedTick(fn,{step:1/60,maxSteps:5}); unsubscribe via s.dispose. It does not simulate in editor/reduced motion: draw a finished frame and offer manual steps there.
-Design at 1280×720 (core SIZE): positions and collision radii in world units matching the rendered shapes. libs:['physics']: s.lib.physics.world(s) (Matter) walls, steps, drags, disposes; never Runner.run. A big map: design zoom:true plus libs:['viewport'] makes s.world the camera (else s.lib.viewport.Viewport; release viewport/plugins). Audio only via audio:true and s.sound after a gesture, with mute. People: s.lib.peeps (director). Limit entities, no frame allocations.
+  instructions: `KITS FIRST: scene.preset game:arcade|platformer|runner|breakout|memory|quiz|snake|catch is a tested whole game set by params; write code only for what no kit covers.
+PLAYABLE, not a decorative hero: define objective, controls and ready/running/paused/won/lost; make restart reset score, clock, bodies and input. No fake multiplayer, servers or logins.
+FREE CODE OFF: closed media.add only; explain the opt-in. ON: await ck.scene, no imports/CDN. Put instructions, status, labelled start/pause/restart/direction buttons and any dialogue lines (s.lib.dialogue.fromDom) in the tree; scope queries to ck.root. Match the user's language; expose status changes politely, not every frame.
+INPUT: s.input.down(code), axis(negativeCodes,positiveCodes), set(code,held), clear(). Keyboard is focused-scene only; no window key handlers. Virtual buttons release on pointerup/cancel/lostcapture and take keyboard clicks. Use seconds in s.fixedTick(fn,{step:1/60,maxSteps:5}); unsubscribe via s.dispose. It does not simulate in editor/reduced motion: draw a finished frame and offer manual steps there.
+Design at 1280×720 (core SIZE): positions and hit radii in world units matching the shapes. libs:['physics']: s.lib.physics.world(s) (Matter) walls, steps, drags, disposes; never Runner.run. A big map: design zoom:true plus libs:['viewport'] makes s.world the camera. Audio only via audio:true and s.sound after a gesture, with mute. People: s.lib.peeps (director). Limit entities, no frame allocations.
 Example tree: data-game-action=start/pause/restart, data-game-key=ArrowLeft/ArrowRight/ArrowUp/ArrowDown and output[data-game-status]; include an accessible objective.
 e.g. collect three lights: ${inlineExample(PIXI_GAME_EXAMPLE)}`,
 };
@@ -160,9 +176,10 @@ export const PIXI_STORY_SKILL: AiSkillDefinitionV1 = {
   dependencies: ['craftkit.pixi-v8-core'],
   activation: { mode: 'auto', keywords: playbookKeywords(PIXI_STORY_KEYWORDS, 'story') },
   tags: ['pixi', 'story', 'accessibility'],
-  instructions: `STORY, not business-history copy: a beginning, discovery, meaningful choice or chapter progression, and an ending. Compose each scene at design 1280×720 in s.world (core SIZE) with a foreground/midground/background, strong focal point and intentional palette; people are s.lib.peeps (director), a mood per page. Keep narrative, headings, controls and dialogue lines (s.lib.dialogue.fromDom) in the DOM; translate all copy and labels to the brief, Arabic shaping stays whole.
-Free code OFF means closed media.add only plus explain opt-in. ON use await ck.scene; no arbitrary packages/CDN or new Application. s.story([{id,enter,leave}],initial?) enters the first/initial chapter once. current reads the id; go(id), next(), back(), reset() return booleans; no wrapping or autoplay. Unique bounded ids, lightweight enter/leave; dispose ends the active chapter. Reuse containers, toggle visible, reset chapter-owned input/effects; never recreate a scene per click.
-Use native previous/next/replay buttons, disabled boundaries, a polite chapter status and visible focus. No forced scroll, auto-advancing narration or flashing; reduced motion preserves manual navigation and a finished frame. Prefer s.tick/onResize/s.dispose for transitions and listeners. Use given image URLs via s.texture with fallback; optional sound requires audio:true, gesture unlock and mute, never fabricate a voice asset. Story content is not a hidden canvas-only experience.
+  instructions: `KITS FIRST: scene.preset story:picture-book|visual-novel|scroll-story is a tested whole story, pages edited as text; write code only for what no kit covers.
+STORY, not business-history copy: a beginning, discovery, meaningful choice or chapter progression, and an ending. Compose each scene at design 1280×720 in s.world (core SIZE) with a foreground/midground/background, strong focal point and intentional palette; people are s.lib.peeps (director), a mood per page. Keep narrative, headings, controls and dialogue lines (s.lib.dialogue.fromDom) in the DOM; translate all copy and labels to the brief, Arabic shaping stays whole.
+Free code OFF means closed media.add only plus explain opt-in. ON use await ck.scene; no packages/CDN. s.story([{id,enter,leave}],initial?) enters the first/initial chapter once. current reads the id; go(id), next(), back(), reset() return booleans; no wrapping or autoplay. Unique ids, light enter/leave; dispose ends the chapter. Reuse containers and toggle visible; never recreate a scene per click.
+Use native previous/next/replay buttons, disabled boundaries, a polite chapter status and visible focus. No forced scroll, auto-advancing narration or flashing; reduced motion preserves manual navigation and a finished frame. Prefer s.tick/onResize/s.dispose for transitions and listeners. Use given image URLs via s.texture with fallback; optional sound requires audio:true, gesture unlock and mute, never fabricate a voice asset.
 BEDTIME (bedtime story, picture book, lullaby): calm pacing — one short idea per page, slow fades (about a second) or none, a soft night palette that still meets contrast, no flash, shake, sudden sound, timer or auto-advance; the last page says goodnight. READ ALOUD is optional and visible: a button[data-story-voice] with aria-pressed toggles speechSynthesis reading the current page's title and text (u.lang=s.lang, rate about .9); speak only after that press, cancel on every page change, toggle-off and dispose, hide the button where speechSynthesis is missing.
 Example tree: h2[data-story-title], p[data-story-copy], output[data-story-status], buttons data-story-action=back/next/reset and button[data-story-voice] aria-pressed=false.
 e.g. traveller's three chapters: ${inlineExample(PIXI_STORY_EXAMPLE)}`,

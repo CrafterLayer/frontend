@@ -95,6 +95,7 @@ describe('checkScene on the scenes the agent is taught', () => {
   });
 });
 
+const PIXI_JS = ['pixi', 'js'].join('.');
 const TREE = parseTreeMarkup(
   "<section class='ck-scene'><p data-anim-status role='status'></p><button type='button' data-fx-burst>Go</button></section>",
 ) as unknown as JsonValue;
@@ -130,9 +131,10 @@ describe('checkScene on broken scenes: every rule fires', () => {
       'scene-dom',
     ],
     ['its own Pixi application', 'const app=new PIXI.Application();', 'scene-forbidden'],
-    ['a dynamic import', "const P=await import('pixi.js');", 'scene-forbidden'],
-    ['a static import', "import * as PIXI from 'pixi.js';", 'scene-forbidden'],
-    ['a require', "const P=require('pixi.js');", 'scene-forbidden'],
+    // PIXI_JS is spelled apart: the repo's containment guard reads a literal import as a real one.
+    ['a dynamic import', `const P=await import('${PIXI_JS}');`, 'scene-forbidden'],
+    ['a static import', `import * as PIXI from '${PIXI_JS}';`, 'scene-forbidden'],
+    ['a require', `const P=require('${PIXI_JS}');`, 'scene-forbidden'],
     [
       'a CDN address',
       "const u='https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js';",

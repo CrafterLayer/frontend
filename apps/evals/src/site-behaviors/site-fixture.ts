@@ -248,15 +248,12 @@ export function siteCopy(dir: Dir): Copy {
  * for the back-to-top link, a sticky header and tall bands so the page scrolls. Colours are the
  * page's own tokens.
  *
- * The header's REGION is made sticky here: an exported region is a block-level
- * `div[data-ck-custom-code]` exactly as tall as its header, so `sticky-header`'s own
- * `position: sticky` has no room to stick on a published page (found by this test, 2026-10-13;
- * a renderer fix, outside the behaviour packs).
+ * No sticky rule of the page's own: the renderer makes a sticky header's region stick with it
+ * (behaviors-css.ts), which this test found missing on a published page (2026-10-13).
  */
 export const SITE_CSS = `:root{--qa-ink:#172033;--qa-surface:#ffffff;--qa-accent:#0f766e}
 body{margin:0;font:16px/1.5 system-ui,sans-serif;color:var(--qa-ink);background:var(--qa-surface)}
 .fixed{position:fixed}.bottom-6{bottom:1.5rem}.end-6{inset-inline-end:1.5rem}
-[data-ck-custom-code]:has(> .qa-header){position:sticky;top:0;z-index:10}
 .qa-header{display:flex;gap:2rem;align-items:center;padding:0 1rem;height:64px;background:var(--qa-surface);border-block-end:1px solid var(--qa-ink)}
 .qa-nav{display:flex;gap:1rem}.qa-nav a{color:var(--qa-ink)}.qa-nav a[aria-current]{color:var(--qa-accent);font-weight:700}
 .qa-notice{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:0.5rem 1rem;background:var(--qa-surface);border-block-end:1px solid var(--qa-ink)}

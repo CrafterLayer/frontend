@@ -1,7 +1,6 @@
 /*
   GENERATED FILE — do not edit by hand.
-  Produced by packages/builder/renderer/src/behaviors/behaviors-css.ts (BEHAVIOR_CSS)
-  and held equal to it by behaviors-css.test.ts.
+  Produced by behaviors-css.ts (BEHAVIOR_CSS), held equal to it by script.test.ts.
 */
 
 @media (prefers-reduced-motion: no-preference) {
@@ -57,7 +56,8 @@
   --ck-marquee-duration: 15s;
 }
 
-[data-ck-behavior='sticky-header'] {
+[data-ck-behavior='sticky-header'],
+[data-ck-custom-code]:has(> [data-ck-behavior='sticky-header']:only-child) {
   position: sticky;
   top: 0;
   z-index: 40;

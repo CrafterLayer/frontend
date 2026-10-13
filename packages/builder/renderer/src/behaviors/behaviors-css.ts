@@ -19,11 +19,13 @@ import { PACK_CSS } from './packs';
  * the reveal/stagger rules. Both together left a published testimonials grid
  * at opacity 0 for good: the timeline animated from the hidden state to the
  * hidden state the stagger CSS was still holding.
+ *
+ * A sticky header's region sticks with it (2026-10-13): a published region is a div exactly as
+ * tall as a header that is its only element, so the header alone had nowhere to stick.
  */
 export const BEHAVIOR_CSS = `/*
   GENERATED FILE — do not edit by hand.
-  Produced by packages/builder/renderer/src/behaviors/behaviors-css.ts (BEHAVIOR_CSS)
-  and held equal to it by behaviors-css.test.ts.
+  Produced by behaviors-css.ts (BEHAVIOR_CSS), held equal to it by script.test.ts.
 */
 
 @media (prefers-reduced-motion: no-preference) {
@@ -79,7 +81,8 @@ export const BEHAVIOR_CSS = `/*
   --ck-marquee-duration: 15s;
 }
 
-[data-ck-behavior='sticky-header'] {
+[data-ck-behavior='sticky-header'],
+[data-ck-custom-code]:has(> [data-ck-behavior='sticky-header']:only-child) {
   position: sticky;
   top: 0;
   z-index: 40;

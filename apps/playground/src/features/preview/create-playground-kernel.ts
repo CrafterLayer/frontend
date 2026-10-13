@@ -9,7 +9,6 @@ import {
   createBuilder,
   defaultBlocks,
   emptyDocument,
-  marketingTemplates,
   richTextExtension,
   type BuilderDocument,
   type BuilderKernel,
@@ -22,6 +21,7 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { demoExtension } from './demo-extension';
 import { createReferenceCodePageFixture } from './code-page-fixture';
+import { hydratePlaygroundTemplates } from './playground-templates';
 // blocks-polish additions (2026-10-08)
 import { landingCopy } from './landing-copy';
 // end blocks-polish additions
@@ -741,15 +741,6 @@ export function playgroundPorts(
   };
 }
 
-/**
- * Tier-2 compositions, hydrated AFTER the kernel exists. Templates are not
- * block types, so validation never needs them — which is what lets the vault
- * call this on the kernel `openDocument` hands back, having already validated.
- */
-export function hydratePlaygroundTemplates(kernel: BuilderKernel): void {
-  kernel.extensions.hydrateDeclarative(marketingTemplates);
-}
-
 export function createPlaygroundKernel(
   options: { fixture?: PlaygroundFixture; dir?: ContentDirection } = {},
 ): BuilderKernel {
@@ -779,6 +770,7 @@ export function createPlaygroundKernel(
     ports: playgroundPorts(() => opened.current?.getDocument()),
   });
   opened.current = kernel;
+  // At once when the templates have loaded (`withPlaygroundTemplates` awaits them), else on arrival.
   hydratePlaygroundTemplates(kernel);
   return kernel;
 }

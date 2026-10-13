@@ -8,13 +8,16 @@ import {
 } from '@craftkit/builder';
 
 import {
-  hydratePlaygroundTemplates,
   playgroundDocument,
   playgroundExtensions,
   playgroundPorts,
   type PlaygroundFixture,
 } from '../preview/create-playground-kernel';
 import { createReferenceCodePageSite } from '../preview/code-page-fixture';
+import {
+  hydratePlaygroundTemplates,
+  preloadPlaygroundTemplatesWhenIdle,
+} from '../preview/playground-templates';
 import {
   autosave,
   reasonOf,
@@ -38,6 +41,9 @@ import {
 } from './site-persistence';
 import { createSnapshotShelf, type SnapshotShelf } from './snapshots';
 import { createIndexedDbVaultStore, type VaultStore } from './store';
+
+/** How long after the open the vault's own template preload waits (the canvas usually asks first). */
+const TEMPLATES_FALLBACK_MS = 4000;
 
 export type VaultKernelState =
   | { readonly status: 'loading' }
@@ -190,10 +196,17 @@ function startSession(store: VaultStore, fixture: PlaygroundFixture, docId: stri
     /*
       AFTER the open: `openSite` validates internally, and templates are tier-2
       compositions rather than block types, so validation never saw them. The
-      registry is shared by every lens, so hydrating through one page hydrates
-      the site.
+      site's registry is shared by every page lens, so hydrating it once
+      hydrates every page.
+
+      The templates themselves load on demand (playground-templates.ts): when
+      they are already here this registers them at once; otherwise they land in
+      this registry the moment they arrive. Opening the site never waits for
+      them. The canvas asks for them once it is live; this is the fallback
+      for a session that never shows one (a code page), well clear of the boot.
     */
-    hydratePlaygroundTemplates(opened.page(opened.currentPage()));
+    hydratePlaygroundTemplates(opened);
+    preloadPlaygroundTemplatesWhenIdle(TEMPLATES_FALLBACK_MS);
     return { siteKernel: opened, adapter, restored: !seeded };
   });
 

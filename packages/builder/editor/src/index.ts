@@ -195,7 +195,7 @@ export {
 
 export {
   blocksMarketing,
-  marketingTemplates,
+  loadMarketingTemplates,
   type AnnouncementBarProps, type AppDownloadProps, type BeforeAfterProps,
   type BentoGridProps,
   type BlogGridProps,
@@ -810,13 +810,13 @@ export {
   type ScriptSite,
 } from '@craftkit/builder-ai';
 // end script-wiring additions
-// library-playground additions (2026-10-08): the Library's template cards (agent-script DESIGN §B.5)
-// — the catalog the host passes as `templateCards`, and the shell card that renders it. The page-kit
-// helpers (`readPageKit`, `writePageKit`) and `PHOTO_CATALOG` arrive via `export *` from builder-ai.
+// library-playground additions (2026-10-08): template cards (DESIGN §B.5); `readPageKit`,
+// `writePageKit`, `PHOTO_CATALOG` via builder-ai. Lazy hosts: `loadMarketingTemplates()` (2026-10-13).
 export {
   marketingTemplateCatalog,
+  marketingTemplates,
   type MarketingTemplateCard,
-} from '@craftkit/builder-blocks-marketing';
+} from '@craftkit/builder-blocks-marketing/templates';
 export {
   TEMPLATE_CARD_LABELS_AR,
   TEMPLATE_CARD_LABELS_EN,

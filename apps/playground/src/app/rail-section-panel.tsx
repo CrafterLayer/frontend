@@ -1,4 +1,10 @@
-import type { ComponentProps, ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 
 import {
   AssetManager,
@@ -7,9 +13,6 @@ import {
   LibraryPanel,
   Palette,
   SitePages,
-  // library-playground additions (2026-10-08): the Library's photo template cards.
-  marketingTemplateCatalog,
-  // end library-playground additions
   type CanvasDragHandle,
   type LiveUtilities,
   type StyleBucket,
@@ -21,6 +24,12 @@ import { SiteBuilderPanel } from '../features/preview/components/SiteBuilderPane
 import { HelpPanel, helpPanelLabels } from '../features/preview/components/HelpPanel';
 import { HistoryPanel } from '../features/preview/components/HistoryPanel';
 import { PageWorkspace } from '../features/preview/page-workspace';
+import {
+  playgroundTemplatesState,
+  preloadPlaygroundTemplatesWhenIdle,
+  requestPlaygroundTemplates,
+  subscribePlaygroundTemplates,
+} from '../features/preview/playground-templates';
 import { LOAD_FONT_PREVIEWS } from './app-env';
 import type { ReadySession } from './app-helpers';
 import { DesignRailPanel } from './design-rail-panel';
@@ -31,6 +40,12 @@ import type { LibraryRequest } from './use-editor-panes';
 
 /** Read once: the platform decides `Ctrl` or `⌘` for the whole session. */
 const PLATFORM = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+
+/** The Templates tab while the page templates are still on their way (they load on demand). */
+const TEMPLATES_LOADING = {
+  en: 'Loading page templates…',
+  ar: 'جارٍ تحميل قوالب الصفحات…',
+} as const;
 
 export interface RailSectionPanelProps {
   readonly railSection: string;
@@ -81,6 +96,38 @@ export function RailSectionPanel({
   openPalette,
 }: RailSectionPanelProps) {
   const { assetLibrary, siteHost, siteSeam } = host;
+  /*
+    The page templates and their photo cards load on demand (playground-templates.ts).
+    Until they land the Templates tab says so, and the kernel's registry gains the
+    compositions the moment they do, so the cards and the tiles arrive together.
+  */
+  const templateState = useSyncExternalStore(
+    subscribePlaygroundTemplates,
+    playgroundTemplatesState,
+    playgroundTemplatesState,
+  );
+  const templateCards =
+    templateState.status === 'ready' ? templateState.templates.marketingTemplateCatalog : undefined;
+  const pending = templateState.status === 'pending';
+  const libraryLabels = useMemo(
+    () =>
+      pending
+        ? { ...labels.libraryPanel, noTemplates: TEMPLATES_LOADING[labels.libraryPanel.language] }
+        : labels.libraryPanel,
+    [pending, labels.libraryPanel],
+  );
+  // The canvas hands out its drag handle once it is live: fetch them in the next idle moment.
+  useEffect(() => {
+    if (dragHandle !== undefined) {
+      preloadPlaygroundTemplatesWhenIdle();
+    }
+  }, [dragHandle]);
+  // "Start from a template" (the empty page) and Help open the Templates tab: fetch them now.
+  useEffect(() => {
+    if (libraryRequest?.tab === 'templates') {
+      requestPlaygroundTemplates();
+    }
+  }, [libraryRequest]);
   return railSection === 'pages' ? (
     <PageWorkspace siteKernel={session.siteKernel} labels={labels.pageWorkspace} />
   ) : railSection === 'layers' ? (
@@ -180,12 +227,12 @@ export function RailSectionPanel({
       onRemoveTemplate={chrome.removeTemplate}
       // The rail item is "Blocks": it opens on them; Elements, Sections and Saved are one tab away.
       defaultTab={libraryRequest?.tab ?? 'blocks'}
-      labels={labels.libraryPanel}
+      labels={libraryLabels}
       actionLabels={labels.elementActions}
       words={labels.elementWords}
       sections={libraryKitSections}
       // library-playground additions (2026-10-08): photo cards in the top-level Templates tab.
-      templateCards={marketingTemplateCatalog}
+      templateCards={templateCards}
       // end library-playground additions
       previewStylesheet={libraryPreviewCss}
       {...(liveUtilities === undefined
@@ -201,7 +248,7 @@ export function RailSectionPanel({
     <Palette
       kernel={session.kernel}
       dragHandle={dragHandle}
-      templateCards={marketingTemplateCatalog} /* library-playground additions (2026-10-08) */
+      templateCards={templateCards} /* library-playground additions (2026-10-08) */
     />
   );
 }

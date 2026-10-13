@@ -45,7 +45,7 @@
     "apps/playground/src/features/preview/components/AgentFace/agent-mood.ts": 805,
     "apps/playground/src/features/preview/components/AgentFace/AgentFace.css": 700,
     "apps/playground/src/features/preview/components/AssistantPanel/AssistantPanel.stories.tsx": 830,
-    "apps/playground/src/features/preview/create-playground-kernel.ts": 784,
+    "apps/playground/src/features/preview/create-playground-kernel.ts": 776,
     "apps/playground/src/features/preview/landing-copy.ts": 599,
     "apps/playground/src/features/preview/source-agent-session.ts": 657,
     "apps/playground/src/features/vault/run-journal.ts": 791,

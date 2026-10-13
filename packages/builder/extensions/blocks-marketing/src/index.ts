@@ -4,6 +4,8 @@
 
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
+import type * as TemplatesModule from './templates';
+
 import { Cta, ctaSchema } from './components/Cta';
 import { AnnouncementBar, announcementBarSchema } from './components/AnnouncementBar';
 import { AppDownload, appDownloadSchema } from './components/AppDownload';
@@ -121,17 +123,22 @@ export const blocksMarketing: TrustedExtensionManifest = {
   },
 };
 
-export { marketingTemplates } from './templates';
-// templates-core additions
-// The Library's template cards (one per en/ar composition) and their shape.
-export {
-  marketingTemplateCatalog,
-  TEMPLATE_PHOTOS,
-  type MarketingTemplateCard,
-  type TemplateCategory,
-  type TemplateLang,
-} from './templates';
-// end templates-core additions
+/*
+  The page templates load on demand (performance pass, 2026-10-13). Their
+  bilingual copy, photos and compositions are ~100 KB gzip that a page made of
+  blocks never needs, so this entry no longer carries them: the manifest
+  (`marketingTemplates`), the Library's cards (`marketingTemplateCatalog`) and
+  `TEMPLATE_PHOTOS` live on the `./templates` subpath, and a host that wants
+  them off its first load fetches that module through `loadMarketingTemplates`.
+  Only their types stay here, which compile to nothing.
+*/
+export type { MarketingTemplateCard, TemplateCategory, TemplateLang } from './templates';
+/** Everything `@craftkit/builder-blocks-marketing/templates` exports. */
+export type MarketingTemplatesModule = typeof TemplatesModule;
+/** Fetches the templates module (manifest, Library cards, photos) as its own chunk. */
+export function loadMarketingTemplates(): Promise<MarketingTemplatesModule> {
+  return import('./templates');
+}
 
 export { Cta, ctaSchema, type CtaProps } from './components/Cta';
 export {

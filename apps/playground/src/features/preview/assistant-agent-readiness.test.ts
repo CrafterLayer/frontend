@@ -11,6 +11,7 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { catalogPolicyFor } from './components/AssistantPanel/catalogPolicyFor';
 import { createPlaygroundKernel, type PlaygroundFixture } from './create-playground-kernel';
+import { loadPlaygroundTemplates } from './playground-templates';
 
 const REQUEST = 'Change the page direction to RTL.';
 const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
@@ -45,6 +46,8 @@ const FULL_CATALOG_BUDGET =
   FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
 
 async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'empty'>) {
+  // A ready agent has its templates: they load on demand (2026-10-13), so this waits for them.
+  await loadPlaygroundTemplates();
   const kernel = createPlaygroundKernel({ fixture });
   let providerCalls = 0;
   let completeWireTokens = 0;

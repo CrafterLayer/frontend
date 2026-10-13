@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { marketingTemplateCatalog as fromPackage } from '../index';
+import * as packageRoot from '../index';
+import { marketingTemplateCatalog as fromSubpath } from '../templates';
 import { marketingTemplateCatalog } from './catalog';
 import { TEMPLATE_COMPOSITIONS } from './index';
 import { arabicLetters, collectImageSrcs, sectionTypes, templatePhotoSrcs } from './test-helpers';
@@ -41,8 +42,16 @@ const CATEGORIES = new Set([
 ]);
 
 describe('marketingTemplateCatalog', () => {
-  it('is exported from the package entry', () => {
-    expect(fromPackage).toBe(marketingTemplateCatalog);
+  // The templates load on demand (2026-10-13): the `./templates` subpath carries the catalog and
+  // the root entry hands out the same module through its loader, never as a static value.
+  it('is exported from the templates entry and loaded on demand from the package root', async () => {
+    expect(fromSubpath).toBe(marketingTemplateCatalog);
+    expect((await packageRoot.loadMarketingTemplates()).marketingTemplateCatalog).toBe(
+      marketingTemplateCatalog,
+    );
+    expect('marketingTemplateCatalog' in packageRoot).toBe(false);
+    expect('marketingTemplates' in packageRoot).toBe(false);
+    expect('TEMPLATE_PHOTOS' in packageRoot).toBe(false);
   });
 
   it('has exactly one card per registered composition, in the same order', () => {

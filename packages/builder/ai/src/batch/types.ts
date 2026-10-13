@@ -97,6 +97,11 @@ export interface AiBatchJobRecord {
   readonly endedAt: string | null;
   /** The model the person picked for the job, when they picked one. */
   readonly model?: string;
+  /**
+   * What the one live call that warmed the pages' shared prompt prefix cost (2026-10-13), when
+   * the server sent one before the batch: it is part of what the job cost.
+   */
+  readonly warmUsage?: AiProviderUsage;
   /** Every target's outcome, in target order, once the job was applied. */
   readonly outcomes?: readonly AiBatchPageOutcome[];
 }

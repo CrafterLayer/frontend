@@ -8,6 +8,7 @@ import type {
   AiBatchPageOutcome,
   AiBatchSkippedPage,
   AiPlanValidationIssue,
+  AiProviderUsage,
 } from '@craftkit/builder';
 
 /**
@@ -123,6 +124,39 @@ export function resultCounts(
     applied: results.filter((result) => result.status === 'applied').length,
     retry: results.filter(canRetryLive).length,
     missing: results.filter((result) => result.status === 'missing').length,
+  };
+}
+
+/** What a job's model calls measured, summed: `null` where a report left a count unknown. */
+export interface JobUsage {
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+}
+
+/**
+ * What a job cost in tokens (2026-10-13): every answered page's usage, and the one live call
+ * that warmed the pages' shared prompt before the batch — so the cache reads it bought show
+ * beside the write that paid for them. Undefined until something was measured; a count any
+ * report left unknown stays unknown, never a silent zero.
+ */
+export function jobUsage(record: AiBatchJobRecord): JobUsage | undefined {
+  const reports = [
+    record.warmUsage,
+    ...(record.outcomes ?? []).map((outcome) => ('usage' in outcome ? outcome.usage : undefined)),
+  ].filter((usage): usage is AiProviderUsage => usage !== undefined);
+  if (reports.length === 0) return undefined;
+  const sum = (key: keyof JobUsage): number | null =>
+    reports.reduce<number | null>((total, usage) => {
+      const count = usage[key];
+      return total === null || count === null ? null : total + count;
+    }, 0);
+  return {
+    inputTokens: sum('inputTokens'),
+    outputTokens: sum('outputTokens'),
+    cacheReadTokens: sum('cacheReadTokens'),
+    cacheWriteTokens: sum('cacheWriteTokens'),
   };
 }
 

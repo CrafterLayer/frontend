@@ -142,6 +142,53 @@ describe('createRemoteBatchClient', () => {
     ]);
   });
 
+  it('sends scene reviews, and reads their verdicts with the live review’s reader', async () => {
+    const review = {
+      version: 1,
+      lang: 'en',
+      contract: { title: 'Garden', purpose: 'Fireflies.', mustSay: [] },
+      images: [
+        { view: 'desktop', mediaType: 'image/jpeg', base64: 'QQ==', width: 640, height: 360 },
+      ],
+    } as const;
+    const usage = { inputTokens: 900, outputTokens: 60, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const finding = { where: 'desktop', problem: 'Unreadable title.', fix: 'Add a scrim.' };
+    const { fetch, seen } = scripted((url) =>
+      url.endsWith('/results')
+        ? json({
+            version: 1,
+            id: 'b',
+            items: [
+              { id: 'hero', body: { version: 1, ok: false, findings: [finding] }, usage },
+              { id: 'shy', body: { version: 1, refusal: 'Not this one.' }, usage },
+            ],
+          })
+        : json({ ...STATE, warmUsage: { ...usage, cacheWriteTokens: 6_100 } }),
+    );
+    const client = createRemoteBatchClient({ endpoint: ENDPOINT, fetch });
+
+    const state = await client.submit([{ id: 'hero', review }]);
+    const results = await client.results('b', { task: 'scene-review' });
+
+    expect(seen[0]?.body).toEqual({ version: 1, items: [{ id: 'hero', review }] });
+    // What the warm call before the batch cost is part of what the job cost.
+    expect(state.warmUsage).toEqual({ ...usage, cacheWriteTokens: 6_100, costUsd: null });
+    expect(results).toEqual([
+      {
+        id: 'hero',
+        outcome: 'scene-review',
+        review: { ok: false, findings: [finding] },
+        usage: { ...usage, costUsd: null },
+      },
+      {
+        id: 'shy',
+        outcome: 'refusal',
+        message: 'Not this one.',
+        usage: { ...usage, costUsd: null },
+      },
+    ]);
+  });
+
   it('fails with the server’s own sentence and status', async () => {
     const said = 'Background batches need the Anthropic Messages API, and OpenRouter cannot batch.';
     const { fetch } = scripted((url) =>

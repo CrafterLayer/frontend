@@ -2,7 +2,10 @@
 // Message Batches job at half price, answered within 24 hours instead of seconds. Every item
 // is an ordinary `AiPlanWireRequest`, held by the server to exactly the checks `/plan` makes,
 // and every succeeded item's `body` is exactly the answer `/plan` would have given it — so
-// the client reads it with the same decoders and judges it at the same door.
+// the client reads it with the same decoders and judges it at the same door. A scene review
+// rides the same way (2026-10-13, `AiBatchWireReviewItem`): `/v1/scene/review`'s body in, its
+// answer out.
+import type { AiSceneReviewWireRequest } from './scene-review-wire';
 import type { AiPlanWireRequest } from './wire';
 
 /**
@@ -34,11 +37,23 @@ export interface AiBatchWireItem {
   readonly request: AiPlanWireRequest;
 }
 
+/**
+ * One scene review of a batch (2026-10-13): a background build's look at a scene section, at
+ * half price. `review` is exactly the `/v1/scene/review` body, held to that endpoint's checks; its
+ * result's `body` is exactly what that endpoint answers (scene-review-wire.ts). A server that
+ * predates it refuses the batch with a 400 naming the item. Read its results with the
+ * `scene-review` task.
+ */
+export interface AiBatchWireReviewItem {
+  readonly id: string;
+  readonly review: AiSceneReviewWireRequest;
+}
+
 /** POST /batch. `model` is the person's pick for every item (as `x-craftkit-ai-model` is for one). */
 export interface AiBatchWireRequest {
   readonly version: 1;
   readonly model?: string;
-  readonly items: readonly AiBatchWireItem[];
+  readonly items: readonly (AiBatchWireItem | AiBatchWireReviewItem)[];
 }
 
 /** Where a batch is: still answering, stopping, or done (every item has a result). */
@@ -61,6 +76,11 @@ export interface AiBatchWireState {
   readonly createdAt: string;
   readonly endedAt: string | null;
   readonly expiresAt?: string;
+  /**
+   * POST /batch only (2026-10-13): what the one live call that warmed the items' shared prefix
+   * cost, when the server sent one (the `/plan` usage shape). Absent when none was worth it.
+   */
+  readonly warmUsage?: unknown;
 }
 
 /**

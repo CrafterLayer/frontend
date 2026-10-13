@@ -16,7 +16,7 @@ import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
 import { answerText, reportUsage, type UsageSink } from './plan-answer';
 import { errorResponse } from './plan-errors';
 import { DEFAULT_MODEL, usageOf, type UsageReport } from './plan-params';
-import { PROMPT_CACHE } from './prompt-cache';
+import { sharedPrefixBlocks } from './prompt-cache';
 import { CALL_EFFORT_LEVELS, EFFORT_HEADER, pickedModel } from './plan-request';
 import { withModelThinking } from './thinking-config';
 
@@ -30,10 +30,23 @@ import { withModelThinking } from './thinking-config';
 
   A small call: a short prompt, the pictures, a JSON answer schema, `SCENE_REVIEW_MAX_TOKENS`
   of output, thinking off unless the person asked for depth (`high`, `xhigh`, `max`), on the
-  fastest model of the route the person picked (the enhancer's choice, enhance-route.ts). Never
-  in a batch: `/batch` takes plan requests only. Only the Messages API can be shown a picture —
-  the CLI and OpenRouter shims flatten a message to its text — so on any other route the answer
-  is `unsupported` and the build reviews nothing, at no cost.
+  fastest model of the route the person picked (the enhancer's choice, enhance-route.ts). Only
+  the Messages API can be shown a picture — the CLI and OpenRouter shims flatten a message to
+  its text — so on any other route the answer is `unsupported` and the build reviews nothing,
+  at no cost. A background build's reviews may go through `/batch` instead, at half price
+  (`reviewBatchItem`, batch-items.ts), and come back as the same body.
+
+  The prompt's order (2026-10-13): what every review of one build shares comes first — the
+  rules, then THE PAGE (its language and palette) — and only then the section's own contract,
+  cast, setting and pictures. By the server's estimate (chars/4) the rules are 328 tokens and a
+  six-colour page 32 (English) to 51 (Arabic): 360-379 shared, and at most 490 for the longest
+  language and the ten 48-character colours the wire admits — under the smallest prefix any
+  model caches (512 tokens on the newest; 4096 on Haiku 4.5), and only padding would reach it.
+  The rules used to carry a breakpoint that therefore never wrote or read anything (no cost, no
+  saving); `sharedPrefixBlocks` now marks the page block only when the shared part clears the
+  model's minimum, so a breakpoint here is a real one or none. The page block holds only the page's
+  language tag and palette, values its page plan already held to a tag and colours; the cast and
+  setting are worded from the person's request and stay in the user turn, with the section.
 */
 
 export const SCENE_REVIEW_PATH = AI_SCENE_REVIEW_PATH;
@@ -87,9 +100,21 @@ export const SCENE_REVIEW_ANSWER_SCHEMA = {
 
 const RTL = /^(?:ar|fa|he|ur|ps|ckb|yi|dv)(?:-|$)/iu;
 
-/** The section, its language and its brief, as the review reads them before the pictures. */
+/** The page every section of a build is on: its language and palette, the same in each review. */
+export function sceneReviewPageText(
+  request: Pick<AiSceneReviewWireRequest, 'brief' | 'lang'>,
+): string {
+  const { brief, lang } = request;
+  return [
+    'THE PAGE',
+    `Page language: ${lang}${RTL.test(lang) ? ' (right-to-left: its text reads right to left, and Arabic letters stay joined)' : ''}`,
+    ...(brief?.palette === undefined ? [] : [`Palette: ${brief.palette.join(', ')}`]),
+  ].join('\n');
+}
+
+/** The section and what its picture should hold, as the review reads them before the pictures. */
 export function sceneReviewContractText(request: AiSceneReviewWireRequest): string {
-  const { contract, brief, lang } = request;
+  const { contract, brief } = request;
   const lines = [
     'THE SECTION',
     `Title: ${contract.title}`,
@@ -97,8 +122,6 @@ export function sceneReviewContractText(request: AiSceneReviewWireRequest): stri
     ...(contract.mustSay.length === 0
       ? []
       : [`Must say: ${contract.mustSay.map((claim) => `"${claim}"`).join('; ')}`]),
-    `Page language: ${lang}${RTL.test(lang) ? ' (right-to-left: its text reads right to left, and Arabic letters stay joined)' : ''}`,
-    ...(brief?.palette === undefined ? [] : [`Palette: ${brief.palette.join(', ')}`]),
     ...(brief?.cast === undefined
       ? []
       : [`Cast the picture should show: ${brief.cast.join('; ')}`]),
@@ -134,8 +157,8 @@ export function sceneReviewParams(
     model: settings.model,
     max_tokens: deep ? SCENE_REVIEW_DEEP_MAX_TOKENS : SCENE_REVIEW_MAX_TOKENS,
     thinking: deep ? ({ type: 'adaptive' } as const) : ({ type: 'disabled' } as const),
-    // The rules are the stable prefix (cached for an hour); the contract and pictures follow.
-    system: [{ type: 'text' as const, text: SCENE_REVIEW_RULES, cache_control: PROMPT_CACHE }],
+    // The rules, then the page: a breakpoint only where it can cache (see the note above).
+    system: sharedPrefixBlocks([SCENE_REVIEW_RULES, sceneReviewPageText(request)], settings.model),
     messages: [{ role: 'user' as const, content }],
     output_config: {
       format: { type: 'json_schema' as const, schema: SCENE_REVIEW_ANSWER_SCHEMA },
@@ -198,6 +221,16 @@ export function readSceneReviewMessage(
   return { kind: 'review', ok: findings.length === 0, findings, usage };
 }
 
+/** What a review answers on the wire — from the live endpoint or a batch item — as a v1 body. */
+export function sceneReviewBody(outcome: SceneReviewOutcome): unknown {
+  if (outcome.kind === 'review') {
+    return { version: AI_PLAN_WIRE_VERSION, ok: outcome.ok, findings: outcome.findings };
+  }
+  return outcome.kind === 'refusal'
+    ? { version: AI_PLAN_WIRE_VERSION, refusal: outcome.message }
+    : { version: AI_PLAN_WIRE_VERSION, invalidOutput: { message: outcome.message } };
+}
+
 /** Whether `model` on `client` can be shown a picture: only the Messages API can. */
 export function canSeePictures(client: Anthropic, model: string): boolean {
   const route = routeOf(model);
@@ -247,6 +280,34 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/** A review body read at the endpoint's door, with the model and budget it runs under. */
+export type SceneReviewCall =
+  | {
+      readonly request: AiSceneReviewWireRequest;
+      readonly model: string;
+      readonly effort: string | undefined;
+    }
+  | { readonly status: 400; readonly error: string };
+
+/**
+ * Every check the endpoint makes of a review body — the request, the budget header — and the
+ * model it runs on: the fastest of the route the person picked. A batch item meets the same door.
+ */
+export function readSceneReviewCall(
+  body: unknown,
+  headers: Headers,
+  options: Pick<SceneReviewHost, 'model' | 'models' | 'enhanceModel'>,
+): SceneReviewCall {
+  const read = readAiSceneReviewWireRequest(body);
+  if ('error' in read) return { status: 400, error: read.error };
+  const effort = (headers.get(EFFORT_HEADER) ?? '').trim();
+  if (effort !== '' && !(CALL_EFFORT_LEVELS as readonly string[]).includes(effort)) {
+    return { status: 400, error: `Effort "${effort.slice(0, 40)}" is not one a call may ask for.` };
+  }
+  const model = enhancerModelFor(options, pickedModel(headers)) ?? options.model ?? DEFAULT_MODEL;
+  return { request: read.request, model, effort: effort === '' ? undefined : effort };
+}
+
 /**
  * `POST /v1/scene/review`, behind the same door as the plan (bearer and body size were checked
  * before routing): 400 a malformed request, a verdict, a refusal or invalid output as a v1 body,
@@ -258,14 +319,9 @@ export async function sceneReviewResponse(
   options: SceneReviewHost,
   request: Request,
 ): Promise<Response> {
-  const read = readAiSceneReviewWireRequest(body);
-  if ('error' in read) return json({ error: read.error }, 400);
-  const effort = (request.headers.get(EFFORT_HEADER) ?? '').trim();
-  if (effort !== '' && !(CALL_EFFORT_LEVELS as readonly string[]).includes(effort)) {
-    return json({ error: `Effort "${effort.slice(0, 40)}" is not one a call may ask for.` }, 400);
-  }
-  const model =
-    enhancerModelFor(options, pickedModel(request.headers)) ?? options.model ?? DEFAULT_MODEL;
+  const call = readSceneReviewCall(body, request.headers, options);
+  if ('error' in call) return json({ error: call.error }, call.status);
+  const { model, effort } = call;
   if (!canSeePictures(options.client, model)) {
     return json({
       version: AI_PLAN_WIRE_VERSION,
@@ -275,21 +331,15 @@ export async function sceneReviewResponse(
   const timeoutMs = options.sceneReviewTimeoutMs ?? SCENE_REVIEW_TIMEOUT_MS;
   const timeout = AbortSignal.timeout(timeoutMs);
   try {
-    const outcome = await reviewScene(read.request, {
+    const outcome = await reviewScene(call.request, {
       client: options.client,
       model,
-      effort: effort === '' ? undefined : effort,
+      effort,
       signal: AbortSignal.any([request.signal, timeout]),
       onAnswer: options.onAnswer,
     });
     reportUsage(options, outcome.usage, 'scene-review');
-    const answer =
-      outcome.kind === 'review'
-        ? { version: AI_PLAN_WIRE_VERSION, ok: outcome.ok, findings: outcome.findings }
-        : outcome.kind === 'refusal'
-          ? { version: AI_PLAN_WIRE_VERSION, refusal: outcome.message }
-          : { version: AI_PLAN_WIRE_VERSION, invalidOutput: { message: outcome.message } };
-    const response = json(answer);
+    const response = json(sceneReviewBody(outcome));
     response.headers.set('x-craftkit-ai-usage', JSON.stringify(outcome.usage));
     response.headers.set('access-control-expose-headers', 'x-craftkit-ai-usage');
     return response;

@@ -59,6 +59,12 @@ export interface AiSceneReviewRequest {
   readonly brief?: AiSceneReviewBrief;
   /** The page's language (`ar` reads right-to-left). */
   readonly lang: string;
+  /**
+   * What the pictures were drawn from, hashed (2026-10-13, agent/scene-review-economy.ts): the
+   * section's source, contract and brief, the language and the pictures' sizes. Never sent; a
+   * caching provider remembers the verdict by it, so the same section looked at again is free.
+   */
+  readonly sourceKey?: string;
 }
 
 /** One thing the picture visibly gets wrong, and the instruction that fixes it. */

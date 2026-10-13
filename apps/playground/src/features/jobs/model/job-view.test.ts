@@ -16,6 +16,7 @@ import {
   jobPhase,
   jobProgress,
   jobResults,
+  jobUsage,
   resultCounts,
 } from './job-view';
 
@@ -115,6 +116,35 @@ describe('results', () => {
     ]);
     expect(results.map(canRetryLive)).toEqual([true, false, true, false]);
     expect(resultCounts(results)).toEqual({ applied: 1, retry: 2, missing: 1 });
+  });
+
+  it('sums what the pages and the warm call measured, unknown where a report did not say', () => {
+    const usage = (input: number, read: number, write: number | null) => ({
+      inputTokens: input,
+      outputTokens: 40,
+      cacheReadTokens: read,
+      cacheWriteTokens: write,
+      costUsd: null,
+    });
+    expect(jobUsage(job())).toBeUndefined();
+    const warmed = job({
+      warmUsage: usage(4, 0, 6_100),
+      outcomes: [
+        { pageId: 'a', status: 'applied', transactionIds: ['t'], usage: usage(120, 6_100, 0) },
+        { pageId: 'b', status: 'refused', message: 'No.', usage: usage(110, 6_100, 0) },
+        { pageId: 'c', status: 'error', message: 'Lost.', retryable: true },
+      ],
+    });
+    expect(jobUsage(warmed)).toEqual({
+      inputTokens: 234,
+      outputTokens: 120,
+      cacheReadTokens: 12_200,
+      cacheWriteTokens: 6_100,
+    });
+    const unknown = job({
+      outcomes: [{ pageId: 'a', status: 'invalid', message: '?', usage: usage(1, 2, null) }],
+    });
+    expect(jobUsage(unknown)).toMatchObject({ inputTokens: 1, cacheWriteTokens: null });
   });
 
   it("sums up the door's issues in a line or two", () => {

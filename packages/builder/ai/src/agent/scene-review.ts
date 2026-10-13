@@ -9,8 +9,14 @@ import {
   type AiSceneReviewRequest,
 } from '../provider/scene-review-wire';
 import { buildMemoryOf } from './build-memory';
-import type { PagePlan, SectionCheckIssue, SectionContract } from './page-plan/types';
+import type {
+  LandedSection,
+  PagePlan,
+  SectionCheckIssue,
+  SectionContract,
+} from './page-plan/types';
 import type { SceneProbe, SceneProbeReport } from './scene-probe';
+import { sceneReviewSourceKey } from './scene-review-economy';
 import { creativeRequestOf, hostCreativeMemory } from './section-providers';
 import type { RunAiBuildOptions } from './types';
 
@@ -29,7 +35,9 @@ import type { RunAiBuildOptions } from './types';
   repair round can still use it (the repaired answer is not looked at again) — only with free
   code on, a probe, a provider that can see and a picture that is not blank. `visualReview:
   false` turns it off; it is on by default exactly where a provider has `reviewScene`. A review
-  that fails, refuses or takes longer than `SCENE_REVIEW_BUDGET_MS` found nothing.
+  that fails, refuses or takes longer than `SCENE_REVIEW_BUDGET_MS` found nothing. And, since
+  2026-10-13 (scene-review-economy.ts), none for a catalogued preset or kit landed unchanged,
+  and the same section looked at again reuses its verdict (`sourceKey`).
 */
 
 /** The scene options a build takes (`RunAiBuildOptions` extends this). */
@@ -155,13 +163,15 @@ function briefOf(
 
 /**
  * What the review is asked: the desktop picture (none ⇒ no review), the phone's when it fits
- * the size cap, the contract, the brief and the page's language.
+ * the size cap, the contract, the brief and the page's language — and, given the section the
+ * pictures show, the key its verdict is remembered by.
  */
 export function sceneReviewRequest(
   host: SceneCheckHost,
   plan: PagePlan,
   contract: SectionContract,
   report: SceneProbeReport | null,
+  section?: LandedSection,
 ): AiSceneReviewRequest | undefined {
   const image = pictureOf(report, 'desktop');
   if (image === undefined || image.base64.length > AI_SCENE_REVIEW_MAX_IMAGE_CHARS) return;
@@ -169,13 +179,16 @@ export function sceneReviewRequest(
   const fits =
     phone !== undefined &&
     image.base64.length + phone.base64.length <= AI_SCENE_REVIEW_MAX_IMAGE_CHARS;
-  return {
+  const request = {
     image,
     ...(fits ? { phone } : {}),
     contract: { title: contract.title, purpose: contract.purpose, mustSay: contract.mustSay },
     brief: briefOf(host, plan, contract),
     lang: plan.locale.lang,
   };
+  return section === undefined
+    ? request
+    : { ...request, sourceKey: sceneReviewSourceKey(section, request) };
 }
 
 function sentence(text: string): string {
@@ -213,10 +226,11 @@ export async function sceneReviewFindings(
   plan: PagePlan,
   contract: SectionContract,
   report: SceneProbeReport | null,
+  section?: LandedSection,
 ): Promise<readonly SectionCheckIssue[]> {
   const review = host.provider.reviewScene?.bind(host.provider);
   if (review === undefined || host.signal?.aborted === true) return [];
-  const request = sceneReviewRequest(host, plan, contract, report);
+  const request = sceneReviewRequest(host, plan, contract, report, section);
   if (request === undefined) return [];
   const controller = new AbortController();
   const stop = (): void => {

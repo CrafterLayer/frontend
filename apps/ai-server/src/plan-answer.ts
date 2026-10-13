@@ -297,8 +297,12 @@ export function answerBody(
   };
 }
 
-/** Which call a usage line belongs to: a plan, a page plan, a site plan, an enhancement, a review. */
-export type UsageTask = 'plan' | 'page-plan' | 'site-plan' | 'enhance' | 'scene-review';
+/**
+ * Which call a usage line belongs to: a plan, a page plan, a site plan, an enhancement, a review,
+ * or the one live call that warms a batch's shared prefix (batch-prewarm.ts).
+ */
+export type UsageTask =
+  'plan' | 'page-plan' | 'site-plan' | 'enhance' | 'scene-review' | 'cache-warm';
 
 /** Where a call's usage line goes: `HandlerOptions.onUsage`. */
 export interface UsageSink {

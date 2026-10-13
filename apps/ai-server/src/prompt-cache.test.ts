@@ -13,7 +13,14 @@ import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import { createCacheGate } from './cache-gate';
 import { proposePlan } from './claude';
 import type { PromptParts } from './prompt';
-import { PROMPT_CACHE, cachedPrompt, turnText } from './prompt-cache';
+import {
+  PROMPT_CACHE,
+  cachedPrompt,
+  clearsCacheMinimum,
+  minCacheableTokens,
+  sharedPrefixBlocks,
+  turnText,
+} from './prompt-cache';
 
 const STABLE = '# Block catalog\n[]\n\n# Active skills\nExpertise the host activated.\n\n## Copy';
 
@@ -168,6 +175,47 @@ describe('what the plan request sends', () => {
       'string',
       'object',
       'string',
+    ]);
+  });
+});
+
+describe('minCacheableTokens', () => {
+  it('knows each generation’s minimum, and holds an unknown model to the largest', () => {
+    const models = [
+      'claude-opus-5-5',
+      'api:claude-haiku-5-5',
+      'claude-sonnet-5-5',
+      'claude-opus-5',
+      'claude-fable-5-1',
+      'claude-sonnet-5',
+      'claude-opus-4-8',
+      'claude-sonnet-4-5',
+      'claude-sonnet-4-20250514',
+      'claude-opus-4-7',
+      'claude-3-5-haiku-20241022',
+      'claude-opus-4-6',
+      'claude-haiku-4-5-20251001',
+      'vendor/some-model',
+    ];
+    expect(models.map(minCacheableTokens)).toEqual([
+      512, 512, 512, 512, 512, 1024, 1024, 1024, 1024, 2048, 2048, 4096, 4096, 4096,
+    ]);
+  });
+});
+
+describe('sharedPrefixBlocks', () => {
+  it('marks the last shared block only when the texts clear the model’s minimum', () => {
+    // 2,048 characters: 512 tokens by the server's estimate (chars/4).
+    const enough = ['r'.repeat(1_500), 'p'.repeat(548)];
+    expect(sharedPrefixBlocks(enough, 'claude-haiku-5-5')).toEqual([
+      { type: 'text', text: enough[0] },
+      { type: 'text', text: enough[1], cache_control: PROMPT_CACHE },
+    ]);
+    expect(clearsCacheMinimum(enough, 'claude-haiku-4-5')).toBe(false);
+    const short = ['r'.repeat(1_500), 'p'.repeat(544)];
+    expect(sharedPrefixBlocks(short, 'claude-haiku-5-5')).toEqual([
+      { type: 'text', text: short[0] },
+      { type: 'text', text: short[1] },
     ]);
   });
 });

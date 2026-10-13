@@ -32,6 +32,7 @@ retry anything itself (`onRetryLive` does).
 | `pages`       | `readonly BatchPageOption[]` | none    | for titles; a page the site lost shows its id         |
 | `retried`     | `readonly string[]`          | `[]`    | pages already sent again: "Sent to the chat"          |
 | `onRetryLive` | `(pageId: string) => void`   | none    | absent: no page offers Retry live                     |
+| `usage`       | `JobUsage`                   | none    | `jobUsage(record)`: tokens, cache reads and writes    |
 
 ## Outcomes
 

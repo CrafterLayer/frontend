@@ -232,6 +232,24 @@ export function createCacheDoctor(options: CacheDoctorOptions = {}): CacheDoctor
   };
 }
 
+/**
+ * Why each of a batch's requests would write the cache instead of reading it (2026-10-13), in
+ * the order they are sent: where each first differs from the request of its kind before it —
+ * the warm call's prefix first, when one was sent (batch-prewarm.ts). The same local comparison
+ * as a live call's, on a still clock (a batch runs its items in no order this server sees, so
+ * nothing in it expires); a result that says it wrote gets this reason, as a live call does. A
+ * request whose prefix matched the one before it and still wrote ran beside it: `unknown`.
+ */
+export function batchCacheMisses(
+  requests: readonly DoctorParams[],
+  warm?: DoctorParams,
+): CacheMissReason[] {
+  const doctor = createCacheDoctor({ apiDiagnosis: false, now: () => 0 });
+  const wrote = { usage: { cache_creation_input_tokens: 1 } };
+  if (warm !== undefined) doctor.visit(warm).done(wrote);
+  return requests.map((params) => doctor.visit(params).done(wrote)?.reason ?? 'unknown');
+}
+
 /** One doctor per server process: lanes outlive a request. */
 export const SHARED_CACHE_DOCTOR: CacheDoctor = createCacheDoctor({
   apiDiagnosis: process.env['CRAFTKIT_AI_CACHE_DIAGNOSIS'] !== '0',

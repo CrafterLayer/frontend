@@ -15,10 +15,11 @@ import type {
   AssembledAiContext,
 } from '../types';
 import { canonicalJsonStringify } from '../internal/canonical-json';
+import type { AiSceneReview } from './scene-review-wire';
 import { CACHED_PROVIDER_USAGE, notifyProviderUsage } from './usage';
 
 export interface CachingAiPlanProviderOptions {
-  /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite). */
+  /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite, verdict). */
   capacity?: number;
 }
 
@@ -265,14 +266,25 @@ export function createCachingAiPlanProvider(
       );
   }
   if (innerReviewScene !== undefined) {
+    const verdicts = lruMemory<AiSceneReview>(capacity);
     /*
-      A scene review (2026-10-13) passes through, never remembered: a picture of a running scene
-      is never the same twice, and a key of 200 KB of base64 would buy nothing. Its absence stays
-      a signal — a build reviews nothing without it.
+      A scene review (2026-10-13) is remembered by what its pictures were drawn from, never by
+      the pictures: a running scene is never drawn the same twice, and a key of 200 KB of base64
+      would buy nothing. A build names the source (`sourceKey`, agent/scene-review-economy.ts),
+      so the same section looked at again — a regenerate, a rebuild after an undo, an identical
+      re-run — reuses the verdict at no cost; a review without one passes through. Only a verdict
+      is kept: a refusal or a failure throws before it gets here. Its absence stays a signal —
+      a build reviews nothing without it.
     */
     provider.reviewScene = async (request, live) => {
+      const ask = () => innerReviewScene(request, live);
+      if (request.sourceKey !== undefined) {
+        return remembered(verdicts, request.sourceKey, live?.signal, ask, () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        });
+      }
       throwIfAborted(live?.signal);
-      const review = await innerReviewScene(request, live);
+      const review = await ask();
       throwIfAborted(live?.signal);
       return review;
     };

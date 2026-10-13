@@ -4,9 +4,17 @@ import {
   AI_BATCH_ITEM_ID_PATTERN,
   AI_BATCH_MAX_ITEMS,
   AI_BATCH_PATH,
-  type AiPlanWireRequest,
 } from '@craftkit/builder/wire';
 
+import {
+  planBatchItem,
+  reviewBatchItem,
+  type BatchBackend,
+  type BuiltItem,
+  type Judge,
+} from './batch-items';
+import { prewarm, prewarmPlan } from './batch-prewarm';
+import { batchCacheMisses, type CacheMissReason, type DoctorParams } from './cache-doctor';
 import {
   answerBody,
   readPagePlanMessage,
@@ -16,24 +24,18 @@ import {
   type UsageSink,
 } from './plan-answer';
 import { errorResponse } from './plan-errors';
-import {
-  DEFAULT_MODEL,
-  NO_CONTRACT_MESSAGE,
-  contractSchemaOf,
-  planParams,
-  usageOf,
-} from './plan-params';
+import { usageOf, type UsageReport } from './plan-params';
 import {
   DEFAULT_MAX_REQUEST_BYTES,
   MODEL_HEADER,
   authorized,
-  callEffort,
   readJsonBody,
   readPlanCall,
   type PlanRequestPolicy,
 } from './plan-request';
-import { PAGE_PLAN_ANSWER_SCHEMA, planShapeCheck } from './plan-shape';
-import { apiParams, isApiModel, isCliModel } from './routing-client';
+import { readSceneReviewCall, readSceneReviewMessage, sceneReviewBody } from './scene-review';
+
+export type { BatchBackend } from './batch-items';
 
 /*
   Background batches (2026-10-12): the agent's big jobs — the same request on every page of a
@@ -48,17 +50,18 @@ import { apiParams, isApiModel, isCliModel } from './routing-client';
   time, so a server on either answers 501 naming what is missing, and an item that names a
   model only they serve answers 409.
 
+  A background build's scene reviews ride the same routes (2026-10-13): an item that carries
+  `review` instead of `request` is a `/v1/scene/review` body, held to that endpoint's door and
+  answered with the body it would have answered (batch-items.ts). Before the batch goes, one
+  live call may warm the prefix its items share, so they read it instead of each writing it
+  (batch-prewarm.ts); what it cost comes back as `warmUsage`. Each item that wrote the cache
+  anyway says why (`usage.cacheMiss`, cache-doctor.ts), as a live call does.
+
   The server keeps no batch: its id is the API's. What it keeps, in memory, is each plan
   item's shape judge (`planShapeCheck`), which picks between the candidates a salvage of a
   broken answer produces; a server restarted since the batch was sent reads its results
   without them, and says so in its log.
 */
-
-/** Who runs batches: the Messages API for every model (`sdk`), or for `api:` models only (`api`). */
-export interface BatchBackend {
-  readonly client: Anthropic;
-  readonly route: 'sdk' | 'api';
-}
 
 /** Why this server cannot batch at all: a sentence naming what is missing. */
 export interface BatchUnavailable {
@@ -70,6 +73,8 @@ export type BatchCapability = BatchBackend | BatchUnavailable;
 /** What the batch routes read from the handler's options. `HandlerOptions` is one. */
 export interface BatchRouteOptions extends PlanRequestPolicy, UsageSink, AnswerHooks {
   readonly batches?: BatchCapability | undefined;
+  /** The scene review's model choice reads it, as the live endpoint does. */
+  readonly enhanceModel?: string | undefined;
   readonly authToken?: string;
   readonly maxRequestBytes?: number;
   readonly maxTokens?: number;
@@ -82,8 +87,6 @@ const NOT_CONFIGURED =
 const LEDGER_MAX_BATCHES = 256;
 
 const BATCH_ID = /^[A-Za-z0-9_-]{1,200}$/u;
-
-type Judge = (value: unknown) => boolean;
 
 /** Whether a path is one of the batch routes. */
 export function isBatchPath(pathname: string): boolean {
@@ -119,7 +122,7 @@ function routeOf(method: string, pathname: string): BatchRoute | Response {
 }
 
 /** A batch's state, as the wire carries it. */
-function stateOf(batch: Anthropic.Messages.MessageBatch): unknown {
+function stateOf(batch: Anthropic.Messages.MessageBatch): Readonly<Record<string, unknown>> {
   const counts = batch.request_counts;
   return {
     version: 1,
@@ -138,9 +141,16 @@ function stateOf(batch: Anthropic.Messages.MessageBatch): unknown {
   };
 }
 
+/** One item as sent: a plan body (`request`) or a scene review body (`review`), never both. */
+interface BatchBodyItem {
+  readonly id: string;
+  readonly request?: unknown;
+  readonly review?: unknown;
+}
+
 interface BatchBody {
   readonly model?: string;
-  readonly items: readonly { readonly id: string; readonly request: unknown }[];
+  readonly items: readonly BatchBodyItem[];
 }
 
 function readBatchBody(body: unknown): BatchBody | { readonly error: string } {
@@ -157,7 +167,7 @@ function readBatchBody(body: unknown): BatchBody | { readonly error: string } {
     return { error: `A batch carries 1 to ${String(AI_BATCH_MAX_ITEMS)} items.` };
   }
   const seen = new Set<string>();
-  const read: { id: string; request: unknown }[] = [];
+  const read: BatchBodyItem[] = [];
   for (const item of items as unknown[]) {
     const id: unknown =
       typeof item === 'object' && item !== null ? (item as { id?: unknown }).id : undefined;
@@ -166,7 +176,11 @@ function readBatchBody(body: unknown): BatchBody | { readonly error: string } {
     }
     if (seen.has(id)) return { error: `Item id "${id}" appears twice.` };
     seen.add(id);
-    read.push({ id, request: (item as { request?: unknown }).request });
+    const { request, review } = item as { request?: unknown; review?: unknown };
+    if (request !== undefined && review !== undefined) {
+      return { error: `Item "${id}" carries both a "request" and a "review".` };
+    }
+    read.push(review === undefined ? { id, request } : { id, review });
   }
   return {
     ...(model === undefined || model.trim() === '' ? {} : { model: model.trim() }),
@@ -174,62 +188,9 @@ function readBatchBody(body: unknown): BatchBody | { readonly error: string } {
   };
 }
 
-/** The model the Messages API is asked for, or undefined when only the CLI or OpenRouter serves it. */
-function messagesModel(model: string, route: BatchBackend['route']): string | undefined {
-  if (route === 'api') return isApiModel(model) ? model.slice('api:'.length) : undefined;
-  return isCliModel(model) || model.includes('/') ? undefined : model;
-}
-
-/** One item as the Batches API takes it, and the judge its answer will be read with. */
-type BuiltItem =
-  | {
-      readonly request: Anthropic.Messages.BatchCreateParams.Request;
-      readonly judge?: Judge;
-    }
-  | { readonly status: 400 | 409; readonly error: string };
-
-/**
- * `custom_id` is the item's id marked with its task (`p-` a plan, `g-` a page plan), so a
- * result says how to read itself even when this server no longer remembers the batch.
- */
-function batchItem(
-  id: string,
-  wire: AiPlanWireRequest,
-  run: BatchRouteOptions,
-  backend: BatchBackend,
-): BuiltItem {
-  const model = run.model ?? DEFAULT_MODEL;
-  const apiModel = messagesModel(model, backend.route);
-  if (apiModel === undefined) {
-    return {
-      status: 409,
-      error:
-        `Model "${model}" cannot run in a batch: only the Anthropic Messages API batches` +
-        `${backend.route === 'api' ? ' (an api: model)' : ''}, and the local CLI and OpenRouter cannot.`,
-    };
-  }
-  // A site plan (T230) is asked live while its site is built; it has no batch reader.
-  if (wire.task === 'site-plan') return { status: 400, error: 'A site plan is not batched.' };
-  const pagePlan = wire.task === 'page-plan';
-  const schema = pagePlan ? PAGE_PLAN_ANSWER_SCHEMA : contractSchemaOf(wire);
-  // /plan answers this with an invalid-output body and no model call; a batch refuses the item.
-  if (schema === undefined) return { status: 400, error: NO_CONTRACT_MESSAGE };
-  const { params } = planParams(
-    wire,
-    { model, maxTokens: run.maxTokens, ...callEffort(wire, run) },
-    schema,
-  );
-  const sent =
-    backend.route === 'api'
-      ? (apiParams(
-          params as unknown as Record<string, unknown>,
-          apiModel,
-        ) as unknown as typeof params)
-      : params;
-  return {
-    request: { custom_id: `${pagePlan ? 'g' : 'p'}-${id}`, params: sent },
-    ...(pagePlan ? {} : { judge: planShapeCheck(wire) }),
-  };
+/** A request as the cache doctor reads it: its system as blocks (ours always are). */
+function doctorParams(params: Anthropic.Messages.MessageCreateParamsNonStreaming): DoctorParams {
+  return { ...params, system: Array.isArray(params.system) ? params.system : [] };
 }
 
 /** The plain sentence for an item that got no answer: never the API's own prose. */
@@ -259,12 +220,18 @@ function noAnswer(result: Anthropic.Messages.MessageBatchResult): {
   return { type, message };
 }
 
-/** Each batch's shape judges by `custom_id`, and whether its usage was logged already. */
+/** What a batch's results are read with, by `custom_id`: plan shape judges, cache-miss reasons. */
+interface Remembered {
+  readonly judges: ReadonlyMap<string, Judge>;
+  readonly misses: ReadonlyMap<string, CacheMissReason>;
+}
+
+/** Each batch's judges and miss reasons, and whether its usage was logged already. */
 function createLedger() {
-  const batches = new Map<string, { judges: ReadonlyMap<string, Judge>; logged: boolean }>();
+  const batches = new Map<string, Remembered & { logged: boolean }>();
   return {
-    remember(id: string, judges: ReadonlyMap<string, Judge>): void {
-      batches.set(id, { judges, logged: false });
+    remember(id: string, remembered: Remembered): void {
+      batches.set(id, { ...remembered, logged: false });
       while (batches.size > LEDGER_MAX_BATCHES) {
         const oldest = batches.keys().next().value;
         if (oldest === undefined) break;
@@ -296,21 +263,70 @@ export function createBatchRoutes(options: BatchRouteOptions) {
     const requests: Anthropic.Messages.BatchCreateParams.Request[] = [];
     const judges = new Map<string, Judge>();
     for (const item of batch.items) {
-      const call = await readPlanCall(headers, item.request, options);
-      const built = 'error' in call ? call : batchItem(item.id, call.wire, call.run, backend);
+      const built = await builtItem(item, headers, backend);
       if ('error' in built) {
         return json({ error: `Item "${item.id}": ${built.error}`, item: item.id }, built.status);
       }
       requests.push(built.request);
       if (built.judge !== undefined) judges.set(built.request.custom_id, built.judge);
     }
+    const warm = await warmed(requests, backend, request.signal);
     const created = await backend.client.messages.batches.create(
       { requests },
       { signal: request.signal },
     );
-    ledger.remember(created.id, judges);
+    // Why an item that wrote the cache did (cache-doctor.ts), read with its result.
+    const reasons = batchCacheMisses(
+      requests.map(({ params }) => doctorParams(params)),
+      warm?.params,
+    );
+    const misses = new Map(
+      requests.map(({ custom_id }, at) => [custom_id, reasons[at] ?? 'unknown']),
+    );
+    ledger.remember(created.id, { judges, misses });
     options.onLog?.(`batch ${created.id}: ${String(requests.length)} requests sent at batch price`);
-    return json(stateOf(created));
+    const state = stateOf(created);
+    return json(warm === undefined ? state : { ...state, warmUsage: warm.usage });
+  }
+
+  /** One item, built as its live call's request: a review at the review door, a plan at /plan's. */
+  async function builtItem(
+    item: BatchBodyItem,
+    headers: Headers,
+    backend: BatchBackend,
+  ): Promise<BuiltItem> {
+    if (item.review !== undefined) {
+      const call = readSceneReviewCall(item.review, headers, options);
+      return 'error' in call ? call : reviewBatchItem(item.id, call, backend);
+    }
+    const call = await readPlanCall(headers, item.request, options);
+    return 'error' in call ? call : planBatchItem(item.id, call.wire, call.run, backend);
+  }
+
+  /** The one warm call, when a prefix is worth it (batch-prewarm.ts); a failed one is only logged. */
+  async function warmed(
+    requests: readonly Anthropic.Messages.BatchCreateParams.Request[],
+    backend: BatchBackend,
+    signal: AbortSignal,
+  ): Promise<{ readonly params: DoctorParams; readonly usage: UsageReport } | undefined> {
+    const plan = prewarmPlan(requests);
+    if (plan === undefined) return undefined;
+    try {
+      const usage = await prewarm(backend.client, plan, signal);
+      reportUsage(options, usage, 'cache-warm');
+      options.onLog?.(
+        `batch: warmed a ~${String(plan.tokens)}-token prefix ${String(plan.sharers)} items share ` +
+          `(wrote ${String(usage.cacheWriteTokens ?? '?')}, read ${String(usage.cacheReadTokens ?? '?')})`,
+      );
+      return { params: doctorParams(plan.params), usage };
+    } catch (cause) {
+      signal.throwIfAborted();
+      const said = cause instanceof Error ? cause.message : String(cause);
+      options.onLog?.(
+        `batch: the cache warm-up failed (${said.slice(0, 200)}); sending without it`,
+      );
+      return undefined;
+    }
   }
 
   async function results(
@@ -334,7 +350,7 @@ export function createBatchRoutes(options: BatchRouteOptions) {
     const logUsage = remembered?.logged !== true;
     const items: unknown[] = [];
     for await (const entry of await backend.client.messages.batches.results(id, { signal })) {
-      const marked = /^([pg])-(.+)$/u.exec(entry.custom_id);
+      const marked = /^([pgr])-(.+)$/u.exec(entry.custom_id);
       const itemId = marked?.[2];
       if (marked === null || itemId === undefined) continue;
       const result = entry.result;
@@ -342,19 +358,25 @@ export function createBatchRoutes(options: BatchRouteOptions) {
         items.push({ id: itemId, error: noAnswer(result) });
         continue;
       }
-      const pagePlan = marked[1] === 'g';
-      const outcome = pagePlan
-        ? readPagePlanMessage(result.message, options)
-        : readPlanMessage(result.message, remembered?.judges.get(entry.custom_id), options);
-      const answered = answerBody(outcome, usageOf(result.message));
-      if (answered.usage !== undefined && logUsage) {
-        reportUsage(options, answered.usage, pagePlan ? 'page-plan' : 'plan');
-      }
-      items.push({
-        id: itemId,
-        body: answered.body,
-        ...(answered.usage === undefined ? {} : { usage: answered.usage }),
-      });
+      const task = marked[1] === 'r' ? 'scene-review' : marked[1] === 'g' ? 'page-plan' : 'plan';
+      const measured = usageOf(result.message);
+      // A write says why, as a live call's does (cache-doctor.ts); a read needs no reason.
+      const reason = remembered?.misses.get(entry.custom_id);
+      const usage =
+        reason === undefined || (measured.cacheWriteTokens ?? 0) === 0
+          ? measured
+          : { ...measured, cacheMiss: { reason, missedTokens: null, source: 'local' as const } };
+      const answered =
+        task === 'scene-review'
+          ? { body: sceneReviewBody(readSceneReviewMessage(result.message, options.onAnswer)) }
+          : answerBody(
+              task === 'page-plan'
+                ? readPagePlanMessage(result.message, options)
+                : readPlanMessage(result.message, remembered?.judges.get(entry.custom_id), options),
+              usage,
+            );
+      if (logUsage) reportUsage(options, usage, task);
+      items.push({ id: itemId, body: answered.body, usage });
     }
     if (remembered !== undefined) remembered.logged = true;
     return json({ version: 1, id, items });

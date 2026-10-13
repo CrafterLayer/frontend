@@ -119,5 +119,9 @@ describe('createLocalBatchJobStore', () => {
       readJobRecord({ ...record('a'), outcomes: [{ pageId: 'home', status: 'maybe' }] }),
     ).toBeUndefined();
     expect(readJobRecord(null)).toBeUndefined();
+    // What the warm call before the batch cost (2026-10-13) is kept; anything else is not a record.
+    const warmUsage = { inputTokens: 4, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 9 };
+    expect(readJobRecord({ ...record('a'), warmUsage })).toMatchObject({ warmUsage });
+    expect(readJobRecord({ ...record('a'), warmUsage: 'lots' })).toBeUndefined();
   });
 });

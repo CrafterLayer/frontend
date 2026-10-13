@@ -69,12 +69,15 @@ async function landTarget(
     case 'invalid-output':
       return { pageId, status: 'invalid', message: result.message, ...usage };
     case 'page-plan':
+    case 'scene-review': {
+      const what = result.outcome === 'page-plan' ? 'a page plan' : 'a scene review';
       return {
         pageId,
         status: 'invalid',
-        message: 'The batch answered this page with a page plan, not a plan of changes.',
+        message: `The batch answered this page with ${what}, not a plan of changes.`,
         ...usage,
       };
+    }
     case 'plan': {
       const outcome = await answerPage({
         kernel: options.site.page(pageId),
@@ -201,6 +204,7 @@ export function createAiBatchRunner(options: AiBatchRunnerOptions): AiBatchRunne
         counts: state.counts,
         endedAt: state.endedAt,
         ...(model === '' ? {} : { model }),
+        ...(state.warmUsage === undefined ? {} : { warmUsage: state.warmUsage }),
       });
     },
 

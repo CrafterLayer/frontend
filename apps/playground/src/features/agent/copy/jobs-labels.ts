@@ -5,9 +5,14 @@
  * and these strings belong to one surface. Digits stay Latin in both languages, and Arabic
  * page counts agree with their number (`arabicCount`).
  */
-import type { JobPageStatus, JobPhase } from '../../jobs';
+import type { JobPageStatus, JobPhase, JobUsage } from '../../jobs';
 import { AR_PAGES, arabicCount } from '../../preview/arabic-count';
 import type { Locale } from '../model/view-types';
+
+/** A measured count in Latin digits, or `?` when the server could not say. */
+function count(value: number | null): string {
+  return value === null ? '?' : String(value);
+}
 
 export interface JobsLabels {
   readonly title: string;
@@ -67,6 +72,8 @@ export interface JobsLabels {
     readonly removeLabel: (request: string) => string;
     readonly results: string;
     readonly summary: (applied: number, total: number) => string;
+    /** The job's measured tokens, the cache's reads and writes among them; `?` where unknown. */
+    readonly usage: (usage: JobUsage) => string;
   };
   readonly outcome: {
     readonly status: Readonly<Record<JobPageStatus, string>>;
@@ -149,6 +156,8 @@ const EN: JobsLabels = {
     removeLabel: (request) => `Remove “${request}”`,
     results: 'Results',
     summary: (applied, total) => `${String(applied)} of ${String(total)} pages applied`,
+    usage: (usage) =>
+      `Tokens: input ${count(usage.inputTokens)} · cache read ${count(usage.cacheReadTokens)} · cache write ${count(usage.cacheWriteTokens)} · output ${count(usage.outputTokens)}`,
   },
   outcome: {
     status: {
@@ -240,6 +249,8 @@ const AR: JobsLabels = {
     removeLabel: (request) => `احذف «${request}»`,
     results: 'النتائج',
     summary: (applied, total) => `طُبّق على ${String(applied)} من ${String(total)}`,
+    usage: (usage) =>
+      `الرموز: الإدخال ${count(usage.inputTokens)} · قراءة الكاش ${count(usage.cacheReadTokens)} · كتابة الكاش ${count(usage.cacheWriteTokens)} · الإخراج ${count(usage.outputTokens)}`,
   },
   outcome: {
     status: {

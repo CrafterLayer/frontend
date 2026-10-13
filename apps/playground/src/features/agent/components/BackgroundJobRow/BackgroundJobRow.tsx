@@ -10,6 +10,7 @@ import {
   jobPhase,
   jobProgress,
   jobResults,
+  jobUsage,
 } from '../../../jobs';
 import { formatWhen } from '../../copy/format';
 import { jobsLabels } from '../../copy/jobs-labels';
@@ -219,6 +220,7 @@ export function BackgroundJobRow({
               pages={pages}
               retried={retried}
               onRetryLive={onRetryLive}
+              usage={jobUsage(job)}
             />
           </div>
         </div>

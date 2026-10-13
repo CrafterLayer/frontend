@@ -237,7 +237,8 @@ export function createFakeBatchClient(answers: BatchAnswers = () => []): FakeBat
       submit: (batch, options) => {
         if (refusal !== undefined) return Promise.reject(refusal);
         sent.push({
-          items: batch,
+          // A page job sends plan items only.
+          items: batch.filter((item): item is AiBatchWireItem => 'request' in item),
           ...(options?.model === undefined ? {} : { model: options.model }),
         });
         return answer(state);

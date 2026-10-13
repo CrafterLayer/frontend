@@ -85,6 +85,7 @@ export function readJobRecord(value: unknown): AiBatchJobRecord | undefined {
     COUNTS.every((name) => isCount(counts[name])) &&
     (endedAt === null || typeof endedAt === 'string') &&
     (value['model'] === undefined || typeof value['model'] === 'string') &&
+    (value['warmUsage'] === undefined || isRecord(value['warmUsage'])) &&
     (value['outcomes'] === undefined || listOf(value['outcomes'], isOutcome));
   return shaped ? (value as unknown as AiBatchJobRecord) : undefined;
 }

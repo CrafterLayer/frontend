@@ -83,7 +83,9 @@ function fakeClient(answer: (items: readonly AiBatchWireItem[]) => readonly AiBa
   });
   const client: AiBatchClient = {
     submit: (items, options) => {
-      sent.push({ items, model: options?.model });
+      // A page job sends plan items only.
+      const plans = items.filter((item): item is AiBatchWireItem => 'request' in item);
+      sent.push({ items: plans, model: options?.model });
       return Promise.resolve(state());
     },
     status: () => Promise.resolve(state()),
@@ -166,6 +168,30 @@ describe('submitting a page-request job', () => {
     });
     expect(await runner.get(job.id)).toEqual(job);
     expect(site.transactions()).toHaveLength(0);
+  });
+
+  it('keeps what the warm call before the batch cost on the job', async () => {
+    const { client } = fakeClient(() => []);
+    const warmUsage = {
+      inputTokens: 4,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 6_100,
+      costUsd: null,
+    };
+    const warmed: AiBatchClient = {
+      ...client,
+      submit: async (items, options) => ({ ...(await client.submit(items, options)), warmUsage }),
+    };
+
+    const job = await runnerOn(warmed).submitPageRequest({
+      site: siteKernel(),
+      pageIds: ['home'],
+      request: REQUEST,
+      agent,
+    });
+
+    expect(job.warmUsage).toEqual(warmUsage);
   });
 
   it('refuses a malformed job, and one where no page could be asked', async () => {

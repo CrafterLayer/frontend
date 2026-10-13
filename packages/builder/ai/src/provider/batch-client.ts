@@ -7,8 +7,10 @@ import {
   AI_BATCH_PATH,
   type AiBatchWireCounts,
   type AiBatchWireItem,
+  type AiBatchWireReviewItem,
   type AiBatchWireStatus,
 } from './batch-wire';
+import { readAiSceneReviewWireResponse, type AiSceneReview } from './scene-review-wire';
 import { readAiPagePlanWireResponse, type AiPlanWireTask } from './wire';
 
 /*
@@ -17,6 +19,8 @@ import { readAiPagePlanWireResponse, type AiPlanWireTask } from './wire';
   policy, deadline and size cap. An item's answer is decoded by the SAME reader a live plan
   goes through (`parseWireResponse`; `readAiPagePlanWireResponse` for a page plan), so a
   batch answer can only ever be a plan, a refusal, or an invalid answer — never a document.
+  A scene review item (2026-10-13) is read by the live review's reader
+  (`readAiSceneReviewWireResponse`): a verdict, a refusal or an invalid answer.
 */
 
 export interface RemoteBatchClientOptions {
@@ -41,6 +45,8 @@ export interface AiBatchState {
   readonly counts: AiBatchWireCounts;
   readonly createdAt: string;
   readonly endedAt: string | null;
+  /** What the one live call that warmed the items' shared prefix cost, when one was sent. */
+  readonly warmUsage?: AiProviderUsage;
 }
 
 /** One item's answer, read by the live decoders, or the reason it has none. */
@@ -55,6 +61,12 @@ export type AiBatchItemResult =
       readonly id: string;
       readonly outcome: 'page-plan';
       readonly proposal: AiPagePlanProposal;
+      readonly usage?: AiProviderUsage;
+    }
+  | {
+      readonly id: string;
+      readonly outcome: 'scene-review';
+      readonly review: AiSceneReview;
       readonly usage?: AiProviderUsage;
     }
   | {
@@ -82,13 +94,19 @@ export interface AiBatchSubmitOptions extends AiBatchCallOptions {
   readonly model?: string | undefined;
 }
 
+/** How a batch's answers are read: as plans, page plans, or scene reviews. */
+export type AiBatchResultsTask = AiPlanWireTask | 'scene-review';
+
 export interface AiBatchResultsOptions extends AiBatchCallOptions {
-  /** How to read the answers: as plans (the default) or as page plans. */
-  readonly task?: AiPlanWireTask | undefined;
+  /** How to read the answers: as plans (the default), page plans or scene reviews. */
+  readonly task?: AiBatchResultsTask | undefined;
 }
 
 export interface AiBatchClient {
-  submit(items: readonly AiBatchWireItem[], options?: AiBatchSubmitOptions): Promise<AiBatchState>;
+  submit(
+    items: readonly (AiBatchWireItem | AiBatchWireReviewItem)[],
+    options?: AiBatchSubmitOptions,
+  ): Promise<AiBatchState>;
   status(batchId: string, options?: AiBatchCallOptions): Promise<AiBatchState>;
   results(batchId: string, options?: AiBatchResultsOptions): Promise<readonly AiBatchItemResult[]>;
   cancel(batchId: string, options?: AiBatchCallOptions): Promise<AiBatchState>;
@@ -127,6 +145,7 @@ function readState(payload: unknown): AiBatchState {
   }
   const counts = isRecord(payload['counts']) ? payload['counts'] : {};
   const endedAt = payload['endedAt'];
+  const warmUsage = readProviderUsage(payload['warmUsage']);
   return {
     batchId: payload['id'],
     status: payload['status'] as AiBatchWireStatus,
@@ -139,6 +158,7 @@ function readState(payload: unknown): AiBatchState {
     },
     createdAt: typeof payload['createdAt'] === 'string' ? payload['createdAt'] : '',
     endedAt: typeof endedAt === 'string' ? endedAt : null,
+    ...(warmUsage === undefined ? {} : { warmUsage }),
   };
 }
 
@@ -174,7 +194,20 @@ function readPagePlanBody(
   return { id, outcome, message: reading.message, ...cost };
 }
 
-function readItem(entry: unknown, task: AiPlanWireTask): AiBatchItemResult | undefined {
+function readReviewBody(
+  id: string,
+  body: unknown,
+  usage: AiProviderUsage | undefined,
+): AiBatchItemResult {
+  const cost = usage === undefined ? {} : { usage };
+  const reading = readAiSceneReviewWireResponse(body);
+  if (reading.kind === 'review')
+    return { id, outcome: 'scene-review', review: reading.review, ...cost };
+  const outcome = reading.kind === 'refusal' ? 'refusal' : 'invalid-output';
+  return { id, outcome, message: reading.message, ...cost };
+}
+
+function readItem(entry: unknown, task: AiBatchResultsTask): AiBatchItemResult | undefined {
   if (!isRecord(entry) || typeof entry['id'] !== 'string') return undefined;
   const id = entry['id'];
   const error = entry['error'];
@@ -188,6 +221,7 @@ function readItem(entry: unknown, task: AiPlanWireTask): AiBatchItemResult | und
   }
   if (!Object.hasOwn(entry, 'body')) return undefined;
   const usage = readProviderUsage(entry['usage']);
+  if (task === 'scene-review') return readReviewBody(id, entry['body'], usage);
   return task === 'page-plan'
     ? readPagePlanBody(id, entry['body'], usage)
     : readPlanBody(id, entry['body'], usage);

@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { AiSceneReviewWireRequest } from '@craftkit/builder/wire';
 
 import { createHandler } from './handler';
-import { PROMPT_CACHE } from './prompt-cache';
+import { estimateTokens } from './prompt';
+import { minCacheableTokens } from './prompt-cache';
 import {
   SCENE_REVIEW_ANSWER_SCHEMA,
   SCENE_REVIEW_DEEP_MAX_TOKENS,
@@ -14,6 +15,8 @@ import {
   canSeePictures,
   readSceneReviewMessage,
   reviewScene,
+  sceneReviewPageText,
+  sceneReviewParams,
 } from './scene-review';
 
 /*
@@ -107,10 +110,14 @@ describe('reviewScene', () => {
     expect(params.model).toBe('claude-haiku-5-5');
     expect(params.max_tokens).toBe(SCENE_REVIEW_MAX_TOKENS);
     expect(params.thinking).toEqual({ type: 'disabled' });
-    // The rules carry the shared cache breakpoint; everything per scene comes after them.
+    // What every review of a build shares comes first — the rules, then the page — and carries
+    // no breakpoint: together they are under the smallest prefix a model caches.
     expect(params.system).toEqual([
-      { type: 'text', text: SCENE_REVIEW_RULES, cache_control: PROMPT_CACHE },
+      { type: 'text', text: SCENE_REVIEW_RULES },
+      { type: 'text', text: sceneReviewPageText(REQUEST) },
     ]);
+    expect(params.system[1]?.text).toContain('Page language: ar (right-to-left');
+    expect(params.system[1]?.text).toContain('Palette: bg #101820, accent #f2c14e');
     expect(params.output_config.format.schema).toBe(SCENE_REVIEW_ANSWER_SCHEMA);
     const [turn] = params.messages;
     expect(turn?.role).toBe('user');
@@ -131,9 +138,9 @@ describe('reviewScene', () => {
     const contract = turn?.content[0]?.text ?? '';
     expect(contract).toContain('Title: حديقة الليل');
     expect(contract).toContain('Must say: "Open every evening"');
-    expect(contract).toContain('Page language: ar (right-to-left');
-    expect(contract).toContain('Palette: bg #101820, accent #f2c14e');
     expect(contract).toContain('Cast the picture should show: Layla (hero, teal)');
+    expect(contract).toContain('Kind and setting: arcade · forest, night');
+    expect(contract).not.toContain('Palette');
     expect(turn?.content[1]?.text).toMatch(/^Desktop, a 1280×720 screen/u);
     expect(turn?.content[3]?.text).toMatch(/^Phone, 390 px wide/u);
     expect(call?.options.headers).toEqual({ 'x-craftkit-internal-reasoning-effort': 'low' });
@@ -159,6 +166,28 @@ describe('reviewScene', () => {
     });
     expect(always[0]?.params).not.toHaveProperty('thinking');
     expect(always[0]?.params).toMatchObject({ output_config: { effort: 'low' } });
+  });
+});
+
+describe('the shared prefix', () => {
+  /*
+    The breakpoint question, measured (2026-10-13): the rules and the page block are what every
+    review of a build shares. Even the largest page block the wire admits — a 35-character
+    right-to-left language and ten 48-character colours — leaves the pair under 512 tokens by the
+    server's estimate, the smallest minimum any model caches, so no breakpoint is placed rather
+    than one that never writes. When this fails, the rules grew: the breakpoint comes back by
+    itself (`sharedPrefixBlocks`), and this note and the one in scene-review.ts need new numbers.
+  */
+  it('stays under the smallest cacheable minimum even at the wire’s limits', () => {
+    const largest = sceneReviewPageText({
+      lang: `ar-${'x'.repeat(32)}`,
+      brief: { palette: Array.from({ length: 10 }, (_, at) => String(at).padEnd(48, '#')) },
+    });
+    const shared = estimateTokens(SCENE_REVIEW_RULES) + estimateTokens(largest);
+    expect(shared).toBeLessThan(512);
+    expect(minCacheableTokens('claude-haiku-5-5')).toBe(512);
+    const params = sceneReviewParams(REQUEST, { model: 'api:claude-haiku-5-5' });
+    expect(JSON.stringify(params.system)).not.toContain('cache_control');
   });
 });
 

@@ -1,4 +1,10 @@
-import { canRetryLive, issueSummary, resultCounts, type JobPageResult } from '../../../jobs';
+import {
+  canRetryLive,
+  issueSummary,
+  resultCounts,
+  type JobPageResult,
+  type JobUsage,
+} from '../../../jobs';
 import { jobsLabels, type JobsLabels } from '../../copy/jobs-labels';
 import { pageTitleOf, type BatchPageOption } from '../../model/background-jobs';
 import type { Locale } from '../../model/view-types';
@@ -17,6 +23,8 @@ export interface BatchOutcomeListProps {
   readonly retried?: readonly string[] | undefined;
   /** Retry live: the same request on that page, now. Absent, no page offers it. */
   readonly onRetryLive?: ((pageId: string) => void) | undefined;
+  /** What the job measured (`jobUsage`): one Meta line under the summary; absent, none. */
+  readonly usage?: JobUsage | undefined;
 }
 
 const GLYPH: Readonly<Record<JobPageResult['status'], RunGlyphState>> = {
@@ -59,7 +67,8 @@ function detailOf(result: JobPageResult, words: JobsLabels['outcome']): string |
  * issues), that got no answer (and whether sending it again may work) or that was never sent
  * offers Retry live: the job's request on that page, as the panel's own run. A page the site
  * no longer has offers nothing. The server's and the door's sentences keep their own
- * direction (`dir="auto"`).
+ * direction (`dir="auto"`). Given `usage` (2026-10-13), a second Meta line says what the job
+ * measured, cache reads and writes included.
  */
 export function BatchOutcomeList({
   locale,
@@ -67,6 +76,7 @@ export function BatchOutcomeList({
   pages,
   retried = [],
   onRetryLive,
+  usage,
 }: BatchOutcomeListProps) {
   const labels = jobsLabels(locale);
   const words = labels.outcome;
@@ -76,6 +86,9 @@ export function BatchOutcomeList({
       <p className="ck-agent-outcomes__summary">
         {labels.row.summary(counts.applied, results.length)}
       </p>
+      {usage === undefined ? null : (
+        <p className="ck-agent-outcomes__summary">{labels.row.usage(usage)}</p>
+      )}
       <ul className="ck-agent-outcomes__list" role="list">
         {results.map((result) => {
           const title = pageTitleOf(pages, result.pageId);

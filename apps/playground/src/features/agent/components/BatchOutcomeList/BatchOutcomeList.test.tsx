@@ -101,6 +101,23 @@ describe('BatchOutcomeList', () => {
     expect(within(rowOf('blog')).queryByRole('button')).toBeNull();
   });
 
+  it('says what the job measured, the cache’s reads and writes among it, when it is known', () => {
+    const usage = {
+      inputTokens: 1_820,
+      outputTokens: 2_140,
+      cacheReadTokens: 24_400,
+      cacheWriteTokens: null,
+    };
+    const { rerender } = render(
+      <BatchOutcomeList locale="en" results={RESULTS} pages={SAMPLE_PAGES} usage={usage} />,
+    );
+    expect(
+      screen.getByText('Tokens: input 1820 · cache read 24400 · cache write ? · output 2140'),
+    ).toBeInTheDocument();
+    rerender(<BatchOutcomeList locale="ar" results={RESULTS} pages={SAMPLE_PAGES_AR} />);
+    expect(screen.queryByText(/الرموز/u)).toBeNull();
+  });
+
   it('speaks Arabic, page titles in their own direction', () => {
     render(
       <BatchOutcomeList

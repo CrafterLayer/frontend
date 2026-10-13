@@ -29,11 +29,13 @@ export {
   jobPhase,
   jobProgress,
   jobResults,
+  jobUsage,
   resultCounts,
   type JobPageResult,
   type JobPageStatus,
   type JobPhase,
   type JobProgress,
+  type JobUsage,
 } from './model/job-view';
 export {
   BATCH_POLL_MS,

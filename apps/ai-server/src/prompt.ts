@@ -336,7 +336,7 @@ ${JSON.stringify(PAGE_PLAN_EXAMPLE)}
 
 When your previous page plan was REFUSED, the message quotes it with the reasons. Fix exactly those reasons, keep everything else, and answer with the whole plan again.`;
 
-function estimateTokens(text: string): number {
+export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARACTERS_PER_TOKEN);
 }
 

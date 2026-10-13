@@ -16,6 +16,7 @@ import {
   type SceneProbeContext,
 } from './scene-probe';
 import { claimSceneReview, sceneReviewFindings, type SceneCheckHost } from './scene-review';
+import { testedScenePreset } from './scene-review-economy';
 import type { AiBuildSectionValues } from './types';
 
 /*
@@ -27,7 +28,8 @@ import type { AiBuildSectionValues } from './types';
   browser host may also RUN a scene section before it lands (creative-power
   Phase 2 E, scene-probe.ts): what that finds joins the same round — and,
   once per section, what the model SEES wrong in a picture of it
-  (scene-review.ts, 2026-10-13).
+  (scene-review.ts, 2026-10-13) — unless its code is a catalogued preset
+  or kit unchanged, which is run but not looked at (scene-review-economy.ts).
 */
 
 /** Step E's findings: at once, or — when a scene is run — once it has run. */
@@ -126,8 +128,9 @@ export function checkWritten(
   const host = options.scene;
   const probe = host?.sceneProbe ?? options.sceneProbe;
   if (probe === undefined || !isProbedScene(section)) return found;
-  // The one look is claimed at the first check, even one the static check fails.
-  const look = claimSceneReview(host, contract.key);
+  // The one look is claimed at the first check, even one the static check fails — and spent
+  // without a model call on a tested preset or kit (the probe still runs it).
+  const look = claimSceneReview(host, contract.key) && testedScenePreset(section) === undefined;
   if (scene.length > 0) return found;
   const { lang, dir } = plan.locale;
   const signal = host === undefined ? options.signal : host.signal;
@@ -139,7 +142,9 @@ export function checkWritten(
   };
   return sceneProbeRun(probe, section, context).then(async ({ issues: ran, report }) => {
     const seen =
-      look && host !== undefined ? await sceneReviewFindings(host, plan, contract, report) : [];
+      look && host !== undefined
+        ? await sceneReviewFindings(host, plan, contract, report, section)
+        : [];
     return [...found, ...ran, ...seen];
   });
 }

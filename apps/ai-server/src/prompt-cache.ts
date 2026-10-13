@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 
-import type { PromptParts } from './prompt';
+import { estimateTokens, type PromptParts } from './prompt';
 
 /*
   Where a plan request's cache breakpoints sit, and how long they live (2026-10-12).
@@ -28,6 +28,51 @@ import type { PromptParts } from './prompt';
 
 /** Every breakpoint's entry lives an hour: see (1). Longer entries must precede shorter ones, so all match. */
 export const PROMPT_CACHE: Anthropic.CacheControlEphemeral = { type: 'ephemeral', ttl: '1h' };
+
+/*
+  The smallest prefix a breakpoint caches, per model (2026-10-13, the Claude API's prompt-caching
+  table). Below it a marker writes nothing and reads nothing, with no error — `cache_creation`
+  stays 0 — so a breakpoint on a short prefix only pretends. Not monotonic across generations:
+  512 on the newest models, 4096 on Haiku 4.5 and Opus 4.5/4.6. A model this table does not
+  know is held to the largest, so no breakpoint is claimed where it may not cache.
+*/
+const CACHE_MINIMUMS: readonly (readonly [RegExp, number])[] = [
+  [/^claude-(?:opus-4-[56]|haiku-4-5)(?:$|-)/u, 4096],
+  [/^claude-(?:opus-4-7|mythos-preview|3-5-haiku)(?:$|-)/u, 2048],
+  [/^claude-(?:opus-4-[18]|sonnet-4-[56])(?:$|-)/u, 1024],
+  [/^claude-(?:opus|sonnet)-4(?:$|-0|-\d{8})/u, 1024],
+  [/^claude-sonnet-5(?:$|-\d{8})/u, 1024],
+  [/^claude-(?:opus-5-5|sonnet-5-5|haiku-5-5|fable-5-1|mythos-5-1)(?:$|-)/u, 512],
+  [/^claude-(?:opus|fable|mythos)-5(?:$|-\d{8})/u, 512],
+];
+const UNKNOWN_MODEL_MINIMUM = 4096;
+
+/** The fewest prefix tokens `model` (a Messages API id, or an `api:` slug) caches. */
+export function minCacheableTokens(model: string): number {
+  const id = model.replace(/^api:/u, '').toLowerCase();
+  return CACHE_MINIMUMS.find(([pattern]) => pattern.test(id))?.[1] ?? UNKNOWN_MODEL_MINIMUM;
+}
+
+/** Whether a prefix of these texts clears `model`'s minimum, by the server's estimate (chars/4). */
+export function clearsCacheMinimum(texts: readonly string[], model: string): boolean {
+  return texts.reduce((sum, text) => sum + estimateTokens(text), 0) >= minCacheableTokens(model);
+}
+
+/**
+ * Texts every request of a kind shares, as system blocks: the last one a one-hour breakpoint
+ * only when together they clear the model's minimum — a real breakpoint, never a pretend one.
+ */
+export function sharedPrefixBlocks(
+  texts: readonly string[],
+  model: string,
+): Anthropic.TextBlockParam[] {
+  const cacheable = clearsCacheMinimum(texts, model);
+  return texts.map((text, index) => ({
+    type: 'text' as const,
+    text,
+    ...(cacheable && index === texts.length - 1 ? { cache_control: PROMPT_CACHE } : {}),
+  }));
+}
 
 /** Where `prompt.ts` starts the active skills inside the stable segment. */
 const SKILLS_HEADING = '\n\n# Active skills\n';

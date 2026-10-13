@@ -44,6 +44,18 @@ export const Default: Story = {
 
 export const Dark: Story = { parameters: DARK };
 
+/** What the job measured: the warm call's cache write, and the reads it bought the pages. */
+export const WithUsage: Story = {
+  args: {
+    usage: {
+      inputTokens: 1_820,
+      outputTokens: 2_140,
+      cacheReadTokens: 24_400,
+      cacheWriteTokens: 6_100,
+    },
+  },
+};
+
 /** Two pages already sent again: they say so instead of offering it twice. */
 export const Retried: Story = { args: { retried: ['about', 'contact'] } };
 

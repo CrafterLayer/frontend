@@ -32,6 +32,7 @@ export {
   type AiBatchClient,
   type AiBatchItemResult,
   type AiBatchResultsOptions,
+  type AiBatchResultsTask,
   type AiBatchState,
   type AiBatchSubmitOptions,
   type RemoteBatchClientOptions,
@@ -45,6 +46,7 @@ export {
   type AiBatchWireRequest,
   type AiBatchWireResultItem,
   type AiBatchWireResults,
+  type AiBatchWireReviewItem,
   type AiBatchWireState,
   type AiBatchWireStatus,
 } from '../provider/batch-wire';

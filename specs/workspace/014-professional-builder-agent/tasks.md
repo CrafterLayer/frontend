@@ -834,3 +834,9 @@ now names: a preset id and params, a `data-ck-behavior` value, a library call.
       falsy `hidden`; it is now a boolean attribute); a sticky header could not stick on a published
       page (its region now sticks with it, proven by the Chromium test failing without the rule);
       `copy-text` now says "Copied" / «تم النسخ» politely to screen readers.
+- [x] T255 Eleven ready kits on `scene.preset` (game: arcade, platformer, runner, breakout, memory,
+      quiz, snake, catch; story: picture-book, visual-novel, scroll-story): a kit lands as its own
+      section in the page's language, its words in the tree, palette/seed/speed/density and its own
+      params; keyboard only with focus, on-screen controls, pause, polite status, reduced motion as
+      manual steps, RTL. One call costs ~24–84 tokens against ~3k–7k written (58,234 → 394 typical
+      over the eleven). Played in Chromium (15 kit tests, 42 preset tests).

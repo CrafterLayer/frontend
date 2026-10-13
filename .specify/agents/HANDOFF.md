@@ -1,5 +1,29 @@
 # Active Work Handoff
 
+## Current continuation — ready scripts and Pixi packages, 2026-10-13 (c)
+
+Requested (Arabic): the packages that strengthen PixiJS results, and ready-made scripts for what the
+agent does often, so each costs it less. **Done and pushed** (feature 014 T251–T255): what the agent
+used to write as code it now names — a preset id and params, a `data-ck-behavior` value, a library
+call.
+
+- T251: `s.lib.procgen` (rot-js) and `s.lib.gif` (gifuct-js), lazy per scene; @pixi/gif,
+  @pixi/layout + yoga and poisson-disk-sampling rejected with reasons in the media-engines README.
+- T252: six ready website behaviours (back-to-top, read-more, scroll-spy, typed-words, filter,
+  dismiss), shipped only where named; all-packs budget 27,000 B.
+- T253: the free-code card names the ready behaviours instead of a hand-written counter.
+- T254: fixes the new tests found — stored `hidden`, the sticky header on published pages, a polite
+  "copied" for screen readers.
+- T255: eleven kits as `scene.preset` (game: arcade, platformer, runner, breakout, memory, quiz,
+  snake, catch; story: picture-book, visual-novel, scroll-story). One call of ~24–84 tokens instead
+  of ~3k–7k written tokens per kit (58k → ~0.4k over all eleven). The ids are taught in the
+  games/stories playbooks, not the always-on edit menu (that lane is at its cap; adding them costs
+  ~27 cached tokens a request and four mirrored files).
+- Open: a vague "add a game" does not wake the games playbook (no bare "game" keyword); the emitter
+  atlas logs a Pixi "[BindGroup] textureSource destroyed while bound" warning on spawn
+  (media-engines); the core behaviour runtime (~11.8 KB) ships on any page with any behaviour;
+  `section-layout.css` never reaches the published stylesheet; best scores last one visit.
+
 ## Current continuation — design round, 2026-10-13 (b)
 
 Requested (Arabic): better designs and template designs, more elements, Tailwind packages for

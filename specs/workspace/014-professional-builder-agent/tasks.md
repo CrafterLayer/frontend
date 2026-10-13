@@ -754,5 +754,8 @@ workers; "high power" for stories, murals, games and websites; any package neede
       (`cache-diagnosis-2026-04-07`, previous_message_id; a refused beta is retried without it).
       The reason reaches the server log and the run telemetry (EN/AR). A reproduction through the
       real client, handler and prompt keeps the prefix byte-stable (`cache-prefix.integration`).
-      OpenRouter slugs keep OpenRouter's own 5-minute lifetime and provider routing (not verified
-      from here: openrouter.ai is outside the network policy).
+      Every route reads the cache now: OpenRouter's `anthropic/` slugs keep the hour and the
+      conversation breakpoint (`openrouter-cache.ts`, back to five minutes for good only when
+      OpenRouter refuses the hour and accepts the old form); other vendors cache a stable prefix
+      by themselves; the prompt enhancer's rules are cached; batches and authored runs already
+      were. The site plan's rules (~450 tokens) stay under the API's 512-token floor.

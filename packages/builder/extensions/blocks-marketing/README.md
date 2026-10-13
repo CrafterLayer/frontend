@@ -1,6 +1,6 @@
 # `@craftkit/builder-blocks-marketing`
 
-CraftKit's production marketing vocabulary: 32 responsive block types plus four original,
+CraftKit's production marketing vocabulary: 47 responsive block types plus four original,
 ready-to-insert landing-page templates. The package ships executable block schemas and renderers as
 the trusted tier-1 `blocksMarketing` manifest; reusable page compositions ship separately as the
 JSON-pure tier-2 `marketingTemplates` manifest.
@@ -23,6 +23,9 @@ or another extension.
 | Education and contact     | `faq`, `blogGrid`, `contact`                                                                       |
 | Data                      | `table` (rows and columns), `chart` (script-free SVG, twelve types), `report` (KPIs, chart, table) |
 | Local business and events | `timeline`, `menuSection`, `location`, `countdown`                                                 |
+| Proof and stories         | `pullQuote`, `reviewSummary` (average, star bars, reviews), `caseStudy`, `beforeAfter` (slider)    |
+| Careers and resources     | `jobsList`, `downloadList`                                                                         |
+| Apps and appeals          | `appDownload` (generic store buttons, device frame), `fundraiser` (goal and progress)              |
 
 Every new component owns its implementation, zod schema, AI-ready examples, local export,
 behavior-focused test, Storybook story, and MDX documentation. Section schemas expose explicit

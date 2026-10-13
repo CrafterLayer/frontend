@@ -18,9 +18,17 @@ export function categoryForBlock(type: string): PaletteCategory {
   /*
     Content a person writes, checked first: `menuSection` would otherwise be
     claimed by the Layout group's `section`. (2026-10-12: the local-business
-    blocks — a timeline, a menu or price list, a location.)
+    blocks — a timeline, a menu or price list, a location. 2026-10-13: a pull
+    quote, a jobs list and a list of downloads.)
   */
-  if (key.includes('timeline') || key.includes('menusection') || key === 'location') {
+  if (
+    key.includes('timeline') ||
+    key.includes('menusection') ||
+    key === 'location' ||
+    key === 'pullquote' ||
+    key === 'jobslist' ||
+    key === 'downloadlist'
+  ) {
     return 'Content';
   }
 
@@ -53,7 +61,13 @@ export function categoryForBlock(type: string): PaletteCategory {
     key.includes('portfolio') ||
     key.includes('productgrid') ||
     /* A launch countdown is a promotional band, beside the promo banner and the CTA. */
-    key.includes('countdown')
+    key.includes('countdown') ||
+    /* 2026-10-13: proof (ratings, a customer story, a before/after) and conversion. */
+    key === 'reviewsummary' ||
+    key === 'casestudy' ||
+    key === 'beforeafter' ||
+    key === 'appdownload' ||
+    key === 'fundraiser'
   ) {
     return 'Marketing';
   }

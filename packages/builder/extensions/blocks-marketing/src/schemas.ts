@@ -9,6 +9,7 @@ import { heroSchema } from './components/Hero/schema';
 import { carouselSchema } from './components/Carousel/schema';
 import { videoSectionSchema } from './components/VideoSection/schema';
 import { gallerySchema } from './components/Gallery/schema';
+import { beforeAfterSchema } from './components/BeforeAfter/schema';
 import { logoCloudSchema } from './components/LogoCloud/schema';
 import { featuresSchema } from './components/Features/schema';
 import { bentoGridSchema } from './components/BentoGrid/schema';
@@ -21,6 +22,9 @@ import { productGridSchema } from './components/ProductGrid/schema';
 import { pricingSchema } from './components/Pricing/schema';
 import { pricingPlanSchema } from './components/PricingPlan/schema';
 import { testimonialsSchema } from './components/Testimonials/schema';
+import { pullQuoteSchema } from './components/PullQuote/schema';
+import { reviewSummarySchema } from './components/ReviewSummary/schema';
+import { caseStudySchema } from './components/CaseStudy/schema';
 import { comparisonTableSchema } from './components/ComparisonTable/schema';
 import { tableSchema } from './components/Table/schema';
 import { chartSchema } from './components/Chart/schema';
@@ -32,9 +36,13 @@ import { countdownSchema } from './components/Countdown/schema';
 import { faqSchema } from './components/Faq/schema';
 import { blogGridSchema } from './components/BlogGrid/schema';
 import { contactSchema } from './components/Contact/schema';
+import { jobsListSchema } from './components/JobsList/schema';
+import { downloadListSchema } from './components/DownloadList/schema';
 import { formSectionSchema } from './components/FormSection/schema';
 import { newsletterSchema } from './components/Newsletter/schema';
 import { ctaSchema } from './components/Cta/schema';
+import { appDownloadSchema } from './components/AppDownload/schema';
+import { fundraiserSchema } from './components/Fundraiser/schema';
 import { navLinksSchema } from './components/NavLinks/schema';
 import { richTextBlockSchema } from './components/RichTextBlock/schema';
 
@@ -77,6 +85,7 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   carouselSchema,
   videoSectionSchema,
   gallerySchema,
+  beforeAfterSchema,
   logoCloudSchema,
   featuresSchema,
   bentoGridSchema,
@@ -89,6 +98,9 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   pricingSchema,
   pricingPlanSchema,
   testimonialsSchema,
+  pullQuoteSchema,
+  reviewSummarySchema,
+  caseStudySchema,
   comparisonTableSchema,
   tableSchema,
   chartSchema,
@@ -100,9 +112,13 @@ export const marketingBlockSchemas: readonly BlockSchema[] = [
   faqSchema,
   blogGridSchema,
   contactSchema,
+  jobsListSchema,
+  downloadListSchema,
   formSectionSchema,
   newsletterSchema,
   ctaSchema,
+  appDownloadSchema,
+  fundraiserSchema,
   navLinksSchema,
   richTextBlockSchema,
 ];
@@ -119,6 +135,7 @@ export {
   carouselSchema,
   videoSectionSchema,
   gallerySchema,
+  beforeAfterSchema,
   logoCloudSchema,
   featuresSchema,
   bentoGridSchema,
@@ -131,6 +148,9 @@ export {
   pricingSchema,
   pricingPlanSchema,
   testimonialsSchema,
+  pullQuoteSchema,
+  reviewSummarySchema,
+  caseStudySchema,
   comparisonTableSchema,
   tableSchema,
   chartSchema,
@@ -142,9 +162,13 @@ export {
   faqSchema,
   blogGridSchema,
   contactSchema,
+  jobsListSchema,
+  downloadListSchema,
   formSectionSchema,
   newsletterSchema,
   ctaSchema,
+  appDownloadSchema,
+  fundraiserSchema,
   navLinksSchema,
   richTextBlockSchema,
 };

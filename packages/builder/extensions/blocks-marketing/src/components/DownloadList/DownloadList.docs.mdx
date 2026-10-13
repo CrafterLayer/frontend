@@ -1,0 +1,47 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as DownloadListStories from './DownloadList.stories';
+
+<Meta of={DownloadListStories} />
+
+# Download List
+
+Files a visitor takes away: a company profile, a restaurant menu, a price list, a brochure, an
+annual report, a form. Each file is a tile with its title, a short description, its format and its
+size, and the whole tile is the link. A Contact or a CTA links once; a Table cannot say "PDF, 3.2
+MB" for every row — this block is the downloads page.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Downloads", edited in place), `body`.
+- `files`: up to twenty `{ title, description?, format?, size?, href }` — `href` is required and
+  safe (relative, http(s), mailto, tel). `format` ("PDF") and `size` ("3.2 MB", «٤ م.ب») are free
+  text, so they read right in any language.
+- `downloadLabel = 'Download'`: the affordance beside every file — one part, edited once; below a
+  28rem container only its glyph shows.
+- `layout: 'list' | 'cards' = 'list'`, and the shared section props.
+
+## Accessibility and direction
+
+The files are a `<ul>`; each title is an `h3` whose link names the file and is described by its
+format and size (`aria-describedby` → "PDF 3.2 MB"). A root-relative address gets the `download`
+attribute — the only kind a browser honours it for. On the published page the link is stretched over
+the tile, with the focus ring drawn around the tile (`has-focus-visible:`); on the canvas each part
+stays clickable. The file glyph and the download affordance are `aria-hidden` decoration from the
+project's lucide set. Logical spacing throughout, so the glyph sits at the inline start in both
+directions.
+
+## Parts
+
+| name               | kind | bind                                          | label (en / ar)              |
+| ------------------ | ---- | --------------------------------------------- | ---------------------------- |
+| `eyebrow`          | text | `eyebrow`                                     | Eyebrow / الشارة             |
+| `heading`          | text | `heading`                                     | Heading / العنوان            |
+| `body`             | text | `body`                                        | Body / الوصف (multiline)     |
+| `files`            | list | `files`                                       | Files / الملفات              |
+| `file`             | item | `files.*`                                     | File / الملف                 |
+| `file.title`       | link | `{ text: files.*.title, href: files.*.href }` | File title / اسم الملف       |
+| `file.description` | text | `files.*.description`                         | File description / وصف الملف |
+| `file.format`      | text | `files.*.format`                              | File format / صيغة الملف     |
+| `file.size`        | text | `files.*.size`                                | File size / حجم الملف        |
+| `downloadLabel`    | text | `downloadLabel`                               | Download label / نص التحميل  |

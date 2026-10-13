@@ -1,0 +1,56 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FundraiserStories from './Fundraiser.stories';
+
+<Meta of={FundraiserStories} />
+
+# Fundraiser
+
+A goal and how close it is: the amount raised against the target as a progress bar, a few supporter
+numbers, preset amounts, and the donate button — a charity appeal, a school campaign, a waqf or a
+crowdfunded pre-order. The primitive Progress bar has no amounts, currency or call to action; Stats
+has no goal. This is the section built around one.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Help us reach our goal", edited in place), `body`.
+- `raised` and `goal` (numbers, goal above zero), `currency` (shown beside both, one part),
+  `currencyPosition: 'before' | 'after' = 'before'`, `raisedLabel = 'raised of'`,
+  `goalLabel = 'goal'`, `numberLanguage: 'en' | 'ar' = 'en'` (Arabic-Indic digits).
+- `stats`: up to three `{ value, label }` — free text ("1,204" donors, "18" days left), so nothing
+  goes stale on its own.
+- `amounts`: up to six preset `{ label, href }` links; `actionLabel = 'Donate now'` +
+  `actionHref = '#'`; `note`.
+- `imageSrc` / `imageAlt` with `layout: 'card' | 'split' = 'card'` — split sets the card beside the
+  photo from a 48rem container; without a photo it stays a card.
+- `progressLabel = 'Funding progress'`: the bar's accessible name (Accessibility, advanced tab), and
+  the shared section props (`align` defaults to centre).
+
+## Accessibility and direction
+
+The bar is a `role="progressbar"` with `aria-valuenow` (capped at 100), `aria-valuemin` /
+`aria-valuemax`, and `aria-valuetext` reading the real share ("68%", or "120%" past the goal); the
+printed share beside it is `aria-hidden` so it is heard once. The fill is sized with `inline-size`,
+so it grows from the inline start — the right in Arabic. Each amount is a `<bdi>` that never wraps,
+so "68,250 ر.س" stays one unit inside an Arabic sentence. A currency symbol sits against the number
+("$68,250"); a code or a word gets a no-break space. The card keeps its light ground and ink on a
+dark section.
+
+## Parts
+
+| name          | kind  | bind                                              | label (en / ar)                     |
+| ------------- | ----- | ------------------------------------------------- | ----------------------------------- |
+| `eyebrow`     | text  | `eyebrow`                                         | Eyebrow / الشارة                    |
+| `heading`     | text  | `heading`                                         | Heading / العنوان                   |
+| `body`        | text  | `body`                                            | Body / الوصف (multiline)            |
+| `currency`    | text  | `currency`                                        | Currency / العملة                   |
+| `raisedLabel` | text  | `raisedLabel`                                     | Raised label / تسمية المبلغ المجموع |
+| `goalLabel`   | text  | `goalLabel`                                       | Goal label / تسمية الهدف            |
+| `stats`       | list  | `stats`                                           | Supporter stats / أرقام الداعمين    |
+| `stat.value`  | text  | `stats.*.value`                                   | Stat value / قيمة الرقم             |
+| `stat.label`  | text  | `stats.*.label`                                   | Stat label / وصف الرقم              |
+| `amounts`     | list  | `amounts`                                         | Preset amounts / مبالغ مقترحة       |
+| `amount`      | link  | `{ text: amounts.*.label, href: amounts.*.href }` | Preset amount / مبلغ مقترح          |
+| `action`      | link  | `{ text: actionLabel, href: actionHref }`         | Donate button / زر التبرع           |
+| `note`        | text  | `note`                                            | Note / ملاحظة                       |
+| `image`       | image | `{ src: imageSrc, alt: imageAlt }`                | Photo / الصورة                      |

@@ -28,7 +28,9 @@ const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
 // 56 since 9521efa (2026-10-05) registered the symbol-instance block beside customCode.
 // 56 → 62 on 2026-10-12: table, chart, timeline, menuSection, location and countdown.
 // 62 → 63 on 2026-10-12: report (one dataset as KPI cards, a chart and a table).
-const LANDING_BLOCK_COUNT = 63;
+// 63 → 71 on 2026-10-13: beforeAfter, pullQuote, reviewSummary, caseStudy, jobsList,
+// downloadList, appDownload and fundraiser.
+const LANDING_BLOCK_COUNT = 71;
 // 27 → 28 since c4fee26 (2026-10-09), which gave the landing one more node.
 const LANDING_NODE_COUNT = 28;
 /*

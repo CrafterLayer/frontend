@@ -149,3 +149,116 @@ describe('publishing the local-business blocks', () => {
     expect(missing).toEqual([]);
   }, 60_000);
 });
+
+/*
+  The 2026-10-13 blocks publish the same way: script-free markup whose every
+  utility has a rule, except the Before/After slider, which hands its frame to
+  the renderer's existing `compare` pack (shipped only because the page
+  carries the marker) with its own slider name and start position.
+*/
+const MORE_BLOCKS: readonly { readonly type: string; readonly props: Record<string, unknown> }[] = [
+  {
+    type: 'beforeAfter',
+    props: { beforeSrc: PHOTO, beforeAlt: 'Before', afterSrc: PHOTO, afterAlt: 'After', start: 35, caption: 'Kitchen.' },
+  },
+  { type: 'beforeAfter', props: { tone: 'dark', aspect: 'portrait' } },
+  {
+    type: 'pullQuote',
+    props: { author: 'Lina', role: 'Founder', source: 'The Daily', sourceHref: 'https://example.com/a', imageSrc: PHOTO, imageAlt: 'Lina', variant: 'rule' },
+  },
+  { type: 'pullQuote', props: { variant: 'card', tone: 'dark', size: 'xl' } },
+  { type: 'reviewSummary', props: { actionLabel: 'All reviews', actionHref: '/reviews', numberLanguage: 'ar' } },
+  {
+    type: 'caseStudy',
+    props: { client: 'Northwind', quote: 'Same parcel.', quoteAuthor: 'Omar', imageSrc: PHOTO, imageAlt: 'Team', actionLabel: 'Read', actionHref: '/x', mediaPosition: 'start' },
+  },
+  { type: 'jobsList', props: { actionLabel: 'Open application', actionHref: 'mailto:jobs@example.com' } },
+  { type: 'jobsList', props: { layout: 'cards', tone: 'dark' } },
+  { type: 'downloadList', props: { files: [{ title: 'Menu', format: 'PDF', size: '1 MB', href: '/files/menu.pdf' }] } },
+  { type: 'downloadList', props: { layout: 'cards' } },
+  { type: 'appDownload', props: { note: 'Rated 4.8', imageSrc: PHOTO, imageAlt: 'App', mediaPosition: 'start' } },
+  { type: 'appDownload', props: { layout: 'centered', tone: 'dark' } },
+  {
+    type: 'fundraiser',
+    props: { amounts: [{ label: '$25', href: '/d?a=25' }], note: 'Tax-deductible.', imageSrc: PHOTO, imageAlt: 'Library', layout: 'split', currency: 'SAR' },
+  },
+  { type: 'fundraiser', props: { tone: 'dark', numberLanguage: 'ar', currency: 'ر.س', currencyPosition: 'after' } },
+];
+
+describe('publishing the 2026-10-13 blocks', () => {
+  it('ships their semantic markup, the compare pack for the slider, and a rule for every class', async () => {
+    const kernel = createPlaygroundKernel({ fixture: 'landing' });
+    for (const block of MORE_BLOCKS) {
+      kernel.dispatch('insertNode', { type: block.type, parentId: kernel.getDocument().rootId, props: block.props });
+    }
+    expect(kernel.validate()).toEqual([]);
+    const site: BuilderSite = {
+      siteVersion: LATEST_SITE_VERSION,
+      dir: kernel.getDocument().dir,
+      pages: [
+        { id: 'home', address: '/', title: 'Home', purpose: '', audience: '', document: kernel.getDocument(), regions: [] },
+      ],
+      sharedRegions: {},
+      designSystem: defaultDesignSystem(),
+      assets: {},
+    };
+    const compiler = await createLiveUtilities({ tailwindThemeCss });
+    const { compileCss, compileClasses } = exportCompilers({ site, liveSheet: '', compiler });
+    const files = await publishStaticSite(site, {
+      blocks: kernel.context.registry.block,
+      compileCss,
+      ...(compileClasses === undefined ? {} : { compileClasses }),
+    });
+    const html = files.find(({ path }) => path === 'index.html')?.content ?? '';
+    const sheet = /href="([^"]+\.css)"/u.exec(html)?.[1]?.replace(/^\.\//u, '') ?? '';
+    const css = files.find(({ path }) => path === sheet)?.content ?? '';
+    const runtime = files.find(({ path }) => path === 'assets/ck-behaviors.js')?.content ?? '';
+
+    /* The markup: the slider frame is the compare pack's, with the block's name and start. */
+    expect((html.match(/data-ck-behavior="compare"/gu) ?? []).length).toBe(1);
+    expect(html).toContain('data-ck-compare-start="35"');
+    expect(html).toContain('data-ck-compare-label="Drag to compare before and after"');
+    expect(html).not.toMatch(/<input[^>]*type="range"/u);
+    expect(html).toMatch(/<blockquote[^>]*cite="https:\/\/example\.com\/a"/u);
+    expect(html).toMatch(/<a[^>]*href="\/files\/menu\.pdf"[^>]*download=""|<a[^>]*download=""[^>]*href="\/files\/menu\.pdf"/u);
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('<bdi');
+    expect(html).not.toMatch(/data-ck-(part|bind)/u);
+
+    /* The compare pack ships because the page carries its marker; the countdown pack does not. */
+    expect(runtime).toContain('function mountCompare');
+    expect(runtime).toContain('data-ck-compare-label');
+    expect(runtime).not.toContain('function mountCountdown');
+
+    /* Every utility the eight blocks render has a rule. */
+    const blocks = [...html.matchAll(/<section[^>]*>[\s\S]*?<\/section>/gu)]
+      .map((match) => match[0])
+      .filter((markup) =>
+        /data-(before-after|pull-quote|review-summary|case-study|jobs-list|download-list|app-download|fundraiser)-content/u.test(markup),
+      );
+    expect(blocks.length).toBe(MORE_BLOCKS.length);
+    const classes = new Set(
+      blocks.flatMap((markup) =>
+        [...markup.matchAll(/class="([^"]*)"/gu)].flatMap((match) => (match[1] ?? '').split(/\s+/u)),
+      ),
+    );
+    const utilities = [...classes].filter((name) => name !== '' && compiler.isUtilityClass(name));
+    for (const expected of [
+      '[clip-path:inset(0_0_0_var(--ck-compare))]',
+      'rtl:[clip-path:inset(0_var(--ck-compare)_0_0)]',
+      'start-(--ck-compare)',
+      'aspect-3/4',
+      'aspect-9/19',
+      'rtl:-scale-x-100',
+      'border-s-4',
+      'has-focus-visible:outline-2',
+      'after:absolute',
+      '@3xl:order-first',
+      'whitespace-nowrap',
+    ]) {
+      expect(utilities, expected).toContain(expected);
+    }
+    const missing = utilities.filter((name) => !css.includes(selectorOf(name)));
+    expect(missing).toEqual([]);
+  }, 60_000);
+});

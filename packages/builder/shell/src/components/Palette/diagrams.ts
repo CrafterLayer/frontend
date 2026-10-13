@@ -9,17 +9,24 @@ interface DiagramPart {
 
 type BlockDiagramKind =
   | 'action'
+  | 'app'
   | 'chart'
   | 'columns'
+  | 'compare'
   | 'countdown'
   | 'generic'
+  | 'goal'
   | 'grid'
   | 'hero'
+  | 'list'
   | 'location'
   | 'media'
   | 'menu'
   | 'pricing'
+  | 'quote'
+  | 'rating'
   | 'section'
+  | 'story'
   | 'table'
   | 'testimonial'
   | 'text'
@@ -178,6 +185,77 @@ function countdownDiagram(): readonly DiagramPart[] {
   ];
 }
 
+// ── 2026-10-13: before/after, pull quote, ratings, app, lists, case study, fundraiser ──
+function compareDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'before', x: 2, y: 3, width: 15, height: 18, opacity: 0.25 },
+    { key: 'after', x: 17, y: 3, width: 15, height: 18, opacity: 0.5 },
+    { key: 'divider', x: 16.5, y: 3, width: 1, height: 18, opacity: 0.95 },
+    { key: 'knob', x: 15, y: 10, width: 4, height: 4, opacity: 0.95 },
+  ];
+}
+
+function quoteDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'mark', x: 2, y: 3, width: 5, height: 4, opacity: 0.9 },
+    { key: 'line-1', x: 2, y: 9, width: 30, height: 3, opacity: 0.75 },
+    { key: 'line-2', x: 2, y: 14, width: 22, height: 3, opacity: 0.75 },
+    { key: 'author', x: 2, y: 19, width: 10, height: 2, opacity: 0.4 },
+  ];
+}
+
+function ratingDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'score', x: 2, y: 3, width: 8, height: 7, opacity: 0.9 },
+    { key: 'bar-1', x: 2, y: 12, width: 12, height: 1.5, opacity: 0.7 },
+    { key: 'bar-2', x: 2, y: 15, width: 8, height: 1.5, opacity: 0.5 },
+    { key: 'bar-3', x: 2, y: 18, width: 4, height: 1.5, opacity: 0.35 },
+    { key: 'review-1', x: 17, y: 3, width: 15, height: 8, opacity: 0.3 },
+    { key: 'review-2', x: 17, y: 13, width: 15, height: 8, opacity: 0.3 },
+  ];
+}
+
+function appDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 4, width: 14, height: 3, opacity: 0.85 },
+    { key: 'body', x: 2, y: 9, width: 11, height: 2, opacity: 0.45 },
+    { key: 'store-1', x: 2, y: 14, width: 7, height: 4, opacity: 0.8 },
+    { key: 'store-2', x: 10, y: 14, width: 7, height: 4, opacity: 0.8 },
+    { key: 'phone', x: 22, y: 2, width: 9, height: 20, opacity: 0.35 },
+  ];
+}
+
+function listDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 12, height: 3, opacity: 0.85 },
+    { key: 'row-1', x: 2, y: 8, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-2', x: 2, y: 12.5, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-3', x: 2, y: 17, width: 30, height: 3, opacity: 0.45 },
+    { key: 'go', x: 28, y: 8.5, width: 3, height: 2, opacity: 0.9 },
+  ];
+}
+
+function storyDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'metric-1', x: 2, y: 3, width: 8, height: 4, opacity: 0.85 },
+    { key: 'metric-2', x: 12, y: 3, width: 8, height: 4, opacity: 0.65 },
+    { key: 'metric-3', x: 22, y: 3, width: 8, height: 4, opacity: 0.45 },
+    { key: 'line-1', x: 2, y: 10, width: 13, height: 2, opacity: 0.5 },
+    { key: 'line-2', x: 2, y: 14, width: 11, height: 2, opacity: 0.5 },
+    { key: 'line-3', x: 2, y: 18, width: 12, height: 2, opacity: 0.5 },
+    { key: 'image', x: 18, y: 10, width: 14, height: 11, opacity: 0.3 },
+  ];
+}
+
+function goalDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'amount', x: 2, y: 4, width: 14, height: 4, opacity: 0.9 },
+    { key: 'track', x: 2, y: 11, width: 30, height: 3, opacity: 0.2 },
+    { key: 'fill', x: 2, y: 11, width: 20, height: 3, opacity: 0.85 },
+    { key: 'button', x: 2, y: 17, width: 30, height: 4, opacity: 0.7 },
+  ];
+}
+
 function genericDiagram(): readonly DiagramPart[] {
   return [
     { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
@@ -191,8 +269,23 @@ function diagramKey(type: string): string {
   return type.replace(/[^a-zA-Z0-9]/g, '').toLocaleLowerCase();
 }
 
+/* The 2026-10-13 blocks, by exact type: their names share words with older checks. */
+const NAMED_DIAGRAMS: Readonly<Record<string, BlockDiagram>> = {
+  beforeafter: { kind: 'compare', parts: compareDiagram() },
+  pullquote: { kind: 'quote', parts: quoteDiagram() },
+  reviewsummary: { kind: 'rating', parts: ratingDiagram() },
+  appdownload: { kind: 'app', parts: appDiagram() },
+  jobslist: { kind: 'list', parts: listDiagram() },
+  downloadlist: { kind: 'list', parts: listDiagram() },
+  casestudy: { kind: 'story', parts: storyDiagram() },
+  fundraiser: { kind: 'goal', parts: goalDiagram() },
+};
+
 export function diagramForBlockType(type: string): BlockDiagram {
   const key = diagramKey(type);
+  // First: `reviewsummary` and `pullquote` would otherwise take the testimonial miniature.
+  const named = NAMED_DIAGRAMS[key];
+  if (named !== undefined) return named;
 
   if (key.includes('pricing') || key.includes('plan') || key.includes('comparison')) {
     return { kind: 'pricing', parts: pricingDiagram() };

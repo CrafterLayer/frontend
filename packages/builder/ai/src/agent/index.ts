@@ -13,6 +13,8 @@ export {
   type AiWriterPermit,
   type AiWriterPool,
 } from './writer-pool';
+// Smarter live workers (2026-10-12): a pool that backs off when the provider says "too many".
+export { congestionAwareProvider, isCongestion } from './writer-congestion';
 export {
   AI_SITE_MAX_PAGES,
   AI_SITE_MAX_REQUEST_LENGTH,

@@ -34,6 +34,7 @@ import { commonRunOptions } from './run-options';
 import { say } from './run-outcomes';
 import { sceneProbeOptions } from './scene-probe-options';
 import { locateTurn, patchKind, patchTurn } from './turn-plumbing';
+import { writerOptions } from './writer-options';
 
 export function plannedSections(planned: readonly AiBuildPlannedTask[]): PagePlanTurn['sections'] {
   return planned.map((task, index) => ({ key: `section-${String(index + 1)}`, title: task.title }));
@@ -230,6 +231,11 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
       ...(plan.approval ? { onPlanned: askToBuild } : {}),
       onEvent,
       fillConcurrency: flow.ui.getState().workers,
+      ...writerOptions(
+        flow.env().provider,
+        flow.ui.getState().workers,
+        page.site?.engine.writerPool,
+      ),
       ...sceneProbeOptions(flow.env().options.freeCode),
     };
     const result = await runAiBuild(buildOptions);

@@ -46,7 +46,7 @@ export {
     `skeletonFromPlan`, `checkSection`, `summarizeNeighbours` and `planAiPage`
     are the orchestration's steps T2, E, the writers' context and T1.
   */
-  fillConcurrencyFor, createAiWriterPool, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY, type AiBuildWriterOptions, type AiWriterPermit, type AiWriterPool, // T230: one writers' pool across a site's pages
+  fillConcurrencyFor, createAiWriterPool, congestionAwareProvider, isCongestion, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY, type AiBuildWriterOptions, type AiWriterPermit, type AiWriterPool, // T230: one writers' pool across a site's pages
   type AiBuildPlanAnswer,
   type AiBuildSectionCheck,
   type AiBuildSkipReasonCode,

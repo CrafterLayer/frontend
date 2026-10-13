@@ -31,6 +31,7 @@ import type { BuildProgress, BuildTask } from './build-progress';
 
 /** The two props a section writer owns on its region (`AiBuildSectionKey`). */
 export const SECTION_KEYS = ['tree', 'css'] as const;
+const WRITTEN_KEYS = [...SECTION_KEYS, 'js', 'jsMeta', 'jsParams'] as const;
 
 /** The build-fill skill the engine's own writers carry (`run-build.ts` `FILL_SKILL`). */
 export const FILL_SKILL_ID = 'craftkit.build-fill';
@@ -62,12 +63,16 @@ function stable(value: unknown): string {
 }
 
 /** A region's writer-owned props as they stand; a prop the node lacks is absent. */
-export function sectionValues(document: BuilderDocument, id: NodeId): AiBuildSectionValues {
+export function sectionValues(
+  document: BuilderDocument,
+  id: NodeId,
+  keys: readonly (typeof WRITTEN_KEYS)[number][] = SECTION_KEYS,
+): AiBuildSectionValues {
   const props = document.nodes[id]?.props;
-  const values: Partial<Record<(typeof SECTION_KEYS)[number], JsonValue>> = {};
+  const values: Partial<Record<(typeof WRITTEN_KEYS)[number], JsonValue>> = {};
   if (props === undefined) return values;
-  for (const key of SECTION_KEYS) {
-    const value = props[key];
+  for (const key of keys) {
+    const value = props[key] ?? (key === 'jsMeta' || key === 'jsParams' ? {} : undefined);
     if (value !== undefined) values[key] = value;
   }
   return values;
@@ -80,8 +85,8 @@ export function holdsValues(
   expected: AiBuildSectionValues,
 ): boolean {
   if (document.nodes[id] === undefined) return false;
-  const current = sectionValues(document, id);
-  return SECTION_KEYS.filter((key) => key in expected).every(
+  const current = sectionValues(document, id, WRITTEN_KEYS);
+  return WRITTEN_KEYS.filter((key) => key in expected).every(
     (key) => stable(current[key]) === stable(expected[key]),
   );
 }
@@ -167,7 +172,7 @@ export function guardSection(plan: AiPlan, regionId: NodeId): GuardedSection | n
  * forward revert): `landing.after`, prop by prop.
  */
 export function relandCommands(regionId: NodeId, landing: AiBuildSectionLanding): AiPlan['commands'] {
-  return SECTION_KEYS.flatMap((key) => {
+  return WRITTEN_KEYS.flatMap((key) => {
     const value = landing.after[key];
     return value === undefined ? [] : [{ command: 'setProp', args: { id: regionId, key, value } }];
   });

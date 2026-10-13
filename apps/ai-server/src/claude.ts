@@ -176,9 +176,7 @@ async function streamOnce(
     ),
   );
 
-  // The first streamed event means the prefix is cached: same-shape calls may go. The SDK's
-  // `streamEvent` (message_start) comes first; the shims keep one listener per event, so
-  // `thinking` releases inside the planning listener below.
+  // Real backend activity releases the prefix; a shim's timed narration proves nothing.
   (stream as unknown as { on: (event: 'streamEvent', listener: () => void) => unknown }).on(
     'streamEvent',
     () => {
@@ -188,7 +186,6 @@ async function streamOnce(
   // Drain private summaries while emitting only the first observable planning signal.
   let planning = false;
   stream.on('thinking', () => {
-    release(true);
     if (planning) return;
     planning = true;
     options.onProgress?.('Planning the layout…');
@@ -196,6 +193,7 @@ async function streamOnce(
   // SDK signals identify observable phases. Never forward the contents of `thinking`.
   let writing = false;
   const reportWriting = (): void => {
+    release(true);
     if (writing) return;
     writing = true;
     options.onProgress?.('Writing the design…');
@@ -222,7 +220,7 @@ async function streamOnce(
         tell({ reset: true });
       },
     );
-  } else if (options.onProgress !== undefined) {
+  } else {
     stream.on('text', reportWriting);
   }
 

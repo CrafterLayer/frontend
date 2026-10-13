@@ -12,6 +12,8 @@ export {
 // The AI engine's deterministic provider, for the same reason as the above:
 // applications reach every builder fixture through the preset.
 export {
+  completeReadyScene,
+  pagePlanCss,
   FIXED_ASSETS,
   createFixedAssetLibrary,
   type FixedAssetLibraryOptions,

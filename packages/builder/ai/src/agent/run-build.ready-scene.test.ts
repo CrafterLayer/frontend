@@ -5,6 +5,8 @@ import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
 import { seededIds } from '@craftkit/builder-core/testing';
 import {
   customCodeTree,
+  customCodeJsMeta,
+  customCodeJsParams,
   customCss,
   defineBlockSchema,
   emptyCustomCodeTree,
@@ -14,9 +16,10 @@ import {
 } from '@craftkit/builder-schema';
 
 import { scenePreset } from '../scene-presets/catalog';
+import { revertBuildSection, AiBuildRevertError } from './build-revert';
 import { createCraftkitAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, PagePlanCandidate } from '../types';
-import { DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS, runAiBuild } from './run-build';
+import { DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS, runAiBuild } from './run-build';
 
 /*
   Ready scenes in a real build (2026-10-13): the owner's murals failed on time — the mural's
@@ -59,6 +62,8 @@ function kernel(): BuilderKernel {
               tree: customCodeTree().default(emptyCustomCodeTree()),
               css: customCss(8_000),
               js: z.string().max(32_000).default(''),
+              jsMeta: customCodeJsMeta(),
+              jsParams: customCodeJsParams(),
             }),
             examples: [],
           }),
@@ -251,7 +256,7 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     const options = build(given);
     const done = runAiBuild(options);
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS + 1_000);
+    await vi.advanceTimersByTimeAsync(180_000 + 1_000);
     const result = await done;
 
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
@@ -260,7 +265,80 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     expect(given.requests.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(2);
   });
 
-  it('shows a repair round the ready scene by name, never its code, and lands the code again', async () => {
+  it('initializes a whole section from one marker, preserves settings through the probe and reverts them safely', async () => {
+    const given = script(() => '@preset:aurora-curtains');
+    const propose = given.provider.propose.bind(given.provider);
+    const options = build({
+      ...given,
+      provider: {
+        ...given.provider,
+        propose: async (request, context, live) => {
+          if (!request.includes('ROLE: HERO')) return propose(request, context, live);
+          const id = /REGION ID: (\S+)/u.exec(request)?.[1] ?? 'missing';
+          return {
+            rationale: 'Ready scene',
+            commands: [
+              { command: 'setProp', args: { id, key: 'js', value: '@preset:aurora-curtains' } },
+              { command: 'setProp', args: { id, key: 'jsParams', value: { speed: 0.5 } } },
+            ],
+          };
+        },
+      },
+    });
+    const probed: unknown[] = [];
+    const result = await runAiBuild({
+      ...options,
+      sceneProbe: (section) => {
+        probed.push(section.jsParams);
+        return Promise.resolve({
+          status: 'ok',
+          expectCanvas: true,
+          stylesComplete: true,
+          passes: [],
+          skipped: [],
+          elapsedMs: 1,
+        });
+      },
+    });
+    const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+    expect(result.outcome).toBe('completed');
+    expect(hero?.status).toBe('applied');
+    expect(hero?.check?.issues).toEqual([]);
+    expect(probed).toContainEqual({ speed: 0.5 });
+    const props = options.kernel.getDocument().nodes[hero?.id ?? '']?.props;
+    expect(props?.['jsMeta']).toMatchObject({ ref: { tier: 'builtin', id: 'aurora-curtains' } });
+    expect(props?.['jsParams']).toEqual({ speed: 0.5 });
+    expect(JSON.stringify(props?.['tree'])).toContain('Start a project');
+    if (hero === undefined) throw new Error('No hero');
+    options.kernel.dispatch('setProp', { id: hero.id, key: 'jsParams', value: { speed: 0.75 } });
+    expect(() => revertBuildSection(options.kernel, hero, options.validationPorts)).toThrow(
+      AiBuildRevertError,
+    );
+    options.kernel.undo();
+    revertBuildSection(options.kernel, hero, options.validationPorts);
+    expect(options.kernel.getDocument().nodes[hero.id]?.props['js']).toBe('');
+    expect(options.kernel.getDocument().nodes[hero.id]?.props['jsParams']).toEqual({});
+    expect(options.kernel.getDocument().nodes[hero.id]?.props['jsMeta']).toEqual({});
+  });
+
+  it('aborts an explicitly named initializer at its short deadline and retries the compact answer', async () => {
+    vi.useFakeTimers();
+    const given = script((_request, attempt) => (attempt === 1 ? HANG : '@preset:aurora-curtains'));
+    const options = {
+      ...build(given),
+      request: 'Build a design studio website using aurora-curtains',
+    };
+    const done = runAiBuild(options);
+    await vi.advanceTimersByTimeAsync(DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS + 1_000);
+    const result = await done;
+    expect(result.outcome).toBe('completed');
+    expect(given.requests.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(2);
+    expect(given.requests.find((request) => request.includes('ROLE: HERO'))).toContain(
+      'SCENE INITIALIZATION v1:',
+    );
+  });
+
+  it('completes a marker-only repair with matching copy, scene code and metadata', async () => {
     const shown: unknown[] = [];
     const given = script(() => '@preset:aurora-curtains');
     const propose = given.provider.propose.bind(given.provider);
@@ -287,7 +365,13 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
           shown.push(
             plan.commands.find(({ args }) => (args as { key?: unknown }).key === 'js')?.args,
           );
-          return Promise.resolve(writes(request, '@preset:aurora-curtains'));
+          const id = /REGION ID: (\S+)/u.exec(request)?.[1] ?? 'missing';
+          return Promise.resolve({
+            rationale: 'Use another ready backdrop and restore the required copy locally',
+            commands: [
+              { command: 'setProp', args: { id, key: 'js', value: '@preset:flow-field-silk' } },
+            ],
+          });
         },
       },
     });
@@ -299,6 +383,51 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
     expect(hero?.status).toBe('applied');
     expect(hero?.check?.repaired).toBe(true);
-    expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(AURORA);
+    const props = options.kernel.getDocument().nodes[hero?.id ?? '']?.props;
+    expect(props?.['js']).toBe(scenePreset('flow-field-silk')?.code);
+    expect(props?.['jsMeta']).toMatchObject({ ref: { id: 'flow-field-silk' } });
+    expect(props?.['jsParams']).toEqual({});
+    expect(JSON.stringify(props?.['tree'])).toContain('Northern lights');
+    expect(JSON.stringify(props?.['tree'])).toContain('Start a project');
+    expect(hero?.check?.issues).toEqual([]);
   });
+
+  it.each(['const forbidden = true;', '@preset:flow-field-silk'])(
+    'refuses a repair that bypasses the explicitly allowed initializer with %s',
+    async (repairCode) => {
+      const given = script(() => '@preset:aurora-curtains');
+      const propose = given.provider.propose.bind(given.provider);
+      const options = {
+        ...build({
+          ...given,
+          provider: {
+            ...given.provider,
+            propose: async (request, context, live) => {
+              const answer = await propose(request, context, live);
+              if (!request.includes('ROLE: HERO')) return answer;
+              return {
+                ...answer,
+                commands: answer.commands.map((step) =>
+                  (step.args as { key?: unknown }).key === 'tree'
+                    ? {
+                        ...step,
+                        args: { ...(step.args as object), value: { kind: 'root', children: [] } },
+                      }
+                    : step,
+                ),
+              };
+            },
+            repair: (request) => Promise.resolve(writes(request, repairCode)),
+          },
+        }),
+        request: 'Build a design studio website using aurora-curtains',
+      };
+      const result = await runAiBuild(options);
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      const props = options.kernel.getDocument().nodes[hero?.id ?? '']?.props;
+      expect(props?.['js']).toBe(AURORA);
+      expect(props?.['jsMeta']).toMatchObject({ ref: { id: 'aurora-curtains' } });
+      expect(hero?.check?.issues.length).toBeGreaterThan(0);
+    },
+  );
 });

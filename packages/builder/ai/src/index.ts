@@ -2,6 +2,11 @@
 // it never constructs or replaces a BuilderDocument.
 
 export {
+  SCENE_INITIALIZATION_HEADER,
+  isSceneInitializationRequest,
+} from './provider/scene-init-wire';
+
+export {
   DEFAULT_AI_BUILD_BUDGET_MS,
   DEFAULT_AI_BUILD_MAX_TASKS,
   DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
@@ -39,13 +44,7 @@ export {
   type AiRunFailureSource,
   type RunAiAgentOptions,
   type RunAiBuildOptions,
-  /*
-    The PAGE PLAN contract (agent-audit §3.2, 2026-09-28): one structured,
-    editable design of a page that Plan mode shows, Ask approves and Build
-    consumes verbatim. `validatePagePlan` is the only way to get a `PagePlan`;
-    `skeletonFromPlan`, `checkSection`, `summarizeNeighbours` and `planAiPage`
-    are the orchestration's steps T2, E, the writers' context and T1.
-  */
+  /** Validated editable PAGE PLAN shared by Plan, Ask and Build. */
   fillConcurrencyFor, createAiWriterPool, congestionAwareProvider, isCongestion, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY, type AiBuildWriterOptions, type AiWriterPermit, type AiWriterPool, // T230: one writers' pool across a site's pages
   type AiBuildPlanAnswer,
   type AiBuildSectionCheck,

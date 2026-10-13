@@ -1,4 +1,8 @@
-import { AI_PLAN_WIRE_VERSION, type AiPlanWireRequest } from '@craftkit/builder/wire';
+import {
+  AI_PLAN_WIRE_VERSION,
+  isSceneInitializationRequest,
+  type AiPlanWireRequest,
+} from '@craftkit/builder/wire';
 
 import type { FreeModelCatalog } from './free-models';
 import { SITE_PLAN_MAX_TOKENS } from './site-plan';
@@ -259,6 +263,8 @@ const SCENE_SKILL_PREFIX = 'craftkit.pixi-';
  * so the plan call's 32k ceiling cut long scenes off mid-JSON, which is no answer at all.
  */
 export const SCENE_MAX_TOKENS = 48_000;
+/** A tested scene initializes locally; the model only chooses its id and writes section copy. */
+export const SCENE_INITIALIZATION_MAX_TOKENS = 8_192;
 
 /**
  * This call's own reasoning budget: the one its body asks for (low or
@@ -317,10 +323,13 @@ export function callEffort(
     writesASection &&
     wire.freeCode === true &&
     pins.some((pin) => pin.id.startsWith(SCENE_SKILL_PREFIX));
-  if (writesAScene && !deep) {
+  if (writesAScene) {
+    if (!deep && isSceneInitializationRequest(wire.request)) {
+      return { effort: 'low', thinkingOff: true, maxTokens: SCENE_INITIALIZATION_MAX_TOKENS };
+    }
     const budget = options.sectionEffort === undefined || options.sectionEffort === 'low';
     return {
-      effort: budget ? 'medium' : options.sectionEffort,
+      effort: deep ? (asked as string) : budget ? 'medium' : options.sectionEffort,
       maxTokens: Math.max(options.sceneMaxTokens ?? SCENE_MAX_TOKENS, options.maxTokens ?? 0),
     };
   }

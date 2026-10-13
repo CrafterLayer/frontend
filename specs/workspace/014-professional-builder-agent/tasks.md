@@ -1,5 +1,8 @@
 # Tasks: Professional Builder and Agent
 
+Current scoped speed tasks SP-T1..5:
+[scene initialization and server latency](scene-speed-2026-10-13.md#tasks).
+
 **Input**: Design documents from `specs/workspace/014-professional-builder-agent/`
 
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/`,
@@ -642,8 +645,8 @@ Evidence:
 - [x] T201 Canvas floating chrome keeps its size under zoom (quick bar, action bar, text bubble).
 - [x] T202 Table and Chart blocks (accessible SVG charts, no new dependency).
 - [x] T203 The composer's `/` lists skills (own, then built-in) and pins up to three to the next
-      message as explicit skills; SKILL.md / SKILL.mdx upload and paste; starter templates;
-      Arabic accusative keywords in the engine matcher.
+      message as explicit skills; SKILL.md / SKILL.mdx upload and paste; starter templates; Arabic
+      accusative keywords in the engine matcher.
 
 ### Agent tools, data, four blocks, Studio game libraries — 2026-10-12
 
@@ -663,10 +666,10 @@ Evidence:
 - [x] T212 Repairs: AI vocabulary generator and its two missing utilities; stale test pins.
 - [x] T213 Inspector "Scene settings" for customCode `jsParams` from the `jsMeta.params` spec;
       `jsMeta` hidden (field-kinds gate).
-- [x] T214 Default skills for every person (`CRAFTKIT_DEFAULT_SKILLS`): design intelligence from
-      UI UX Pro Max's data (29 kinds of business), landing patterns, UX rules, type and colour,
-      forms, natural Arabic, honest proof; Skills tab "Default skills" (switch, read, make my own),
-      `/` listing, host skills for builds.
+- [x] T214 Default skills for every person (`CRAFTKIT_DEFAULT_SKILLS`): design intelligence from UI
+      UX Pro Max's data (29 kinds of business), landing patterns, UX rules, type and colour, forms,
+      natural Arabic, honest proof; Skills tab "Default skills" (switch, read, make my own), `/`
+      listing, host skills for builds.
 
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
@@ -674,9 +677,9 @@ requires a paid provider call, commit, push or deployment without separate autho
 
 ## Increment 2026-10-12 (b) — agent power, batches, creative production
 
-Requested (Arabic): Arabic and English everywhere; a modern compact agent chat; cache reads that
-are not 0; context handled like Claude's own agent chat; background batches AND smarter live
-workers; "high power" for stories, murals, games and websites; any package needed; 10/10.
+Requested (Arabic): Arabic and English everywhere; a modern compact agent chat; cache reads that are
+not 0; context handled like Claude's own agent chat; background batches AND smarter live workers;
+"high power" for stories, murals, games and websites; any package needed; 10/10.
 
 - [x] T215 `page.translate` registered (edit lane cap 2290 → 2460, measured); natural-copy default
       skill teaches it. One language for the whole editor: the panel follows the editor locale
@@ -684,15 +687,15 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T216 Agent panel: one-row compact composer (workers/effort/mode/model chips, free code),
       Skills & memory as a centred settings modal, telemetry only when reported, the shared column
       pinned while Assistant shows; compact 44px rail tiles (the rail fits 760px).
-- [x] T217 Speed: entry chunk 1,520 → 870 kB gzip; Add page paints in ~30 ms at any page count
-      (site validation reuses untouched frozen pages; `isAssetRef` prefilter; memoised page list);
-      page ids skip every id the site holds (Add page after a reload was refused).
+- [x] T217 Speed: entry chunk 1,520 → 870 kB gzip; Add page paints in ~30 ms at any page count (site
+      validation reuses untouched frozen pages; `isAssetRef` prefilter; memoised page list); page
+      ids skip every id the site holds (Add page after a reload was refused).
 - [x] T218 Prompt cache: one-hour breakpoints on rules, catalog, skills and the conversation;
       same-prefix calls staggered behind the first stream (`cache-gate.ts`); the routing client
       forwards the API's stream start.
-- [x] T219 Thinking off in the form each model takes (Opus/Sonnet 5.5 refuse `disabled`: every
-      build and «Improve» failed on `api:claude-*-5-5`); a failure after the stream began reaches
-      the client as its status (`error` frame), not as an invalid answer.
+- [x] T219 Thinking off in the form each model takes (Opus/Sonnet 5.5 refuse `disabled`: every build
+      and «Improve» failed on `api:claude-*-5-5`); a failure after the stream began reaches the
+      client as its status (`error` frame), not as an invalid answer.
 - [x] T220 Context: history opens on a user turn; over budget the oldest exchanges go, then entries
       are capped, before failing; Arabic counted at 2 chars/token; a context meter; the chip names
       the sections the engine focused on.
@@ -713,8 +716,8 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T226 Single-run edits of a scene get its playbooks, the director and a creative brief.
 - [x] T227 Background jobs panel (start, list, poll, apply, retry live; EN/AR); `/batch` command.
 - [x] T228 Run-check-fix: probe each scene in an off-screen frame (errors, blank, coverage, hidden
-      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wired for free-code
-      builds. Its first finds fixed: the card's stage gets `width:100%`; the aurora shader links.
+      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wired for free-code builds.
+      Its first finds fixed: the card's stage gets `width:100%`; the aurora shader links.
 - [x] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
 - [x] T230 Real multi-page sites (up to 8 pages): `planAiSite` (server `task:'site-plan'`, else the
       words), every page built at once under one run, one writers' pool (`createAiWriterPool`)
@@ -725,12 +728,12 @@ workers; "high power" for stories, murals, games and websites; any package neede
       versions, each language's pages link each other under their translated names.
 - [ ] T230d Translations through the batch queue (half price, background) — not started.
 - [x] T239 Full regression sweep (builder-ai by area, schema, renderer, media-engines, editor, core,
-      shell, ai-server, playground: all green). Fixed on the way: the Pixi containment guard read
-      a test fixture as an import; core's site-door list lacked the script/sound commands; the
-      history merged two array-splicing steps, so Undo after a quick move out and back
-      duplicated a node (property suite seed -928950502, red on builder-core too).
-- [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree,
-      five `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
+      shell, ai-server, playground: all green). Fixed on the way: the Pixi containment guard read a
+      test fixture as an import; core's site-door list lacked the script/sound commands; the history
+      merged two array-splicing steps, so Undo after a quick move out and back duplicated a node
+      (property suite seed -928950502, red on builder-core too).
+- [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree, five
+      `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
 - [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it
       dropped them all before, so written games lost their controls. check-scene names them.
 - [x] T231c Every scene writer sees the page's arc (craftkit:story-arc); a literal tile level whose
@@ -749,30 +752,30 @@ workers; "high power" for stories, murals, games and websites; any package neede
 - [x] T233 People for stories and games: `s.lib.peeps` (Open Peeps, design CC0, through DiceBear
       9.4.3, MIT), lazy `ck-lib-peeps.js` 111.3 kB gzip, no network; a name fixes the look, a mood
       the face; dialogue portraits per mood; taught by the director, dialogue, story and game
-      playbooks and the planner. Kenney packs: not fetched (kenney.nl is outside this
-      environment's network policy) — allow it in the environment to add them.
-- [x] T241 Responsive scenes: `ck.scene({design})` draws in `s.world` at a design size the kit
-      fits to every region (letterbox in the theme surface, pointer in design units, `s.compact`,
-      `s.portrait`, `s.ui`); `zoom` with `libs:['viewport']` makes `s.world` a clamped
-      pixi-viewport camera that never traps the page. Game and story playbooks compose at 1280×720.
+      playbooks and the planner. Kenney packs: not fetched (kenney.nl is outside this environment's
+      network policy) — allow it in the environment to add them.
+- [x] T241 Responsive scenes: `ck.scene({design})` draws in `s.world` at a design size the kit fits
+      to every region (letterbox in the theme surface, pointer in design units, `s.compact`,
+      `s.portrait`, `s.ui`); `zoom` with `libs:['viewport']` makes `s.world` a clamped pixi-viewport
+      camera that never traps the page. Game and story playbooks compose at 1280×720.
 - [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing
       `prettier --check` (both pre-existing on builder-core) — owner's decision.
-- [x] T235 Page plans fit a long history with `fitAiPlanWireHistory` instead of failing on
-      context overflow.
+- [x] T235 Page plans fit a long history with `fitAiPlanWireHistory` instead of failing on context
+      overflow.
 - [x] T236 The agent panel keeps one live region: `/` command answers speak through LiveStatus;
       agent stories brought up to the compact chat (workers chip, cards, radius 16).
 - [x] T240 The cache doctor (ai-server `cache-doctor.ts`): every call that wrote the prompt cache
       instead of reading it is named — first of its kind, expired, another model, thinking/effort
       changed, rules/catalog/skills block changed, history changed — by comparing it with the
       previous call of the same kind, and on `api:` slugs by the Messages API's own diagnosis
-      (`cache-diagnosis-2026-04-07`, previous_message_id; a refused beta is retried without it).
-      The reason reaches the server log and the run telemetry (EN/AR). A reproduction through the
-      real client, handler and prompt keeps the prefix byte-stable (`cache-prefix.integration`).
-      Every route reads the cache now: OpenRouter's `anthropic/` slugs keep the hour and the
-      conversation breakpoint (`openrouter-cache.ts`, back to five minutes for good only when
-      OpenRouter refuses the hour and accepts the old form); other vendors cache a stable prefix
-      by themselves; the prompt enhancer's rules are cached; batches and authored runs already
-      were. The site plan's rules (~450 tokens) stay under the API's 512-token floor.
+      (`cache-diagnosis-2026-04-07`, previous_message_id; a refused beta is retried without it). The
+      reason reaches the server log and the run telemetry (EN/AR). A reproduction through the real
+      client, handler and prompt keeps the prefix byte-stable (`cache-prefix.integration`). Every
+      route reads the cache now: OpenRouter's `anthropic/` slugs keep the hour and the conversation
+      breakpoint (`openrouter-cache.ts`, back to five minutes for good only when OpenRouter refuses
+      the hour and accepts the old form); other vendors cache a stable prefix by themselves; the
+      prompt enhancer's rules are cached; batches and authored runs already were. The site plan's
+      rules (~450 tokens) stay under the API's 512-token floor.
 
 ## Increment 2026-10-13 (b) — design round: templates, elements, Tailwind, builder UX, performance
 
@@ -793,20 +796,20 @@ separation. Five bounded helpers, each verified in a clean worktree and committe
 - [x] T246 Builder design pass: one panel system (spacing, surface, titles, search fields), Layers
       that fit, the Inspector brought forward at narrow widths, guidance on an empty page and in
       Help, translated Settings, undo/redo feedback, tooltips with shortcuts, a preview toolbar.
-- [x] T247 Code separation and first load: EditorCanvas.tsx 3,136 → 491 and AssistantPanel.tsx
-      1,942 → 446 lines (tests split with every assertion kept); vendor chunks; entry 913.6 →
-      625.7 KB gzip. The theme gate is green again (two runtime-written tokens declared).
+- [x] T247 Code separation and first load: EditorCanvas.tsx 3,136 → 491 and AssistantPanel.tsx 1,942
+      → 446 lines (tests split with every assertion kept); vendor chunks; entry 913.6 → 625.7 KB
+      gzip. The theme gate is green again (two runtime-written tokens declared).
 - [x] T248 First-load JS back under its 1,151 KB budget: the page templates load on demand
       (`@craftkit/builder-blocks-marketing/templates`, `loadMarketingTemplates`,
-      playground-templates.ts — idle preload once the canvas is live, at once when the Templates
-      tab or "Start from a template" asks); initial JS 1,181 → 1,080 KB gzip, entry 544 KB.
-- [x] T249 The agent remembers its conversation and the cache reads it (conversation-memory.ts):
-      up to 40 messages whole, a window that steps 16 at once with a digest of what it left
-      behind, builds and plans named by their sections, and the skills a conversation woke carried
-      into its next runs (`carriedSkillIds`). Measured over 48 turns through the real client and
-      server: the full prefix read on 39 turns instead of 3.
-- [x] T250 Particle presets on `s.lib.emitter` (fire, smoke, sparkles, snow, rain, confetti,
-      magic, bubbles, leaves, petals, fireworks, dust, embers; `spawn`/`burst`, procedural atlas,
+      playground-templates.ts — idle preload once the canvas is live, at once when the Templates tab
+      or "Start from a template" asks); initial JS 1,181 → 1,080 KB gzip, entry 544 KB.
+- [x] T249 The agent remembers its conversation and the cache reads it (conversation-memory.ts): up
+      to 40 messages whole, a window that steps 16 at once with a digest of what it left behind,
+      builds and plans named by their sections, and the skills a conversation woke carried into its
+      next runs (`carriedSkillIds`). Measured over 48 turns through the real client and server: the
+      full prefix read on 39 turns instead of 3.
+- [x] T250 Particle presets on `s.lib.emitter` (fire, smoke, sparkles, snow, rain, confetti, magic,
+      bubbles, leaves, petals, fireworks, dust, embers; `spawn`/`burst`, procedural atlas,
       palette-aware, RTL wind, reduced motion as a still frame) and `s.lib.physics.world(s)`
       (Matter.js: walls, linked displays, pointer drag in design units, calm settle, dispose).
       Emitter budget 12,000 → 17,400 B gzip (measured 16,545 + 5%); physics 29,424 of 29,500.
@@ -870,3 +873,13 @@ and ready scripts for what the agent does again and again.
       blocked here); six one-call murals (set-d); PRESETS FIRST in the mural playbook. Rejected with
       reasons: d3-delaunay and clippers (Unlicense dependency), fastnoise-lite, bezier-js, Game
       Icons (CC BY), palettes.
+
+## Phase 10: Convergence — scene speed increment, 2026-10-13
+
+- [x] T260 Resolve the final independent review of SP-001..004, repair accepted findings, and record
+      the verdict for SP-T5. Local independent review and repairs are complete. After automatic
+      approval review rejected the external CLI action, the user explicitly instructed “لا، اكتفِ
+      بالمراجعة المحلية” on 2026-10-13. The enforced external runtime review is waived for this
+      increment under the scoped exception in plan.md; it was not executed and no CLI pass is
+      claimed. Do not retry the declined action without new user authorization. Native independent
+      review and local implementation checks passed; see `verification-scene-speed-2026-10-13.md`.

@@ -1,5 +1,59 @@
 # Active Work Handoff
 
+## Current continuation — mural build speed, 2026-10-13 (e)
+
+Status: local implementation, checks and review complete; user accepted local review on 2026-10-13.
+The owner reported mural Agent builds exceeding seven minutes and failing, and requested complete
+ready initialization scripts and a faster, stronger AI server.
+
+Scope: Builder AI, Builder public wire/testing facades, AI server, existing Playground section
+Redo, and offline Evals Pixi QA. Canonical increment:
+[scene-speed-2026-10-13.md](../../specs/workspace/014-professional-builder-agent/scene-speed-2026-10-13.md).
+Evidence and exact limits:
+[verification-scene-speed-2026-10-13.md](../../specs/workspace/014-professional-builder-agent/verification-scene-speed-2026-10-13.md)
+and its JSON artifact. Feature014's spec/plan/tasks link this increment; older release tasks remain
+separate.
+
+Done locally (SP-T1..5):
+
+- 22 existing backdrop presets initialize a complete responsive section from one marker: contract
+  title/claims/facts/action, tested JS, metadata and validated settings. Authored tree/CSS stays
+  authored; explicit preset ids survive retry, bespoke/excluded scenes remain custom.
+- Default backdrop call deadline 180s; initialization 90s; ordinary fills 240s; other scene lanes 420s.
+  Explicit host deadlines override them. These are call budgets, not total-build timing promises.
+- The server fast policy applies only to actual Free-code Pixi fill initialization. Deep/custom
+  capacity stays intact. Cache staggering observes backend activity rather than waiting narration.
+- Settings survive scene probes, guarded fills and section Undo/Redo. Public test-only helpers keep
+  Evals off private filesystem imports; production wire remains data-only.
+- Offline measurement: 22 presets, 1100 initializations, 98.25% fewer serialized proposal characters;
+  no live provider latency/token/billing measurement.
+- Native independent reviews found and verified repairs; no unresolved implementation finding.
+  Final focused tests: 37 builder, 166 server, 3 wire, 6 successor. Broader run-build/revert tests and
+  isolated lesson rerun passed. Full earlier AI suite: 223 files/6805 tests before final review fixes.
+  Browser 9/9 (mobile/desktop, LTR/RTL, reduced motion); primary reran fixture+mobile browser after
+  public import repair. Owner/consumer types/lint, server/Playground builds and workspace/size gates
+  passed. Exact results and timing caveat are in the verification document.
+
+Review decision (T260 / SP-T5): automatic approval review rejected the external Codex CLI action
+because it may transmit private repository contents to an unverified destination. The user then
+explicitly replied: “لا، اكتفِ بالمراجعة المحلية” (2026-10-13). Local independent review and repaired
+findings are accepted for this increment. The external runtime gate is waived for this scope by
+that instruction; no CLI process ran and no CLI pass is claimed. The bounded exception is recorded
+in the active plan.
+
+Next step: no requested implementation or local verification work remains for this increment.
+Do not request or launch the declined external review unless the user explicitly authorizes a new
+review action. Preserve the current diff and earlier release work. No commit, push, deployment,
+provider generation or dependency installation occurred. Live provider latency/cost and broader
+feature014 release gates remain unverified.
+
+Recovery: existing stored scene code/settings use current schemas; no migration. Keep their data
+and the new recorded settings when reverting source changes. Separate existing limitation: reduced
+motion Studio thumbnails may read a cleared WebGL buffer even though compositor screenshots show
+visible still art. This increment did not alter thumbnail capture.
+
+## Previous completed work (retained)
+
 ## Current continuation — murals that land, cheaper reviews and batches, 2026-10-13 (d)
 
 Reported (Arabic): murals failed on time and no PixiJS mural landed; asked for strong cost work

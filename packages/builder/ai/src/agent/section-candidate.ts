@@ -54,6 +54,7 @@ export function sectionOf(values: AiBuildSectionValues): LandedSection {
     tree,
     ...(typeof values.css === 'string' ? { css: values.css } : {}),
     ...(typeof values.js === 'string' && values.js.trim() !== '' ? { js: values.js } : {}),
+    ...(values.jsParams === undefined ? {} : { jsParams: values.jsParams }),
   };
 }
 

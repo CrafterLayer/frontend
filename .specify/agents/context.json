@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-12",
+  "updatedAt": "2026-10-13",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-creative-engines-verified-release-open",
+    "phase": "professional-builder-agent-014-scene-speed-locally-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -227,16 +227,21 @@
     ]
   },
   "currentWork": {
-    "status": "idle-creative-engines-locally-verified-feature-014-release-open",
-    "scope": "media-engines Studio libs anim/fx/dialogue/ink/tilemap (+@pixi/tilemap 5.0.2, inkjs 2.4.0); schema CK_LIBRARY_REFERENCE; renderer generated assets/allowlists; builder-ai creative domain (planner, story bible memory) and skills/creative; Playground story bible store/StoryBiblePanel; Evals creative-engines browser fixture",
+    "status": "local-complete-user-accepted-local-review",
+    "scope": "Builder AI ready-scene initialization, bounded briefs/deadlines, guarded scene settings/recovery; Builder headless wire and test-only facades; AI server call policy/cache readiness; existing Playground section Redo; offline Evals mural QA",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "T171-T173, T175, T178-T183 checked with verification-creative-engines-2026-10-12.md; CE-001..007 locally verified. T174 AssetPack, T176 Layout, T177 Spine assessed and deferred with reasons. Prior PX/BQ/CHAT/QF evidence remains separate.",
-    "nextUncompletedTask": "T045",
-    "blocked": {
-      "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence.",
-      "storybookBrowser": "Storybook vitest browser runs fail in the cloud container for existing stories too (Playwright/Chromium revision mismatch)."
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/scene-speed-2026-10-13.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-scene-speed-2026-10-13.md",
+    "completedTasks": "SP-T1..5 locally complete; T260 resolved by explicit user instruction accepting local review. Native independent review findings repaired, browser9/9 and final primary public-fixture/browser2/2 checks passed. Final builder37 and server166 focused tests passed; owner/consumer types/lint, production builds, budgets and workspace checks passed.",
+    "nextUncompletedTask": null,
+    "reviewDecision": {
+      "date": "2026-10-13",
+      "userInstruction": "لا، اكتفِ بالمراجعة المحلية",
+      "result": "Local independent review accepted for this increment. After automatic approval review rejected the external CLI action, the user declined it. The enforced external runtime review is waived only for this scope; it was not run and no CLI pass is claimed.",
+      "exceptionPlan": "specs/workspace/014-professional-builder-agent/plan.md"
     },
-    "nextAction": "See verification-creative-engines-2026-10-12.md. Pre-existing failures to keep separate: renderer behaviors 16 kB budget (19198 B baseline), ai plan-page repair-event order, playground copy-rules x3 and runs.test x2. Next: representative paid evals for the creative skills need authorization; AssetPack needs an approved sharp build owner; Layout/Spine stay conditional."
+    "verificationLimits": "Live provider generation latency/cost and representative model quality were not measured. Prior feature014 release gates remain separate; local completion does not claim release or live performance verification.",
+    "nextAction": "No requested implementation or local verification work remains for the SP increment. Do not request or launch the declined external review unless the user explicitly authorizes a new review action. Preserve the current diff and unrelated older release work."
   },
   "qualityGates": {
     "governanceConfigured": true,

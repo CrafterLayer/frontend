@@ -17,6 +17,8 @@
  * fails the moment that stops being true.
  */
 export {
+  SCENE_INITIALIZATION_HEADER,
+  isSceneInitializationRequest,
   AI_PLAN_WIRE_VERSION,
   DESIGN_LIBRARY_TEACHING,
   DESIGN_QUALITY_TEACHING,

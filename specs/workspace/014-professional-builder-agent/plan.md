@@ -4,6 +4,17 @@
 
 ## Summary
 
+Current speed implementation and verification scope:
+[scene initialization and server latency](scene-speed-2026-10-13.md).
+
+Scoped review exception for that increment (2026-10-13): the user explicitly instructed “لا، اكتفِ
+بالمراجعة المحلية” after automatic approval review rejected the external Codex CLI review.
+Rationale: the user declined that external action and accepted completed local independent review
+with repaired findings. Owner: primary integration agent. Scope: SP-001..004 / SP-T5 / T260 only.
+The fresh external runtime review is waived here; no CLI execution or pass is claimed. Removal
+condition: a new explicit user instruction authorizing external review for this increment. The
+generic constitution and other feature/release gates remain unchanged.
+
 Extend the existing one-site kernel with versioned authored React projects. Render code-backed pages
 through an isolated page runtime, connect visual selection to stable source identities, add reliable
 draft recovery and page commands, then route the Agent through small deterministic tools and

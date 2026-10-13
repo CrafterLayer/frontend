@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { scenePreset } from '../scene-presets/catalog';
 import type { AiPlan } from '../types';
+import { isSceneInitializationRequest } from '../provider/scene-init-wire';
 import { checkScene } from './page-plan/check-scene';
 import {
   READY_SCENES_LISTED,
@@ -10,6 +11,7 @@ import {
   readyScenes,
   readySceneLines,
   suggestReadyScenes,
+  withReadyScenes,
 } from './scene-ready';
 
 function jsPlan(value: string): AiPlan {
@@ -65,10 +67,118 @@ describe('ready scenes in a build (2026-10-13)', () => {
     expect(first).toContain('READY SCENES');
     expect(first).toContain('"@preset:<id>"');
     expect(first).toContain('under 9,000 characters');
+    expect(first).toContain('ONE setProp step');
+    expect(first).toContain('responsive tree and css');
+    expect(isSceneInitializationRequest(first)).toBe(false);
     const retry = readySceneLines(listed, 2).join('\n');
     expect(retry).toContain('The first attempt at this section failed');
     expect(retry).toContain('no scene code of your own');
+    expect(isSceneInitializationRequest(retry)).toBe(true);
     expect(readySceneLines([], 1)).toEqual([]);
+  });
+
+  it('marks only an explicit catalog id in the original first-attempt brief as init-only', () => {
+    const listed = suggestReadyScenes('aurora mural', 'en');
+    const explicit = readySceneLines(listed, 1, 'Place aurora-curtains behind the title').join(
+      '\n',
+    );
+    expect(explicit).toContain('SCENE INITIALIZATION v1: aurora-curtains\n');
+    expect(explicit).toContain('no scene code of your own');
+    expect(isSceneInitializationRequest(explicit)).toBe(true);
+    const retry = readySceneLines(listed, 2, 'Place aurora-curtains behind the title').join('\n');
+    expect(retry).toContain('SCENE INITIALIZATION v1: aurora-curtains\n');
+    expect(retry).not.toContain('SCENE INITIALIZATION v1: aurora-curtains|');
+    for (const original of [
+      'A mural of aurora curtains',
+      'custom-aurora-curtains-v2',
+      'aurora-curtains-other',
+    ]) {
+      expect(isSceneInitializationRequest(readySceneLines(listed, 1, original).join('\n'))).toBe(
+        false,
+      );
+    }
+  });
+
+  it('does not force a later bespoke mural to use a preset named for the lead scene', () => {
+    const later = {
+      options: { request: 'Build an aurora-curtains hero then a bespoke waterfall mural' },
+      plan: { locale: { lang: 'en', dir: 'ltr' as const } },
+      skillIds: ['craftkit.pixi-murals'],
+      contract: {
+        key: 'waterfall',
+        role: 'band' as const,
+        title: 'Waterfall',
+        anchorId: 'waterfall',
+        purpose: 'A bespoke waterfall mural with an illustrated bridge',
+        mustSay: [],
+        mustNotRepeat: [],
+      },
+    };
+    expect(isSceneInitializationRequest(withReadyScenes('brief', later, 1))).toBe(false);
+    expect(isSceneInitializationRequest(withReadyScenes('brief', later, 2))).toBe(false);
+    const named = {
+      ...later,
+      options: { request: 'Build an aurora-curtains hero and another aurora-curtains mural' },
+      contract: { ...later.contract, purpose: 'A mural using aurora-curtains' },
+    };
+    expect(withReadyScenes('brief', named, 1)).toContain(
+      'SCENE INITIALIZATION v1: aurora-curtains\n',
+    );
+  });
+
+  it('preserves bespoke scenes and excluded presets on the first attempt and retry', () => {
+    const listed = suggestReadyScenes('aurora mural', 'en');
+    for (const request of [
+      'Do not use aurora-curtains; draw a waterfall mural',
+      "Don't use aurora-curtains",
+      'A scene without aurora-curtains',
+      'A bespoke mural like aurora-curtains drawn from scratch',
+      'لا تستخدم aurora-curtains، بدي جدارية مخصصة',
+      'ما بدي aurora-curtains',
+      'جدارية بدون aurora-curtains',
+      'A mural without ready presets',
+      'لا تستخدم قوالب جاهزة',
+    ]) {
+      for (const attempt of [1, 2] as const) {
+        expect(readySceneLines(listed, attempt, request), request).toEqual([]);
+        expect(
+          withReadyScenes(
+            'original',
+            {
+              options: { request },
+              plan: { locale: { lang: 'en', dir: 'ltr' } },
+              skillIds: ['craftkit.pixi-murals'],
+              contract: {
+                key: 'hero',
+                role: 'hero',
+                title: 'Scene',
+                anchorId: 'hero',
+                purpose: 'A mural',
+                mustSay: [],
+                mustNotRepeat: [],
+              },
+            },
+            attempt,
+          ),
+        ).toBe('original');
+      }
+    }
+  });
+
+  it('keeps initialization when ordinary layout constraints do not exclude the scene', () => {
+    const listed = suggestReadyScenes('aurora mural', 'en');
+    for (const request of [
+      'Use aurora-curtains; avoid text clipping and clutter',
+      'A mural without horizontal overflow, using aurora-curtains',
+      'استخدم aurora-curtains، تجنب قص النص',
+      'Avoid text clipping when using aurora-curtains',
+      'A mural without horizontal overflow using aurora-curtains',
+      'تجنب قص النص في aurora-curtains',
+    ]) {
+      expect(readySceneLines(listed, 1, request).join('\n'), request).toContain(
+        'SCENE INITIALIZATION v1: aurora-curtains\n',
+      );
+    }
   });
 
   it('puts a named ready scene’s tested code in, and shows a repair round the name again', () => {

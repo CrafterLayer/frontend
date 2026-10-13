@@ -135,7 +135,7 @@ There is no request cap here, on purpose. A page-sized request in the playground
 for four to six sections, five for seven to nine, six at most. On the CLI backend every in-flight
 request is one `claude` process, so the busiest moment of a twelve-section page is six processes on
 this machine; the pool's own ceiling is the only limiter this server relies on. A cancelled request
-— the person pressed Stop, or a section ran past its 240 s budget — reaches the child: the handler
+— the person pressed Stop, or a section ran past its own deadline — reaches the child: the handler
 passes `request.signal` through and `cli-client.ts` kills the whole process group, so an abandoned
 section stops billing.
 
@@ -143,6 +143,44 @@ Do not put the old `scripts/ai-plan-bridge.mjs` on this port for a build. Its
 `AI_BRIDGE_MAX_CONCURRENT` defaults to 1 (hard ceiling 4) and answers the rest with 429, so every
 parallel section beyond the first is retried once and then skipped — a build that looks slower and
 emptier for no reason visible in the panel.
+
+## Ready-scene initialization
+
+A mural writer can return one `setProp` command with `js: "@preset:<id>"`. Builder AI completes the
+responsive region locally with the tested scene, contract title and required copy, applicable
+primary action, and declared scene metadata/settings. Authored tree/CSS and custom scene code stay
+authored. This uses the existing backdrop catalog; games and stories retain their own scene path.
+
+The compact initialization-only brief carries an exact standalone
+`SCENE INITIALIZATION v1: <id>|<id>...` line with one to four offered ids. `/plan` applies its fast
+policy only when Free code is on and the call carries both `craftkit.build-fill` and a Pixi skill.
+General `READY SCENES` advice does not qualify. This lane uses low effort, compatible thinking-off
+behavior, and an 8,192-token output ceiling. An explicit `high`, `xhigh`, or `max` request retains
+its effort and ordinary scene output capacity. Bespoke scenes keep reasoning at medium or the higher
+section budget, with the default 48,000-token scene ceiling; larger deployment ceilings are
+preserved for those calls.
+
+On OpenRouter, initialization sends `reasoning.enabled: false` for supported Claude lines or a model
+that declares `reasoning.mandatory: false`. Known always-thinking Claude 5.5/Fable/Mythos lines,
+mandatory models, and unknown models retain low effort. General and deep calls retain their existing
+mapping. This follows the
+[OpenRouter reasoning contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens);
+the output ceiling remains subject to the selected model's own capacity.
+
+Writer deadlines belong to `runAiBuild`, not the server's token ceiling: an eligible backdrop
+attempt defaults to three minutes, an initialization-only attempt to 90 seconds, ordinary sections
+to four minutes, and game/story or other non-backdrop scenes to seven minutes. An explicit caller
+`taskTimeoutMs` overrides these defaults, including the initialization cap.
+
+Run the offline initializer measurement from the workspace root:
+
+```bash
+pnpm --filter @craftkit/builder-ai benchmark:scene-init
+```
+
+The recorded fixture covers 22 ready scenes and 1,100 local initialization runs, with 98.25% fewer
+JSON payload characters for compact answers. It measures local CPU and exact serialized characters;
+it does not measure provider tokens, billing, live generation latency, or rendered visual quality.
 
 ## What it does with a request
 
@@ -179,12 +217,17 @@ otherwise.
 **Watch `cachedShare` in the log line.** Near zero means something got into the prefix that changes
 per request, and the catalog is being paid for every time.
 
+Same-prefix cold calls are staggered until the first call emits actual backend stream activity or
+answer text. SDK stream events, CLI message/content events, and OpenRouter delta frames can release
+the gate; a timer's "Waiting for the model to start" narration cannot. A failure releases waiting
+siblings without claiming warmth, and waits remain bounded by 15 seconds and cancellation. Actual
+provider cache-read usage remains the evidence that the provider reused its cache.
+
 ## Streaming
 
-The client advertises `text/event-stream`; when it does, `status` frames carry Claude's own
-reasoning summary and exactly one `result` frame ends the stream. The narration is the model's
-actual consideration rather than an invented spinner — a plan takes tens of seconds, and a silent
-wait that long reads as a hang.
+The client advertises `text/event-stream`; when it does, `status` frames report progress and exactly
+one `result` frame ends the stream. Backends may also produce timed waiting narration while the
+model is silent; those updates keep progress observable but never establish cache readiness.
 
 A client disconnect aborts the Claude request. Nothing keeps generating a plan nobody will read.
 

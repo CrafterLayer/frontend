@@ -36,7 +36,15 @@ import {
   sectionOf,
   type WrittenIssues,
 } from './section-candidate';
-import { expandReadyScenes, markReadyScenes, withReadyScenes } from './scene-ready';
+import {
+  expandReadyScenes,
+  markReadyScenes,
+  offersReadyScenes,
+  withReadyScenes,
+} from './scene-ready';
+import { completeReadyScene } from './scene-initializer';
+import { guardFill, stringArg, type GuardedFill } from './fill-guard';
+import { isSceneInitializationRequest } from '../provider/scene-init-wire';
 import { nextSection } from './section-order';
 import { fillConcurrencyFor, withWriterPermit } from './writer-pool';
 import {
@@ -112,6 +120,7 @@ export const DEFAULT_AI_BUILD_MAX_TASKS = 12;
 export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
 /** A scene writer's ceiling when the caller set none: page code is the slowest write. */
 export const DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS = 420_000;
+export const DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS = 90_000;
 /** Ceiling for the whole build. The running section still finishes. */
 export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
 // How many write at once, and the pool several builds share (T230): writer-pool.ts.
@@ -122,10 +131,6 @@ const MAX_RUN_ID_LENGTH = 160;
 const MAX_LABEL_LENGTH = 160;
 const SCAFFOLD_COMMANDS: readonly string[] = Object.freeze(['insertNode', 'setProp', 'setDocMeta']);
 const FILL_COMMANDS: readonly string[] = Object.freeze(['setProp']);
-/** The only props a section writer may set, and only on its own region. */
-const FILL_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css']);
-/** With free code mode on a writer may also give its region a scene: its own `js`. */
-const FILL_KEYS_WITH_CODE: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css', 'js']);
 const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
 const FILL_SKILL = 'craftkit.build-fill';
 /**
@@ -707,9 +712,16 @@ async function underDeadline<T>(
 }
 
 /** A section's deadline: a scene's is longer, unless the caller set every section's. */
-function sectionTimeoutMs(build: BuildRun, job: SectionJob): number {
+function sectionTimeoutMs(build: BuildRun, job: SectionJob, request = ''): number {
   const scene = build.options.taskTimeoutMs === undefined && job.scene?.() === true;
-  return scene ? DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS : build.taskTimeoutMs;
+  const ceiling = scene
+    ? offersReadyScenes(job.brief?.(1).skillIds ?? [])
+      ? 180_000
+      : DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS
+    : build.taskTimeoutMs;
+  return build.options.taskTimeoutMs === undefined && isSceneInitializationRequest(request)
+    ? Math.min(ceiling, DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS)
+    : ceiling;
 }
 
 /** What one section's writer is told and given; the rest of a step comes from the build. */
@@ -887,73 +899,6 @@ function runFill(
     label: stepLabel(position, total, task.title),
     signal,
   });
-}
-
-interface GuardedFill {
-  /** The steps that stay inside the region, in the order the writer wrote them. */
-  readonly commands: AiPlan['commands'];
-  /** Set when code changed a step (`SectionJob.tidy`): the run's own proposal no longer matches. */
-  readonly tidied?: true;
-  /** The props those steps write — what the landing records and a revert restores. */
-  readonly keys: readonly AiBuildSectionKey[];
-  readonly outOfScope: readonly AiBuildOutOfScopeStep[];
-}
-
-function stringArg(args: unknown, name: 'id' | 'key'): string | undefined {
-  if (typeof args !== 'object' || args === null) return undefined;
-  const value: unknown = (args as Record<string, unknown>)[name];
-  return typeof value === 'string' ? value : undefined;
-}
-
-function isFillKey(
-  key: string | undefined,
-  allowed: readonly AiBuildSectionKey[],
-): key is AiBuildSectionKey {
-  return key !== undefined && (allowed as readonly string[]).includes(key);
-}
-
-/**
- * THE TARGET GUARD: a section writer may set its own region's `tree` and
- * `css`, and nothing else.
- *
- * The command policy only ever checked NAMES. `setProp` was allowed, so a
- * writer could set any prop on any node, and the comment that promised "each
- * fill writes only its own region's tree" was a hope. Measured 2026-09-28
- * (agent-audit.md P0-2): one writer replaced the page CSS — the skeleton's
- * font import went with it — and another overwrote the hero, and both
- * reported `applied`. Page-level skills tell writers to do exactly that
- * ("load fonts in pageCss", "KEYFRAMES live in pageCss"), so it is not rare.
- *
- * Everything outside is dropped before landing and handed back to be
- * REPORTED on the section, never silently counted as applied.
- */
-function guardFill(plan: AiPlan, task: AiBuildTask, freeCode = false): GuardedFill {
-  const allowed = freeCode ? FILL_KEYS_WITH_CODE : FILL_KEYS;
-  const commands: AiPlan['commands'][number][] = [];
-  const keys = new Set<AiBuildSectionKey>();
-  const outOfScope: AiBuildOutOfScopeStep[] = [];
-  for (const step of plan.commands) {
-    const id = stringArg(step.args, 'id');
-    const key = stringArg(step.args, 'key');
-    if (step.command === 'setProp' && id === task.id && isFillKey(key, allowed)) {
-      commands.push(step);
-      keys.add(key);
-      continue;
-    }
-    outOfScope.push(
-      Object.freeze({
-        command: step.command,
-        ...(id === undefined ? {} : { id }),
-        ...(key === undefined ? {} : { key }),
-        reason: `A section writer may set only its own region's ${freeCode ? 'tree, css and js' : 'tree and css'} (region ${task.id}); this ${step.command}${key === undefined ? '' : ` of "${key}"`}${id === undefined ? '' : ` on ${id}`} reached outside it and was dropped.`,
-      }),
-    );
-  }
-  return {
-    commands: Object.freeze(commands),
-    keys: allowed.filter((key) => keys.has(key)),
-    outOfScope: Object.freeze(outOfScope),
-  };
 }
 
 /**
@@ -1271,6 +1216,7 @@ interface SectionJob {
   readonly complete?: AiBuildSectionLanding;
   /** The brief for attempt 1 or 2 — read when the attempt starts, so neighbours are current. */
   readonly brief?: (attempt: 1 | 2) => FillBrief;
+  readonly finishAnswer?: (answer: AiPlan, request: string) => AiPlan;
   /** Step E: contract and scene check (and the scene's run); absent on a scaffold build. */
   readonly check?: (landed: LandedSection) => WrittenIssues;
   /** Whether its writer writes a scene: started first, given the longer deadline. */
@@ -1457,7 +1403,7 @@ async function checkAndRepair(
     const repaired = await underDeadline(
       options,
       job.task,
-      sectionTimeoutMs(build, job),
+      sectionTimeoutMs(build, job, request),
       (signal) => {
         const repair = options.provider.repair?.bind(options.provider);
         let reported = false;
@@ -1482,7 +1428,7 @@ async function checkAndRepair(
                   usage,
                 });
               },
-            }).then(expandReadyScenes);
+            }).then((answer) => job.finishAnswer?.(answer, request) ?? expandReadyScenes(answer));
           },
         };
         return repairAiPlanForIssues(
@@ -1761,7 +1707,7 @@ function startFill(
         const run = await underDeadline(
           options,
           task,
-          sectionTimeoutMs(build, job),
+          sectionTimeoutMs(build, job, brief.request),
           (deadline) =>
             runFill(options, build.shared, task, position, total, brief, deadline, invocation),
           signal,
@@ -2237,9 +2183,12 @@ function revalidated(plan: PagePlan, intent: PagePlan['intent']): PagePlan {
 }
 
 /** The props the root block declares — the only ones the skeleton may write. */
-function rootPropNames(options: RunAiBuildOptions): readonly string[] {
+function rootPropNames(
+  options: RunAiBuildOptions,
+  nodeId = options.kernel.getDocument().rootId,
+): readonly string[] {
   const document = options.kernel.getDocument();
-  const rootType = document.nodes[document.rootId]?.type;
+  const rootType = document.nodes[nodeId]?.type;
   if (rootType === undefined) return [];
   const props: unknown = options.kernel.context.registry.block(rootType)?.schema.props;
   const shape: unknown =
@@ -2944,8 +2893,23 @@ function planJobs(
       if (value !== undefined) briefing = { plan: current, value };
       return value;
     };
+    const finishAnswer = (answer: AiPlan, request: string): AiPlan => {
+      const current = planFor(key);
+      const contract = contractOf(current, key);
+      return contract === undefined
+        ? answer
+        : completeReadyScene(
+            current,
+            contract,
+            task.id,
+            completeKitSteps(current, contract, answer),
+            rootPropNames(options, task.id),
+            request,
+          );
+    };
     jobs.push({
       ...common,
+      finishAnswer,
       brief: (attempt) => {
         const current = planFor(key);
         const at = current.sections.findIndex((section) => section.key === key);
@@ -2960,7 +2924,14 @@ function planJobs(
           contract === undefined
             ? undefined
             : (answer: AiPlan): AiPlan =>
-                expandReadyScenes(completeKitSteps(current, contract, answer));
+                finishAnswer(
+                  answer,
+                  withReadyScenes(
+                    '',
+                    scene ? { options, plan: current, contract, skillIds } : undefined,
+                    attempt,
+                  ),
+                );
         /*
           A kit-backed section (2026-09-30): the writer names the kit and fills
           its slots in ONE tool step — ~30-300 output tokens instead of the

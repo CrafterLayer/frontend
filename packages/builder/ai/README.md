@@ -100,6 +100,49 @@ how much provider latency overlaps—it does not add sections or model calls. Pr
 page order and are revalidated against the live kernel at that moment. Pass a number to hold an
 exact limit, including `1` for a fully sequential build.
 
+### Ready-scene initialization
+
+An eligible mural/backdrop writer can name an existing tested scene with one command:
+
+```json
+{
+  "command": "setProp",
+  "args": { "id": "captured-region-id", "key": "js", "value": "@preset:aurora-curtains" }
+}
+```
+
+Before ordinary command validation, the initializer completes that captured region locally: tested
+scene code, responsive host and readable copy panel, the contract's title and required claims/facts,
+the primary action for hero/CTA roles, and declared `jsMeta`/`jsParams`. Supplied tree/CSS stays
+authored, custom code stays authored, and writes still pass through the same Free-code, ownership,
+schema, and grouped kernel transaction boundaries. Games/stories keep their existing kits and
+custom-code path.
+
+An explicitly requested preset or eligible recovery attempt receives the initialization-only
+`SCENE INITIALIZATION v1: <id>|<id>...` brief. Its answer must select an offered tested id; missing
+or custom JS is refused under that contract. General ready-scene suggestions can still lead to
+bespoke code, and an explicit request for a custom/from-scratch scene stays custom.
+
+An eligible backdrop attempt defaults to three minutes; an initialization-only attempt defaults to
+90 seconds. Ordinary section fills retain four minutes and other scene fills seven minutes. An
+explicit `RunAiBuildOptions.taskTimeoutMs` remains the caller's exact ceiling and overrides the
+initialization default too. The AI server applies the compact low-effort/8,192-token policy only to
+actual Free-code Pixi fill calls. Explicit deep effort and bespoke scene reasoning/output capacity
+remain intact; supported thinking-off behavior and cache readiness are documented in the
+[AI server README](../../../apps/ai-server/README.md#ready-scene-initialization).
+
+Measure local initialization and compact payload size without a model call or listener:
+
+```bash
+pnpm --filter @craftkit/builder-ai benchmark:scene-init
+```
+
+The recorded offline fixture covers 22 scenes and 1,100 measured initialization runs. Compact
+answers contain 98.25% fewer serialized JSON characters than fully expanded proposals. The script
+also reports local CPU percentiles; results depend on the machine and load. This is payload/local
+initialization evidence: provider token counts, bills, live latency, and visual quality are not
+measured.
+
 ## Skills and bounded agent runs
 
 A Skill is reviewed data, not executable code. It may add instructions and logical text references,

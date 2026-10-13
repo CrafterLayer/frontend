@@ -6,6 +6,7 @@ import {
 } from '../scene-presets/catalog';
 import type { AiContextProvider } from '@craftkit/builder-schema';
 
+import { SCENE_INITIALIZATION_HEADER } from '../provider/scene-init-wire';
 import type { AiPlan } from '../types';
 import type { PagePlan, SectionContract } from './page-plan/types';
 import { creativeRequestOf } from './section-providers';
@@ -20,15 +21,16 @@ import type { RunAiBuildOptions } from './types';
   The catalogue's backdrop presets are tested scenes of 2–9k characters that take the page's
   palette by default. A scene writer is now shown the few that fit its brief, and names one by
   setting its region's `js` to `@preset:<id>`; the build puts the preset's code in before the
-  door sees the answer (`expandReadyScenes`, through the writer's completing provider), so the
-  writer only writes the section's words and layout. A writer whose first attempt failed is
-  told to place one, so the retry ends in seconds instead of repeating the long write. A repair
+  door sees the answer (through the writer's completing provider), so the
+  writer can omit markup: `completeReadyScene` fills its contract copy and scene host locally.
+  A writer whose first attempt failed is told to place one, so the retry finishes without
+  repeating the long write. A repair
   round is shown the marker in place of the code (`markReadyScenes`) and its answer expanded
   the same way, so a repair never re-writes code it did not write.
 
   Only backdrops that stand as they are: no words of their own (`type`), no photo (`photo`),
-  no controls in a tree (`game`, `story` — the kits). The build guard keeps `tree`, `css` and
-  `js`, so a ready scene runs on its defaults: the page's palette, its own seed and pace.
+  no controls in a tree (`game`, `story` — the kits). The initializer attaches catalog metadata
+  and validated params only when declared; absent overrides use the page's palette, seed and pace.
 */
 
 /** The categories whose presets a section can carry as they stand. */
@@ -143,6 +145,33 @@ export function suggestReadyScenes(brief: string, lang: string): readonly SceneP
   return listed;
 }
 
+function customScene(brief: string): boolean {
+  const text = brief.toLowerCase();
+  if (
+    /\b(?:bespoke|from scratch|custom (?:pixi )?(?:scene|mural|composition))\b|من الصفر|جدارية مخصصة|مشهد مخصص/u.test(
+      text,
+    )
+  )
+    return true;
+  const targets = readyScenes()
+    .map(({ id }) => id)
+    .join('|');
+  const qualifiers =
+    '(?:(?:the|a|an|any|ready|tested|built-in|catalog|preset|scene|mural|version|of|using|القالب|المشهد|الجدارية|هذه|هاي|جدارية|مشهد|جاهزة|جاهز|نسخة|من)\\s+){0,4}';
+  return new RegExp(
+    `(?:\\b(?:do not use|don't use|avoid|unlike|without|except|no|not)\\b|لا تستخدم|لا تستعمل|تجنب|بدون|ما بدي|مش نفس)\\s+${qualifiers}(?:\\b(?:${targets}|presets?|templates?)\\b|مشاهد جاهزة|جدارية جاهزة|قوالب)`,
+    'u',
+  ).test(text);
+}
+
+function explicitScenes(brief: string): readonly ScenePreset[] {
+  const text = brief.toLowerCase();
+  if (customScene(brief)) return [];
+  return readyScenes().filter(({ id }) =>
+    new RegExp(`(?:^|[^a-z0-9-])${id}(?=$|[^a-z0-9-])`, 'u').test(text),
+  );
+}
+
 function firstClause(text: string): string {
   const clause = text.split(/[.;—]/u)[0]?.trim() ?? '';
   return clause.length <= 70 ? clause : `${clause.slice(0, 69)}…`;
@@ -150,18 +179,31 @@ function firstClause(text: string): string {
 
 /**
  * What a scene writer's brief adds: the ready scenes that fit, and how to place one. The
- * first attempt may still write its own scene, kept short; a retry places a ready one.
+ * first attempt may still write its own scene, kept short; an explicit preset id or retry selects
+ * initialization only, identified separately from general creative advice by the wire header.
  */
-export function readySceneLines(listed: readonly ScenePreset[], attempt: 1 | 2): readonly string[] {
+export function readySceneLines(
+  listed: readonly ScenePreset[],
+  attempt: 1 | 2,
+  originalBrief = '',
+): readonly string[] {
   if (listed.length === 0) return [];
-  const list = listed
+  if (customScene(originalBrief)) return [];
+  const explicit = explicitScenes(originalBrief);
+  const mandatory = attempt === 2 || explicit.length > 0;
+  const allowed = explicit.length > 0 ? explicit.slice(0, READY_SCENES_LISTED) : listed;
+  const list = allowed
     .map(({ id, description }) => `${id} (${firstClause(description.en)})`)
     .join(' · ');
   return [
+    ...(mandatory
+      ? [`${SCENE_INITIALIZATION_HEADER} ${allowed.map(({ id }) => id).join('|')}`]
+      : []),
     `READY SCENES (tested, in the page's palette; placed in seconds, where scene code of your own takes minutes): ${list}.`,
-    attempt === 1
-      ? `To place one, set this region's js to exactly "${READY_SCENE_MARKER}<id>" — the build puts its tested code in — and write the tree and css as usual, the words above the scene (position:relative;z-index:1) and the region sized by its width (aspect-ratio, min-height), never vh. Write scene code of your own only when none of these fits the brief, and keep it under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`
-      : `The first attempt at this section failed: set this region's js to exactly "${READY_SCENE_MARKER}<id>" with the ready scene above that fits best — no scene code of your own — and write the tree and css as usual, the words above the scene (position:relative;z-index:1).`,
+    `To initialize a complete scene section, answer with ONE setProp step {"id":"<this region id>","key":"js","value":"${READY_SCENE_MARKER}<id>"}. The build fills the tested code, responsive tree and css, exact contract title and required copy, and primary action for a hero or cta. No markup is needed. An explicit tree or css stays as you write it; put copy above the scene (position:relative;z-index:1) and size the region by its width, never vh.`,
+    mandatory
+      ? `${attempt === 2 ? 'The first attempt at this section failed' : 'The request names a ready preset'}: choose an id listed above and set this region's js to exactly "${READY_SCENE_MARKER}<id>" — no scene code of your own.`
+      : `Write scene code of your own only when none of these fits the brief, and keep it under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`,
   ];
 }
 
@@ -238,7 +280,20 @@ export function withReadyScenes(
 ): string {
   if (scene?.contract === undefined || !offersReadyScenes(scene.skillIds)) return request;
   const brief = creativeRequestOf(scene.options, scene.contract);
-  const lines = readySceneLines(suggestReadyScenes(brief, scene.plan.locale.lang), attempt);
+  if (customScene(brief)) return request;
+  // A preset named for the lead scene must not force an unrelated later mural into that preset.
+  const originalBrief =
+    scene.contract.role === 'hero'
+      ? scene.options.request
+      : explicitScenes(scene.options.request)
+          .filter(({ id }) => explicitScenes(brief).some((preset) => preset.id === id))
+          .map(({ id }) => id)
+          .join(' ');
+  const lines = readySceneLines(
+    suggestReadyScenes(brief, scene.plan.locale.lang),
+    attempt,
+    originalBrief,
+  );
   return lines.length === 0 ? request : [request, '', ...lines].join('\n');
 }
 

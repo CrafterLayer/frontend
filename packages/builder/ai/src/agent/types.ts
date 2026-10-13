@@ -201,9 +201,9 @@ export type AiBuildTaskStatus = 'applied' | 'skipped' | 'not-started';
 
 /**
  * The props a section writer owns on its region: `tree` and `css`, and — only
- * in a build that turned free code mode on (`RunAiBuildOptions.freeCode`) — `js`.
+ * in a build that turned free code mode on — `js` and its `jsMeta`/`jsParams`.
  */
-export type AiBuildSectionKey = 'tree' | 'css' | 'js';
+export type AiBuildSectionKey = 'tree' | 'css' | 'js' | 'jsMeta' | 'jsParams';
 
 /** A region's writer-owned props at one moment, keyed by prop; a prop the node lacks is absent. */
 export type AiBuildSectionValues = Readonly<Partial<Record<AiBuildSectionKey, JsonValue>>>;

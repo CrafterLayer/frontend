@@ -6,6 +6,9 @@
 
 **Status**: Approved for implementation
 
+Current scoped speed increment: [scene initialization and server latency](scene-speed-2026-10-13.md)
+(SP-001..004), authorized by the user's 2026-10-13 request.
+
 **Monorepo Scope**: Workspace, cross-cutting. Extends the site model, editing kernel, canvas,
 code-editing surface, AI generation, local persistence, evaluation application, and preview/export
 runtime. The approved 2026-10-10 increment adds Frontend dashboards and workflows; generated

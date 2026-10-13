@@ -391,6 +391,7 @@ interface CliRun {
   readonly onThinking: (delta: string) => void;
   /** Each piece of the answer's text as it is written (`stream.on('text')`). */
   readonly onText: (delta: string) => void;
+  readonly onStreamEvent: () => void;
   readonly onLog: (line: string) => void;
   readonly signal: AbortSignal | undefined;
 }
@@ -401,7 +402,7 @@ interface CliRun {
  * driven, timed out, cancelled and killed identically either way.
  */
 function runClaude(run: CliRun): Promise<Anthropic.Message> {
-  const { child, prompt, timeoutMs, onThinking, onText, onLog, signal } = run;
+  const { child, prompt, timeoutMs, onThinking, onText, onStreamEvent, onLog, signal } = run;
   return new Promise((resolve, reject) => {
     // Cancelled before it began (the caller checks first; this is the backstop).
     if (signal?.aborted === true) {
@@ -440,11 +441,7 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
       killTree(child.pid, () => child.kill('SIGTERM'));
     }, timeoutMs);
 
-    /*
-      Stop means stop (measured 2026-09-28: an aborted request's CLI ran its
-      whole 51s on, and a killed server left one orphaned). The request's
-      signal kills the process group exactly as the timeout does.
-    */
+    // Stop kills the process group, exactly as a timeout does; no orphaned CLI runs.
     const onAbort = (): void => {
       onLog('cli run stopped — the request was cancelled');
       finish(() => {
@@ -485,6 +482,12 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
         firstEventAt ??= Date.now();
         if (event['type'] === 'stream_event' && isRecord(event['event'])) {
           const frame = event['event'];
+          if (
+            ['message_start', 'content_block_start', 'content_block_delta'].includes(
+              String(frame['type']),
+            )
+          )
+            onStreamEvent();
           const block = frame['content_block'];
           if (frame['type'] === 'content_block_start' && isRecord(block)) {
             if (block['type'] === 'thinking') narrator.enterPhase('thinking');
@@ -492,10 +495,7 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
           }
           const delta = frame['delta'];
           if (isRecord(delta)) {
-            /*
-              `thinking`, not `text` — the field this read for its first weeks,
-              which is why the panel's line never moved once in a whole run.
-            */
+            // CLI thinking deltas carry estimated tokens, rather than answer text.
             if (delta['type'] === 'thinking_delta') {
               const estimated = delta['estimated_tokens'];
               narrator.addThinking(typeof estimated === 'number' ? estimated : 0);
@@ -691,12 +691,7 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
     const key =
       warmPool === undefined ? undefined : cliShapeKey(model, effort, thinkingOff, prompt.system);
     const spare = key === undefined ? undefined : warmPool?.take(key);
-    /*
-      Said as it is (fix pass 2026-10-05): a spare primed a moment ago is still
-      in its own start-up, and calling it plain "warm" hid that concurrent
-      writers' "warm" starts took 4.0-4.4 s to the first event. Its age says
-      how much of the start-up it saved.
-    */
+    // A recently primed spare may still be starting; its age states the saved startup honestly.
     const startKind =
       spare === undefined
         ? 'cold'
@@ -733,6 +728,9 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       },
       onText: (delta) => {
         listeners.get('text')?.(delta);
+      },
+      onStreamEvent: () => {
+        listeners.get('streamEvent')?.('');
       },
       onLog,
       signal: requestOptions.signal,

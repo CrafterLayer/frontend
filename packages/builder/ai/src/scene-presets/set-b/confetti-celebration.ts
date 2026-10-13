@@ -4,6 +4,8 @@ import { definePreset, range, select, sharedParams, soundToggle } from './define
  * A celebration. Two cannons at the bottom corners fire a palette salvo when the section scrolls
  * into view (or on a loop), and every tap inside pops a burst at the pointer. Paper is rectangles,
  * ribbons and dots in the palette, flipping as it falls (a pulsing scale list) and spinning.
+ * Between salvos a light drift of paper keeps falling, swaying and flipping, so the stage is never
+ * empty.
  * Sound is OFF by default; turned on, a burst plays the bank's 'pop' only after a visitor gesture.
  * Reduced motion: a still scatter of settled confetti.
  */
@@ -92,6 +94,28 @@ function cannon(angle, spread) {
   });
 }
 const left = cannon(-60, p.spread), right = cannon(-120, p.spread), pop = cannon(-90, Math.min(300, p.spread * 2.2));
+
+// the drift: a few dozen papers always falling under the salvos (one texture source, so one draw)
+const driftLayer = new P.ParticleContainer({ dynamicProperties: { position: true, rotation: true, vertex: true, uvs: false, color: false } });
+s.stage.addChildAt(driftLayer, 0);
+const drift = [];
+let DW = s.width, DH = s.height;
+function seedDrift(w, h) {
+  DW = w;
+  DH = h;
+  driftLayer.removeParticles();
+  drift.length = 0;
+  const n = Math.min(160, s.count(Math.round(24 + (w * h) / 6000)));
+  for (let i = 0; i < n; i++) {
+    const q = new P.Particle({ texture: s.pick(texs), x: s.rand(0, w), y: s.rand(-20, h), anchorX: 0.5, anchorY: 0.5, rotation: s.rand(0, 6.28), alpha: s.rand(0.55, 0.9) });
+    driftLayer.addParticle(q);
+    drift.push({ q, x: q.x, y: q.y, vy: s.rand(26, 58), sway: s.rand(8, 26), ph: s.rand(0, 6.28), spin: s.rand(-2.2, 2.2), flip: s.rand(1.5, 3.5), k: s.rand(0.7, 1.15) });
+  }
+  driftLayer.boundsArea = new P.Rectangle(0, 0, w, h);
+  driftLayer.update();
+}
+seedDrift(s.width, s.height);
+s.onResize(seedDrift);
 s.dispose(() => { left.destroy(); right.destroy(); pop.destroy(); });
 
 let armed = false, fired = false, loopT = 0;
@@ -118,7 +142,17 @@ s.tick(({ dt }) => {
     if (p.trigger === 'enter' && !fired) { fired = true; salvo(); }
     if (p.trigger === 'loop') { loopT -= dt * p.speed; if (loopT <= 0) { loopT = 4; salvo(); } }
   }
-  const d = dt * p.speed;
+  const d = dt * p.speed, fall = Math.max(0.35, p.gravity) * d;
+  for (const o of drift) {
+    o.y += o.vy * fall;
+    o.ph += d * 1.4;
+    if (o.y > DH + 20) { o.y = -20; o.x = s.rand(0, DW); }
+    o.q.x = o.x + Math.sin(o.ph) * o.sway;
+    o.q.y = o.y;
+    o.q.rotation += o.spin * d;
+    o.q.scaleX = o.k;
+    o.q.scaleY = o.k * (0.3 + 0.7 * Math.abs(Math.cos(o.ph * o.flip)));
+  }
   left.update(d);
   right.update(d);
   pop.update(d);

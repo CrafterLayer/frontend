@@ -3,8 +3,10 @@ import { definePreset, range, sharedParams, toggle } from './define';
 /**
  * A field of dots on springs. The pointer bends the grid toward it (or pushes it away with a
  * negative force) and lights the dots it touches; a tap sends a shock ring through the field.
- * Idle, a slow noise swell travels toward the inline end, so the grid is never dead. One
- * ParticleContainer of one texture: thousands of dots at little cost.
+ * Idle, the grid has real presence: dots in the theme's ink, a slow noise swell, and a gentle
+ * wave whose crests travel toward the inline end, lifting and lighting the dots in the accent
+ * (the pointer still outshines it). One ParticleContainer of one texture: thousands of dots at
+ * little cost.
  */
 export const MAGNETIC_DOT_GRID = definePreset({
   id: 'magnetic-dot-grid',
@@ -19,7 +21,16 @@ export const MAGNETIC_DOT_GRID = definePreset({
     ...sharedParams({ seed: 7 }),
     range('spacing', 'Spacing', 'المسافة بين النقاط', 26, 12, 64, 1, 'look'),
     range('radius', 'Dot size', 'حجم النقطة', 2.2, 0.5, 6, 0.1, 'look'),
-    range('force', 'Pull (negative pushes)', 'الجذب (السالب يدفع)', 0.6, -1, 1, 0.05, 'interaction'),
+    range(
+      'force',
+      'Pull (negative pushes)',
+      'الجذب (السالب يدفع)',
+      0.6,
+      -1,
+      1,
+      0.05,
+      'interaction',
+    ),
     range('springiness', 'Springiness', 'المرونة', 0.12, 0.02, 0.4, 0.01, 'motion'),
     toggle('ripple', 'Ripple on tap', 'تموّج عند النقر', true, 'interaction'),
   ],
@@ -31,8 +42,10 @@ const disc = new P.Graphics().circle(16, 16, 16).fill(0xffffff);
 const dotTex = s.app.renderer.generateTexture(disc);
 disc.destroy();
 s.dispose(() => dotTex.destroy(true));
+// ink -> accent -> a brighter accent (darker on a light surface): idle dots sit low, the pointer goes high
+const ink = pal.mix(pal.muted, pal.text, 0.35), peak = pal.dark ? pal.colors[1] : pal.colors[4];
 const shades = [];
-for (let i = 0; i < 12; i++) shades.push(pal.mix(pal.muted, pal.accent, i / 11));
+for (let i = 0; i < 16; i++) { const t = i / 15; shades.push(t < 0.5 ? pal.mix(ink, pal.accent, t * 2) : pal.mix(pal.accent, peak, (t - 0.5) * 2)); }
 const pc = new P.ParticleContainer({ dynamicProperties: { position: true, vertex: true, color: true, rotation: false, uvs: false } });
 s.stage.addChild(pc);
 let dots = [];
@@ -70,12 +83,15 @@ s.tick(({ t, dt }) => {
   const reach = sp * 7, reach2 = reach * reach;
   const k = p.springiness, damp = 0.86;
   const step = Math.min(dt * 60, 3) * p.speed;
+  const wk = (Math.PI * 2) / (sp * 10), wt = t * 1.6 * p.speed, wc = Math.cos(0.6) * s.dir, ws = Math.sin(0.6);
   for (let r = ripples.length - 1; r >= 0; r--) if (t - ripples[r].t > 2.2) ripples.splice(r, 1);
   for (const d of dots) {
-    let fx = (d.hx - d.x) * k, fy = (d.hy - d.y) * k;
-    // the idle swell travels toward the inline end
+    // the idle wave: crests travel toward the inline end and lift the dots they cross
+    const w = Math.pow(0.5 + 0.5 * Math.sin((d.hx * wc + d.hy * ws) * wk - wt), 4);
+    let fx = (d.hx + w * sp * 0.08 * s.dir - d.x) * k, fy = (d.hy - w * sp * 0.2 - d.y) * k;
+    // and a slow noise swell under it
     const n = s.noise3(d.hx * 0.004 - t * 0.15 * p.speed * s.dir, d.hy * 0.004, t * 0.1);
-    let glow = (n + 1) * 0.18;
+    let glow = 0.2 + (n + 1) * 0.08 + w * 0.32;
     if (live) {
       const dx = px - d.x, dy = py - d.y, d2 = dx * dx + dy * dy;
       if (d2 < reach2) {
@@ -102,13 +118,13 @@ s.tick(({ t, dt }) => {
     d.y += d.vy * step;
     const off = Math.min(1, Math.hypot(d.x - d.hx, d.y - d.hy) / sp);
     const g = Math.min(1, glow + off * 0.6);
-    const sc = base * (0.7 + g * 1.2 + n * 0.15);
+    const sc = base * (0.85 + g * 1.1 + n * 0.1);
     d.q.x = d.x;
     d.q.y = d.y;
     d.q.scaleX = sc;
     d.q.scaleY = sc;
-    d.q.tint = shades[Math.min(11, (g * 11) | 0)];
-    d.q.alpha = 0.35 + g * 0.65;
+    d.q.tint = shades[Math.min(15, (g * 15) | 0)];
+    d.q.alpha = 0.6 + g * 0.4;
   }
 });
 `,

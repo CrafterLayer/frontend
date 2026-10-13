@@ -47,7 +47,10 @@ export interface AiWriterPermit {
  * never admitted.
  */
 export interface AiWriterPool {
+  /** How many may write at once now: `ceiling`, or less while the provider is congested. */
   readonly limit: number;
+  /** The limit it was made with (the person's worker count): it never admits more. */
+  readonly ceiling: number;
   /** Permits held right now. */
   readonly active: number;
   /** Writers waiting for a permit. */
@@ -57,6 +60,13 @@ export interface AiWriterPool {
    * `AbortError` when `signal` aborts first, and the waiter is gone from the line.
    */
   acquire(signal?: AbortSignal): Promise<AiWriterPermit>;
+  /**
+   * The provider said "too many at once" (a rate limit or an overload): halve the limit, never
+   * below one. Reports that arrive together (every writer hits the same limit) count once.
+   */
+  congested(): void;
+  /** A call came back: after `limit` of them in a row, one more may write, up to `ceiling`. */
+  succeeded(): void;
 }
 
 /** The writer options of `RunAiBuildOptions`: how many write at once, and whose pool they share. */
@@ -91,11 +101,33 @@ interface Waiter {
 }
 
 /** A first-come, first-served pool of `limit` writer permits (a positive whole number). */
-export function createAiWriterPool(limit: number): AiWriterPool {
-  if (!Number.isSafeInteger(limit) || limit < 1) {
+/**
+ * Smarter live workers (2026-10-12): the pool is the one place every writer of a build (or a
+ * site) passes, so it is where a rate limit is answered. Each writer's provider retries its own
+ * call with jittered backoff, but six writers that all hit the same limit retry into it six
+ * times over. The pool answers as congestion control does: halve the writers at once on
+ * "too many" (one halving per burst), then add one back per `limit` calls that come back, up
+ * to the person's number. A build that is never refused runs at its ceiling throughout.
+ */
+const CONGESTION_WINDOW_MS = 2_000;
+
+export interface AiWriterPoolOptions {
+  /** The clock bursts of congestion are grouped by (tests pin it). */
+  readonly now?: () => number;
+}
+
+export function createAiWriterPool(
+  ceiling: number,
+  options: AiWriterPoolOptions = {},
+): AiWriterPool {
+  if (!Number.isSafeInteger(ceiling) || ceiling < 1) {
     throw new RangeError('A writers pool needs a whole limit of at least 1.');
   }
+  const now = options.now ?? Date.now;
+  let limit = ceiling;
   let active = 0;
+  let streak = 0;
+  let halvedAt = Number.NEGATIVE_INFINITY;
   const line: Waiter[] = [];
 
   const admitNext = (): void => {
@@ -121,7 +153,10 @@ export function createAiWriterPool(limit: number): AiWriterPool {
   };
 
   return {
-    limit,
+    get limit() {
+      return limit;
+    },
+    ceiling,
     get active() {
       return active;
     },
@@ -146,6 +181,20 @@ export function createAiWriterPool(limit: number): AiWriterPool {
         signal?.addEventListener('abort', leave, { once: true });
         line.push(waiter);
       });
+    },
+    congested() {
+      streak = 0;
+      if (now() - halvedAt < CONGESTION_WINDOW_MS) return;
+      halvedAt = now();
+      limit = Math.max(1, Math.floor(limit / 2));
+    },
+    succeeded() {
+      if (limit >= ceiling) return;
+      streak += 1;
+      if (streak < limit) return;
+      streak = 0;
+      limit += 1;
+      admitNext();
     },
   };
 }

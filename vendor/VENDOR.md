@@ -592,3 +592,44 @@ our own serialised code. Each adapting site names its idea source in a comment.
 | [img-comparison-slider](https://github.com/sneas/img-comparison-slider) | 8.0.7 | MIT (c) 2019 Dmytro Snisarenko | Before/after compare driven by a native range input, clipped with `clip-path` | `packs/compare.ts` |
 
 <!-- end media-motion engine-timeline additions -->
+
+<!-- tailwind-plugins additions (2026-10-13) -->
+
+## Tailwind plugins — prose, form fields and entrances for generated pages (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog. Each licence was read from the installed
+tarball's own LICENSE file (not only `package.json`) on 2026-10-13; texts in
+THIRD_PARTY_LICENSES.md. Each pin is the latest release and more than two weeks old.
+
+| Package                 | Version | Published  | Licence (tarball LICENSE)       | Installed into                      |
+| ----------------------- | ------- | ---------- | ------------------------------- | ----------------------------------- |
+| tw-animate-css          | 1.4.0   | 2025-09-24 | MIT (c) 2025 Wombosvideo        | builder-renderer                    |
+| @tailwindcss/typography | 0.5.20  | 2026-06-08 | MIT (c) Tailwind Labs, Inc.     | builder-renderer, builder-code-runtime (playground and storybook already listed it) |
+| @tailwindcss/forms      | 0.5.11  | 2025-12-17 | MIT (c) Tailwind Labs, Inc.     | builder-renderer, builder-code-runtime |
+| mini-svg-data-uri       | 1.4.4   | —          | MIT (c) 2018 Taylor Hunt        | (forms' dependency)                 |
+| postcss-selector-parser | 6.0.10  | —          | MIT (c) Ben Briggs              | (typography's dependency, already in the graph) |
+
+How they reach a page (generator: `packages/builder/renderer/src/tailwind/plugin-bridge.ts`):
+
+- **Animate layer** (`tailwind-animate.css`: `@import 'tw-animate-css'`, the slide step bound to
+  `--t-space-unit`, and `animation: none` on every enter/exit class under
+  `prefers-reduced-motion: reduce`) — behind the editor's Tailwind door, so in every static sheet,
+  and in the in-page compiler and the export.
+- **Content layer** (`tailwind-content.css`: typography, and forms with `strategy: 'class'` so no
+  input is reset globally, both re-pointed at the `--t-*` tokens) — generated per page by the
+  in-page compiler (canvas, preview, the AI door's oracle) and by `compileFor` (export), not by
+  the static sheet: one `prose` is ~20 KB of CSS and the static scan would ship it on every
+  editor load (measured +3 to +5 KB gzip against a first-load CSS budget with 1.85 KB to spare).
+- The in-page compiler loads both plugins through a closed `loadModule` (`compiler-loaders.ts`)
+  in a lazy chunk (115 KB minified / 26.7 KB gzip, beside Tailwind's own 74 KB gzip).
+- `tw-animate-css` exports its stylesheet only under the `style` condition, which a script
+  bundler does not resolve, so the in-page compiler reads a byte-for-byte copy:
+  `packages/builder/renderer/src/tailwind/tw-animate-source.ts` (sha256
+  `6035b41301945cd65eb233b4653965e3c235338faae51b0f55676d591daaef23`, 14,880 B), held equal to the
+  installed tarball by `tw-animate-source.test.ts` (`UPDATE_TAILWIND_CSS=1` regenerates it).
+- Code projects (`@craftkit/builder-code-runtime`) compile with typography and forms as trusted
+  plugins (still refusing any authored `@plugin`), in Tailwind's own palette since a code project
+  wears no site tokens; tw-animate is left out there — a code project animates with the managed
+  `motion/react` its lock allows.
+
+<!-- end tailwind-plugins additions -->

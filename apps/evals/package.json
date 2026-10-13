@@ -17,8 +17,9 @@
     "test:agent-chat:browser": "node src/browser/agent-chat.mjs",
     "test:pixi-creative:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/pixi-creative/creative.browser.test.ts",
     "test:creative-engines:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/pixi-creative/engines.browser.test.ts",
+    "test:tailwind-plugins:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/tailwind-plugins/plugins.browser.test.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/pixi-creative/tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/pixi-creative/tsconfig.json && tsc --noEmit -p src/tailwind-plugins/tsconfig.json"
   },
   "dependencies": {
     "@craftkit/builder": "workspace:*"
@@ -31,6 +32,7 @@
     "@types/node": "catalog:",
     "@types/pngjs": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "esbuild": "catalog:",
     "pixelmatch": "catalog:",
     "playwright": "catalog:",
     "pngjs": "catalog:",

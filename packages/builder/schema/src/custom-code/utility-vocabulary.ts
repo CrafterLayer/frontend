@@ -246,6 +246,14 @@ export const UTILITY_VOCABULARY: readonly UtilityPattern[] = Object.freeze([
   'accent-{accent,white,black} caret-{accent,text} cursor-{grab,grabbing,zoom-in,zoom-out,help,crosshair,progress}',
   'bg-{local,scroll} bg-{top,bottom,left,right,left-top,right-top,left-bottom,right-bottom} bg-{auto,repeat,repeat-x,repeat-y,round,space}',
   'object-{left-top,right-top,left-bottom,right-bottom} rounded-{s,e,ss,se,es,ee}-{none,sm,md,lg,xl,2xl,3xl,full}',
+  /*
+    tw-animate entrances (2026-10-13): the renderer's animate layer, which every static sheet
+    carries (renderer plugin-bridge.ts), as far as the skills teach it — logical sides only, the
+    slide in the site's spacing step, no entrance at all under reduced motion. The content plugins
+    (prose, form-*) are not listed: only the in-page compiler and the export generate them, so
+    only that compiler, as the door's oracle, admits them.
+  */
+  'animate-in motion-reduce:animate-none fade-in zoom-in-95 slide-in-from-{bottom,start}-{4,8} fill-mode-both',
 ]);
 
 /**

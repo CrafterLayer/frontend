@@ -266,7 +266,8 @@ describe('live utilities watch what renders in AI regions', () => {
 
   it('generates the classes a person wrote on a built-in part that no other sheet defines, unscoped', async () => {
     const staticSheet = document.createElement('style');
-    staticSheet.textContent = '.ps-6 { padding-inline-start: 1.5rem; } .max-md\\:p-2 { padding: 0.5rem; }';
+    staticSheet.textContent =
+      '.ps-6 { padding-inline-start: 1.5rem; } .max-md\\:p-2 { padding: 0.5rem; }';
     document.head.append(staticSheet);
     const live = await createLiveUtilities({ document });
     const stop = live.watch(document);
@@ -408,5 +409,66 @@ describe('compileFor, the export fallback', () => {
     const next = await live.compileFor(['m-1']);
     expect(next).not.toContain('17px');
     expect(await live.compileFor([])).toBe('');
+  });
+});
+
+/*
+  tailwind-plugins (2026-10-13): typography, forms and tw-animate-css load with the compiler, so
+  the door's oracle, the region sheet and the export judge and style them like any other class.
+*/
+describe('the plugin layer', () => {
+  const region = `[${CUSTOM_CODE_REGION_ATTRIBUTE}]`;
+
+  it('judges the plugin classes real, and only real ones', async () => {
+    const live = await createLiveUtilities();
+
+    for (const name of [
+      'prose',
+      'md:prose-lg',
+      'prose-invert',
+      // Spelled in parts, here and below: the app's Tailwind scans every file under
+      // packages/builder, tests included, and would ship each name in first-load CSS.
+      ['prose', 'headings:font', 'semibold'].join('-'),
+      'form-input',
+      'form-select',
+      'form-checkbox',
+      'animate-in',
+      'fade-in',
+      'zoom-in-95',
+      'slide-in-from-bottom-4',
+      'slide-in-from-start-8',
+      'motion-reduce:animate-none',
+    ]) {
+      expect(live.isUtilityClass(name), name).toBe(true);
+    }
+    expect(live.isUtilityClass('prose-bogus')).toBe(false);
+    expect(live.isUtilityClass('form-bogus')).toBe(false);
+  });
+
+  it('scopes plugin utilities to regions and keeps the reduced-motion guard global', async () => {
+    const live = await createLiveUtilities();
+
+    live.ensure(['prose', 'form-input', 'animate-in', 'fade-in']);
+
+    const css = live.css();
+    const scoped = blockBody(blockBody(css, '@layer utilities'), `@scope (${region})`);
+    for (const selector of ['.prose {', '.form-input {', '.animate-in {', '.fade-in {']) {
+      expect(scoped, selector).toContain(selector);
+    }
+    expect(scoped).toContain('--tw-prose-body: var(--t-text');
+    expect(scoped).not.toContain('prefers-reduced-motion: reduce');
+    expect(css).toMatch(/^@media \(prefers-reduced-motion: reduce\) \{\n {2}:where\(/mu);
+    expect(css).toMatch(/^@keyframes enter /mu);
+  });
+
+  it('compiles the plugin classes into an export sheet, unscoped', async () => {
+    const live = await createLiveUtilities();
+
+    const css = await live.compileFor(['prose', 'form-input', 'animate-in', 'fade-in']);
+
+    expect(css).toContain('.prose {');
+    expect(css).toContain('.form-input {');
+    expect(css).toContain('animation: enter ');
+    expect(css).not.toContain('@scope');
   });
 });

@@ -8,7 +8,9 @@
 
   Order matches the playground's entry and is not stylistic: `tailwindcss`
   first, because the preset's door contributes an `@theme` block Tailwind reads
-  as CONFIGURATION and cannot apply before it is itself loaded.
+  as CONFIGURATION and cannot apply before it is itself loaded. The door also
+  carries tw-animate-css (animate-in, fade-in…) and its reduced-motion guard,
+  so a story animates exactly as a page does.
 */
 @import 'tailwindcss';
 @import '@craftkit/builder/tailwind.css';
@@ -24,4 +26,9 @@
 */
 @source '../../../packages/builder/**/src/**/*.{ts,tsx}';
 @source '../../../packages/ui/src/**/*.{ts,tsx}';
+/*
+  tw-animate-source.ts holds the tw-animate-css stylesheet as a string for the in-page compiler;
+  scanned, every utility it defines would be generated here whether a page used it or not.
+*/
+@source not '../../../packages/builder/renderer/src/tailwind/tw-animate-source.ts';
 @source '../../../apps/playground/src/**/*.{ts,tsx}';

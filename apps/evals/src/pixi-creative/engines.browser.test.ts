@@ -477,7 +477,11 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
 
 const PHYSICS_CONTROLS = `<div role='group' aria-label='Physics controls'><button type='button' data-physics='drop'>Drop a crate</button><button type='button' data-physics='launch'>Launch the ball</button><button type='button' data-physics='reset'>Reset</button></div><output data-physics-status role='status' aria-live='polite'></output>`;
 
-/** The physics world's display objects (the view's children: the floor, then one per body). */
+/**
+ * The physics world's display objects: s.world's children in the example's 800 × 450 design (the
+ * floor, then one per body, which s.lib.physics.world links and parents; particles and physics,
+ * 2026-10-13).
+ */
 const BODIES = 'window.__creativeStage.children[0].children.slice(1)';
 
 it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(

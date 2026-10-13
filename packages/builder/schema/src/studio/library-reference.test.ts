@@ -49,6 +49,20 @@ describe('CK_LIBRARY_REFERENCE', () => {
     );
   });
 
+  it('describes the emitter presets and the physics world by the calls the skills teach', () => {
+    const emitter = libraryEntry('emitter');
+    expect(emitter?.api.join('\n')).toContain("s.lib.emitter.spawn(s, 'snow'");
+    expect(emitter?.api.join('\n')).toContain('s.lib.emitter.burst(s,');
+    expect(emitter?.api.join('\n')).toContain('new PIXI.ParticleContainer(');
+    for (const preset of ['fire', 'snow', 'confetti', 'fireworks', 'embers']) {
+      expect(emitter?.purpose.en).toContain(preset);
+    }
+    const physics = libraryEntry('physics');
+    expect(physics?.pixiBound).toBe(false);
+    expect(physics?.api.join('\n')).toContain('s.lib.physics.world(s,');
+    expect(physics?.purpose.ar).toContain('world(s)');
+  });
+
   it('describes the character library by the calls the creative skills teach', () => {
     const peeps = libraryEntry('peeps');
     expect(peeps?.pixiBound).toBe(false);

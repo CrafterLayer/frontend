@@ -27,7 +27,9 @@ import { VIEWPORT_BANNER, VIEWPORT_SHA256, VIEWPORT_SOURCE } from './viewport-so
 const ASSETS = [
   ['kit', KIT_SOURCE, KIT_BANNER, KIT_SHA256, 15_800],
   ['filters', FILTERS_SOURCE, FILTERS_BANNER, FILTERS_SHA256, 24_900],
-  ['emitter', EMITTER_SOURCE, EMITTER_BANNER, EMITTER_SHA256, 12_000],
+  // particles and physics (2026-10-13): emitter 12,000 → 17,400 for its 13 presets, atlas and
+  // lifecycle (measured 16,545, + 5 %); physics keeps 29,500 with world(s) (measured 29,424).
+  ['emitter', EMITTER_SOURCE, EMITTER_BANNER, EMITTER_SHA256, 17_400],
   ['physics', PHYSICS_SOURCE, PHYSICS_BANNER, PHYSICS_SHA256, 29_500],
   ['brush', BRUSH_SOURCE, BRUSH_BANNER, BRUSH_SHA256, 3_500],
   ['rough', ROUGH_SOURCE, ROUGH_BANNER, ROUGH_SHA256, 11_000],

@@ -70,17 +70,21 @@ describe('scene engine skills', () => {
   });
 
   it.each([
-    { id: PHYSICS, code: CREATIVE_PHYSICS_EXAMPLE, libs: "libs:['physics']" },
+    // The buttons' listeners end in s.dispose; world() ends its own engine, loop and drag.
+    { id: PHYSICS, code: CREATIVE_PHYSICS_EXAMPLE, libs: "libs:['physics']", ends: 's.dispose(' },
     {
       id: SCROLL,
       code: CREATIVE_SCROLL_MURAL_EXAMPLE,
       libs: "libs:['brush','rough','emitter','viewport']",
+      // particles and physics (2026-10-13): a spawned emitter, its container and texture end
+      // with the scene, so the mural owns nothing it must release itself.
+      ends: 's.lib.emitter.spawn(',
     },
-  ])('$id teaches exactly its exported scene body', ({ id, code, libs }) => {
+  ])('$id teaches exactly its exported scene body', ({ id, code, libs, ends }) => {
     expect(() => new AsyncFunction('ck', code)).not.toThrow();
     expect(code).toContain(`ck.scene({seed:`);
     expect(code).toContain(libs);
-    expect(code).toContain('s.dispose(');
+    expect(code).toContain(ends);
     expect(code).not.toMatch(
       /new P(?:IXI)?\.Application|\bimport\s*\(|https?:\/\/|window\.add|document\.add|Runner\.run|Ticker\.shared|preventDefault/u,
     );
@@ -90,18 +94,24 @@ describe('scene engine skills', () => {
     ]);
   });
 
-  it('steps Matter only in the fixed loop and settles still frames synchronously', () => {
-    expect(CREATIVE_PHYSICS_EXAMPLE).toContain('s.fixedTick(dt=>{Engine.update(engine,dt*1000)');
-    expect(CREATIVE_PHYSICS_EXAMPLE).toContain('Engine.update(engine,1000/60)');
+  // particles and physics (2026-10-13): s.lib.physics.world(s) owns the fixed-step loop, the
+  // walls, the drag and the calm settling, so the example hand-writes none of them.
+  it('builds the toy on s.lib.physics.world in design units, with no loop of its own', () => {
+    expect(CREATIVE_PHYSICS_EXAMPLE).toContain('w=s.lib.physics.world(s)');
+    expect(CREATIVE_PHYSICS_EXAMPLE).toContain('w.add(body,g)');
+    expect(CREATIVE_PHYSICS_EXAMPLE).toContain("design:{width:800,height:450,align:'bottom'}");
+    expect(CREATIVE_PHYSICS_EXAMPLE).not.toMatch(/Engine\.(?:create|update)|fixedTick|s\.tick/u);
     expect(CREATIVE_PHYSICS_EXAMPLE).toContain('s.dir');
     expect(CREATIVE_PHYSICS_CONTROLS).toContain('data-physics-status');
+    const skill = SCENE_ENGINE_SKILLS.find((candidate) => candidate.id === PHYSICS);
+    expect(skill?.instructions).toContain('settles synchronously');
   });
 
   it('drives the mural from s.scroll, mirrors RTL and never adds input plugins', () => {
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('s.scroll.progress');
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('s.dir>0?p:1-p');
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('noTicker:true');
-    expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain('new P.ParticleContainer(');
+    expect(CREATIVE_SCROLL_MURAL_EXAMPLE).toContain("s.lib.emitter.spawn(s,'magic',{parent:vp,");
     expect(CREATIVE_SCROLL_MURAL_EXAMPLE).not.toMatch(/\.(?:drag|wheel|pinch|decelerate)\(/u);
   });
 });

@@ -101,10 +101,11 @@ const stop = s.fixedTick((dt) => {
 s.dispose(stop);
 ```
 
-Attach visible Graphics/sprites to `s.stage` and synchronize them with the bodies. The kit owns
-created Matter engines' cleanup. Do not start Matter's Runner or a second Pixi ticker. A game still
-needs an objective, state, score, controls, collision handling and restart; the helper does not
-invent these.
+Attach visible Graphics/sprites to `s.stage` and synchronize them with the bodies — or let
+`s.lib.physics.world(s)` do the engine, walls, stepping, links and drag (see "Particle presets and
+the physics world" below). The kit owns created Matter engines' cleanup. Do not start Matter's
+Runner or a second Pixi ticker. A game still needs an objective, state, score, controls, collision
+handling and restart; the helper does not invent these.
 
 - `s.input.down(code)` and `axis(negativeCodes, positiveCodes)` enable keyboard input lazily on the
   focused canvas only. `set(code, held)` supports native DOM/touch buttons; release on pointer up,
@@ -274,6 +275,58 @@ img.src = s.lib.peeps.dataUrl({ seed: 'Noor', round: true, background: '#fde68a'
 Unit tests (`libs/peeps/peeps.test.ts`) cover determinism, moods, cast stability, art direction,
 escaping and the texture pipeline with a fake browser; the dialogue playbook's taught example runs
 it in Chromium (`test:creative-engines:browser`).
+
+## Particle presets and the physics world (2026-10-13)
+
+Both libraries keep their whole upstream API (`s.lib.emitter.Emitter`, every Matter module on
+`s.lib.physics`) and add a small, optional layer that makes the common scene a few lines.
+
+```js
+const s = await ck.scene({ libs: ['emitter', 'physics'], design: { width: 1280, height: 720 } });
+const snow = s.lib.emitter.spawn(s, 'snow'); // fills the view, follows resizes
+const fire = s.lib.emitter.spawn(s, 'fire', { x: 640, y: 620, width: 90 });
+s.pointer.onDown((p) => s.lib.emitter.burst(s, 'confetti', { x: p.x, y: p.y }));
+const config = s.lib.emitter.presets.embers(s, { x: 640, y: 640 }); // for new Emitter(…)
+
+const { Bodies } = s.lib.physics;
+const w = s.lib.physics.world(s); // walls around the design, stepped, draggable
+w.add(Bodies.circle(640, 0, 30), new s.PIXI.Graphics().circle(0, 0, 30).fill(s.palette.accent));
+```
+
+- **Presets** (`libs/emitter/recipes.ts`): `fire`, `smoke`, `sparkles`, `snow`, `rain`, `confetti`,
+  `magic`, `bubbles`, `leaves`, `petals`, `fireworks`, `dust`, `embers`. Options: `x`, `y` (omit
+  both to fill the view of `s.world`, `s.design.view` in design mode), `width`, `height`, `color` /
+  `colors` (default: theme-aware, from `s.palette` and whether its surface is dark; glowing presets
+  blend additively only on a dark surface), `intensity` (0..3), `size`, `speed`, `wind` (-1..1
+  toward the inline end, mirrored by `s.dir`), `count` (bursts) and `parent` (default `s.world`).
+  Rates scale with the area and with `s.count` (density × quality); the editor gets half.
+- **Handles** (`libs/emitter/spawn.ts`): `spawn` returns
+  `{ emitter, container, config, count, active, move, burst, start, stop, destroy }`; `burst`
+  returns the same and destroys itself once its particles are gone. One `s.tick`, one resize hook
+  and one `s.dispose` per scene drive them all; streams are pre-warmed so the first frame is full.
+  Reduced motion: a stream is pre-warmed and frozen (one still frame), a burst emits nothing.
+- **Textures** (`libs/emitter/atlas.ts`): eight white shapes (soft glow, streak, flake, leaf, petal,
+  confetti slip, sparkle, bubble) drawn with Pixi Graphics into one 512 × 64 render texture per
+  renderer — a v8 `ParticleContainer` draws from one texture source — freed on dispose. No image is
+  fetched.
+- **Behaviours** (`libs/emitter/behaviors.ts`): `colorPick` (a colour per particle or per wave) and
+  `drift` (sway, flutter, spin, drag, kill lines) register through upstream's own
+  `Emitter.registerBehavior`; the vendored files stay unpatched beyond `PATCHES.md`.
+- **Physics world** (`libs/physics/world.ts`):
+  `world(s, { gravity, walls: true | 'box' | false, bounds, drag, layer, step, settle, engine })` →
+  `{ engine, bounds, walls, drag, add(body, display?), link, remove(body, keepDisplay?), settle(steps?), dispose }`.
+  Walls sit just outside the design (design mode) or the region (refitted on resize, bodies kept
+  inside); the loop is `s.fixedTick`; drag is a Matter `MouseConstraint` fed from `s.pointer` in the
+  layer's units, armed only by a press on the scene itself, and a touch on a body stops the page
+  scrolling for that gesture only. The editor and reduced motion run no loop: the world settles
+  synchronously after the script turn and after each change, and reduced motion renders that still
+  frame.
+
+Budgets: `ck-lib-emitter.js` 17,400 bytes gzip (was 12,000; measured 16,545 with the presets),
+`ck-lib-physics.js` unchanged at 29,500 (measured 29,424). Unit tests:
+`libs/emitter/emitter.test.ts` (pure configs, behaviours, the real vendored Emitter on real
+ParticleContainers) and `libs/physics/physics.test.ts` (real matter-js); Chromium:
+`CRAFTKIT_BROWSER_QA=1 pnpm --filter @craftkit/evals exec vitest run src/pixi-creative/particles.browser.test.ts`.
 
 ## Bundled licences
 

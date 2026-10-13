@@ -14,7 +14,8 @@ chunks (entry −31%); the theme gate green again.
   thumbnails (−56 KB).
 - T249 done: the agent's conversation memory (40 messages, stepped window + digest, sections
   named) and carried skills; full-prefix cache reads 3 → 39 of 48 turns in the reproduction.
-- In progress: T250 — particle presets on s.lib.emitter and a world() helper on s.lib.physics.
+- T250 done: 13 particle presets on s.lib.emitter and s.lib.physics.world(s); physics has 76 B of
+  bundle headroom, emitter budget raised to 17,400 B.
 - Open from the audit: the selection toolbar covers the selected element's name label; the
   Inspector's empty card could mention Layers; a two-way LTR | RTL switch in Settings.
 - Open from the blocks: `section-layout.css` never reaches the published stylesheet (dark-section

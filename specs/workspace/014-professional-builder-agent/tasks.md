@@ -805,6 +805,8 @@ separation. Five bounded helpers, each verified in a clean worktree and committe
       behind, builds and plans named by their sections, and the skills a conversation woke carried
       into its next runs (`carriedSkillIds`). Measured over 48 turns through the real client and
       server: the full prefix read on 39 turns instead of 3.
-- [ ] T250 Particle presets (fire, smoke, sparkles, snow, rain, confetti, magic, bubbles, leaves,
-      fireworks, embers) on `s.lib.emitter` and a `world()` helper on `s.lib.physics` (Matter.js),
-      taught and tested in Chromium (in progress).
+- [x] T250 Particle presets on `s.lib.emitter` (fire, smoke, sparkles, snow, rain, confetti,
+      magic, bubbles, leaves, petals, fireworks, dust, embers; `spawn`/`burst`, procedural atlas,
+      palette-aware, RTL wind, reduced motion as a still frame) and `s.lib.physics.world(s)`
+      (Matter.js: walls, linked displays, pointer drag in design units, calm settle, dispose).
+      Emitter budget 12,000 → 17,400 B gzip (measured 16,545 + 5%); physics 29,424 of 29,500.

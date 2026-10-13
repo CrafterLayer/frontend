@@ -113,15 +113,15 @@ navigation. Existing `s.tick`, seeded composition, palette/noise, resize and qua
 Simulation stops in the editor and under reduced motion; story chapters still render on manual
 navigation. Generated assets retain their existing licence, digest and 16 kB gzip kit budget.
 
-| Installed capability       | Actual access                                         | Intended use                                                                                          |
-| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| PixiJS 8.22.0              | `s.PIXI` from `await ck.scene()`                      | Containers, Graphics, sprites, text, assets and custom scenes; one namespace                          |
-| Matter.js 0.20.0           | `libs: ['physics']`, `s.lib.physics`                  | Collisions/rigid bodies; `Engine.update(engine, dt * 1000)` inside `s.fixedTick`, not a second Runner |
-| pixi-viewport 6.0.3        | `libs: ['viewport']`, `s.lib.viewport.Viewport`       | World camera; own plugin teardown, manual update when appropriate                                     |
-| pixi-filters 6.1.5         | `libs: ['filters']`, reviewed `s.lib.filters` adapter | Fifteen registered filter constructors, not the whole upstream filter catalog                         |
-| Particle emitter v8 port   | `libs: ['emitter']`, `s.lib.emitter`                  | Tracked emitters; update with seconds, release on scene disposal                                      |
-| perfect-freehand / roughjs | `libs: ['brush', 'rough']`                            | Stroke polygons and hand-drawn Graphics paths                                                         |
-| Existing sound engine      | `s.sound` / `ck.sound`, with explicit audio request   | Procedural effects and admitted project sound assets; gesture unlock, mute and voice caps             |
+| Installed capability       | Actual access                                         | Intended use                                                                                        |
+| -------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| PixiJS 8.22.0              | `s.PIXI` from `await ck.scene()`                      | Containers, Graphics, sprites, text, assets and custom scenes; one namespace                        |
+| Matter.js 0.20.0           | `libs: ['physics']`, `s.lib.physics`                  | Collisions/rigid bodies; `world(s)` (2026-10-13) or `Engine.update` inside `s.fixedTick`, no Runner |
+| pixi-viewport 6.0.3        | `libs: ['viewport']`, `s.lib.viewport.Viewport`       | World camera; own plugin teardown, manual update when appropriate                                   |
+| pixi-filters 6.1.5         | `libs: ['filters']`, reviewed `s.lib.filters` adapter | Fifteen registered filter constructors, not the whole upstream filter catalog                       |
+| Particle emitter v8 port   | `libs: ['emitter']`, `s.lib.emitter`                  | Tracked emitters; 13 presets via `spawn`/`burst` (2026-10-13); release on scene disposal            |
+| perfect-freehand / roughjs | `libs: ['brush', 'rough']`                            | Stroke polygons and hand-drawn Graphics paths                                                       |
+| Existing sound engine      | `s.sound` / `ck.sound`, with explicit audio request   | Procedural effects and admitted project sound assets; gesture unlock, mute and voice caps           |
 
 The new built-in project skills are `craftkit.pixi-games`, `craftkit.pixi-stories` and
 `craftkit.pixi-murals`. Arabic/English playable or narrative requests activate the relevant skill
@@ -286,6 +286,41 @@ switch layouts and keep canvas text and hit radii readable. Copy and controls st
   1280 × 720 (`align: 'bottom'` keeps the art under the DOM copy on a phone). The scene probe holds
   a design-mode scene filling a 390 px phone with its pointer in design units
   (`apps/evals/src/pixi-creative/probe.browser.test.ts`), and `design.browser.test.ts` the camera.
+
+### Particle presets and the physics world (2026-10-13)
+
+The user asked for Matter.js and `@pixi/particle-emitter` in Pixi. Both were already there:
+`s.lib.physics` is Matter 0.20.0, and `s.lib.emitter` is the Pixi v8 port of
+`@pixi/particle-emitter` (`@spd789562/particle-emitter` 1.0.2, vendored and audited — the official
+package supports Pixi v7 only). What was missing was the craft between the API and a good scene, so
+this round adds a thin, optional layer on top of each, upstream APIs unchanged:
+
+- **`s.lib.emitter.spawn(s, name, options)` / `burst(s, name, options)` /
+  `presets.<name>(s, options)`**: thirteen tuned recipes (fire, smoke, sparkles, snow, rain,
+  confetti, magic, bubbles, leaves, petals, fireworks, dust, embers) on procedural textures — eight
+  white shapes drawn with Pixi Graphics into one atlas per renderer, since a v8 `ParticleContainer`
+  draws from a single texture source; never a fetched image. Colours come from `s.palette` and
+  whether its surface is dark (additive glow only there), wind and slant mirror with `s.dir`, rates
+  follow the area and `s.count`, the editor gets half, streams start pre-warmed, and reduced motion
+  gets one frozen frame (a burst emits nothing). Two CraftKit behaviours (`colorPick`, `drift`)
+  register through upstream's `Emitter.registerBehavior`, so the vendored source keeps only its
+  three audited patches. `ck-lib-emitter.js` budget 12,000 → 17,400 bytes gzip (measured 16,545).
+- **`s.lib.physics.world(s, options)`**: an Engine stepped in `s.fixedTick`, static walls just
+  outside the design (or the region, refitted on resize), `add(body, display)` links that copy
+  position and angle each step, pointer drag through a Matter `MouseConstraint` fed from `s.pointer`
+  in design units (armed only by a press on the scene, never through DOM controls; a touch on a body
+  alone stops page scrolling), synchronous settling plus one still frame in the editor and under
+  reduced motion, and disposal of loop, listeners, constraint and engine. It fits inside the
+  unchanged 29,500-byte `ck-lib-physics.js` budget (29,424).
+- **Teaching.** `CK_LIBRARY_REFERENCE` lists both entry points (EN/AR); the physics playbook's
+  example is now a design-mode toy on `world(s)` (no hand-written loop, settle or resize code, 200
+  tokens shorter), the scroll-mural playbook spawns its fireflies with one `spawn` call, and the
+  games and murals playbooks name the helpers in place of the raw calls — each still under the
+  single-skill ceiling.
+- **Proof.** `apps/evals/src/pixi-creative/particles.browser.test.ts` reads pixels back from the
+  renderer for every preset and every burst at 390 and 1280 px in LTR and RTL, checks the rain slant
+  mirrors, the reduced-motion still frame, a world settling on its floor, a pointer drag and a
+  disposal that leaves no body, constraint or ticker behind.
 
 ### The creative agent
 

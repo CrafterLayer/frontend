@@ -41,19 +41,36 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
   {
     key: 'emitter',
     pixiBound: true,
+    // particles and physics (2026-10-13): thirteen tuned presets and one-line helpers on top of
+    // the unchanged upstream emitter.
     purpose: {
-      en: 'Config-driven particle emitter (Pixi v8 port, eval-free paths).',
-      ar: 'باعث جسيمات يعمل بالإعدادات (نسخة Pixi v8 بلا eval).',
+      en: 'Config-driven particle emitter (Pixi v8 port, eval-free paths) with 13 tuned, theme-aware presets on procedural textures: fire, smoke, sparkles, snow, rain, confetti, magic, bubbles, leaves, petals, fireworks, dust, embers. Pre-warmed, frozen under reduced motion, mirrored in RTL, halved in the editor, disposed with the scene.',
+      ar: 'باعث جسيمات يعمل بالإعدادات (نسخة Pixi v8 بلا eval) مع 13 إعدادًا جاهزًا متناسقًا مع ألوان السمة بأنسجة مرسومة برمجيًا: نار ودخان وبريق وثلج ومطر وقصاصات احتفال وغبار سحري وفقاعات وأوراق شجر وبتلات وألعاب نارية وغبار وجمر. يبدأ ممتلئًا، ويتجمد مع تقليل الحركة، وينعكس في RTL، ويقل في المحرر، ويُحرَّر مع المشهد.',
     },
-    api: ['new s.lib.emitter.Emitter(container, config)', 'emitter.update(dt)'],
+    api: [
+      "const snow = s.lib.emitter.spawn(s, 'snow' | 'rain' | 'fire' | 'embers' | …, { x, y, width, height, colors, intensity, wind, parent })",
+      "s.lib.emitter.burst(s, 'confetti' | 'fireworks' | 'sparkles' | …, { x, y, count })",
+      'handle.move(x, y) / handle.burst(n) / handle.stop() / handle.start() / handle.destroy()',
+      's.lib.emitter.presets.fire(s, options) → config',
+      'new s.lib.emitter.Emitter(new PIXI.ParticleContainer(…), config)',
+      'emitter.update(dt)',
+    ],
     source: '@spd789562/particle-emitter (vendored)',
     since: STUDIO,
   },
   {
     key: 'physics',
     pixiBound: false,
-    purpose: { en: 'Matter.js rigid-body physics.', ar: 'فيزياء الأجسام الصلبة Matter.js.' },
-    api: ['s.lib.physics.Engine.create()', 'Engine.update(engine, dt * 1000)'],
+    purpose: {
+      en: 'Matter.js rigid-body physics, plus world(s): an engine with walls fitted to the design or region, fixed-step stepping, body-to-display links, pointer drag and a settled still frame in the editor and under reduced motion.',
+      ar: 'فيزياء الأجسام الصلبة Matter.js، مع world(s): محرك بجدران على قدّ التصميم أو المنطقة، وخطوات زمنية ثابتة، وربط الأجسام برسومها، وسحب بالمؤشر، وإطار ثابت مستقر في المحرر ومع تقليل الحركة.',
+    },
+    api: [
+      "const w = s.lib.physics.world(s, { gravity, walls: true | 'box' | false, bounds, drag })",
+      'w.add(Bodies.circle(x, y, r), graphics) / w.remove(body) / w.settle()',
+      's.lib.physics.Engine.create()',
+      'Engine.update(engine, dt * 1000)',
+    ],
     source: 'matter-js',
     since: STUDIO,
   },

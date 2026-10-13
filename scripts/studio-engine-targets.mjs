@@ -41,11 +41,16 @@ export const TARGETS = {
     budget: 24_900,
     versionPackage: 'pixi-filters',
   },
+  // particles and physics (2026-10-13): 12,000 → 17,400. The asset now carries 13 tuned,
+  // theme-aware presets (fire … embers), their config builder, the procedural texture atlas, the
+  // spawn/burst lifecycle and two behaviours on top of the unchanged upstream emitter: measured
+  // 16,545 bytes gzip (was 11,364), + 5 % rounded up to 100 bytes. physics stays at 29,500 with
+  // world(s) inside it (29,424).
   emitter: {
     entry: 'src/studio/libs/emitter-entry.ts',
     factory: 'createEmitterLibrary',
     pixi: true,
-    budget: 12_000,
+    budget: 17_400,
     version: '1.0.2',
     vendored: [
       {

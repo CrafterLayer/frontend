@@ -518,3 +518,45 @@ describe('sceneEditContext — what the scene’s code says it is', () => {
     expect(scene?.brief.id).toBe('craftkit:creative-brief');
   });
 });
+
+/** A page with content and no scene: where a new mural is added as an edit. */
+const PLAIN_PAGE: readonly Region[] = [
+  [
+    'menu',
+    'Menu',
+    `<section id='menu'><h2>Our coffees</h2><p>Espresso and cardamom.</p></section>`,
+  ],
+];
+
+function readyScenes(context: AssembledAiContext | undefined): string | undefined {
+  return context?.fragments.find(({ source }) => source === 'craftkit:ready-scenes')?.body;
+}
+
+describe('runAiAgent — a new mural is offered the ready scenes that fit (2026-10-13)', () => {
+  it('a mural added to a page hands the model the fitting ready scenes and the one-step tool', async () => {
+    const { provider, contexts } = recording();
+    await runAiAgent(
+      options(kernelFor(PLAIN_PAGE), provider, {
+        request: 'Add a calm aurora mural section below the menu',
+        selection: [],
+      }),
+    );
+
+    const body = readyScenes(contexts[0]);
+    expect(body).toContain('aurora-curtains');
+    expect(body).toContain('ONE scene.preset step');
+    expect(body).toContain('under 9,000 characters');
+  });
+
+  it('a game, a plain edit, or free code off is offered none', async () => {
+    for (const extra of [
+      { request: 'Add a snake game section below the menu' },
+      { request: 'Make the menu copy friendlier' },
+      { request: 'Add a calm aurora mural section below the menu', freeCode: false },
+    ]) {
+      const { provider, contexts } = recording();
+      await runAiAgent(options(kernelFor(PLAIN_PAGE), provider, { selection: [], ...extra }));
+      expect(readyScenes(contexts[0]), extra.request).toBeUndefined();
+    }
+  });
+});

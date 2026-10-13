@@ -4,6 +4,8 @@ import {
   type ScenePreset,
   type ScenePresetCategory,
 } from '../scene-presets/catalog';
+import type { AiContextProvider } from '@craftkit/builder-schema';
+
 import type { AiPlan } from '../types';
 import type { PagePlan, SectionContract } from './page-plan/types';
 import { creativeRequestOf } from './section-providers';
@@ -205,9 +207,22 @@ export function markReadyScenes(plan: AiPlan): AiPlan {
   });
 }
 
+/** The playbooks of a backdrop mural; a game or a story is a kit, never a backdrop. */
+const MURAL_PLAYBOOKS: readonly string[] = ['craftkit.pixi-murals', 'craftkit.pixi-scroll-murals'];
+const KIT_PLAYBOOKS: readonly string[] = ['craftkit.pixi-games', 'craftkit.pixi-stories'];
+
+/** Whether a scene's playbooks make ready backdrops a fit: a mural, and not a game or story. */
+export function offersReadyScenes(skillIds: readonly string[]): boolean {
+  return (
+    skillIds.some((id) => MURAL_PLAYBOOKS.includes(id)) &&
+    !skillIds.some((id) => KIT_PLAYBOOKS.includes(id))
+  );
+}
+
 /**
  * A page-plan writer's request, with the ready scenes that fit its brief when it writes a
- * scene (`scene` given) — matched on the words its creative expertise is matched on.
+ * mural (`scene` given, its playbooks a mural's) — matched on the words its creative
+ * expertise is matched on.
  */
 export function withReadyScenes(
   request: string,
@@ -216,12 +231,38 @@ export function withReadyScenes(
         readonly options: Pick<RunAiBuildOptions, 'request'>;
         readonly plan: Pick<PagePlan, 'locale'>;
         readonly contract: SectionContract | undefined;
+        readonly skillIds: readonly string[];
       }
     | undefined,
   attempt: 1 | 2,
 ): string {
-  if (scene?.contract === undefined) return request;
+  if (scene?.contract === undefined || !offersReadyScenes(scene.skillIds)) return request;
   const brief = creativeRequestOf(scene.options, scene.contract);
   const lines = readySceneLines(suggestReadyScenes(brief, scene.plan.locale.lang), attempt);
   return lines.length === 0 ? request : [request, '', ...lines].join('\n');
+}
+
+export const READY_SCENES_PROVIDER_ID = 'craftkit:ready-scenes';
+
+/**
+ * A new mural in an EDIT (one run, the edit lane): the ready scenes that fit the request, as a
+ * data fragment, placed with the `scene.preset` tool the lane already lists — its params
+ * included. Per request, never in the cached prefix.
+ */
+export function createReadyScenesContextProvider(request: string, lang: string): AiContextProvider {
+  return {
+    id: READY_SCENES_PROVIDER_ID,
+    collect() {
+      const listed = suggestReadyScenes(request, lang)
+        .map(({ id, description }) => `${id} (${firstClause(description.en)})`)
+        .join(' · ');
+      return {
+        source: READY_SCENES_PROVIDER_ID,
+        kind: 'data',
+        trust: 'reviewed',
+        title: 'Ready scenes that fit this request',
+        body: `Tested scenes in the page's palette: ${listed}. Place one with ONE scene.preset step ({"preset":"<id>","params":{…}}) instead of writing scene code — seconds, where scene code of your own takes minutes. Write scene code only for what none of them shows, and keep it under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`,
+      };
+    },
+  };
 }

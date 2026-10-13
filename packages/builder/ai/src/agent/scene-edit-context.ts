@@ -28,6 +28,7 @@ import {
   type CompiledKeyword,
 } from '../skills/keyword-match';
 import { fittingSkillIds, isArabicPage } from './plan-page';
+import { createReadyScenesContextProvider, offersReadyScenes } from './scene-ready';
 import type { RunAiAgentOptions } from './types';
 
 /*
@@ -373,6 +374,27 @@ function lazyBrief(scene: () => SceneEditContext | undefined, request: string): 
   };
 }
 
+/**
+ * A NEW mural (no scene region targeted, 2026-10-13): the ready scenes that fit the request
+ * beside the run's own context, so one `scene.preset` step can stand where minutes of
+ * hand-written scene code timed out (scene-ready.ts).
+ */
+function newMuralOptions(
+  options: RunAiAgentOptions,
+  registry: AiSkillRegistry | undefined,
+  own: SceneEditOptions,
+): SceneEditOptions {
+  if (!offersReadyScenes(pixiSkillIdsFor(registry, options.request))) return own;
+  const lang = isArabicPage(options.kernel, options.request) ? 'ar' : 'en';
+  return {
+    ...own,
+    additionalContextProviders: [
+      ...(own.additionalContextProviders ?? []),
+      createReadyScenesContextProvider(options.request, lang),
+    ],
+  };
+}
+
 function sceneEditOptions(
   options: RunAiAgentOptions,
   reading: SceneEditReading,
@@ -390,7 +412,7 @@ function sceneEditOptions(
     ...(focus === undefined ? {} : { focus }),
   };
   const regions = sceneRegionsFor(input);
-  if (regions.length === 0) return own;
+  if (regions.length === 0) return newMuralOptions(options, registry, own);
   let scene: SceneEditContext | undefined;
   const read = (): SceneEditContext | undefined => {
     if (scene !== undefined) return scene;

@@ -2992,7 +2992,7 @@ function planJobs(
                   attempt === 1 ? neighbourSummary(current, at, landedSections) : '',
                   ownPhotos,
                 ),
-                scene ? { options: build.options, plan: current, contract } : undefined,
+                scene ? { options: build.options, plan: current, contract, skillIds } : undefined,
                 attempt,
               ),
               skillIds,

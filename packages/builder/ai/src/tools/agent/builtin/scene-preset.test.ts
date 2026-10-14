@@ -336,9 +336,9 @@ describe('scene.preset — game and story kits', () => {
     );
     expect(PIXI_STORY_SKILL.instructions.split('\n')[0]).toContain(`scene.preset ${stories} `);
     // The mural playbook opens with every mural, pattern and type preset, the set-D library
-    // murals included (they are not in the cached menu).
+    // murals and the set-F mural stories included (they are not in the cached menu).
     expect(PIXI_MURAL_SKILL.instructions.split('\n')[0]).toBe(
-      `PRESETS FIRST: scene.preset ${scenePresetMenu(['mural', 'pattern', 'type'])} is a tested whole mural set by params, in the page palette; write code only for what no preset covers, and keep new scene code short (under ~9,000 characters).`,
+      `PRESETS FIRST: scene.preset ${scenePresetMenu(['mural', 'pattern', 'type'])} are tested whole murals set by params, in the page palette; write code only where none fits, under ~9,000 characters.`,
     );
     for (const id of PLAYBOOK_PRESET_IDS) expect(PIXI_MURAL_SKILL.instructions).toContain(id);
     expect(scenePresetMenu(SCENE_PRESET_CATEGORIES)).toContain(` ${games} ${stories}`);

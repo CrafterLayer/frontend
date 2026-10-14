@@ -18,6 +18,8 @@ export interface TweenOptions {
   repeat?: number;
   /** Play every other repeat backwards. */
   yoyo?: boolean;
+  /** Timeline entries on an array of targets: seconds between each one's start. */
+  stagger?: number;
   /** Keys interpolated as 0xRRGGBB colours (e.g. ['tint']). */
   colors?: readonly string[];
   onUpdate?: (progress: number) => void;
@@ -82,6 +84,17 @@ export function readProps(props: unknown): [string, number][] {
   return entries;
 }
 
+/** The current value of each key the target has (a `from` tween's end values). */
+export function currentValues(target: unknown, props: [string, number][]): [string, number][] {
+  const values: [string, number][] = [];
+  for (const [key] of props) {
+    const ref = resolveProp(target, key);
+    const now = ref === undefined ? undefined : readNumber(ref);
+    if (now !== undefined) values.push([key, now]);
+  }
+  return values;
+}
+
 export function bindChannels(
   target: unknown,
   props: [string, number][],
@@ -108,31 +121,19 @@ export function apply(channels: readonly Channel[], k: number): void {
   }
 }
 
-export class Tween implements Runner, TweenHandle {
-  private channels: Channel[] | undefined;
-  private elapsed = 0;
-  private paused = false;
-  private finishedFlag = false;
-  private played = 0;
-  private readonly ease: EaseFn;
-  private readonly duration: number;
-  private readonly delay: number;
-  private readonly repeat: number;
-  private readonly signal = deferred();
-  progress = 0;
+/**
+ * What a tween, a timeline and a shake share: done, finished, pause / resume, cancel, kill.
+ * Runner fields are `declare`d and assigned in constructors: a class-field initializer costs the
+ * lazy bundle a defineProperty call each, and its gzip budget is tight.
+ */
+export abstract class Playback {
+  declare protected paused: boolean;
+  declare protected finishedFlag: boolean;
+  declare protected readonly signal: ReturnType<typeof deferred>;
 
-  constructor(
-    readonly target: unknown,
-    private readonly props: [string, number][],
-    private readonly options: TweenOptions,
-    private readonly fromValues: Readonly<Record<string, number>> | undefined,
-  ) {
-    this.ease = resolveEase(options.ease ?? 'outCubic');
-    this.duration = clampDuration(options.duration, 0.5);
-    this.delay = clampDuration(options.delay, 0);
-    this.repeat = clampRepeat(options.repeat);
-    // A `from` tween shows its start values at once, not after its delay.
-    if (fromValues !== undefined) this.bind();
+  constructor() {
+    this.paused = this.finishedFlag = false;
+    this.signal = deferred();
   }
 
   get done(): boolean {
@@ -141,6 +142,62 @@ export class Tween implements Runner, TweenHandle {
 
   get finished(): Promise<void> {
     return this.signal.promise;
+  }
+
+  abstract finish(): void;
+
+  cancel(): void {
+    if (this.finishedFlag) return;
+    this.finishedFlag = true;
+    this.signal.resolve();
+  }
+
+  pause(): void {
+    this.paused = true;
+  }
+
+  resume(): void {
+    this.paused = false;
+  }
+
+  kill(complete = false): void {
+    if (complete) this.finish();
+    else this.cancel();
+  }
+}
+
+export class Tween extends Playback implements Runner, TweenHandle {
+  declare private channels: Channel[] | undefined;
+  declare private elapsed: number;
+  declare private played: number;
+  declare private readonly ease: EaseFn;
+  declare private readonly duration: number;
+  declare private readonly delay: number;
+  declare private readonly repeat: number;
+  declare readonly target: unknown;
+  declare private readonly props: [string, number][];
+  declare private readonly options: TweenOptions;
+  declare private readonly fromValues: Readonly<Record<string, number>> | undefined;
+  declare progress: number;
+
+  constructor(
+    target: unknown,
+    props: [string, number][],
+    options: TweenOptions,
+    fromValues: Readonly<Record<string, number>> | undefined,
+  ) {
+    super();
+    this.target = target;
+    this.props = props;
+    this.options = options;
+    this.fromValues = fromValues;
+    this.elapsed = this.played = this.progress = 0;
+    this.ease = resolveEase(options.ease ?? 'outCubic');
+    this.duration = clampDuration(options.duration, 0.5);
+    this.delay = clampDuration(options.delay, 0);
+    this.repeat = clampRepeat(options.repeat);
+    // A `from` tween shows its start values at once, not after its delay.
+    if (fromValues !== undefined) this.bind();
   }
 
   private bind(): Channel[] {
@@ -187,24 +244,5 @@ export class Tween implements Runner, TweenHandle {
     this.finishedFlag = true;
     this.signal.resolve();
     this.options.onComplete?.();
-  }
-
-  cancel(): void {
-    if (this.finishedFlag) return;
-    this.finishedFlag = true;
-    this.signal.resolve();
-  }
-
-  pause(): void {
-    this.paused = true;
-  }
-
-  resume(): void {
-    this.paused = false;
-  }
-
-  kill(complete = false): void {
-    if (complete) this.finish();
-    else this.cancel();
   }
 }

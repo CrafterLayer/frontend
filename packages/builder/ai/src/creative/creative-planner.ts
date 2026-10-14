@@ -28,7 +28,15 @@ import type {
 } from './creative-brief-types';
 import { PHYSICS_CUE_WORDS, SCROLL_CUE_WORDS } from './creative-activation';
 import { FALLBACK_GENRE, GENRES, SETTINGS, type GenreRule } from './creative-genres';
-import { COLOR_CUE_WORDS, LSYS_CUE_WORDS, RING_CUE_WORDS } from './mural-cues';
+import {
+  COLOR_CUE_WORDS,
+  LSYS_CUE_WORDS,
+  MURAL_STORY_MECHANICS,
+  MURAL_STORY_WORDS,
+  RING_CUE_WORDS,
+  STORY_CUE_WORDS,
+  muralStoryBeats,
+} from './mural-cues';
 import { accessibilityFor } from './creative-accessibility';
 
 export type {
@@ -378,8 +386,14 @@ function briefFrom(
     (character) =>
       !memoryCast.some((known) => known.id === character.id || known.name === character.name),
   );
+  // Mural stories (2026-10-14): a mural that names a story is told in beats by a cast on rigs.
+  const muralStory =
+    rule.genre === 'mural' &&
+    (asked(MURAL_STORY_WORDS) || (asked(MURAL_WORDS) && asked(STORY_CUE_WORDS)));
   const libs = unique<CreativeLib>([
     ...rule.libs,
+    ...(muralStory ? (['anim'] as const) : []),
+    ...(muralStory && (memoryCast.length > 0 || requested.length > 0) ? (['peeps'] as const) : []),
     ...(asked(['ink', 'inkle', 'لغة ink']) ? (['ink', 'dialogue'] as const) : []),
     ...(asked(['zoom', 'pan', 'big map', 'خريطة كبيرة', 'تكبير']) ? (['viewport'] as const) : []),
     ...(asked(['glow', 'neon', 'retro', 'crt', 'توهج', 'نيون']) ? (['filters'] as const) : []),
@@ -413,10 +427,11 @@ function briefFrom(
     libs,
     mechanics: [
       ...rule.mechanics,
+      ...(muralStory ? MURAL_STORY_MECHANICS : []),
       ...libs.flatMap((lib) => (rule.libs.includes(lib) ? [] : (GAME_LIB_MECHANICS[lib] ?? []))),
       ...(asked(SCROLL_CUE_WORDS) ? SCROLL_MECHANICS : []),
     ],
-    beats: beatsFor(rule.kind, rule.genre, arabic),
+    beats: muralStory ? muralStoryBeats(arabic) : beatsFor(rule.kind, rule.genre, arabic),
     effects,
     weather,
     animation: rule.animation,

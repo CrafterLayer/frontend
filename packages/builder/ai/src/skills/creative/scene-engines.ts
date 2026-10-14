@@ -7,7 +7,8 @@ import type { AiSkillDefinitionV1 } from '../types';
   example is an exact scene body: the tests compile it, and the evals browser fixture
   (engines.browser.test.ts) runs the inlined text the Agent reads against the generated runtime.
 
-  Auto activation uses narrow phrases ("physics game", "scroll mural", «جدارية بالتمرير»); a bare
+  Auto activation uses narrow phrases ("physics game", "scroll mural", «جدارية بالتمرير», and the
+  mural-story phrases "mural story", «قصة جدارية», 2026-10-14); a bare
   "physics" or "parallax" brings these only inside a creative lane (pixi-selection.ts) — a physics
   tutor or a parallax agency hero gets none of them.
 */
@@ -111,13 +112,23 @@ export const CREATIVE_SCROLL_MURAL_SKILL: AiSkillDefinitionV1 = {
       'مشهد بارالاكس',
       'منظر بارالاكس',
       'قصة بالتمرير',
+      // mural stories (2026-10-14): an illustrated mural that tells a story in beats.
+      'mural story',
+      'mural stories',
+      'story mural',
+      'illustrated mural',
+      'قصة جدارية',
+      'قصص جدارية',
+      'جدارية تحكي',
+      'جدارية قصصية',
     ],
   },
-  tags: ['pixi', 'mural', 'scroll', 'parallax'],
+  tags: ['pixi', 'mural', 'scroll', 'parallax', 'story'],
   instructions: `SCROLL MURALS: a wide illustrated world the visitor travels by scrolling — a journey, a timeline, a story told as landscape. The page scroll stays the page's: never capture the wheel, preventDefault scrolling or scroll from code. Free code OFF: closed media.add and explain the opt-in; ON: await ck.scene({libs:[…]}).
 s.scroll: progress 0 when the region's top meets the viewport's bottom, 1 when its bottom leaves the top; velocity in viewport heights per second; visible. Read it in s.tick. Give the region a tall css height (120-180vh); DOM captions scroll beside it.
 PARALLAX: far to near, layers built once; t=s.dir>0?progress:1-progress so RTL travels the other way; far layers pale and slow, near ones saturated and fast; one focal object per screen.
 LIBS, only those used: brush → s.lib.brush.getStroke(points,{size,thinning,smoothing}) gives an outline, g.poly(outline.flat()).fill(c) paints it. rough → const gen=s.lib.rough.generator(); s.lib.rough.drawRough(g,gen.rectangle|circle|polygon(…,{fill:'#rrggbb',fillStyle:'hachure',roughness,seed})) with string colours (s.palette.hex(i)). emitter → s.lib.emitter.spawn(s,'snow'|'rain'|'leaves'|'petals'|'magic'|'dust'|'embers'|'fire'|'smoke'|'sparkles'|'bubbles'|'confetti'|'fireworks',{x,y,width,height,parent,colors,intensity,wind}): a tuned, theme-aware emitter, pre-warmed (a still frame holds particles), mirrored with s.dir, halved in the editor, disposed with the scene; omit x,y to fill the view. burst(s,name,{x,y}) is one shot; presets.<name>(s,opts) is the raw config for new s.lib.emitter.Emitter(new PIXI.ParticleContainer(…),cfg). viewport → new s.lib.viewport.Viewport({screenWidth,screenHeight,worldWidth,worldHeight,events:s.app.renderer.events,noTicker:true}) as a camera: moveCenter/setZoom from progress, resize in s.onResize, NO drag, wheel or pinch plugin on a scrolled page; the stage destroys it.
+MURAL STORY («قصة جدارية»): ready presets desert-caravan, fishing-village, seed-to-forest, souq-morning. Else illustrated vignettes: people, animals, places and things as silhouettes lit from one side in far/mid/near layers; characters are anim.rig parts (walk at stride pace). One anim.timeline({repeat:-1}) with labels per beat (3-5) moves the cast, relights layers (tint) and pans cam.pan; scrub: timeline({paused:true}) and tl.progress(eased s.scroll.progress) each tick. NO UI: no buttons, captions or dialogue boxes. Editor/reduced motion: tl.progress(strongest beat), no update.
 CALM: reduced motion runs each tick once — compose the frame at progress .5 and keep it still. Generated textures end in s.dispose.
 GIF only one the person gave (never invent a URL): const g=await s.lib.gif.load(s,url) is a Sprite (play, stop, gotoAndStop), still on its first frame when calm, ended with the scene.
 e.g. camera over a painted night world: ${inlineExample(CREATIVE_SCROLL_MURAL_EXAMPLE)}`,

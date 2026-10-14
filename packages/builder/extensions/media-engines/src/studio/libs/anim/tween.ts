@@ -18,12 +18,13 @@ import { readNumber, resolveProp } from './props';
 import {
   MAX_TWEENS,
   Tween,
+  currentValues,
   readProps,
   type Runner,
   type TweenHandle,
   type TweenOptions,
 } from './tween-core';
-import { TimelineRunner, type Timeline } from './timeline';
+import { TimelineRunner, type Timeline, type TimelineOptions } from './timeline';
 import {
   ShakeRunner,
   SpringRunner,
@@ -33,7 +34,7 @@ import {
 } from './spring-shake';
 export type { ShakeOptions, Spring, SpringOptions } from './spring-shake';
 
-export type { Timeline } from './timeline';
+export type { Timeline, TimelineOptions, TimelinePosition } from './timeline';
 
 export { MAX_TWEENS } from './tween-core';
 export type { TweenHandle, TweenOptions } from './tween-core';
@@ -64,7 +65,7 @@ export interface Animator {
     to: Record<string, number>,
     options?: TweenOptions,
   ): TweenHandle;
-  timeline(options?: { repeat?: number; onComplete?: () => void }): Timeline;
+  timeline(options?: TimelineOptions): Timeline;
   delay(seconds: number, fn: () => void): TweenHandle;
   spring(target: unknown, key: string, options?: SpringOptions): Spring;
   shake(target: unknown, options?: ShakeOptions): TweenHandle;
@@ -132,13 +133,14 @@ export function createAnimator(options: AnimatorOptions = {}): Animator {
     },
     from(target, props, tweenOptions = {}) {
       const entries = readProps(props);
-      const ends: [string, number][] = [];
-      for (const [key] of entries) {
-        const ref = resolveProp(target, key);
-        const now = ref === undefined ? undefined : readNumber(ref);
-        if (now !== undefined) ends.push([key, now]);
-      }
-      return admit(new Tween(target, ends, tweenOptions, Object.fromEntries(entries)));
+      return admit(
+        new Tween(
+          target,
+          currentValues(target, entries),
+          tweenOptions,
+          Object.fromEntries(entries),
+        ),
+      );
     },
     fromTo(target, from, to, tweenOptions = {}) {
       return admit(

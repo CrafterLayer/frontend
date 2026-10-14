@@ -120,6 +120,9 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       's.tick((t) => anim.update(t.dt))',
       "anim.to(target, { x: 100, 'scale.x': 1.2 }, { duration: 0.6, ease: 'outBack' })",
       'anim.timeline().to(…).call(fn).to(…, {}, "+=0.2")',
+      // mural stories (2026-10-14): from/fromTo, stagger, labels and scrubbing.
+      "anim.timeline({ paused: true }).label('beat2').fromTo(targets, from, to, { stagger: 0.2 }, 'beat2+=0.5')",
+      'tl.seek(seconds | label) / tl.progress(s.scroll.progress) / tl.time()',
       "anim.rig({ root, body, head, armL, armR, legL, legR }, { state: 'idle', size })",
       'anim.sprite(sprite, { states: { idle: { frames, fps } } })',
       'anim.spring(target, "x").to(value)',

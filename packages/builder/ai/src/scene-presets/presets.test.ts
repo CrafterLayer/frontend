@@ -25,6 +25,7 @@ import { PRESETS_SET_B } from './set-b';
 import { KITS_SET_C } from './set-c';
 import { PRESETS_SET_D } from './set-d';
 import { PRESETS_SET_E } from './set-e';
+import { PRESETS_SET_F } from './set-f';
 
 /*
   The builtin scene presets as the door sees them: each one is placed as a customCode region's
@@ -44,17 +45,19 @@ function libsReadInCode(code: string): string[] {
 }
 
 describe('scene preset catalogue', () => {
-  it('lists every set-A, B, D and E preset and every set-C kit once, with unique library ids', () => {
+  it('lists every set-A, B, D, E and F preset and every set-C kit once, with unique library ids', () => {
     expect(SCENE_PRESETS).toHaveLength(
       PRESETS_SET_A.length +
         PRESETS_SET_B.length +
         PRESETS_SET_D.length +
         PRESETS_SET_E.length +
+        PRESETS_SET_F.length +
         KITS_SET_C.length,
     );
     expect(PRESETS_SET_A.length + PRESETS_SET_B.length).toBe(30);
     expect(PRESETS_SET_D).toHaveLength(6);
     expect(PRESETS_SET_E).toHaveLength(4);
+    expect(PRESETS_SET_F).toHaveLength(4);
     const ids = SCENE_PRESETS.map((preset) => preset.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) {

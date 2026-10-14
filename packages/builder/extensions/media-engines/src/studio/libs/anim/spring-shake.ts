@@ -4,7 +4,7 @@
 */
 
 import { readNumber, writeNumber, type PropRef } from './props';
-import { clampDuration, deferred, type Runner, type TweenHandle } from './tween-core';
+import { clampDuration, Playback, type Runner, type TweenHandle } from './tween-core';
 
 export interface SpringOptions {
   stiffness?: number;
@@ -23,19 +23,23 @@ export interface Spring {
 }
 
 export class SpringRunner implements Runner, Spring {
-  private velocity = 0;
-  private goal: number;
-  private stopped = false;
-  private readonly stiffness: number;
-  private readonly damping: number;
-  private readonly mass: number;
+  declare private velocity: number;
+  declare private goal: number;
+  declare private stopped: boolean;
+  declare private readonly stiffness: number;
+  declare private readonly damping: number;
+  declare private readonly mass: number;
+  declare readonly target: unknown;
+  declare private readonly ref: PropRef;
+  declare private readonly instant: boolean;
 
-  constructor(
-    readonly target: unknown,
-    private readonly ref: PropRef,
-    options: SpringOptions,
-    private readonly instant: boolean,
-  ) {
+  // Fields are assigned here, not initialized, to keep the lazy bundle small (see Playback).
+  constructor(target: unknown, ref: PropRef, options: SpringOptions, instant: boolean) {
+    this.target = target;
+    this.ref = ref;
+    this.instant = instant;
+    this.velocity = 0;
+    this.stopped = false;
     this.goal = readNumber(ref) ?? 0;
     this.stiffness = Math.max(1, Math.min(2000, options.stiffness ?? 170));
     this.damping = Math.max(0, Math.min(200, options.damping ?? 26));
@@ -99,36 +103,29 @@ export interface ShakeOptions {
   frequency?: number;
 }
 
-export class ShakeRunner implements Runner, TweenHandle {
-  private elapsed = 0;
-  private finishedFlag = false;
-  private readonly baseX: number;
-  private readonly baseY: number;
-  private readonly signal = deferred();
-  private readonly duration: number;
-  private readonly intensity: number;
-  private readonly frequency: number;
-  progress = 0;
+export class ShakeRunner extends Playback implements Runner, TweenHandle {
+  declare private elapsed: number;
+  declare private readonly baseX: number;
+  declare private readonly baseY: number;
+  declare private readonly duration: number;
+  declare private readonly intensity: number;
+  declare private readonly frequency: number;
+  declare readonly target: unknown;
+  declare private readonly xRef: PropRef;
+  declare private readonly yRef: PropRef;
+  declare progress: number;
 
-  constructor(
-    readonly target: unknown,
-    private readonly xRef: PropRef,
-    private readonly yRef: PropRef,
-    options: ShakeOptions,
-  ) {
+  constructor(target: unknown, xRef: PropRef, yRef: PropRef, options: ShakeOptions) {
+    super();
+    this.target = target;
+    this.xRef = xRef;
+    this.yRef = yRef;
+    this.elapsed = this.progress = 0;
     this.baseX = readNumber(xRef) ?? 0;
     this.baseY = readNumber(yRef) ?? 0;
     this.duration = clampDuration(options.duration, 0.35);
     this.intensity = Math.max(0, Math.min(200, options.intensity ?? 8));
     this.frequency = Math.max(1, Math.min(120, options.frequency ?? 32));
-  }
-
-  get done(): boolean {
-    return this.finishedFlag;
-  }
-
-  get finished(): Promise<void> {
-    return this.signal.promise;
   }
 
   step(dt: number): boolean {
@@ -155,19 +152,9 @@ export class ShakeRunner implements Runner, TweenHandle {
     this.signal.resolve();
   }
 
-  cancel(): void {
-    this.finish();
-  }
-
-  pause(): void {
-    /* a shake is short; pausing it would leave the target displaced */
-  }
-
-  resume(): void {
-    /* see pause */
-  }
-
-  kill(): void {
+  // A shake is short: it never pauses (step ignores the flag, pausing would leave the target
+  // displaced), and cancel or kill land it back on its base.
+  override cancel(): void {
     this.finish();
   }
 }

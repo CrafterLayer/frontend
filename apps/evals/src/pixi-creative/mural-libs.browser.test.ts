@@ -7,8 +7,8 @@ import { buildStudioPreviewHtml } from '@craftkit/builder';
 
 /*
   mural libraries and hex art (2026-10-13): s.lib.noise, s.lib.geom and s.lib.hex, and the six
-  set-D presets built on them — then s.lib.color, s.lib.lsys, geom 1.2 and the four set-E presets
-  — in the generated, sandboxed Studio preview runtime (real Pixi v8 + WebGL, each lazily loaded
+  set-D presets built on them — then s.lib.color, s.lib.lsys, geom 1.2 and the four set-E presets,
+  and the four set-F mural stories on s.lib.anim (2026-10-14) — in the generated, sandboxed Studio preview runtime (real Pixi v8 + WebGL, each lazily loaded
   ck-lib-*.js asset, the unreviewed CSP with connect-src 'none').
 
   - Libraries: contour bands painted from a noise grid, a square with a hole cut by a boolean (the
@@ -277,7 +277,7 @@ describe.skipIf(!QA)('mural libraries and hex art in the Studio preview runtime'
     expect(leans[1]).toBeCloseTo(-(leans[0] ?? 0), 3);
   }, 120_000);
 
-  it('covers the set-D and set-E presets', () => {
+  it('covers the set-D and set-E presets and the set-F mural stories', () => {
     expect(MURALS.map((preset) => preset.id)).toEqual([
       'terraced-topography',
       'paper-cut-landscape',
@@ -289,8 +289,50 @@ describe.skipIf(!QA)('mural libraries and hex art in the Studio preview runtime'
       'gradient-waves',
       'arc-rings',
       'arabesque-scroll',
+      'desert-caravan',
+      'fishing-village',
+      'seed-to-forest',
+      'souq-morning',
     ]);
   });
+
+  /*
+    Mural stories (2026-10-14): a story's still frame (reduced motion) is its strongest beat,
+    painted from the seed alone — the same seed gives the same pixels, another seed another
+    picture — and the scroll-scrubbed variant runs clean in the same runtime.
+  */
+  it.each(
+    MURALS.filter((preset) => preset.libs.includes('anim')).map(
+      (preset): [string, PresetUnderTest] => [preset.id, preset],
+    ),
+  )(
+    '%s paints its still beat from the seed and scrubs clean',
+    async (_id, preset) => {
+      const seed = Number(/seed:(\d+)/u.exec(preset.code)?.[1]);
+      const withSeed = (value: number) =>
+        preset.code.replace(`seed:${String(seed)},`, `seed:${String(value)},`);
+      const still = async (code: string): Promise<number> => {
+        let signature = 0;
+        await withPage(browser, 1280, async (page) => {
+          const { frame } = await mount(page, code, { reducedMotion: true });
+          await page.waitForTimeout(900);
+          signature = await frame.evaluate<number>('window.__sig()');
+          await removeRegion(frame);
+        });
+        return signature;
+      };
+      const first = await still(withSeed(seed));
+      expect(await still(withSeed(seed))).toBe(first);
+      expect(await still(withSeed(seed + 1))).not.toBe(first);
+      await withPage(browser, 390, async (page) => {
+        const { frame } = await mount(page, preset.code.replace('scrub:false', 'scrub:true'));
+        await page.waitForTimeout(500);
+        expect(await frame.evaluate<number>('window.__ink()')).toBeGreaterThan(4);
+        await removeRegion(frame);
+      });
+    },
+    120_000,
+  );
 
   it.each(MURALS.map((preset): [string, PresetUnderTest] => [preset.id, preset]))(
     '%s draws, animates, mirrors, holds a still frame and disposes',

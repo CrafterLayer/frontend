@@ -1,7 +1,8 @@
 /**
  * The builtin scene preset catalogue (pixi-studio DESIGN.md §B.3): every curated preset of
- * set A and set B, the library murals of sets D and E, and the game and story kits of set C, in one
- * typed, frozen list, for the agent's `scene.preset` tool and the Studio's builtin library.
+ * set A and set B, the library murals of sets D and E, the mural stories of set F, and the game and
+ * story kits of set C, in one typed, frozen list, for the agent's `scene.preset` tool and the
+ * Studio's builtin library.
  *
  * A preset is ready to place as it stands: its `code` is the customCode `js` (it passes
  * `scriptCodeIssues` and fits the 32 000-character region limit), `libs` are exactly the
@@ -24,13 +25,15 @@ import { PRESETS_SET_B } from './set-b';
 import { KITS_SET_C, type KitRegion, type SceneKit } from './set-c';
 import { PRESETS_SET_D } from './set-d';
 import { PRESETS_SET_E } from './set-e';
+import { PRESETS_SET_F } from './set-f';
 
 export type { KitLang, KitRegion } from './set-c';
 export { KIT_LANGS } from './set-c';
 
 /**
  * What kind of scene a preset is, for choosing one:
- * - `mural`: an abstract generative picture (fields, growth, tessellations, hand-drawn);
+ * - `mural`: an abstract generative picture (fields, growth, tessellations, hand-drawn), or an
+ *   illustrated mural story (set F: people, animals and places in beats on one anim timeline);
  * - `pattern`: Arabic and Islamic geometry (girih, zellige, mashrabiya, arabesque);
  * - `type`: words as the subject (calligraphy, kinetic and falling words, particle text);
  * - `particles`: flocks, sparks, fireflies, confetti and stars;
@@ -144,20 +147,22 @@ function kitOf(kit: SceneKit): ScenePreset {
   return { ...presetOf(kit.entry, kit.category), region: kit.region };
 }
 
-/** Every builtin scene preset, set A, set B, set D, set E, then the set-C kits, deeply frozen. */
+/** Every builtin scene preset, set A, set B, set D, set E, set F, then the set-C kits, deeply frozen. */
 export const SCENE_PRESETS: readonly ScenePreset[] = deepFreeze([
   ...[...PRESETS_SET_A, ...PRESETS_SET_B].map((entry) => presetOf(entry)),
-  ...[...PRESETS_SET_D, ...PRESETS_SET_E].map(([entry, category]) => presetOf(entry, category)),
+  ...[...PRESETS_SET_D, ...PRESETS_SET_E, ...PRESETS_SET_F].map(([entry, category]) =>
+    presetOf(entry, category),
+  ),
   ...KITS_SET_C.map(kitOf),
 ]);
 
 /**
- * The set-D and set-E library murals (mural libraries, 2026-10-13): taught by the mural playbook
- * and named in the tool's refusals, but kept out of the cached tool menu — its edit lane is at its
- * cap — as the game and story kits are.
+ * The set-D and set-E library murals (mural libraries, 2026-10-13) and the set-F mural stories
+ * (2026-10-14): taught by the mural playbook and named in the tool's refusals, but kept out of the
+ * cached tool menu — its edit lane is at its cap — as the game and story kits are.
  */
 export const PLAYBOOK_PRESET_IDS: ReadonlySet<string> = new Set(
-  [...PRESETS_SET_D, ...PRESETS_SET_E].map(([entry]) => entry.id),
+  [...PRESETS_SET_D, ...PRESETS_SET_E, ...PRESETS_SET_F].map(([entry]) => entry.id),
 );
 
 const BY_ID: ReadonlyMap<string, ScenePreset> = new Map(

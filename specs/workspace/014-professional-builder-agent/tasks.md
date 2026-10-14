@@ -998,3 +998,12 @@ history.
       their own section's skills instead of the page's matched defaults. Open: the kit
       header/footer `brand` slot is text-only (no SVG mark); «صمم لي شعار لمقهى» on a blank page
       routes as a page build; per-person switches for built-ins need a UI.
+- [x] T279 Built-in skill switches (ce010ba): a "Built-in skills" group in the Skills tab (grouped,
+      filter, reset, EN/AR, RTL, stories), stored per viewer as `ck-agent-builtin-skills:v1`, and
+      `excludedSkillIds` respected in the edit lane, host ids, page plan, scaffold, writers and scene
+      pins; engine-required skills stay on; a /skill pick wins. Open: `ALWAYS_ON_SKILL_IDS` in the
+      playground mirrors the engine's `ENGINE_REQUIRED_SKILL_IDS`.
+- [x] T280 Illustrated mural stories (e82d670): `s.lib.anim` timelines gain from/fromTo, stagger,
+      labels, relative positions, seek/progress/time (scroll scrub); GSAP stays out (licence). Set F:
+      desert-caravan, fishing-village, seed-to-forest, souq-morning — painted panoramas on one
+      labelled timeline, no UI, loop or scrub; playbooks and planner teach the mural-story form.

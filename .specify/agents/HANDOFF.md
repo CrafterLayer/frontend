@@ -8,7 +8,9 @@ every figure computed by code. Then T275 (d0272af): brand logos, cartoon charact
 verified catalogs (`art-catalog/`, see its PROVENANCE.md); open items are listed under T275.
 Then T276–T278: murals without unasked UI (696a1a6), mural scale through pixi-viewport (e58ce1c),
 and skills chosen from the request in every lane (67c6be6, 4c12b89 — touches `use-agent-knowledge.ts`,
-`page-plan-context.ts`, `page-plan-step.ts`, `run-build.ts` with the owner's approval). Open: ai-server `handler.test.ts` "answers a unary page plan…" fails
+`page-plan-context.ts`, `page-plan-step.ts`, `run-build.ts` with the owner's approval).
+Then T279 built-in skill switches (ce010ba) and T280 illustrated mural stories with a scrubbable
+`s.lib.anim` timeline (e82d670); GSAP is not used (licence). Open: ai-server `handler.test.ts` "answers a unary page plan…" fails
 on the branch head independently of these commits (expects a `restart` subscription); the size
 guard says `cli-client.ts`, `index.ts`, `route-intent.ts`, `generate-plan.ts` shrank and can be
 tightened.

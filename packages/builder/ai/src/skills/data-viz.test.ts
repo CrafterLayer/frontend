@@ -24,6 +24,14 @@ describe('craftkit.data-viz', () => {
     'Make a detailed report page from this analysis',
     'اعمل تقرير مفصل',
     'حلل هذه الأرقام في لوحة تحكم',
+    // Loanwords, dialect and verbs (2026-10-14).
+    'سويلي داشبورد للمبيعات',
+    'سويلي لوحة تحكم للمبيعات',
+    'اعملي ريبورت',
+    'Build a sales dashboard page',
+    'plot these numbers',
+    'Visualise our monthly sign-ups',
+    'ضيف جدول بيانات للمبيعات',
   ])('activates on %s', (request) => {
     expect(active(request)).toContain('craftkit.data-viz');
   });
@@ -31,6 +39,13 @@ describe('craftkit.data-viz', () => {
   it('stays out of a café page that books a table', () => {
     expect(active('Make the hero warmer and add a Book a table button')).not.toContain('craftkit.data-viz');
   });
+
+  it.each(['ضيف جدول أسعار بثلاث باقات', 'جدول مواعيد العيادة', 'أضف جدولا للأسعار'])(
+    'reads a price or opening-hours table as no data (2026-10-14): %s',
+    (request) => {
+      expect(active(request)).not.toContain('craftkit.data-viz');
+    },
+  );
 
   it('teaches the tools, the added chart types and the honesty rule', () => {
     expect(DATA_VIZ_SKILL.instructions).toContain('"name":"data.show"');

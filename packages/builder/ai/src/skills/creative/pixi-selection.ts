@@ -76,7 +76,12 @@ const SCENE_CUES: readonly { readonly skill: string; readonly words: readonly st
   { skill: 'craftkit.pixi-physics', words: PHYSICS_CUE_WORDS },
   { skill: 'craftkit.pixi-scroll-murals', words: SCROLL_CUE_WORDS },
   // Characters inside a creative scene need motion expertise even without API vocabulary.
-  { skill: 'craftkit.pixi-animation', words: ['character', 'characters', 'شخصية', 'شخصيات'] },
+  // "cartoon" moved here from the animation skill's keywords (2026-10-14): a team section
+  // with cartoon characters is art (craftkit.art-names), not a canvas piece.
+  {
+    skill: 'craftkit.pixi-animation',
+    words: ['character', 'characters', 'cartoon', 'شخصية', 'شخصيات', 'كرتون'],
+  },
 ];
 
 type RequestWords = ReturnType<typeof readRequestWords>;

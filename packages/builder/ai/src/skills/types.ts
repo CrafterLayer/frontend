@@ -141,6 +141,12 @@ export interface AiSkillPrepareOptions {
    * while its intent gate allows, so a follow-up keeps the skill set its cached prompt holds.
    */
   carriedSkillIds?: readonly string[];
+  /**
+   * Skills the person switched off (2026-10-14): never activated by a keyword, a script, a
+   * selected block or a carried match, nor joined as an auto skill's dependency. An explicit
+   * pick (`selectedSkillIds`) and an explicit pick's dependencies still win.
+   */
+  excludedSkillIds?: readonly string[];
   auto?: boolean;
   allowUntrusted?: boolean;
   maxActiveSkills?: number;

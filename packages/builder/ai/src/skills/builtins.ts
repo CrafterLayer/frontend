@@ -5,6 +5,7 @@ import { PAGE_INTENTS } from './industry/shared';
 import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
+import { ART_SKILLS } from './art-names';
 import { DATA_VIZ_SKILL } from './data-viz';
 import { MOTION_SKILL } from './motion';
 import { createAiSkillRegistry } from './registry';
@@ -16,7 +17,6 @@ import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 import { DESIGN_CODE_SKILL } from './design-code';
 import { DESIGN_QUALITY_TEACHING, TAILWIND_PLUGIN_TEACHING } from './design-libraries';
 import { SITE_BEHAVIOR_TEACHING } from './site-behaviors';
-// end design-code additions
 // pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see creative/PIXI_SOURCES.md.
 import {
   PIXI_V8_CORE_SKILL,
@@ -25,7 +25,6 @@ import {
   PIXI_V8_INTERACTION_PERF_SKILL,
   PIXI_V8_TEXT_ASSETS_SKILL,
 } from './creative/pixi-v8';
-// end pixi-skills additions
 
 function freezeData(value: unknown): void {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return;
@@ -394,6 +393,10 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
       'موقع كامل',
       'موقع متكامل',
       'صفحة تعريفية',
+      // Loanwords (2026-10-14): «اعملي لاندنج بيج».
+      'لاندنج',
+      'لاندنغ',
+      'لاندينج',
     ],
   },
   tags: ['composition', 'design', 'page'],
@@ -414,11 +417,7 @@ RHYTHM: ground, card and band from the direction's palette; one dark band beside
   },
 });
 
-/**
- * Arabic and RTL depth beyond the manual's floor. The matcher cannot detect
- * Arabic script, so the Arabic imperatives ("صمم لي", "أنشئ لي", ...) stand in
- * as proxies for "this request is in Arabic" alongside explicit RTL phrases.
- */
+/** Arabic and RTL depth beyond the manual's floor: Arabic script or the English asks. */
 const ARABIC_RTL: AiSkillDefinitionV1 = builtin({
   schemaVersion: 1,
   id: 'craftkit.arabic-rtl',
@@ -1099,14 +1098,12 @@ const DATA_VIZ = builtin(DATA_VIZ_SKILL);
 const MOTION = builtin(MOTION_SKILL);
 // design-code additions (2026-09-28): explicit, for section writers and the page plan.
 const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
-// end design-code additions
 // pixi-skills additions (2026-10-10): free-code scene scripts in PixiJS v8; the core is every other one's dependency.
 const PIXI_V8_CORE = builtin(PIXI_V8_CORE_SKILL);
 const PIXI_V8_GRAPHICS = builtin(PIXI_V8_GRAPHICS_SKILL);
 const PIXI_V8_TEXT_ASSETS = builtin(PIXI_V8_TEXT_ASSETS_SKILL);
 const PIXI_V8_EFFECTS = builtin(PIXI_V8_EFFECTS_SKILL);
 const PIXI_V8_INTERACTION_PERF = builtin(PIXI_V8_INTERACTION_PERF_SKILL);
-// end pixi-skills additions
 
 /** Reviewed, data-only defaults by priority, descending (the registry re-sorts by id); hosts opt in. */
 export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Object.freeze([
@@ -1119,7 +1116,6 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   SECTION_VARIANTS,
   // design-code additions (2026-09-28): priority 91, between section-variants and cv-page.
   DESIGN_CODE,
-  // end design-code additions
   CV_PAGE,
   MENU_PAGE,
   PROPERTY_PAGE,
@@ -1133,6 +1129,8 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   VISUAL_DIRECTION,
   DESIGN_DIRECTION,
   DESIGN_TOKENS,
+  // art (2026-10-14): logo-design and art-names, priority 47.
+  ...ART_SKILLS.map(builtin),
   DATA_VIZ,
   COPYWRITING,
   MOTION,

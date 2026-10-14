@@ -99,6 +99,7 @@ describe('Craftkit built-in AI skills', () => {
     ).toEqual([
       'craftkit.accessibility-review',
       'craftkit.arabic-rtl',
+      'craftkit.art-names',
       'craftkit.build-fill',
       'craftkit.build-scaffold',
       // Industry page types (2026-09-28): each replaces page-composition for its trade.
@@ -110,11 +111,11 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.data-viz',
       // design-code additions (2026-09-28): explicit, for section writers and the page plan.
       'craftkit.design-code',
-      // end design-code additions
       'craftkit.design-direction',
       'craftkit.design-tokens',
       // Explicit, for the skeleton pass only: the look decided from a checked menu.
       'craftkit.direction-deck',
+      'craftkit.logo-design',
       'craftkit.menu-page',
       'craftkit.motion',
       'craftkit.occasion-page',
@@ -129,7 +130,6 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.pixi-v8-graphics',
       'craftkit.pixi-v8-interaction-perf',
       'craftkit.pixi-v8-text-assets',
-      // end pixi-skills additions
       // Plan mode: explicit-only, the only built-in whose command restriction is the EMPTY set.
       'craftkit.plan-mode',
       'craftkit.precise-edit',

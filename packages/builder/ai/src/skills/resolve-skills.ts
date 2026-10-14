@@ -18,8 +18,8 @@ import type {
   AiSkillManifestV1,
   AiSkillOmission,
   AiSkillPrepareOptions,
-  AiSkillScript,
 } from './types';
+import { requestUsesScript } from './request-script';
 
 export const DEFAULT_AI_SKILL_MAX_ACTIVE = 16;
 export const DEFAULT_AI_SKILL_TOKEN_BUDGET = 16_000;
@@ -118,24 +118,6 @@ function matchesAuto(
     that would otherwise activate.
   */
   return activation.intents === undefined || activation.intents.includes(request.intent());
-}
-
-/**
- * Whether the request carries any character of the given writing system.
- *
- * ANY character, deliberately: a mostly-English request with one Arabic word
- * is a request whose page may carry Arabic, and the RTL expertise costs
- * ~400 tokens against a page laid out backwards. The Arabic block covers the
- * base range plus the supplement, extended ranges and presentation forms, so
- * Persian/Urdu letters and the shaped forms some editors paste all count.
- */
-const SCRIPT_PATTERNS: Readonly<Record<AiSkillScript, RegExp>> = {
-  arabic: /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/u,
-  latin: /[A-Za-zÀ-ɏ]/u,
-};
-
-function requestUsesScript(request: string, script: AiSkillScript): boolean {
-  return SCRIPT_PATTERNS[script].test(request);
 }
 
 function skillsConflict(left: AiDefinedSkillV1, right: AiDefinedSkillV1): boolean {
@@ -376,10 +358,13 @@ export function resolveAiSkills(
     );
     const request = autoRequest(options.request, options.intent);
     const carried = new Set(options.carriedSkillIds ?? []);
+    // Switched off by the person (2026-10-14): never an auto match, nor joined through one.
+    const excluded = new Set(options.excludedSkillIds ?? []);
     const autoMatches = [...entries.values()]
       .filter(
         (skill) =>
           !candidates.has(skill.manifest.id) &&
+          !excluded.has(skill.manifest.id) &&
           matchesAuto(skill, request, selectedBlockTypes, carried),
       )
       .sort(compareAuto);
@@ -401,6 +386,7 @@ export function resolveAiSkills(
             (candidate) =>
               candidate.reason === 'dependency' &&
               !candidates.has(candidate.skill.manifest.id) &&
+              !excluded.has(candidate.skill.manifest.id) &&
               inScope.has(candidate.skill.manifest.id),
           )
           .map((candidate) => ({ ...candidate, mandatory: false }))

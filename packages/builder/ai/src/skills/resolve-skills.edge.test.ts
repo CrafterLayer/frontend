@@ -154,4 +154,56 @@ describe('AI skill resolution edge policy', () => {
       }),
     ).toThrow(/budget/i);
   });
+
+  /* excludedSkillIds (2026-10-14): a person switches a built-in off; an explicit pick still wins. */
+  describe('excludedSkillIds', () => {
+    const registry = createAiSkillRegistry([
+      skill('skill.page', {
+        priority: 5,
+        dependencies: ['skill.words'],
+        activation: { mode: 'auto', keywords: ['bakery'] },
+      }),
+      skill('skill.words', { activation: { mode: 'auto', keywords: ['bakery'] } }),
+      skill('skill.rtl', { activation: { mode: 'auto', scripts: ['arabic'] } }),
+      skill('skill.block', { activation: { mode: 'auto', selectedBlockTypes: ['hero'] } }),
+    ]);
+    const ids = (options: Parameters<typeof registry.prepare>[0]) =>
+      registry.prepare(options).active.map(({ id, reason }) => `${id}:${reason}`);
+
+    it('leaves an excluded skill out of every auto trigger', () => {
+      expect(ids({ request: 'مخبز bakery', selectedBlockTypes: ['hero'] })).toEqual([
+        'skill.words:dependency',
+        'skill.page:auto',
+        'skill.block:auto',
+        'skill.rtl:auto',
+      ]);
+      expect(
+        ids({
+          request: 'مخبز bakery',
+          selectedBlockTypes: ['hero'],
+          carriedSkillIds: ['skill.rtl'],
+          excludedSkillIds: ['skill.rtl', 'skill.block'],
+        }),
+      ).toEqual(['skill.words:dependency', 'skill.page:auto']);
+    });
+
+    it('never joins an excluded skill through an auto skill’s dependencies', () => {
+      expect(ids({ request: 'bakery', excludedSkillIds: ['skill.words'] })).toEqual([
+        'skill.page:auto',
+      ]);
+      expect(ids({ request: 'bakery', excludedSkillIds: ['skill.page'] })).toEqual([
+        'skill.words:auto',
+      ]);
+    });
+
+    it('lets an explicit pick, and its dependencies, win over the exclusion', () => {
+      expect(
+        ids({
+          request: 'bakery',
+          selectedSkillIds: ['skill.page'],
+          excludedSkillIds: ['skill.page', 'skill.words'],
+        }),
+      ).toEqual(['skill.page:explicit', 'skill.words:dependency']);
+    });
+  });
 });

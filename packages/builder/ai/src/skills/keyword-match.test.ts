@@ -27,4 +27,19 @@ describe('requestHasKeyword', () => {
     expect(holds('أضف مخططات', 'مخطط')).toBe(false);
     expect(holds('a page for Reid Allen', 'eid al')).toBe(false);
   });
+
+  it('reads the dialect "for me", glued or apart (2026-10-14)', () => {
+    expect(holds('سويلي لعبة تجمع فيها نجوم', 'سوي لعبة')).toBe(true);
+    expect(holds('اعمل لي لعبة', 'اعمل لعبة')).toBe(true);
+    expect(holds('صمملي شعار', 'صمم شعار')).toBe(true);
+    expect(holds('سوي لنا لعبة', 'سوي لعبة')).toBe(true);
+    // A keyword that names «لي» still matches it; «لي» never starts a keyword's match.
+    expect(holds('صمم لي صفحة', 'صمم لي')).toBe(true);
+    expect(holds('لي لعبة', 'لعبة')).toBe(true);
+    // One skipped word only, and only «لي»/«لنا»: other words still break a phrase.
+    expect(holds('اعمل لي لي لعبة', 'اعمل لعبة')).toBe(false);
+    expect(holds('اعمل له لعبة', 'اعمل لعبة')).toBe(false);
+    // A two-letter stem is never read: «عملي» (practical) is not «عم».
+    expect(holds('حل عملي', 'عم')).toBe(false);
+  });
 });

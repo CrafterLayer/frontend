@@ -29,6 +29,12 @@ export const PIXI_GAME_KEYWORDS = [
   'اصنع لعبة',
   'ابني لعبة',
   'سوي لعبة',
+  // Dialect asks (2026-10-14); «سويلي» and «اعمل لي» are read by keyword-match.ts.
+  'ابغى لعبة',
+  'ابي لعبة',
+  'عايز لعبة',
+  'عاوز لعبة',
+  'حابب لعبة',
   'طور لعبة',
   'صمم لعبة',
   'لعبة تفاعلية',
@@ -57,6 +63,17 @@ export const PIXI_STORY_KEYWORDS = [
   'حكايات تفاعلية',
   'مشاهد قصصية',
   'قصة بصرية',
+  // Pictured stories (2026-10-14).
+  'illustrated story',
+  'comic',
+  'comic strip',
+  'كوميكس',
+  'قصة مصورة',
+  'قصص مصورة',
+  'ابغى قصة',
+  'عايز قصة',
+  'عاوز قصة',
+  'حابب قصة',
 ] as const;
 
 /** Art-directed scenes: what the mural playbook adds to its genre words. */

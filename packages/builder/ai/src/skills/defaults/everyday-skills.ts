@@ -200,6 +200,11 @@ export const EVERYDAY_DEFAULT_SKILLS: readonly AiSkillDefinitionV1[] = [
       'case study',
       'results',
       'guarantee',
+      // Logo strips are proof (2026-10-14). Not a bare «لوجو»: «صمم لي لوجو» is the person's own.
+      'logos',
+      'لوجوهات',
+      'لوجو العملاء',
+      'لوجو الشركاء',
       'آراء',
       'تقييمات',
       'ثقة',

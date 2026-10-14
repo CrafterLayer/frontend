@@ -20,6 +20,16 @@ export { CRAFTKIT_AI_SKILL_DEFINITIONS, createCraftkitAiSkillRegistry } from './
 export { CRAFTKIT_DEFAULT_SKILLS } from './defaults';
 export { AiCommandPolicyError, AiSkillRegistryError, AiSkillResolutionError } from './errors';
 export { AI_SKILL_MAX_REGISTRY_SIZE, createAiSkillRegistry } from './registry';
+// request skills (2026-10-14): the intent → skill-ids table for named build steps.
+export {
+  REQUEST_SKILL_MAX_ADDITIONS,
+  REQUEST_SKILL_TOKEN_CAP,
+  SECTION_SKILL_TOKEN_CAP,
+  requestSkillIdsFor,
+  withoutRequestLaneSkillIds,
+  type RequestSkillContext,
+  type RequestSkillLane,
+} from './request-skills';
 export {
   DEFAULT_AI_SKILL_MAX_ACTIVE,
   DEFAULT_AI_SKILL_TOKEN_BUDGET,

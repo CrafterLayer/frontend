@@ -46,6 +46,15 @@ describe('creative activation — genre words load their playbooks', () => {
     ['An endless runner with a fox', 'craftkit.pixi-games'],
     ['A memory game with animal cards', 'craftkit.pixi-games'],
     ['لعبة سباق بين السلاحف', 'craftkit.pixi-games'],
+    // Dialect and pictured stories (2026-10-14).
+    ['سويلي لعبة تجمع فيها نجوم', 'craftkit.pixi-games'],
+    ['اعمل لي لعبة تجمع فيها نجوم', 'craftkit.pixi-games'],
+    ['ابغى لعبة نجوم وكواكب', 'craftkit.pixi-games'],
+    ['عايز لعبة سيارات', 'craftkit.pixi-games'],
+    ['حابب قصة عن قطة صغيرة', 'craftkit.pixi-stories'],
+    ['An illustrated story about a fox', 'craftkit.pixi-stories'],
+    ['A comic about a cat who learns to swim', 'craftkit.pixi-stories'],
+    ['اعمل كوميكس عن قطة', 'craftkit.pixi-stories'],
   ])('%s → %s', (request, expected) => {
     expect(activePlaybooks(request)).toContain(expected);
     expect(pixiSkillIdsFor(REGISTRY, request)).toContain(expected);
@@ -66,6 +75,9 @@ describe('creative activation — genre words load their playbooks', () => {
     ['A bedtime story with parallax layers of hills', 'craftkit.pixi-scroll-murals'],
     ['A platformer with physics crates', 'craftkit.pixi-physics'],
     ['قصة تفاعلية بالتمرير عن رحلة', 'craftkit.pixi-scroll-murals'],
+    // "cartoon" is a scene cue now (2026-10-14), no longer the animation skill's own keyword.
+    ['A platformer with a cartoon character', 'craftkit.pixi-animation'],
+    ['لعبة منصات فيها شخصية كرتون', 'craftkit.pixi-animation'],
   ])('brings a library playbook from a plain word inside a creative piece: %s', (request, id) => {
     expect(pixiSkillIdsFor(REGISTRY, request)).toContain(id);
   });
@@ -91,6 +103,11 @@ describe('creative activation — business pages stay refused', () => {
     'An escape room with puzzles for teams',
     'Our tech stack and engineering culture',
     'Add a dialogue box to the contact form',
+    // Art, not a canvas piece (2026-10-14): craftkit.art-names serves these.
+    'Add a team section with cartoon characters',
+    'ضيف قسم للفريق بشخصيات كرتونية',
+    'شخصية كرتونية للموقع',
+    'شاركنا ستوري انستغرام عن المتجر',
   ])('%s', (request) => {
     expect(activePlaybooks(request)).toEqual([]);
     expect(pixiSkillIdsFor(REGISTRY, request)).toEqual([]);

@@ -11,7 +11,7 @@ import { DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
 import { fitAiPlanWireHistory } from '../plan/history-budget';
 import { AI_PLAN_WIRE_VERSION } from '../provider/wire';
 import { readProviderUsage } from '../provider/usage';
-import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
+import { requestSkillIdsFor } from '../skills/request-skills';
 import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
 import type {
   AiChatTurn,
@@ -196,7 +196,7 @@ async function proposeActivePagePlan(
     input.policy,
     arabic,
     kitsAvailable(),
-    withHostSkills(input, pixiSkillIdsFor(registry, input.request, 'page-plan')),
+    withHostSkills(input, requestSkillIdsFor(registry, input.request, 'page-plan')),
   );
   const skills = registry?.prepare({
     request,

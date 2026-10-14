@@ -16,6 +16,7 @@ import { createAiValidatedProposal, type AiValidatedProposal } from '../plan/val
 import { AiPlanRejectedError } from '../plan/validate-plan';
 import type { AiSkillPrepareOptions, AiSkillRegistry } from '../skills';
 import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
+import { requestSkillIdsFor, withoutRequestLaneSkillIds } from '../skills/request-skills';
 import { seoAutofixPlan, SEO_AUTOFIX_LABEL } from '../seo/autofix';
 import { agentToolPrompt } from '../tools/agent/catalog-prompt';
 import { expandAgentTools } from '../tools/agent/expand';
@@ -303,20 +304,30 @@ function fillSkillIds(
   photos = true,
   variants = true,
   creativeRequest = '',
+  role?: string,
 ): readonly string[] {
   const registry = options.skillRegistry;
   const named = [...FILL_SKILLS, ...(arabic ? [ARABIC_FILL_SKILL] : [])].filter(
     (id) => registry?.get(id) !== undefined,
   );
+  const required = [FILL_SKILL, ...named];
+  // Defaults per section, never the whole page's matched set (2026-10-14).
+  const host = options.hostSkillIds && withoutRequestLaneSkillIds(options.hostSkillIds);
   return fittingSkillIds(
-    options,
-    [FILL_SKILL, ...named],
+    { ...options, ...(host === undefined ? {} : { hostSkillIds: host }) },
+    required,
     [
       ...pixiSkillIdsFor(registry, creativeRequest),
       ...FILL_SKILLS_WHEN_PRESENT.filter(
         (id) =>
           (photos || id !== PHOTO_DIRECTION_SKILL) && (variants || id !== SECTION_VARIANTS_SKILL),
       ),
+      ...requestSkillIdsFor(registry, options.request, 'section', {
+        contractText: creativeRequest,
+        ...(role === undefined ? {} : { role }),
+        present: required,
+        creative: false,
+      }),
     ],
   );
 }
@@ -2979,7 +2990,7 @@ function sectionBriefing(
   const photos =
     (contract.images ?? []).length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
   const creativeRequest = creativeRequestOf(options, contract);
-  const skillIds = fillSkillIds(options, arabic, photos, true, creativeRequest);
+  const skillIds = fillSkillIds(options, arabic, photos, true, creativeRequest, contract.role);
   const scene = writesScene(options, contract);
   const kitBacked =
     !scene && planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
@@ -2988,7 +2999,7 @@ function sectionBriefing(
     scene,
     skillIds,
     kitSkillIds: kitBacked
-      ? fillSkillIds(options, arabic, photos, false, creativeRequest)
+      ? fillSkillIds(options, arabic, photos, false, creativeRequest, contract.role)
       : skillIds,
     // Every data fragment the writer is handed: the catalog, and a scene's creative brief.
     providers: sectionProviders(options, plan, contract),
@@ -3873,6 +3884,7 @@ async function buildFromScaffold(
           true,
           true,
           `${task.title} ${role === 'hero' ? options.request : ''}`,
+          role,
         ),
         providers,
         history: true,

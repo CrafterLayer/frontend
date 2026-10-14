@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import {
   createCraftkitAiSkillRegistry,
-  pixiSkillIdsFor,
+  requestSkillIdsFor,
   type AiSkillRegistry,
 } from '@craftkit/builder';
 
@@ -149,7 +149,7 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
       hostSkillIdsFor: (request: string) => [
         ...new Set([
           ...inlineSkillIds(request, vocabulary),
-          ...pixiSkillIdsFor(registry, inlineSkillRequest(request, vocabulary)),
+          ...requestSkillIdsFor(registry, inlineSkillRequest(request, vocabulary), 'host'),
           ...userSkillIdsFor(registry, skills, inlineSkillRequest(request, vocabulary)),
           ...defaultSkillIdsFor(registry, defaults, inlineSkillRequest(request, vocabulary)),
         ]),

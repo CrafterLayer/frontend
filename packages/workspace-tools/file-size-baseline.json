@@ -57,7 +57,7 @@
     "packages/builder/ai/src/agent/page-plan/validate-page-plan.ts": 1194,
     "packages/builder/ai/src/agent/run-agent.ts": 1169,
     "packages/builder/ai/src/agent/run-build.page-plan.test.ts": 1476,
-    "packages/builder/ai/src/agent/run-build.safety.test.ts": 825,
+    "packages/builder/ai/src/agent/run-build.safety.test.ts": 817,
     "packages/builder/ai/src/agent/run-build.streaming.test.ts": 881,
     "packages/builder/ai/src/agent/run-build.test.ts": 1428,
     "packages/builder/ai/src/agent/run-build.ts": 4055,

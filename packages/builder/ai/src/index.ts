@@ -364,7 +364,7 @@ export {
   PIXI_STORY_CONTROLS,
   PIXI_MURAL_EXAMPLE,
 } from './skills/creative/pixi-creative';
-export { pixiSkillIdsFor } from './skills/creative/pixi-selection';
+export * from './skills/request-skills';
 // creative agent (2026-10-12): engine playbooks, the planner and the story bible.
 export {
   CREATIVE_ANIMATION_EXAMPLE,

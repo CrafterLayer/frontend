@@ -2,7 +2,7 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import { CUSTOM_CODE_ATTRIBUTES, CUSTOM_CODE_TAGS } from '@craftkit/builder-schema';
 import type { AiCompositionPolicy } from '../context';
 import { normalizeArabic, summarizeDocumentForIntent, type IntentTarget } from '../intent';
-import { pixiSkillIdsFor } from '../skills/creative/pixi-selection';
+import { requestSkillIdsFor } from '../skills/request-skills';
 import type { AiSkillRegistry } from '../skills';
 import { planKitIndex } from './page-plan/kits';
 import type { AiAgentPolicy } from './types';
@@ -316,12 +316,13 @@ export function planSkillIds(
     policy,
     [],
     [
-      ...creative,
       DIRECTION_DECK,
       // The kit index replaces the variant library when there are kits to name.
       ...(kits ? [] : [SECTION_VARIANTS]),
       COPYWRITING,
       ...(arabic ? [ARABIC_RTL] : []),
+      // Last, so a tight budget sheds the request's skills before the plan's own (2026-10-14).
+      ...creative,
     ],
   );
 }
@@ -352,7 +353,7 @@ export function pagePlanningBrief(
       input.policy,
       arabic,
       kits,
-      pixiSkillIdsFor(input.skillRegistry, input.request, 'page-plan'),
+      requestSkillIdsFor(input.skillRegistry, input.request, 'page-plan'),
     ),
   };
 }

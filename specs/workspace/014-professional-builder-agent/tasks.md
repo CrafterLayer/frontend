@@ -978,3 +978,23 @@ history.
       verified art. Open: the Testimonials block has no image field; the edit lane sees the ART
       teaching only when the host selects photo-direction (playground `features/agent` skill
       code); cdn.simpleicons.org serves the latest release, not the pin.
+- [x] T276 A mural ships no explanation card or Next/Restart buttons unless asked (696a1a6): the
+      creative brief gave every kind the game/story accessibility lines (controls and story text
+      in the DOM, manual navigation, dialogue choices); a scene now gets its own
+      (`creative/creative-accessibility.ts`), a request naming a mural stays a mural even when it
+      tells a story (no dialogue box), and the mural playbook says no UI unless asked.
+- [x] T277 Mural scale on every screen (e58ce1c), on the owner's word "use pixi-viewport": measured
+      in Chromium, the region was right everywhere; the picture was laid out in CSS pixels (3.3x
+      zoomed in on a phone). All set-A/D/E murals compose once at 1280x720 in `s.world` with
+      `design:{…,fit:'cover',zoom:true}` + `libs:['viewport']`; playbook, core SIZE line and the
+      free-code card (and server copy) teach it. Saved pages keep their stored code. Open: the
+      phone's 3:4 init region crops to the middle; `scene-initializer.ts` could keep 16:9 with copy
+      below (proposed diff in the session, not applied).
+- [x] T278 Skills chosen from the request in every lane (67c6be6, 4c12b89; owner-approved wiring):
+      `skills/request-skills.ts` (host, page-plan, section, edit lanes), new auto skills
+      `craftkit.art-names` (logo/character/illustration specs) and `craftkit.logo-design` (an
+      original SVG mark + wordmark), dialect folding («سويلي», «اعمل لي»), keyword fixes,
+      `excludedSkillIds`; the page plan sheds the request's skills before its own; writers get
+      their own section's skills instead of the page's matched defaults. Open: the kit
+      header/footer `brand` slot is text-only (no SVG mark); «صمم لي شعار لمقهى» on a blank page
+      routes as a page build; per-person switches for built-ins need a UI.

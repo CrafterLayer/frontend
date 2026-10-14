@@ -968,3 +968,13 @@ history.
       teaches it. ai-server `handler.test.ts` "answers a unary page plan…" fails on dc41055 with
       or without this change (it expects a `restart` subscription the handler no longer makes);
       left for the owner.
+- [x] T275 Brand logos, cartoon characters and illustrations (d0272af): verified catalogs generated
+      by `scripts/build-art-catalog.mjs` into `packages/builder/ai/src/art-catalog/` — Simple Icons
+      16.33.0 (3,335 brands, trademark note), DiceBear 9.x styles needing no credit (CC0 or free for
+      commercial use; CC BY styles refused), Fluent Emoji Flat (MIT) — hotlinked https like the
+      photo catalog, loaded lazily (62 KB gzip chunk; +640 B first load). The model writes
+      `logo:` / `character:` / `illustration:` specs in media.add, kit slots, part.image and
+      image.set; LogoCloud items take a logo; testimonials kits an avatar; the section check admits
+      verified art. Open: the Testimonials block has no image field; the edit lane sees the ART
+      teaching only when the host selects photo-direction (playground `features/agent` skill
+      code); cdn.simpleicons.org serves the latest release, not the pin.

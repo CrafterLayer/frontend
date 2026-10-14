@@ -4,7 +4,8 @@
 
 Done and pushed (T273–T274): Excel/JSON drop on the agent panel (dc41055) and `report.page` with a
 deterministic analysis engine (6b7e7d3) — key stats, several charts, findings and interactive tables,
-every figure computed by code. Open: ai-server `handler.test.ts` "answers a unary page plan…" fails
+every figure computed by code. Then T275 (d0272af): brand logos, cartoon characters and illustrations from
+verified catalogs (`art-catalog/`, see its PROVENANCE.md); open items are listed under T275. Open: ai-server `handler.test.ts` "answers a unary page plan…" fails
 on the branch head independently of these commits (expects a `restart` subscription); the size
 guard says `cli-client.ts`, `index.ts`, `route-intent.ts`, `generate-plan.ts` shrank and can be
 tightened.

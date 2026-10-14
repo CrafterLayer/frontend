@@ -29,6 +29,7 @@ import type {
 import { PHYSICS_CUE_WORDS, SCROLL_CUE_WORDS } from './creative-activation';
 import { FALLBACK_GENRE, GENRES, SETTINGS, type GenreRule } from './creative-genres';
 import { COLOR_CUE_WORDS, LSYS_CUE_WORDS, RING_CUE_WORDS } from './mural-cues';
+import { accessibilityFor } from './creative-accessibility';
 
 export type {
   CreativeBeat,
@@ -301,23 +302,18 @@ const HEX_WORDS = [
   'بلاطات سداسية',
 ];
 
-const ACCESSIBILITY_EN = [
-  'objective, controls and story text live in the DOM; the canvas is decoration or role=img with a label',
-  'keyboard and touch controls with visible focus; number keys pick dialogue choices',
-  'reduced motion: a finished still frame, manual navigation, no shake/flash/particles',
-  'status changes announced politely, never every frame',
-];
-
-const ACCESSIBILITY_AR = [
-  'الهدف والتحكم ونص القصة في DOM؛ اللوحة زخرفة أو role=img مع وصف',
-  'تحكم بلوحة المفاتيح واللمس مع تركيز ظاهر؛ أزرار الأرقام تختار خيارات الحوار',
-  'تقليل الحركة: إطار ثابت مكتمل وتنقل يدوي بلا اهتزاز أو وميض أو جسيمات',
-  'إعلان التغيرات بهدوء وليس في كل إطار',
-];
+/*
+  A mural named in so many words stays a mural (2026-10-14): «جدارية تحكي قصة ليلى» matched the
+  story genres first and briefed a dialogue box with Next / Play again over the art. The owner:
+  a mural shows no panel or buttons unless the person asks. "scene" / «مشهد» alone decide nothing.
+*/
+const MURAL_WORDS = ['mural', 'murals', 'generative art', 'جدارية', 'جداريات', 'فن توليدي'];
 
 /** The genre rule a text names, most specific first (GENRES order); undefined when none. */
 function genreOf(words: ReturnType<typeof readRequestWords>): GenreRule | undefined {
-  return GENRES.find((candidate) => matches(words, candidate.keywords));
+  const found = GENRES.find((candidate) => matches(words, candidate.keywords));
+  if (found?.kind !== 'story' || !matches(words, MURAL_WORDS)) return found;
+  return GENRES.find((candidate) => candidate.genre === 'mural') ?? found;
 }
 
 /*
@@ -426,7 +422,7 @@ function briefFrom(
     animation: rule.animation,
     settings: settings.map((setting) => setting.id),
     cast: [...memoryCast, ...requested].slice(0, 8),
-    accessibility: arabic ? ACCESSIBILITY_AR : ACCESSIBILITY_EN,
+    accessibility: accessibilityFor(rule.kind, arabic),
     checks: [
       ...(libs.includes('audio')
         ? [
@@ -434,8 +430,12 @@ function briefFrom(
           ]
         : []),
       'libs named literally in ck.scene({ libs: [...] }) and only these',
-      'every tick, listener, tween, effect, dialogue view and world released through s.dispose',
-      'editor (s.editor) draws a still frame and its buttons do nothing',
+      rule.kind === 'scene'
+        ? 'every tick, listener, tween, effect and world released through s.dispose'
+        : 'every tick, listener, tween, effect, dialogue view and world released through s.dispose',
+      rule.kind === 'scene'
+        ? 'editor (s.editor) draws a still frame'
+        : 'editor (s.editor) draws a still frame and its buttons do nothing',
       'Arabic text stays whole (DOM or unsplit Text); RTL flips horizontal flow with s.dir',
       'no invented image URLs: approved assets, s.lib.peeps people or drawn shapes only',
     ],

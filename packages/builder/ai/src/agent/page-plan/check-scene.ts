@@ -185,6 +185,9 @@ function libFindings(source: SceneSource): readonly SectionCheckIssue[] {
       listed.add(text.trim());
     }
   }
+  // mural kit (2026-10-14): the runtime loads s.lib.anim with s.lib.mural (the kit tells its beats
+  // on it), so a scene that lists 'mural' may use s.lib.anim without listing it.
+  if (listed.has('mural')) listed.add('anim');
   const findings: SectionCheckIssue[] = [];
   const seen = new Set<string>();
   for (const match of matchesOf(source, LIB_USE)) {

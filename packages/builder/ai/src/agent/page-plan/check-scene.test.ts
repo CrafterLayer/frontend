@@ -329,3 +329,14 @@ describe('readSceneSource', () => {
     expect(bare).not.toContain("'/");
   });
 });
+
+describe('checkScene — the mural kit brings s.lib.anim (2026-10-14)', () => {
+  it('accepts s.lib.anim in a scene that lists only mural', () => {
+    const js =
+      "const s=await ck.scene({libs:['mural'],seed:3,design:{width:1280,height:720,fit:'cover'}});" +
+      "const m=s.lib.mural.compose(s,{mood:'reef'});const a=s.lib.anim.create();s.dispose(()=>{m.dispose();a.dispose()});";
+    const css = '.ck-scene{position:relative;aspect-ratio:16/9;min-height:320px}';
+    const codes = checkScene({ tree: null, css, js }).map(({ code }) => code);
+    expect(codes).not.toContain('scene-lib');
+  });
+});

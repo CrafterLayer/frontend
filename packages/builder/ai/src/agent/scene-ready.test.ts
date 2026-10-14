@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { MURAL_KIT_EDIT_LINE, MURAL_KIT_WRITER_LINE } from '../creative/mural-kit';
 import { scenePreset } from '../scene-presets/catalog';
 import type { AiPlan } from '../types';
 import { isSceneInitializationRequest } from '../provider/scene-init-wire';
 import { checkScene } from './page-plan/check-scene';
 import {
   READY_SCENES_LISTED,
+  createReadyScenesContextProvider,
   expandReadyScenes,
   markReadyScenes,
   readyScenes,
@@ -203,5 +205,38 @@ describe('ready scenes in a build (2026-10-13)', () => {
     for (const preset of readyScenes()) {
       expect(checkScene({ tree: null, css, js: preset.code }), preset.id).toEqual([]);
     }
+  });
+
+  it('tells a first attempt at a picture no preset matches to compose it with the mural kit', () => {
+    const scene = (purpose: string) => ({
+      options: { request: purpose },
+      plan: { locale: { lang: 'en', dir: 'ltr' as const } },
+      skillIds: ['craftkit.pixi-murals'],
+      contract: {
+        key: 'hero',
+        role: 'hero' as const,
+        title: 'Reef',
+        anchorId: 'hero',
+        purpose,
+        mustSay: [],
+        mustNotRepeat: [],
+      },
+    });
+    const reef = scene('A mural of a coral reef with a diver and fish');
+    const first = withReadyScenes('brief', reef, 1);
+    expect(first).toContain(MURAL_KIT_WRITER_LINE);
+    expect(first).not.toContain('READY SCENES');
+    // A retry keeps the tested ready scenes as its safety net; a named preset stays a preset.
+    expect(withReadyScenes('brief', reef, 2)).not.toContain(MURAL_KIT_WRITER_LINE);
+    const named = scene('A mural using aurora-curtains');
+    expect(withReadyScenes('brief', named, 1)).not.toContain(MURAL_KIT_WRITER_LINE);
+  });
+
+  it('gives an edit for an unmatched mural the kit line instead of unrelated ready scenes', () => {
+    const fragment = createReadyScenesContextProvider(
+      'Add a mural of a coral reef with a diver and fish',
+      'en',
+    ).collect({} as never, []);
+    expect(JSON.stringify(fragment)).toContain(MURAL_KIT_EDIT_LINE.slice(0, 40));
   });
 });

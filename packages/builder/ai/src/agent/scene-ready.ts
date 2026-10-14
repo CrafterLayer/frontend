@@ -6,6 +6,7 @@ import {
 } from '../scene-presets/catalog';
 import type { AiContextProvider } from '@craftkit/builder-schema';
 
+import { composesWithKit, MURAL_KIT_EDIT_LINE, MURAL_KIT_WRITER_LINE } from '../creative/mural-kit';
 import { SCENE_INITIALIZATION_HEADER } from '../provider/scene-init-wire';
 import type { AiPlan } from '../types';
 import type { PagePlan, SectionContract } from './page-plan/types';
@@ -31,6 +32,13 @@ import type { RunAiBuildOptions } from './types';
   Only backdrops that stand as they are: no words of their own (`type`), no photo (`photo`),
   no controls in a tree (`game`, `story` — the kits). The initializer attaches catalog metadata
   and validated params only when declared; absent overrides use the page's palette, seed and pace.
+
+  The mural kit (2026-10-14): a picture no ready scene closely matches — a coral reef, a Ramadan
+  night, a winter village — is no longer nudged into the nearest-sounding preset (a reef into
+  differential-growth-coral). Its first attempt is told to compose it with s.lib.mural, a short
+  spec that writes in seconds. A retry, a preset named in the request, an abstract mural and a
+  brief with no picture in it keep the ready scenes as before (`composesWithKit`, shared with the
+  creative planner, decides).
 */
 
 /** The categories whose presets a section can carry as they stand. */
@@ -281,6 +289,9 @@ export function withReadyScenes(
   if (scene?.contract === undefined || !offersReadyScenes(scene.skillIds)) return request;
   const brief = creativeRequestOf(scene.options, scene.contract);
   if (customScene(brief)) return request;
+  if (attempt === 1 && explicitScenes(brief).length === 0 && composesWithKit(brief)) {
+    return [request, '', MURAL_KIT_WRITER_LINE].join('\n');
+  }
   // A preset named for the lead scene must not force an unrelated later mural into that preset.
   const originalBrief =
     scene.contract.role === 'hero'
@@ -308,6 +319,15 @@ export function createReadyScenesContextProvider(request: string, lang: string):
   return {
     id: READY_SCENES_PROVIDER_ID,
     collect() {
+      if (explicitScenes(request).length === 0 && composesWithKit(request)) {
+        return {
+          source: READY_SCENES_PROVIDER_ID,
+          kind: 'data',
+          trust: 'reviewed',
+          title: 'Compose this mural with s.lib.mural',
+          body: MURAL_KIT_EDIT_LINE,
+        };
+      }
       const listed = suggestReadyScenes(request, lang)
         .map(({ id, description }) => `${id} (${firstClause(description.en)})`)
         .join(' · ');

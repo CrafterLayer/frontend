@@ -115,6 +115,16 @@ export function closeMuralPreset(brief: string): ScenePreset | undefined {
   );
   if (named !== undefined) return named;
   const asked = wordsOf(brief);
+  // A ready backdrop named by its own lead word and nothing else to draw ("a calm aurora mural")
+  // is the one asked for (2026-10-14); "an aurora over a snowy village" is a picture for the kit,
+  // and a later word never counts (a coral reef is not differential-growth-coral).
+  const lead = SCENE_PRESETS.find(({ id }) => {
+    const word = id.split('-')[0] ?? '';
+    return word.length >= 5 && asked.has(word);
+  });
+  const leadWord = lead?.id.split('-')[0] ?? '';
+  if (lead !== undefined && !namesPicture(brief.replace(new RegExp(leadWord, 'giu'), ' ')))
+    return lead;
   let best: ScenePreset | undefined;
   let score = 1;
   for (const preset of SCENE_PRESETS) {

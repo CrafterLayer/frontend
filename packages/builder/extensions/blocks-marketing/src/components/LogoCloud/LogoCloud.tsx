@@ -53,7 +53,7 @@ const ITEM_CLASSES: Readonly<Record<LogoCloudProps['variant'], string>> = {
   framed: 'rounded-base bg-surface/80 px-3 py-5 text-text @md:px-5 @md:py-6',
 };
 
-/** A semantic collection of text-first brand marks that remains useful without external assets. */
+/** A semantic collection of brand marks: a logo image when the brand has one, else a monogram from its name. */
 export function LogoCloud({ node, props, isCanvas }: BlockRenderProps<LogoCloudProps>) {
   const headingId = `${node.id}-heading`;
   /* Each inner element is a part: addressable on the canvas, stylable per part. */
@@ -153,12 +153,29 @@ export function LogoCloud({ node, props, isCanvas }: BlockRenderProps<LogoCloudP
                 })}
                 data-logo-cloud-item=""
               >
-                <span
-                  aria-hidden="true"
-                  className="grid size-10 shrink-0 place-items-center rounded-xl border border-accent/15 bg-accent/10 text-sm font-bold text-accent @md:size-12"
-                >
-                  {monogram}
-                </span>
+                {item.logo === undefined ? (
+                  <span
+                    aria-hidden="true"
+                    className="grid size-10 shrink-0 place-items-center rounded-xl border border-accent/15 bg-accent/10 text-sm font-bold text-accent @md:size-12"
+                  >
+                    {monogram}
+                  </span>
+                ) : (
+                  /* The name is the visible text beside it, so the logo is decorative (alt=''). */
+                  <img
+                    {...part('item.logo', {
+                      index: at,
+                      className: 'size-10 shrink-0 object-contain @md:size-12',
+                    })}
+                    src={item.logo}
+                    alt=""
+                    width={48}
+                    height={48}
+                    loading="lazy"
+                    decoding="async"
+                    data-logo-cloud-logo=""
+                  />
+                )}
                 <span className="flex min-w-0 flex-col text-start">
                   <span
                     {...part('item.name', {

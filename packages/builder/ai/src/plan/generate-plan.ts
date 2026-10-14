@@ -43,6 +43,7 @@ import type {
   AiValidationPorts,
   AssembledAiContext,
 } from '../types';
+import { loadArtCatalog, planNamesArt } from '../art-catalog/load';
 import { withHistoryInBudget } from './history-budget';
 import type { AgentToolLane } from '../tools/agent/types';
 import type { SalvagedAiPlan } from './salvage-plan';
@@ -54,7 +55,7 @@ import {
 } from './judge-plan';
 import { AiPlanRejectedError } from './validate-plan';
 // script-wiring additions
-import { attachScriptCrossPage, planHasScriptStep } from '../script/cross-page';
+import { attachScriptCrossPage, crossPageOnlyPlan, planHasScriptStep } from '../script/cross-page';
 import type { ScriptExpansion, ScriptRunReport, ScriptSite } from '../script/expand-scripts';
 import { SCRIPT_TOOL_NAME, type ScriptRunner } from '../script/types';
 // end script-wiring additions
@@ -433,28 +434,6 @@ function firstScriptStep(raw: unknown): number {
 }
 
 /**
- * A script whose every write lands on OTHER pages leaves the open page with no
- * command, which the door refuses as an empty plan. Its words still stand:
- * the other pages' steps were door-validated on their own lenses during
- * expansion, and `applyAiPlan` re-validates them before the one site write.
- */
-function crossPageOnlyPlan(expanded: unknown): AiPlan | undefined {
-  if (typeof expanded !== 'object' || expanded === null) return undefined;
-  const { rationale, commands, followUp } = expanded as {
-    rationale?: unknown;
-    commands?: unknown;
-    followUp?: unknown;
-  };
-  if (!Array.isArray(commands) || commands.length > 0) return undefined;
-  const reason = typeof rationale === 'string' && rationale.trim() !== '' ? rationale : 'Script';
-  return Object.freeze({
-    rationale: reason,
-    commands: Object.freeze([]),
-    ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
-  });
-}
-
-/**
  * `judgedCandidate`, with every `script.run` step run first (agent-script
  * DESIGN §A.1/§A.7). A plan without one goes straight through — same object,
  * nothing imported. Otherwise the script runs in the sandbox, its queued
@@ -472,6 +451,8 @@ async function judgedScriptedCandidate(
   options: GenerateAiPlanOptions,
   policy: AiEffectiveCommandPolicy,
 ): Promise<{ readonly candidate: unknown; readonly result: AiPlanValidationResult }> {
+  // art catalog (2026-10-14): an answer naming 'logo:…', 'character:…' or 'illustration:…' loads the art first.
+  if (planNamesArt(raw)) await loadArtCatalog().catch(() => undefined);
   if (!planHasScriptStep(raw)) return judgedCandidate(raw, options, policy);
   let expansion: ScriptExpansion;
   try {
@@ -557,9 +538,10 @@ async function repairAiPlanOnce(
   const raw = await repair(options.request, context, attempt.plan, attempt.issues, sent);
   throwIfAborted(options.signal);
   // script-wiring additions
-  const { candidate, result: repaired } = planHasScriptStep(raw)
-    ? await judgedScriptedCandidate(raw, options, policy)
-    : judgedCandidate(raw, options, policy);
+  const { candidate, result: repaired } =
+    planHasScriptStep(raw) || planNamesArt(raw)
+      ? await judgedScriptedCandidate(raw, options, policy)
+      : judgedCandidate(raw, options, policy);
   // end script-wiring additions
   if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
   return { ok: true, plan: repaired.plan };
@@ -672,9 +654,10 @@ export async function generateAiPlanWithPreparedSkills(
   }
   throwIfAborted(options.signal);
   // script-wiring additions
-  const { candidate, result: first } = planHasScriptStep(raw)
-    ? await judgedScriptedCandidate(raw, options, policy)
-    : judgedCandidate(raw, options, policy);
+  const { candidate, result: first } =
+    planHasScriptStep(raw) || planNamesArt(raw)
+      ? await judgedScriptedCandidate(raw, options, policy)
+      : judgedCandidate(raw, options, policy);
   // end script-wiring additions
   if (first.ok) return first.plan;
   /*

@@ -44,6 +44,33 @@ export const FramedBand: Story = {
   },
 };
 
+/*
+  Brands with logo images. The agent writes Simple Icons addresses for brands the person names;
+  the story uses inline raster marks so it renders without the network.
+*/
+const MARK =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+export const WithLogos: Story = {
+  args: {
+    ...Default.args,
+    props: logoCloudSchema.props.parse({
+      heading: 'Pay the way you already do',
+      columns: '4',
+      items: [
+        { name: 'Visa', descriptor: 'Cards', logo: MARK },
+        { name: 'Mastercard', descriptor: 'Cards', logo: MARK },
+        { name: 'Apple Pay', descriptor: 'Wallet', logo: MARK },
+        { name: 'Northstar', descriptor: 'No logo yet' },
+      ],
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-logo-cloud-logo]')).toHaveLength(3);
+    await expect(within(canvasElement).getByText('Northstar')).toBeVisible();
+  },
+};
+
 export const Empty: Story = {
   args: { ...Default.args, props: logoCloudSchema.props.parse({ items: [] }) },
 };

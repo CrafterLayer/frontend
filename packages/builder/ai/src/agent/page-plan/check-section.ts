@@ -1,6 +1,6 @@
 import { contrastRatio } from '@craftkit/builder-schema';
 
-import { isCatalogPhotoUrl } from '../../context/providers/photo-catalog';
+import { isVerifiedImageUrl } from '../../art-catalog/verified-image';
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
 import { PAGE_PLAN_PALETTE_HEX } from './palette';
@@ -1642,7 +1642,7 @@ export function checkSection(
     const address = url.replaceAll('&amp;', '&').trim();
     return (
       address.startsWith('data:') ||
-      isCatalogPhotoUrl(address) ||
+      isVerifiedImageUrl(address) ||
       (request !== '' && request.includes(address))
     );
   };

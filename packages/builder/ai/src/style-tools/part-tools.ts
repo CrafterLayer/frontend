@@ -1,5 +1,5 @@
 import {
-  emptyRichText,
+  bindPatternOf,
   planPartDir,
   planPartListOp,
   planPartStyle,
@@ -12,10 +12,9 @@ import {
   type PartPlan,
   type PartRef,
   type PartStep,
-  type RichTextBlockNode,
-  type RichTextDoc,
 } from '@craftkit/builder-schema';
 
+import { isArtSpec, resolveArtImage } from '../art-catalog/runtime';
 import { isRecord } from '../tools/agent/shared';
 import { defineAgentTool, type AgentToolContext, type AgentToolRun } from '../tools/agent/types';
 import { no, ok, strictRecord, type Parsed } from './address';
@@ -30,6 +29,9 @@ import {
   type ResolvedPart,
 } from './part-address';
 import { parseStyleEntries, type ParsedStyles } from './style-value';
+import { richTextFromPlain, safeImageSrc, safePartHref, stringField } from './part-values';
+
+export { richTextFromPlain, safePartHref } from './part-values';
 
 /**
  * part.* — the agent's tools for the named inner elements of a REGISTERED
@@ -101,42 +103,6 @@ function textPartsOf(target: ResolvedPart): string {
 
 function addressOf(record: Record<string, unknown>, requirePart = false): Parsed<PartAddressInput> {
   return parsePartAddress(record, requirePart);
-}
-
-/** A plain text as the stored rich-text shape: one paragraph per line. */
-export function richTextFromPlain(text: string): RichTextDoc {
-  const lines = text.replace(/\r\n?/gu, '\n').split('\n');
-  while (lines.length > 0 && (lines[lines.length - 1] ?? '').trim() === '') lines.pop();
-  if (lines.length === 0) return emptyRichText();
-  const content = lines.map((line): RichTextBlockNode => {
-    const words = line.trim();
-    return words === '' ? { type: 'paragraph' } : { type: 'paragraph', content: [{ type: 'text', text: words }] };
-  });
-  return { type: 'doc', content: content as RichTextDoc['content'] };
-}
-
-/** The allowlist the renderer's links use: https/http, mailto, tel and clearly relative paths. */
-export function safePartHref(href: string): string | undefined {
-  if (/[\u0000-\u0020\u007f-\u00a0\u1680\u2000-\u200f\u2028\u2029\u202e\u205f\u3000\ufeff]/u.test(href)) return undefined;
-  if (href === '' || href.includes('\\')) return undefined;
-  if (/^(?:https?:|mailto:|tel:)/iu.test(href)) return href;
-  if (href.startsWith('//')) return undefined;
-  return /^[/.#?]/u.test(href) ? href : undefined;
-}
-
-/** An image address the door can keep: https or a relative path, no whitespace. */
-function safeImageSrc(src: string): string | undefined {
-  if (/\s/u.test(src) || src.includes('\\') || src.startsWith('//')) return undefined;
-  return /^(?:https:\/\/|\/|\.\.?\/)/iu.test(src) ? src : undefined;
-}
-
-function stringField(record: Record<string, unknown>, key: string, max: number, allowEmpty: boolean): Parsed<string | undefined> {
-  const value = record[key];
-  if (value === undefined) return ok(undefined);
-  if (typeof value !== 'string') return no(`"${key}" must be a string.`);
-  if (!allowEmpty && value.trim() === '') return no(`"${key}" must not be empty.`);
-  if (value.length > max) return no(`"${key}" must be at most ${String(max)} characters.`);
-  return ok(value);
 }
 
 // ── part.text ─────────────────────────────────────────────────────────────────
@@ -364,7 +330,12 @@ function parseImage(input: unknown): Parsed<PartImageInput> {
   const alt = stringField(record.value, 'alt', MAX_ALT, true);
   if (!alt.ok) return alt;
   if (src.value === undefined && alt.value === undefined) return no('send "src", "alt" or both.');
-  if (src.value !== undefined && safeImageSrc(src.value.trim()) === undefined) {
+  // art catalog (2026-10-14): 'logo:visa', 'character:<style>:<seed>', 'illustration:<words>' resolve in run.
+  if (
+    src.value !== undefined &&
+    !isArtSpec(src.value) &&
+    safeImageSrc(src.value.trim()) === undefined
+  ) {
     return no(`"src" "${src.value.slice(0, 60)}" is not an image address the page can load · send an https:// URL or a /path.`);
   }
   return ok({
@@ -374,18 +345,40 @@ function parseImage(input: unknown): Parsed<PartImageInput> {
   });
 }
 
-function runImage(input: PartImageInput, context: AgentToolContext): AgentToolRun {
+/**
+ * art catalog (2026-10-14): an optional picture not set yet — a brand's logo,
+ * a member's photo — has no instance, but its item does; the planner checks
+ * the index lies inside the list.
+ */
+function resolveImage(input: PartImageInput, context: AgentToolContext): Parsed<ResolvedPart> {
   const target = resolve(input, context);
+  if (target.ok || input.part === undefined || input.index === undefined || input.src === undefined)
+    return target;
+  const block = partBlockOf(context.kernel, input.id, context.readProp);
+  const name = block.ok ? resolvePartName(block.value, input.part) : undefined;
+  const decl = block.ok && name?.ok === true ? block.value.parts[name.value] : undefined;
+  if (!block.ok || name?.ok !== true || decl?.kind !== 'image') return target;
+  return ok({ ...block.value, ref: { part: name.value, index: input.index }, decl });
+}
+
+function runImage(input: PartImageInput, context: AgentToolContext): AgentToolRun {
+  const target = resolveImage(input, context);
   if (!target.ok) return target;
   const { decl, ref, node, parts, blockName } = target.value;
   if (decl.kind !== 'image') return no(`"${ref.part}" is a ${decl.kind} part, not an image · send an image part.`);
   const planners: ((node: Node) => PartPlan)[] = [];
+  const art =
+    input.src !== undefined && isArtSpec(input.src)
+      ? resolveArtImage(input.src, { locale: context.locale.lang, alt: input.alt })
+      : undefined;
+  if (art?.ok === false) return no(art.error);
   if (input.src !== undefined) {
-    const src = input.src;
+    const src = art?.value.src ?? input.src;
     planners.push((current) => planPartValue(current, parts, ref, 'src', src, blockName));
   }
-  if (input.alt !== undefined) {
-    const alt = input.alt;
+  // An art picture writes its own alt where the part keeps one (a logo cloud's logo shows its name beside it).
+  const alt = art?.value.alt ?? input.alt;
+  if (alt !== undefined && (art === undefined || bindPatternOf(decl, 'alt') !== undefined)) {
     planners.push((current) => planPartValue(current, parts, ref, 'alt', alt, blockName));
   }
   const plan = chainPartPlans(node, planners);

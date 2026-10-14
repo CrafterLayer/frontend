@@ -4,7 +4,10 @@
  * number when it reads as one. Numbers are read the way people write them: Arabic-Indic digits,
  * thousands separators, a currency before (`$`, `€`, `SAR `), a unit after (`%`, ` kg`), `k`/`M`/
  * `B` multipliers, and a minus or accounting brackets. Pure functions, no kernel.
+ *
+ * 2026-10-14: JSON too — an array of objects or of arrays (data-json.ts).
  */
+import { jsonRows, parseJsonText } from './data-json';
 
 export type DataAlign = 'start' | 'center' | 'end';
 
@@ -142,6 +145,11 @@ function delimiterOf(lines: readonly string[]): string {
 
 /** A grid from its text; the first line is the header. */
 export function readDataText(text: string): DataGridRead {
+  const json = parseJsonText(text);
+  if (json !== undefined) {
+    const rows = jsonRows(json);
+    return Array.isArray(rows) ? readDataRows(rows) : rows;
+  }
   const lines = text
     .replace(/\r\n?/gu, '\n')
     .split('\n')

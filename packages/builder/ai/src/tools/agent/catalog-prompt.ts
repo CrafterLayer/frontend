@@ -76,7 +76,9 @@ const DETAILS: Readonly<Record<string, string>> = {
   // data (2026-10-12)
   'data.show': `data.show data:'Month,Sales\\nJan,120' (CSV/TSV/markdown, row 1 = headings) as?:${DATA_SHOW_AS.join('|')}; id refills a chart/table`,
   // data (2026-10-12): the report's KPI cards come from the numeric columns unless named.
-  'report.build': `report.build data like data.show → title, KPI cards (last value + change vs previous row; kpis?:['Revenue']), chart, table`,
+  // report page (2026-10-14): 14 characters shorter ("KPIs", "last", "prior") to pay for report.page's
+  // bare name (+12) in both lanes; its inputs are taught by the data-viz skill.
+  'report.build': `report.build data like data.show → title, KPIs (last + change vs prior row; kpis?:['Revenue']), chart, table`,
   // i18n (2026-10-12): the texts are the page's own words, all of them, or the tool refuses.
   'page.translate': 'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
   // creative-power F (2026-10-12): the catalogue's ids by category; the shared params, then each preset's own.

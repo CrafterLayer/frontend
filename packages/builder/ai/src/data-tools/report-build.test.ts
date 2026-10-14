@@ -54,7 +54,7 @@ describe('report.build', () => {
       const prompt = agentToolPrompt(lane);
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));
       expect(prompt).toContain('report.build {data,title?,summary?,kpis?:[column],as?,after?}');
-      expect(prompt).toContain('report.build data like data.show → title, KPI cards');
+      expect(prompt).toContain('report.build data like data.show → title, KPIs (last + change');
     }
   });
 

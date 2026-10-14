@@ -21,6 +21,9 @@ describe('craftkit.data-viz', () => {
     'Draw a sales funnel',
     'اعمل تقرير من هذه البيانات',
     'أضف قمع المبيعات',
+    'Make a detailed report page from this analysis',
+    'اعمل تقرير مفصل',
+    'حلل هذه الأرقام في لوحة تحكم',
   ])('activates on %s', (request) => {
     expect(active(request)).toContain('craftkit.data-viz');
   });
@@ -36,5 +39,18 @@ describe('craftkit.data-viz', () => {
       expect(DATA_VIZ_SKILL.instructions).toContain(type);
     }
     expect(DATA_VIZ_SKILL.instructions).toContain('never present invented statistics as real');
+  });
+
+  it('teaches report.page and its honesty rule for a description with numbers (2026-10-14)', () => {
+    expect(DATA_VIZ_SKILL.instructions).toContain('"name":"report.page"');
+    expect(DATA_VIZ_SKILL.instructions).toContain('Never compute a figure yourself');
+    expect(DATA_VIZ_SKILL.instructions).toContain('no arithmetic, no invented figures');
+    const prepared = createCraftkitAiSkillRegistry().prepare({
+      request: '',
+      selectedSkillIds: ['craftkit.data-viz'],
+      auto: false,
+    });
+    /* Floor + this skill, measured 1,563 tokens; the shared ceiling is 2,800. */
+    expect(prepared.totalTokens).toBeLessThan(2_800);
   });
 });

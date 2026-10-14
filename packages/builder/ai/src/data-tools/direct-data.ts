@@ -9,10 +9,14 @@ import type { DataShowAs } from './data-show';
  * `report.build`. The instruction must ask for a chart, a table or a report (a verb or the word
  * itself) and the rows must read as a grid; anything else returns undefined and the model path
  * runs.
+ *
+ * 2026-10-14: "make a detailed report / dashboard page from this:", «اعمل تقرير مفصل», «تقرير
+ * كامل», «صفحة تقرير», «لوحة تحكم», "analyse this:" — one `report.page`, every figure computed;
+ * the plain "report" wording keeps going to report.build. JSON rows read as well (data-json.ts).
  */
 
 export interface DataReading {
-  readonly tool: 'data.show' | 'report.build';
+  readonly tool: 'data.show' | 'report.build' | 'report.page';
   readonly input: { readonly data: string; readonly as?: DataShowAs };
   readonly label: { readonly ar: string; readonly en: string };
 }
@@ -23,6 +27,10 @@ const MAX_INSTRUCTION_CHARS = 160;
 
 /** A report or a dashboard of the rows; folded Arabic («لوحة» → «لوحه»). */
 const REPORT = /\b(?:report|dashboard|summary report|kpis?)\b|تقرير|لوحه|داشبورد/u;
+
+/** A whole computed report page: detailed, full, an analysis, a dashboard page; folded Arabic. */
+const PAGE =
+  /\b(?:(?:detailed|full|complete|in-depth|comprehensive)\s+(?:report|analysis|dashboard)|(?:report|dashboard|analysis)\s+page|analy[sz]e|analysis)\b|تقرير\s+(?:مفصل|كامل|شامل|تفصيلي)|صفحه\s+تقرير|لوحه\s+تحكم|تحليل|حلل/u;
 
 /** The form each word asks for; folded Arabic (أ→ا, ة→ه), first match wins. */
 const FORMS: readonly (readonly [RegExp, DataShowAs])[] = [
@@ -44,7 +52,7 @@ const FORMS: readonly (readonly [RegExp, DataShowAs])[] = [
 
 /** An instruction: a request for one of the forms, not a question about the data. */
 const ASKS =
-  /^(?:please\s+)?(?:make|create|add|draw|show|turn|put|build|plot|chart|graph|insert|display|visuali[sz]e|present|convert|generate)\b|^(?:اعمل|سوي|ارسم|اضف|ضيف|حط|اعرض|حول|انشئ|اصنع|ابني|خلي|اجعل|ممكن|جهز)|^(?:chart|graph|table|report|dashboard)\b|^(?:مخطط|جدول|رسم|تقرير|لوحه)/u;
+  /^(?:please\s+)?(?:make|create|add|draw|show|turn|put|build|plot|chart|graph|insert|display|visuali[sz]e|present|convert|generate)\b|^(?:analy[sz]e)\b|^(?:اعمل|سوي|ارسم|اضف|ضيف|حط|اعرض|حول|انشئ|اصنع|ابني|خلي|اجعل|ممكن|جهز)|^(?:chart|graph|table|report|dashboard)\b|^(?:مخطط|جدول|رسم|تقرير|لوحه|حلل|تحليل)/u;
 
 export function readDataRequest(request: string): DataReading | undefined {
   if (request.length > MAX_DATA_CHARS) return undefined;
@@ -62,6 +70,16 @@ export function readDataRequest(request: string): DataReading | undefined {
     .trim();
   if (!ASKS.test(folded) || folded.includes('?') || folded.includes('؟')) return undefined;
   if (!readDataText(data).ok) return undefined;
+  if (PAGE.test(folded)) {
+    return {
+      tool: 'report.page',
+      input: { data },
+      label: {
+        ar: 'إضافة صفحة تقرير محسوبة من البيانات',
+        en: 'Add a computed report page from the data',
+      },
+    };
+  }
   if (REPORT.test(folded)) {
     return {
       tool: 'report.build',

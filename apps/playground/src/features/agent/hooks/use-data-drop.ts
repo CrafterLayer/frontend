@@ -5,7 +5,11 @@ import type { Locale } from '../model/view-types';
 
 /** The zero-token chart path reads at most this much; a larger file goes nowhere. */
 export const DATA_DROP_MAX_BYTES = 20_000;
-const DATA_FILE = /\.(?:csv|tsv|tab|txt|md|markdown)$/iu;
+const DATA_FILE = /\.(?:csv|tsv|tab|txt|md|markdown|json)$/iu;
+/** An Excel workbook (2026-10-14): read in the tab, its first sheet turned into CSV rows. */
+const XLSX_FILE = /\.xlsx$/iu;
+/** The most a dropped workbook may weigh: it is zipped, so its rows are read before measuring. */
+export const XLSX_DROP_MAX_BYTES = 2_000_000;
 /** How long a refusal stays over the panel. */
 const REFUSAL_MS = 3_000;
 
@@ -23,12 +27,29 @@ export interface DataDropOptions {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
 }
 
+/** A workbook's first sheet as CSV, or why it cannot go in the draft. */
+type WorkbookRead = { readonly rows: string } | { readonly refused: 'tooLarge' | 'unreadable' };
+
+async function workbookRows(file: File): Promise<WorkbookRead> {
+  try {
+    const { readXlsx, rowsToCsv } = await import('../model/xlsx-rows');
+    const csv = rowsToCsv(readXlsx(new Uint8Array(await file.arrayBuffer())).rows);
+    if (csv.trim() === '') return { refused: 'unreadable' };
+    const tooLarge = new TextEncoder().encode(csv).length > DATA_DROP_MAX_BYTES;
+    return tooLarge ? { refused: 'tooLarge' } : { rows: csv };
+  } catch {
+    // A damaged workbook (XlsxReadError) or a reader that failed to load: both are refused.
+    return { refused: 'unreadable' };
+  }
+}
+
 function carriesFiles(event: DragEvent): boolean {
   return [...(event.dataTransfer?.types ?? [])].includes('Files');
 }
 
 /**
- * Drop a data file on the panel (2026-10-12): a .csv, .tsv, .md or .txt file dragged over the
+ * Drop a data file on the panel (2026-10-12): a .csv, .tsv, .md, .txt or .json file — or an
+ * Excel .xlsx, its first sheet read as CSV in the tab (2026-10-14) — dragged over the
  * panel shows what it takes (`data-drop="over"` and `data-drop-label`, drawn by the panel's CSS),
  * and dropped, its rows go into the draft under "Chart this:" — the line the zero-token chart
  * path reads — for the person to send or edit. Any other file is refused for a few seconds in
@@ -74,7 +95,21 @@ export function useDataDrop(target: RefObject<HTMLElement | null>, options: Data
     const drop = (event: DragEvent) => {
       if (!carriesFiles(event)) return;
       event.preventDefault();
-      const file = [...(event.dataTransfer?.files ?? [])].find(({ name }) => DATA_FILE.test(name));
+      const files = [...(event.dataTransfer?.files ?? [])];
+      const file = files.find(({ name }) => DATA_FILE.test(name));
+      const workbook = files.find(({ name }) => XLSX_FILE.test(name));
+      if (file === undefined && workbook !== undefined) {
+        if (workbook.size > XLSX_DROP_MAX_BYTES) {
+          show('refused', labels().tooLarge);
+          return;
+        }
+        show();
+        void workbookRows(workbook).then((read) => {
+          if ('rows' in read) accept(read.rows);
+          else show('refused', labels()[read.refused]);
+        });
+        return;
+      }
       if (file === undefined) {
         show('refused', labels().refused);
         return;

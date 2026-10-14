@@ -3,15 +3,41 @@
  * fills the draft under the instruction line, and any other file is refused in the same place.
  * jsdom has no DataTransfer, so each event carries a stand-in with `types` and `files`.
  */
+import { strToU8, zipSync } from 'fflate';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { dropLabels } from '../copy/drop-labels';
 import type { Locale } from '../model/view-types';
-import { DATA_DROP_MAX_BYTES, dataDraft, useDataDrop } from './use-data-drop';
+import { DATA_DROP_MAX_BYTES, XLSX_DROP_MAX_BYTES, dataDraft, useDataDrop } from './use-data-drop';
 
 const EN = dropLabels('en');
+const MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+/** jsdom's encoder hands back another realm's Uint8Array, which fflate's zip takes for a folder. */
+function bytes(text: string): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(strToU8(text));
+}
+
+/** A one-sheet workbook with inline strings and numbers, as Excel would zip it. */
+function xlsx(rows: readonly (readonly (string | number)[])[]): File {
+  const cells = rows
+    .map(
+      (row) =>
+        `<row>${row.map((cell) => (typeof cell === 'number' ? `<c><v>${String(cell)}</v></c>` : `<c t="inlineStr"><is><t>${cell}</t></is></c>`)).join('')}</row>`,
+    )
+    .join('');
+  const zip = zipSync({
+    'xl/workbook.xml': bytes(
+      `<workbook xmlns="${MAIN}"><sheets><sheet name="S" /></sheets></workbook>`,
+    ),
+    'xl/worksheets/sheet1.xml': bytes(
+      `<worksheet xmlns="${MAIN}"><sheetData>${cells}</sheetData></worksheet>`,
+    ),
+  });
+  return new File([new Uint8Array(zip)], 'sales.xlsx');
+}
 const AR = dropLabels('ar');
 
 function Host({
@@ -117,5 +143,52 @@ describe('useDataDrop', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('reads a dropped Excel workbook’s first sheet into the draft as CSV rows', async () => {
+    const { panel, field } = setup();
+    fireEvent.drop(
+      panel,
+      transfer([
+        xlsx([
+          ['Month', 'Sales'],
+          ['Jan', 120],
+          ['Feb', 98.5],
+        ]),
+      ]),
+    );
+    await waitFor(() => {
+      expect(field).toHaveValue('Chart this:\nMonth,Sales\nJan,120\nFeb,98.5');
+    });
+    expect(panel).not.toHaveAttribute('data-drop');
+  });
+
+  it('takes a JSON file as it is, for the data reader to read', async () => {
+    const { panel, field } = setup();
+    const json = new File(['[{"Month":"Jan","Sales":120}]'], 'sales.json');
+    fireEvent.drop(panel, transfer([json]));
+    await waitFor(() => {
+      expect(field).toHaveValue('Chart this:\n[{"Month":"Jan","Sales":120}]');
+    });
+  });
+
+  it('refuses a damaged or oversized workbook and keeps the draft', async () => {
+    const { panel, field } = setup({ initial: 'Keep me' });
+    // Its rows, not its zipped size, decide: this one weighs little but reads past 20 KB.
+    const wide = xlsx(
+      Array.from({ length: 400 }, (_, index) => [`Row ${String(index)}`, 'a'.repeat(60)]),
+    );
+    fireEvent.drop(panel, transfer([wide]));
+    await waitFor(() => {
+      expect(panel).toHaveAttribute('data-drop-label', EN.tooLarge);
+    });
+    fireEvent.drop(panel, transfer([new File(['not a zip'], 'broken.xlsx')]));
+    await waitFor(() => {
+      expect(panel).toHaveAttribute('data-drop-label', EN.unreadable);
+    });
+    const big = new File([new Uint8Array(XLSX_DROP_MAX_BYTES + 1)], 'big.xlsx');
+    fireEvent.drop(panel, transfer([big]));
+    expect(panel).toHaveAttribute('data-drop-label', EN.tooLarge);
+    expect(field).toHaveValue('Keep me');
   });
 });

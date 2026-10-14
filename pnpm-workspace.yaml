@@ -84,6 +84,9 @@ catalog:
   eslint-plugin-react-refresh: 0.5.4
   eslint-plugin-storybook: 10.5.10
   fast-check: 4.9.0
+  # data reports (2026-10-14): the agent panel reads a dropped .xlsx (a zip of XML) with fflate's
+  # unzip (MIT, (c) 2020 Arjun Barrett), loaded only when an Excel file is dropped.
+  fflate: 0.8.2
   globals: 17.11.0
   immer: 11.1.18
   jsdom: 30.0.1

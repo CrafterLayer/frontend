@@ -1007,3 +1007,11 @@ history.
       labels, relative positions, seek/progress/time (scroll scrub); GSAP stays out (licence). Set F:
       desert-caravan, fishing-village, seed-to-forest, souq-morning — painted panoramas on one
       labelled timeline, no UI, loop or scrub; playbooks and planner teach the mural-story form.
+- [x] T281 Any mural on demand (818758a, 37961b6): `s.lib.mural` composes a mural from a 1-3k
+      character spec (moods, time arc, five parallax layers, 61 illustrated items, a cast and 3-5
+      beats on one anim timeline; loop/scrub/still; never throws, warns). Nine bespoke fixtures
+      (reef, space, Ramadan night, Japanese garden, winter village, Amman skyline, fairy forest,
+      farm, harbour) run in a browser suite. Playbooks teach COMPOSE FIRST; the planner and the
+      writer's ready-scene lines send a pictured mural no preset closely matches to the kit (owner
+      approved the scene-ready.ts / check-scene.ts lines). Open: a retry still falls back to ready
+      scenes; thin people/animals; one tint for every layer; the kit is 24.7 kB gzip.

@@ -6,6 +6,7 @@ import type { UserSkillsView } from '../../model/knowledge';
 import { fetchSkillMarkdown, skillLinkOf, type Fetcher } from '../../model/skill-link';
 import type { SkillTemplate } from '../../model/skill-templates';
 import { EMPTY_SKILL_DRAFT, type UserSkillDraft } from '../../model/user-skills';
+import { BuiltInSkillsList } from '../BuiltInSkillsList';
 import { DefaultSkillsList } from '../DefaultSkillsList';
 import { SkillEditor } from '../SkillEditor';
 import { SkillRow } from '../SkillRow';
@@ -329,26 +330,12 @@ export function SkillsTab({
           </ul>
         </details>
       )}
-      <details className="ck-agent-skills__builtins">
-        <summary id={`${id}-builtins`} className="ck-agent-skills__summary">
-          {words.builtIns(view.builtIns.length)}
-        </summary>
-        <p className="ck-agent-kn-intro">{words.builtInsHint}</p>
-        {/* It scrolls on its own and holds nothing focusable: a tab stop lets a keyboard scroll it. */}
-        <ul
-          className="ck-agent-skills__builtin-list"
-          role="list"
-          tabIndex={0}
-          aria-labelledby={`${id}-builtins`}
-        >
-          {view.builtIns.map((skill) => (
-            <li key={skill.id} className="ck-agent-skills__builtin">
-              <span className="ck-agent-skills__builtin-name">{skill.name}</span>
-              <span className="ck-agent-skills__builtin-description">{skill.description}</span>
-            </li>
-          ))}
-        </ul>
-      </details>
+      <BuiltInSkillsList
+        skills={view.builtInSwitches}
+        labels={labels.builtInSkills}
+        onToggle={view.setBuiltInEnabled}
+        onReset={view.resetBuiltIns}
+      />
     </div>
   );
 }

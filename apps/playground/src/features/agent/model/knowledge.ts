@@ -3,6 +3,7 @@
  * the project memory and the checkpoints, with the edits each allows. Built by
  * `useAgentKnowledge`; stories and tests build it from fixtures.
  */
+import type { BuiltInSkillToggleView } from './builtin-skills';
 import type { AgentCheckpoint, CheckpointRestore } from './checkpoints';
 import type { DefaultSkillView } from './default-skills';
 import type { MemoryNote, MemoryNoteKind, MemoryWrite } from './project-memory';
@@ -30,6 +31,12 @@ export interface UserSkillsView {
   readonly defaults: readonly DefaultSkillView[];
   /** Switch a default skill on or off for this viewer. */
   readonly setDefaultEnabled: (id: string, enabled: boolean) => void;
+  /** The built-ins the Agent picks by itself, by group, with their switches (2026-10-14). */
+  readonly builtInSwitches: readonly BuiltInSkillToggleView[];
+  /** Switch a built-in on or off for this viewer; an "Always on" one is never switched. */
+  readonly setBuiltInEnabled: (id: string, enabled: boolean) => void;
+  /** Every built-in back on. */
+  readonly resetBuiltIns: () => void;
 }
 
 export interface ProjectMemoryView {

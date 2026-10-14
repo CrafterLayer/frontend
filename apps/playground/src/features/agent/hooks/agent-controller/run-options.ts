@@ -69,6 +69,10 @@ export function commonRunOptions(
             ...new Set([...(selectedSkillIds ?? []), ...options.hostSkillIdsFor(semanticRequest)]),
           ],
         }),
+    // The built-ins the person switched off, read per run (every lane honours them).
+    ...(options.excludedSkillIds === undefined || options.excludedSkillIds.length === 0
+      ? {}
+      : { excludedSkillIds: options.excludedSkillIds }),
     ...catalogPolicyFor(options.providerKind ?? 'offline', selection, options.agentPolicy),
     // The composer's free-code switch, read per run: only `true` ever reaches the engine.
     ...(options.freeCode === true ? { freeCode: true } : {}),

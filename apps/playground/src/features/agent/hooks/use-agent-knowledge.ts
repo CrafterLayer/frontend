@@ -6,6 +6,11 @@ import {
   type AiSkillRegistry,
 } from '@craftkit/builder';
 
+import {
+  builtInSkillViews,
+  createBuiltInSkillsStore,
+  switchableBuiltInIds,
+} from '../model/builtin-skills';
 import type { AgentCheckpoint, AgentCheckpointPort } from '../model/checkpoints';
 import {
   createDefaultSkillsStore,
@@ -36,6 +41,8 @@ const BUILT_IN_REGISTRY = createCraftkitAiSkillRegistry();
 const BUILT_INS: readonly BuiltInSkillView[] = BUILT_IN_REGISTRY.list()
   .filter((skill) => skill.source !== 'host')
   .map(({ id, name, description }) => ({ id, name, description }));
+/** The built-ins a person may switch off (2026-10-14): the auto ones and photo direction. */
+const SWITCHABLE_BUILT_INS = switchableBuiltInIds(BUILT_IN_REGISTRY.list());
 
 /**
  * The built-ins plus the enabled default skills and the person's enabled skills; the built-ins
@@ -67,6 +74,7 @@ export type KnowledgeControllerOptions = Pick<
   | 'selectedSkillIdsFor'
   | 'skillRequestTextFor'
   | 'hostSkillIdsFor'
+  | 'excludedSkillIds'
   | 'extraContextProviders'
   | 'checkpoints'
 >;
@@ -91,6 +99,7 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
       skills: createUserSkillsStore(storage),
       memory: createProjectMemoryStore(storage),
       defaults: createDefaultSkillsStore(storage),
+      builtIns: createBuiltInSkillsStore(SWITCHABLE_BUILT_INS, storage),
     };
   });
   const skills = useSyncExternalStore(
@@ -103,6 +112,12 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     stores.defaults.subscribe,
     stores.defaults.get,
     stores.defaults.get,
+  );
+
+  const disabledBuiltIns = useSyncExternalStore(
+    stores.builtIns.subscribe,
+    stores.builtIns.get,
+    stores.builtIns.get,
   );
 
   const [items, setItems] = useState<readonly AgentCheckpoint[] | undefined>(undefined);
@@ -139,6 +154,10 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
     () => defaultSkillViews(locale, disabledDefaults),
     [locale, disabledDefaults],
   );
+  const builtInSwitches = useMemo(
+    () => builtInSkillViews(BUILT_IN_REGISTRY.list(), locale, disabledBuiltIns),
+    [locale, disabledBuiltIns],
+  );
   const vocabulary = useMemo(
     () => slashOptions(skills, BUILT_INS, '', [], defaults),
     [skills, defaults],
@@ -146,20 +165,38 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
   const controllerOptions = useMemo<KnowledgeControllerOptions>(
     () => ({
       ...(registry === BUILT_IN_REGISTRY ? {} : { skillRegistry: registry }),
+      // A switched-off built-in is never chosen here; a `/skill` pick (inline ids) still is.
       hostSkillIdsFor: (request: string) => [
         ...new Set([
           ...inlineSkillIds(request, vocabulary),
-          ...requestSkillIdsFor(registry, inlineSkillRequest(request, vocabulary), 'host'),
+          ...requestSkillIdsFor(registry, inlineSkillRequest(request, vocabulary), 'host', {
+            excluded: disabledBuiltIns,
+          }),
           ...userSkillIdsFor(registry, skills, inlineSkillRequest(request, vocabulary)),
-          ...defaultSkillIdsFor(registry, defaults, inlineSkillRequest(request, vocabulary)),
+          ...defaultSkillIdsFor(
+            registry,
+            defaults,
+            inlineSkillRequest(request, vocabulary),
+            disabledBuiltIns,
+          ),
         ]),
       ],
+      ...(disabledBuiltIns.length === 0 ? {} : { excludedSkillIds: disabledBuiltIns }),
       selectedSkillIdsFor: (request: string) => inlineSkillIds(request, vocabulary),
       skillRequestTextFor: (request: string) => inlineSkillRequest(request, vocabulary),
       extraContextProviders: notes.length === 0 ? [] : [stores.memory.provider],
       ...(checkpoints === undefined ? {} : { checkpoints }),
     }),
-    [registry, skills, defaults, vocabulary, notes.length, stores.memory.provider, checkpoints],
+    [
+      registry,
+      skills,
+      defaults,
+      vocabulary,
+      disabledBuiltIns,
+      notes.length,
+      stores.memory.provider,
+      checkpoints,
+    ],
   );
 
   const view = useMemo<AgentKnowledgeView>(
@@ -178,6 +215,9 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
         },
         defaults,
         setDefaultEnabled: stores.defaults.setEnabled,
+        builtInSwitches,
+        setBuiltInEnabled: stores.builtIns.setEnabled,
+        resetBuiltIns: stores.builtIns.reset,
       },
       memory: {
         notes,
@@ -196,7 +236,7 @@ export function useAgentKnowledge(options: UseAgentKnowledgeOptions = {}): UseAg
             },
           }),
     }),
-    [skills, defaults, notes, items, stores, checkpoints],
+    [skills, defaults, builtInSwitches, notes, items, stores, checkpoints],
   );
 
   return { controllerOptions, view };
@@ -207,12 +247,13 @@ function defaultSkillIdsFor(
   registry: AiSkillRegistry,
   defaults: readonly { readonly id: string; readonly enabled: boolean }[],
   request: string,
+  excludedSkillIds: readonly string[],
 ): readonly string[] {
   const enabled = new Set(defaults.filter((skill) => skill.enabled).map((skill) => skill.id));
   if (enabled.size === 0) return [];
   try {
     return registry
-      .prepare({ request })
+      .prepare({ request, excludedSkillIds })
       .active.map((skill) => skill.id)
       .filter((id) => enabled.has(id));
   } catch {

@@ -47,6 +47,7 @@ import type {
 } from './types';
 import { contextReadyReport, type OnContextReady, wireRequestTokens } from './context-report';
 import { classifyAiRunFailure } from './errors';
+import { excludedSkillIdsOf, excludingRegistry } from './excluded-skills';
 import { withSceneEdit } from './scene-edit-context';
 import { withinRunDeadline } from './run-deadline';
 import { creationAcceptance } from './creation-content';
@@ -88,8 +89,10 @@ function explicitSkillsOnly(registry: AiSkillRegistry): AiSkillRegistry {
 
 function skillRegistryFor(options: RunAiAgentOptions): AiSkillRegistry | undefined {
   const registry = options.skillRegistry;
-  if (registry === undefined || options.autoSkills !== false) return registry;
-  return explicitSkillsOnly(registry);
+  if (registry === undefined) return registry;
+  // Switched off by the person (2026-10-14): no match, carried skill or dependency wakes them.
+  const excluding = excludingRegistry(registry, excludedSkillIdsOf(options));
+  return options.autoSkills !== false ? excluding : explicitSkillsOnly(excluding);
 }
 
 // ── What the run reads off the request before any provider is asked ─────────

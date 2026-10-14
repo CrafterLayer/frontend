@@ -1,5 +1,6 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider } from '@craftkit/builder-schema';
+import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
 import { withHostSkills, type AiHostSkillOptions } from './host-skills';
 import { assembleAiContext, type AiCompositionPolicy } from '../context';
 import {
@@ -191,18 +192,24 @@ async function proposeActivePagePlan(
   const request = planningRequest(input.request, input.target);
   const arabic = isArabicPage(input.kernel, input.request);
   const registry = input.skillRegistry;
-  const selectedSkillIds = planSkillIds(
-    registry,
-    input.policy,
-    arabic,
-    kitsAvailable(),
-    withHostSkills(input, requestSkillIdsFor(registry, input.request, 'page-plan')),
+  // Switched off by the person (2026-10-14): never named (the deck is engine-required, kept).
+  const excluded = excludedSkillIdsOf(input);
+  const selectedSkillIds = withoutExcluded(
+    planSkillIds(
+      registry,
+      input.policy,
+      arabic,
+      kitsAvailable(),
+      withHostSkills(input, requestSkillIdsFor(registry, input.request, 'page-plan', { excluded })),
+    ),
+    excluded,
   );
   const skills = registry?.prepare({
     request,
     // A page plan is a page, whatever the words read as on the page it lands on.
     intent: 'build-page',
     selectedSkillIds,
+    ...(excluded.length === 0 ? {} : { excludedSkillIds: excluded }),
     auto: false,
     ...(input.policy?.allowUntrustedSkills === undefined
       ? {}

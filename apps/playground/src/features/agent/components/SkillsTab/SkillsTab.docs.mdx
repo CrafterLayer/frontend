@@ -17,8 +17,9 @@ People teach the Agent how they work: a brand voice, a house style, "every page 
 booking band". A skill is data, never code: a name, when to use it, instructions, and how it turns
 on, either in every request or when a request mentions its words. This tab lists them, each with its
 switch, Edit, Copy as SKILL.md and Delete, and lets a person write one or import a SKILL.md, pasted
-or from a link. Under them, behind a quiet disclosure, it lists the built-in skills, so a person
-sees what to add rather than repeat.
+or from a link. Under them, behind a quiet disclosure, it lists the built-in skills by group, each
+with a switch (`BuiltInSkillsList`, 2026-10-14), so a person sees what the Agent already knows and
+can switch a built-in off.
 
 ## When to use / not
 
@@ -62,15 +63,15 @@ Teach the Agent how you work. …                 intro (Meta, Graphite)
 ```
 
 Writing or importing a skill replaces the list in place; Save, Add skill or Cancel bring it back.
-The built-in list is capped and scrolls on its own, so many built-ins never push the person's own
-skills away.
+The built-in list stays closed until opened, so many built-ins never push the person's own skills
+away.
 
 ## Accessibility
 
 - Each skill's controls are named for it (SkillRow).
 - The import field has a visible label; a refusal is one `alert` line above Add skill.
-- The built-ins are a native `details`/`summary`. Their list scrolls on its own, so it is a tab stop
-  named by the summary, and a keyboard can scroll it.
+- The built-ins are a native `details`/`summary`; their switches, filter and Reset are described in
+  BuiltInSkillsList.
 - Every refusal is the store's own reason, in the panel's language: the every-request budget, the
   limit of 24, or an unreadable SKILL.md.
 

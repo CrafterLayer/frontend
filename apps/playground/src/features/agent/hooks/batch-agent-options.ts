@@ -20,6 +20,7 @@ export type BatchAgentSource = Pick<
   | 'selectedSkillIds'
   | 'selectedSkillIdsFor'
   | 'hostSkillIdsFor'
+  | 'excludedSkillIds'
   | 'extraContextProviders'
   | 'freeCode'
   | 'editModel'
@@ -41,6 +42,9 @@ export function batchAgentOptions(source: BatchAgentSource, request: string): Ai
     ...(source.hostSkillIdsFor === undefined
       ? {}
       : { hostSkillIds: source.hostSkillIdsFor(request) }),
+    ...(source.excludedSkillIds === undefined || source.excludedSkillIds.length === 0
+      ? {}
+      : { excludedSkillIds: source.excludedSkillIds }),
     ...(providers.length === 0 ? {} : { additionalContextProviders: providers }),
     ...catalogPolicyFor('remote', [], source.agentPolicy),
     ...(source.freeCode === true ? { freeCode: true } : {}),

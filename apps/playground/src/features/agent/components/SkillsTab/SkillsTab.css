@@ -1,7 +1,7 @@
 /*
   SkillsTab (2026-10-12): the intro, the two actions with the count at their end, the
-  person's skills, then the built-in skills behind a quiet disclosure, capped and scrolling
-  on their own so forty skills never push the person's own away.
+  person's skills, then the built-in skills behind a quiet disclosure (BuiltInSkillsList,
+  2026-10-14), closed so forty skills never push the person's own away.
 */
 
 .ck-agent-skills,
@@ -41,26 +41,9 @@
   background-color: var(--bldr-surface-hover);
 }
 
-.ck-agent-skills__summary:focus-visible,
-.ck-agent-skills__builtin-list:focus-visible {
+.ck-agent-skills__summary:focus-visible {
   outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
   outline-offset: var(--bldr-focus-ring-offset);
-}
-
-.ck-agent-skills__builtin-list {
-  display: grid;
-  gap: var(--bldr-space-xs);
-  overflow-y: auto;
-  max-block-size: min(16rem, 40vh);
-  margin: 0;
-  padding: 0;
-  overscroll-behavior: contain;
-  list-style: none;
-}
-
-.ck-agent-skills__builtin {
-  display: grid;
-  padding-inline: var(--bldr-space-xs);
 }
 
 .ck-agent-skills__builtin-name {

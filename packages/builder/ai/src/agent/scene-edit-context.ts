@@ -28,6 +28,7 @@ import {
   requestHasKeyword,
   type CompiledKeyword,
 } from '../skills/keyword-match';
+import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
 import { isArabicPage } from './plan-page';
 import { pinningRegistry } from './pinning-registry';
 import { createReadyScenesContextProvider, offersReadyScenes } from './scene-ready';
@@ -358,7 +359,11 @@ function newMuralOptions(
   registry: AiSkillRegistry | undefined,
   own: SceneEditOptions,
 ): SceneEditOptions {
-  const ids = pixiSkillIdsFor(registry, options.request);
+  // A playbook the person switched off is never pinned (2026-10-14).
+  const ids = withoutExcluded(
+    pixiSkillIdsFor(registry, options.request),
+    excludedSkillIdsOf(options),
+  );
   const pinned =
     registry === undefined || options.autoSkills === false || ids.length === 0
       ? own
@@ -419,7 +424,15 @@ function sceneEditOptions(
     // `autoSkills: false` keeps exactly the skills the host named: no pins, the brief still.
     ...(registry === undefined || options.autoSkills === false
       ? own
-      : { ...own, skillRegistry: pinningRegistry(registry, options.policy, pins) }),
+      : {
+          ...own,
+          skillRegistry: pinningRegistry(
+            registry,
+            options.policy,
+            pins,
+            excludedSkillIdsOf(options),
+          ),
+        }),
     ...(servesBrief(options)
       ? {}
       : {

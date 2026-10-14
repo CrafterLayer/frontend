@@ -23,6 +23,7 @@ import { expandAgentTools } from '../tools/agent/expand';
 import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
 import { classifyAiRunFailure, type AiRunFailure } from './errors';
+import { excludedSkillIdsOf } from './excluded-skills';
 import { checkSection } from './page-plan/check-section';
 import { regionPropAccepts, tidySection } from './page-plan/tidy-section';
 import { completeKitSlots, fillSlotPhotos, pagePhotoPlan } from './page-plan/kit-slots';
@@ -307,8 +308,10 @@ function fillSkillIds(
   role?: string,
 ): readonly string[] {
   const registry = options.skillRegistry;
+  // Switched off by the person (2026-10-14): never named; `fittingSkillIds` drops the optional.
+  const excluded = excludedSkillIdsOf(options);
   const named = [...FILL_SKILLS, ...(arabic ? [ARABIC_FILL_SKILL] : [])].filter(
-    (id) => registry?.get(id) !== undefined,
+    (id) => registry?.get(id) !== undefined && !excluded.includes(id),
   );
   const required = [FILL_SKILL, ...named];
   // Defaults per section, never the whole page's matched set (2026-10-14).
@@ -327,6 +330,7 @@ function fillSkillIds(
         ...(role === undefined ? {} : { role }),
         present: required,
         creative: false,
+        excluded,
       }),
     ],
   );

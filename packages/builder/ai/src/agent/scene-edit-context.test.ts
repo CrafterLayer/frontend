@@ -626,3 +626,33 @@ describe('runAiAgent — a new mural is offered the ready scenes that fit (2026-
     }
   });
 });
+
+describe('runAiAgent — scene pins respect the person’s switches (2026-10-14)', () => {
+  it('never pins a switched-off playbook on a scene edit; an explicit pick still wins', async () => {
+    const off = { excludedSkillIds: ['craftkit.pixi-dialogue'] };
+    const result = await runAiAgent(options(kernelFor(), recording().provider, off));
+    expect(pixiActivations(result)).toEqual(
+      expect.arrayContaining(SCENE_PINS.map((id) => `${id}:explicit`)),
+    );
+    expect(pixiActivations(result).join(' ')).not.toContain('craftkit.pixi-dialogue');
+    const picked = await runAiAgent(
+      options(kernelFor(), recording().provider, {
+        ...off,
+        selectedSkillIds: ['craftkit.pixi-dialogue'],
+      }),
+    );
+    expect(pixiActivations(picked)).toContain('craftkit.pixi-dialogue:explicit');
+  });
+
+  it('never pins a switched-off companion of a new story', async () => {
+    const result = await runAiAgent(
+      options(kernelFor(PLAIN_PAGE), recording(SCENE).provider, {
+        request: 'Create an interactive story section',
+        selection: [],
+        excludedSkillIds: ['craftkit.pixi-dialogue', 'craftkit.pixi-v8-graphics'],
+      }),
+    );
+    expect(pixiActivations(result)).toContain('craftkit.pixi-stories:explicit');
+    expect(pixiActivations(result).join(' ')).not.toMatch(/pixi-dialogue|pixi-v8-graphics/u);
+  });
+});

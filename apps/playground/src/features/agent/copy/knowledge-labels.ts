@@ -13,6 +13,11 @@ import {
   type UserSkillRefusal,
 } from '../model/user-skills';
 import { PROJECT_MEMORY_MAX_NOTES, PROJECT_MEMORY_MAX_TEXT } from '../model/project-memory';
+import {
+  BUILT_IN_SKILL_LABELS_AR,
+  BUILT_IN_SKILL_LABELS_EN,
+  type BuiltInSkillLabels,
+} from './builtin-skill-labels';
 
 export type KnowledgeTab = 'skills' | 'memory' | 'checkpoints';
 
@@ -41,8 +46,6 @@ export interface KnowledgeLabels {
     readonly remove: (name: string) => string;
     readonly copy: (name: string) => string;
     readonly copied: string;
-    readonly builtIns: (count: number) => string;
-    readonly builtInsHint: string;
     readonly count: (count: number) => string;
   };
   readonly editor: {
@@ -128,6 +131,8 @@ export interface KnowledgeLabels {
     readonly size: string;
     readonly empty: string;
   };
+  /** The built-in skills the Agent picks by itself (2026-10-14). */
+  readonly builtInSkills: BuiltInSkillLabels;
   readonly checkpoints: {
     readonly intro: string;
     readonly loading: string;
@@ -151,7 +156,8 @@ const EN: KnowledgeLabels = {
   tabs: { skills: 'Skills', memory: 'Memory', checkpoints: 'Checkpoints' },
   search: 'Search',
   searchWords: {
-    skills: 'skills instructions templates defaults pro max ux design copy forms المهارات',
+    skills:
+      'skills instructions templates defaults pro max ux design copy forms built-in المهارات المدمجة',
     memory: 'memory notes facts preferences remember الذاكرة',
     checkpoints: 'checkpoints restore points history undo versions نقاط الحفظ',
   },
@@ -174,8 +180,6 @@ const EN: KnowledgeLabels = {
     remove: (name) => `Delete ${name}`,
     copy: (name) => `Copy ${name} as SKILL.md`,
     copied: 'Copied',
-    builtIns: (count) => `Built-in skills (${String(count)})`,
-    builtInsHint: 'The Agent already knows these and picks them by itself.',
     count: (count) => `${String(count)} of ${String(USER_SKILLS_MAX)}`,
   },
   editor: {
@@ -273,6 +277,7 @@ const EN: KnowledgeLabels = {
     size: 'That file is too large for a skill.',
     empty: 'That file is empty.',
   },
+  builtInSkills: BUILT_IN_SKILL_LABELS_EN,
   checkpoints: {
     intro:
       'The page is kept before every request the Agent runs. Restore any point: a restore is one change, so Undo takes it back.',
@@ -302,7 +307,7 @@ const AR: KnowledgeLabels = {
   tabs: { skills: 'المهارات', memory: 'الذاكرة', checkpoints: 'نقاط الحفظ' },
   search: 'بحث',
   searchWords: {
-    skills: 'المهارات مهارة تعليمات قوالب الافتراضية تصميم نصوص نماذج skills',
+    skills: 'المهارات مهارة تعليمات قوالب الافتراضية المدمجة تصميم نصوص نماذج skills',
     memory: 'الذاكرة ملاحظات حقائق تفضيلات تذكر memory',
     checkpoints: 'نقاط الحفظ استعادة سجل تراجع نسخ checkpoints',
   },
@@ -325,8 +330,6 @@ const AR: KnowledgeLabels = {
     remove: (name) => `احذف ${name}`,
     copy: (name) => `انسخ ${name} كملف SKILL.md`,
     copied: 'نُسخت',
-    builtIns: (count) => `المهارات المدمجة (${String(count)})`,
-    builtInsHint: 'يعرفها الوكيل مسبقًا ويختارها وحده.',
     count: (count) => `${String(count)} من ${String(USER_SKILLS_MAX)}`,
   },
   editor: {
@@ -424,6 +427,7 @@ const AR: KnowledgeLabels = {
     size: 'هذا الملف أكبر من أن يكون مهارة.',
     empty: 'هذا الملف فارغ.',
   },
+  builtInSkills: BUILT_IN_SKILL_LABELS_AR,
   checkpoints: {
     intro:
       'تُحفظ الصفحة قبل كل طلب ينفّذه الوكيل. استرجع أي نقطة: الاسترجاع تغيير واحد، فيعيده «تراجع».',

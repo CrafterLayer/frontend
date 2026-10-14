@@ -143,8 +143,12 @@ const ARABIC = {
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // The person's three, then the seven default skills in their own section.
-    await expect(canvas.getAllByRole('switch')).toHaveLength(10);
+    // The person's three, then the seven default skills in their own section (the built-ins'
+    // switches sit in their own closed disclosure).
+    const switches = canvas
+      .getAllByRole('switch')
+      .filter((element) => element.closest('.ck-agent-builtins') === null);
+    await expect(switches).toHaveLength(10);
     await expect(canvas.getByText('3 of 24')).toBeVisible();
     await expect(canvas.getByRole('region', { name: EN.defaults.title })).toBeVisible();
   },
@@ -215,7 +219,7 @@ export const BuiltIns: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByText(/^Built-in skills \(\d+\)$/u));
-    await expect(canvas.getByText(EN.skills.builtInsHint)).toBeVisible();
+    await expect(canvas.getByText(EN.builtInSkills.intro)).toBeVisible();
   },
 };
 

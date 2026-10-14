@@ -1,3 +1,4 @@
+import { excludedSkillIdsOf } from './excluded-skills';
 import type { RunAiAgentOptions, RunAiBuildOptions } from './types';
 
 /**
@@ -15,6 +16,7 @@ export function sharedStepOptions(
 ): Omit<RunAiAgentOptions, 'apply' | 'label' | 'request' | 'runId'> {
   const isCurrentRun = options.isCurrentRun;
   const onEvent = options.onEvent;
+  const excluded = excludedSkillIdsOf(options);
   return {
     clock: options.clock,
     kernel: options.kernel,
@@ -33,6 +35,8 @@ export function sharedStepOptions(
     ...(options.selectedSkillIds === undefined
       ? {}
       : { selectedSkillIds: options.selectedSkillIds }),
+    // The person's switches, the build's own picks already winning (excluded-skills.ts).
+    ...(excluded.length === 0 ? {} : { excludedSkillIds: excluded }),
     ...(options.policy === undefined ? {} : { policy: options.policy }),
     ...(options.composition === undefined ? {} : { composition: options.composition }),
     // Free code mode is the person's, for the whole build: every step's request carries it.

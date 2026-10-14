@@ -114,6 +114,11 @@ export interface UseAgentControllerOptions {
    * name their steps' skills, so they are handed these by id (`hostSkillIds`).
    */
   readonly hostSkillIdsFor?: ((request: string) => readonly string[]) | undefined;
+  /**
+   * Built-in skills the person switched off (`useAgentKnowledge`, 2026-10-14): the engine's
+   * `excludedSkillIds`, honoured in every lane; a `/skill` pick still wins.
+   */
+  readonly excludedSkillIds?: readonly string[] | undefined;
   /** More context every run reads, after the ledger and the bible (the project memory). */
   readonly extraContextProviders?: RunAiAgentOptions['additionalContextProviders'] | undefined;
   /**

@@ -13,6 +13,7 @@
  * host skill is never made mandatory, so it can never make a build throw.
  */
 import type { AiSkillRegistry } from '../skills';
+import { excludedSkillIdsOf, type AiExcludedSkillSource } from './excluded-skills';
 
 export interface AiHostSkillOptions {
   /**
@@ -20,27 +21,45 @@ export interface AiHostSkillOptions {
    * A build's steps and a page plan offer them before their own optional skills.
    */
   hostSkillIds?: readonly string[];
+  /**
+   * Built-in skills the person switched off (2026-10-14): no step names them and no match
+   * activates them. An explicit pick (`selectedSkillIds`) and the engine's required skills
+   * (`ENGINE_REQUIRED_SKILL_IDS`) are never excluded. See excluded-skills.ts.
+   */
+  excludedSkillIds?: readonly string[];
 }
 
-/** A step input's `skillRegistry` and `hostSkillIds`, each only when set. */
-export function stepSkills(options: {
-  readonly skillRegistry?: AiSkillRegistry;
-  readonly hostSkillIds?: readonly string[];
-}): { skillRegistry?: AiSkillRegistry; hostSkillIds?: readonly string[] } {
+/** A step input's `skillRegistry`, `hostSkillIds` and effective exclusions, each only when set. */
+export function stepSkills(
+  options: AiExcludedSkillSource & {
+    readonly skillRegistry?: AiSkillRegistry;
+    readonly hostSkillIds?: readonly string[];
+  },
+): {
+  skillRegistry?: AiSkillRegistry;
+  hostSkillIds?: readonly string[];
+  excludedSkillIds?: readonly string[];
+} {
+  const excluded = excludedSkillIdsOf(options);
   return {
     ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
     ...(options.hostSkillIds === undefined ? {} : { hostSkillIds: options.hostSkillIds }),
+    ...(excluded.length === 0 ? {} : { excludedSkillIds: excluded }),
   };
 }
 
-/** `optional` with the host's skills first, without duplicates or any id `required` holds. */
+/**
+ * `optional` with the host's skills first, without duplicates, any id `required` holds, or
+ * any id the person switched off (`excludedSkillIdsOf`: an explicit pick still stays).
+ */
 export function withHostSkills(
-  host: AiHostSkillOptions,
+  host: AiHostSkillOptions & AiExcludedSkillSource,
   optional: readonly string[],
   required: readonly string[] = [],
 ): readonly string[] {
   const ids = host.hostSkillIds ?? [];
-  if (ids.length === 0) return optional;
-  const taken = new Set(required);
+  const excluded = excludedSkillIdsOf(host);
+  if (ids.length === 0 && excluded.length === 0) return optional;
+  const taken = new Set([...required, ...excluded]);
   return [...new Set([...ids, ...optional])].filter((id) => !taken.has(id));
 }

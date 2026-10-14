@@ -4,6 +4,7 @@ import type { AiCompositionPolicy } from '../context';
 import { normalizeArabic, summarizeDocumentForIntent, type IntentTarget } from '../intent';
 import { requestSkillIdsFor } from '../skills/request-skills';
 import type { AiSkillRegistry } from '../skills';
+import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
 import { planKitIndex } from './page-plan/kits';
 import type { AiAgentPolicy } from './types';
 
@@ -342,18 +343,24 @@ export function pagePlanningBrief(
     readonly target?: IntentTarget;
     readonly skillRegistry?: AiSkillRegistry;
     readonly policy?: Partial<AiAgentPolicy>;
+    /** Built-in skills switched off (2026-10-14), already without engine-required ones. */
+    readonly excludedSkillIds?: readonly string[];
   },
   kits: boolean = kitsAvailable(),
 ): { readonly request: string; readonly skillIds: readonly string[] } {
   const arabic = isArabicPage(kernel, input.request);
+  const excluded = excludedSkillIdsOf(input);
   return {
     request: planningRequest(input.request, input.target, kits),
-    skillIds: planSkillIds(
-      input.skillRegistry,
-      input.policy,
-      arabic,
-      kits,
-      requestSkillIdsFor(input.skillRegistry, input.request, 'page-plan'),
+    skillIds: withoutExcluded(
+      planSkillIds(
+        input.skillRegistry,
+        input.policy,
+        arabic,
+        kits,
+        requestSkillIdsFor(input.skillRegistry, input.request, 'page-plan', { excluded }),
+      ),
+      excluded,
     ),
   };
 }

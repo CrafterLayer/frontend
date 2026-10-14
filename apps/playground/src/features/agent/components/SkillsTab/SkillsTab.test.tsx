@@ -18,6 +18,7 @@ import { createCraftkitAiSkillRegistry } from '@craftkit/builder';
 
 import { knowledgeLabels } from '../../copy/knowledge-labels';
 import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
+import { builtInSkillViews } from '../../model/builtin-skills';
 import type { Fetcher } from '../../model/skill-link';
 import { skillTemplates, type SkillTemplate } from '../../model/skill-templates';
 import type { UserSkill } from '../../model/user-skills';
@@ -28,9 +29,8 @@ import { SkillsTab } from './SkillsTab';
 
 const EN = knowledgeLabels('en');
 const AR = knowledgeLabels('ar');
-const BUILT_IN_COUNT = createCraftkitAiSkillRegistry()
-  .list()
-  .filter((skill) => skill.source !== 'host').length;
+/** What the Built-in skills group lists: the switchable built-ins and the always-on ones. */
+const BUILT_IN_COUNT = builtInSkillViews(createCraftkitAiSkillRegistry().list(), 'en', []).length;
 
 const CSS = readFileSync(
   join(process.cwd(), 'src', 'features', 'agent', 'components', 'SkillsTab', 'SkillsTab.css'),
@@ -122,7 +122,11 @@ function setup(props: LiveSkillsProps = {}) {
 function switches(): HTMLElement[] {
   return screen
     .queryAllByRole('switch')
-    .filter((element) => element.closest('.ck-agent-defaults') === null);
+    .filter(
+      (element) =>
+        element.closest('.ck-agent-defaults') === null &&
+        element.closest('.ck-agent-builtins') === null,
+    );
 }
 
 /** The hidden file input behind "Upload .md or .mdx". */
@@ -290,11 +294,13 @@ describe('SkillsTab', () => {
     expect(details).not.toHaveAttribute('open');
     await user.click(summary);
     expect(details).toHaveAttribute('open');
-    expect(within(details!).getByText(EN.skills.builtInsHint)).toBeInTheDocument();
+    expect(within(details!).getByText(EN.builtInSkills.intro)).toBeInTheDocument();
     expect(within(details!).getAllByRole('listitem')).toHaveLength(BUILT_IN_COUNT);
-    // It scrolls on its own, so it is a named tab stop a keyboard can scroll.
-    const list = within(details!).getByRole('list', { name: summary.textContent });
-    expect(list).toHaveAttribute('tabindex', '0');
+    // Each one the person may switch has a switch; the engine's own read "Always on".
+    expect(within(details!).getAllByText(EN.builtInSkills.always).length).toBeGreaterThan(1);
+    const off = within(details!).getByRole('switch', { name: 'Use Charts and tables' });
+    await user.click(off);
+    expect(off).not.toBeChecked();
   });
 
   it('refuses turning on an every-request skill past the budget', async () => {

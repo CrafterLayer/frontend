@@ -14,7 +14,7 @@ export const BOTANICAL_GARDEN = defineMuralE({
     ar: 'سرخس وأشجار وشجيرات تنمو غصنًا غصنًا من الأرض بألوانك ثم تتمايل بلطف، مائلة باتجاه القراءة.',
   },
   tags: ['generative', 'nature', 'calm', 'background', 'hero'],
-  libs: ['kit', 'lsys', 'color'],
+  libs: ['kit', 'lsys', 'color', 'viewport'],
   params: [
     ...sharedParams({ seed: 27 }),
     range('plants', 'Plants', 'عدد النباتات', 5, 2, 7, 1, 'look'),
@@ -23,7 +23,7 @@ export const BOTANICAL_GARDEN = defineMuralE({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:27,speed:1,density:1,plants:5,growth:7,buds:true});
-const s=await ck.scene({libs:['lsys','color'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['lsys','color','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,L=s.lib.lsys,Co=s.lib.color,W=1280,H=720;
 const sky=Co.ramp(C.surface,Co.adjust(C.surface,{l:C.dark?0.1:-0.08}),8);
 const bg=new P.Graphics();

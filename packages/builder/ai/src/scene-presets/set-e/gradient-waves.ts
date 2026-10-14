@@ -14,7 +14,7 @@ export const GRADIENT_WAVES = defineMuralE({
     ar: 'أمواج متراكبة تتدحرج باتجاه القراءة، تتدرّج بانتظام من خلفيتك إلى لونك المميّز بخطوات OKLCH إدراكية.',
   },
   tags: ['generative', 'calm', 'background', 'hero'],
-  libs: ['kit', 'geom', 'color'],
+  libs: ['kit', 'geom', 'color', 'viewport'],
   params: [
     ...sharedParams({ seed: 12 }),
     range('bands', 'Bands', 'عدد الأمواج', 9, 3, 16, 1, 'look'),
@@ -28,7 +28,7 @@ export const GRADIENT_WAVES = defineMuralE({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:12,speed:1,density:1,bands:9,amplitude:60,curve:'natural'});
-const s=await ck.scene({libs:['geom','color'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['geom','color','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,Co=s.lib.color,W=1280,H=720;
 const N=Math.max(3,Math.min(16,Math.round(p.bands)));
 const fills=Co.ramp([C.surface,C.colors[4],C.accent,C.colors[1]],N+1,{space:'oklch'});

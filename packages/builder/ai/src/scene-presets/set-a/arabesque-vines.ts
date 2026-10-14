@@ -16,7 +16,7 @@ export const ARABESQUE_VINES = definePreset({
     ar: 'أغصان تنمو من الحواف في لفائف أرابيسك ملتفّة بفروع متناوبة، تتفتّح فيها الأوراق والمراوح النخيلية ثم تتمايل بلطف.',
   },
   tags: ['arabic', 'generative', 'calm', 'background'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 12, interactive: true }),
     range('vines', 'Vines', 'عدد الأغصان', 6, 2, 14, 1, 'look'),
@@ -38,12 +38,12 @@ export const ARABESQUE_VINES = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:12,speed:1,density:1,interactive:true,vines:6,growthSpeed:1,branching:0.5,curlStrength:0.6,leafShape:'palmette'});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,R=s.app.renderer;
 const bg=new PIXI.Graphics(),view=new PIXI.Sprite(),leafLayer=new PIXI.Container();
 const bake=new PIXI.Container(),ink=new PIXI.Graphics();
 bake.addChild(ink);
-s.stage.addChild(bg,view,leafLayer);
+s.world.addChild(bg,view,leafLayer);
 const stem=[C.colors[0],C.colors[4],C.colors[0],C.colors[4]],leafCols=[C.colors[1],C.colors[4],C.colors[0]];
 const PACE=220*p.growthSpeed;
 // Everything is laid out left to right and mirrored on the way to the screen (X), so RTL reads the same.
@@ -136,8 +136,7 @@ function tendril(reach){
   for(let k=from;k<L.length;k++)leaf(L[k],k);
   sprouts++;
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?1e6:time.t*p.speed;
   const reach=T*PACE;

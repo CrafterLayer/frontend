@@ -13,7 +13,7 @@ export const VORONOI_STAINED_GLASS = definePreset({
     ar: 'خلايا فورونوي مُرخاة تصير نافذة زجاج معشّق بألوانك، بخطوط رصاص وأشعة ضوء تعبرها، ويميل المؤشر الضوء.',
   },
   tags: ['geometric', 'light', 'generative', 'hero'],
-  libs: ['kit', 'filters'],
+  libs: ['kit', 'filters', 'viewport'],
   params: [
     ...sharedParams({ seed: 17, interactive: true }),
     range('cells', 'Cells', 'عدد الخلايا', 160, 30, 600, 10, 'look'),
@@ -23,11 +23,11 @@ export const VORONOI_STAINED_GLASS = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:17,speed:1,density:1,interactive:true,cells:160,relax:2,leadWidth:4,lightAngle:30});
-const s=await ck.scene({libs:['filters'],seed:p.seed});
+const s=await ck.scene({libs:['filters','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,F=s.lib.filters;
 const glass=new PIXI.Container(),pane=new PIXI.Graphics(),glint=new PIXI.Graphics(),lead=new PIXI.Graphics();
 glass.addChild(pane,glint,lead);
-s.stage.addChild(glass);
+s.world.addChild(glass);
 const ray=new F.GodrayFilter({angle:p.lightAngle*s.dir,gain:0.55,lacunarity:2.6,parallel:true,time:0,alpha:0.85});
 glass.filters=[ray];
 const came=0x16141c;
@@ -67,8 +67,7 @@ function build(w,h){
   lead.stroke({width:p.leadWidth,color:came,join:'round'});
   lead.rect(0,0,W,H).stroke({width:p.leadWidth*2.5,color:came});
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?0:time.t*p.speed;
   let target=p.lightAngle*s.dir;

@@ -14,7 +14,7 @@ export const HEX_ISLAND = defineMural({
     ar: 'جزيرة صغيرة من بلاطات سداسية مرسومة باليد — غابات وتلال وقرية وقلعة — في بحر بألوانك، تمرّ فوقها الغيوم.',
   },
   tags: ['illustration', 'map', 'playful', 'hero'],
-  libs: ['kit', 'hex'],
+  libs: ['kit', 'hex', 'viewport'],
   params: [
     ...sharedParams({ seed: 96 }),
     range('cols', 'Columns', 'الأعمدة', 11, 5, 20, 1, 'look'),
@@ -24,7 +24,7 @@ export const HEX_ISLAND = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:96,speed:1,density:1,cols:11,rows:7,villages:0.1,clouds:true});
-const s=await ck.scene({libs:['hex'],seed:p.seed,design:{width:1280,height:720,fit:'contain'}});
+const s=await ck.scene({libs:['hex','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'contain',zoom:true}});
 const P=s.PIXI,C=s.palette,W=1280,H=720;
 const sea=new P.Graphics().rect(-W,-H,W*3,H*3).fill(C.mix(C.accent,C.surface,s.lib.hex.waterMix));
 s.world.addChild(sea);

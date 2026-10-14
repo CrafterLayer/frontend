@@ -155,7 +155,8 @@ describe.skipIf(!QA)('compact ready mural initialization in the real Studio runt
       await page.route(/^https?:/u, (route) => route.abort());
       try {
         const fixture = initializedScene(dir);
-        const code = `await (async () => {\n${fixture.kit.code}\n})();\nwindow.__sceneInitDone=true;ck.root.querySelector('a').addEventListener('click',()=>{window.parent.postMessage({type:'ck-preview:scene-init-action'},'*');});`;
+        // The scene object is read back (window.__scene) to check the mural's fit.
+        const code = `const ckScene=ck.scene.bind(ck);ck.scene=async(o)=>{const s=await ckScene(o);window.__scene=s;return s;};\nawait (async () => {\n${fixture.kit.code}\n})();\nwindow.__sceneInitDone=true;ck.root.querySelector('a').addEventListener('click',()=>{window.parent.postMessage({type:'ck-preview:scene-init-action'},'*');});`;
         const markup = `<div data-ck="scene-page">${kitMarkup(fixture.kit, dir, code)}<div id="details"></div></div>`;
         const html = await buildStudioPreviewHtml({
           code,
@@ -211,6 +212,36 @@ describe.skipIf(!QA)('compact ready mural initialization in the real Studio runt
         expect(measured.canvas.top).toBeCloseTo(measured.root.top, 0);
         expect(measured.canvas.height).toBeCloseTo(measured.root.height, 0);
         expect(measured.root.height).toBeLessThanOrEqual(width === 390 ? 650 : 760);
+        // Mural scale (2026-10-14): the mural composes at 1280 × 720 in a viewport camera that
+        // covers the region — scale 1 in a 1280 px region, the same picture at 0.72 on a phone —
+        // and refits when the region changes width, never re-laying itself out in CSS pixels.
+        const fit = () =>
+          frame.evaluate(() => {
+            const scene = (window as unknown as { __scene?: { design: { scale: number } | null } })
+              .__scene;
+            const root = document.querySelector('[data-ck="kit"]')!.getBoundingClientRect();
+            return {
+              scale: scene?.design?.scale ?? 0,
+              cover: Math.max(root.width / 1280, root.height / 720),
+            };
+          });
+        const fitted = await fit();
+        expect(fitted.scale).toBeCloseTo(fitted.cover, 2);
+        expect(fitted.scale).toBeCloseTo(width === 390 ? 520 / 720 : 1, 2);
+        expect(
+          await frame.evaluate(
+            () => getComputedStyle(document.querySelector('[data-ck="kit"] canvas')!).touchAction,
+          ),
+        ).toBe('pan-x pan-y');
+        // A Preview device switch: the camera refits to the new region at once.
+        await page.setViewportSize({ width: width === 390 ? 1280 : 390, height: 900 });
+        await expect
+          .poll(() => fit().then(({ scale }) => scale))
+          .toBeCloseTo(width === 390 ? 1 : 520 / 720, 2);
+        await page.setViewportSize({ width, height: 900 });
+        await expect
+          .poll(() => fit().then(({ scale, cover }) => Math.abs(scale - cover)))
+          .toBeLessThan(0.01);
         for (const bounds of [measured.copy, ...measured.descendants]) {
           expect(bounds.left).toBeGreaterThanOrEqual(measured.section.left - 1);
           expect(bounds.right).toBeLessThanOrEqual(measured.section.right + 1);

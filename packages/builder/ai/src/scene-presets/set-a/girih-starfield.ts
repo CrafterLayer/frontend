@@ -19,7 +19,7 @@ export const GIRIH_STARFIELD = definePreset({
     ar: 'زخرفة نجمية إسلامية حقيقية بطريقة هانكن بتناظر سداسي أو ثماني أو عشاري أو اثني عشري: أشرطة ذهبية ترسم نفسها باتجاه القراءة ثم تتوهّج.',
   },
   tags: ['arabic', 'geometric', 'light', 'hero', 'bold'],
-  libs: ['kit', 'filters'],
+  libs: ['kit', 'filters', 'viewport'],
   params: [
     ...sharedParams({ seed: 1, interactive: true }),
     select(
@@ -42,7 +42,7 @@ export const GIRIH_STARFIELD = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:1,speed:1,density:1,interactive:true,fold:'10',contactAngle:60,tileSize:150,drawDuration:3,goldLeaf:true});
-const s=await ck.scene({libs:['filters'],seed:p.seed});
+const s=await ck.scene({libs:['filters','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,F=s.lib.filters,R=s.app.renderer,D=Math.PI/180,TAU=Math.PI*2;
 const fold=[6,8,10,12].indexOf(+p.fold)>=0?+p.fold:10;
 const gold=p.goldLeaf?C.mix(0xd8b25a,C.accent,0.15):C.accent;
@@ -51,7 +51,7 @@ const bg=new PIXI.Graphics(),guide=new PIXI.Graphics(),fillView=new PIXI.Sprite(
 const glowView=new PIXI.Sprite(),lineView=new PIXI.Sprite(),band=new PIXI.Graphics(),core=new PIXI.Graphics();
 const sparks=new PIXI.Container(),hot=new PIXI.Graphics();
 hot.blendMode='add';sparks.blendMode='add';
-s.stage.addChild(bg,guide,fillView,fillLive,glowView,lineView,band,core,sparks,hot);
+s.world.addChild(bg,guide,fillView,fillLive,glowView,lineView,band,core,sparks,hot);
 // Finished tiles are stamped once into the line texture; when all are there, one knockout-glow pass bakes the glow.
 const bake=new PIXI.Container(),holder=new PIXI.Container(),ink=new PIXI.Graphics(),glowSrc=new PIXI.Sprite();
 bake.addChild(holder);holder.addChild(ink,glowSrc);glowSrc.visible=false;
@@ -197,8 +197,7 @@ function draw(T){
   }
   return all;
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?1e4:time.t*p.speed;
   if(!done){done=draw(T);doneAt=T;}

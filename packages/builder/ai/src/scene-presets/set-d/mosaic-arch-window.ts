@@ -14,7 +14,7 @@ export const MOSAIC_ARCH_WINDOW = defineMural({
     ar: 'قوس مدبّب أو دائري أو على هيئة حدوة فرس، مملوء بزجاج فسيفساء بألوانك داخل إطار منحوت، يعبره ضوء متهادٍ.',
   },
   tags: ['geometric', 'arabic', 'light', 'hero'],
-  libs: ['kit', 'noise', 'geom'],
+  libs: ['kit', 'noise', 'geom', 'viewport'],
   params: [
     ...sharedParams({ seed: 63 }),
     select('arch', 'Arch', 'القوس', 'pointed', [
@@ -27,7 +27,7 @@ export const MOSAIC_ARCH_WINDOW = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:63,speed:1,density:1,arch:'pointed',tiles:220,grout:4});
-const s=await ck.scene({libs:['noise','geom'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['noise','geom','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,W=1280,H=720;
 const n=s.lib.noise.create(s,{type:'cellular',cell:'id',scale:140});
 const ah=H*0.8,aw=Math.min(W*0.46,ah*0.7),ax=(W-aw)/2,ay=H*0.12;

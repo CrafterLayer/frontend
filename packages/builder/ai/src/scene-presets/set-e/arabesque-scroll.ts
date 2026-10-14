@@ -14,7 +14,7 @@ export const ARABESQUE_SCROLL = defineMuralE({
     ar: 'إفريز من ألواح أرابيسك متناظرة تنمو أغصانها الملتفّة من المركز بألوانك، ويعبرها ضوء باتجاه القراءة.',
   },
   tags: ['geometric', 'arabic', 'calm', 'background'],
-  libs: ['kit', 'lsys', 'color'],
+  libs: ['kit', 'lsys', 'color', 'viewport'],
   params: [
     ...sharedParams({ seed: 51 }),
     range('columns', 'Panels across', 'عدد الألواح', 4, 2, 6, 1, 'look'),
@@ -23,7 +23,7 @@ export const ARABESQUE_SCROLL = defineMuralE({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:51,speed:1,density:1,columns:4,curl:30,growth:6});
-const s=await ck.scene({libs:['lsys','color'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['lsys','color','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,L=s.lib.lsys,Co=s.lib.color,W=1280,H=720;
 const cols=Math.max(2,Math.min(6,Math.round(p.columns))),rows=2,cw=W/cols,ch=H/rows;
 const ground=Co.mix(C.surface,C.accent,C.dark?0.07:0.05);

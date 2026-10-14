@@ -14,7 +14,7 @@ export const MASHRABIYA_LIGHT = definePreset({
     ar: 'ضوء الشمس ينساب عبر مشربية منحوتة ويلقي نقشها على الأرض، مع غبار يسبح في الأشعة، ويحرّك المؤشر الشمس.',
   },
   tags: ['arabic', 'geometric', 'light', 'hero', 'calm'],
-  libs: ['kit', 'filters'],
+  libs: ['kit', 'filters', 'viewport'],
   params: [
     ...sharedParams({ seed: 8, interactive: true }),
     select(
@@ -45,12 +45,12 @@ export const MASHRABIYA_LIGHT = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:8,speed:1,density:1,interactive:true,lattice:'star',cell:56,sunPath:'arc',shaftIntensity:0.8});
-const s=await ck.scene({libs:['filters'],seed:p.seed});
+const s=await ck.scene({libs:['filters','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,F=s.lib.filters,TAU=Math.PI*2;
 const back=new PIXI.Graphics(),light=new PIXI.Container(),sun=new PIXI.Graphics(),screen=new PIXI.Graphics(),rim=new PIXI.Graphics();
 const floor=new PIXI.Graphics(),spill=new PIXI.Graphics(),motes=new PIXI.Graphics();
 light.addChild(sun);spill.blendMode='add';motes.blendMode='add';
-s.stage.addChild(back,light,screen,rim,floor,spill,motes);
+s.world.addChild(back,light,screen,rim,floor,spill,motes);
 const rays=new F.GodrayFilter({parallel:false,center:{x:0,y:0},gain:0.6,lacunarity:2.8,alpha:p.shaftIntensity,time:0});
 const soft=new PIXI.BlurFilter({strength:3});
 light.filters=[rays];spill.filters=[soft];
@@ -86,8 +86,7 @@ function sunAt(u){
   const y=p.sunPath==='sweep'?Ys*0.22:Ys*(0.12+0.3*(1-Math.sin(u*Math.PI)));
   return [x,y];
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?0:time.t*p.speed;
   let q=sunAt(s.reducedMotion?0.35:0.5-0.5*Math.cos(T*0.26));

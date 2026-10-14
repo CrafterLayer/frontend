@@ -13,7 +13,7 @@ export const TERRACED_TOPOGRAPHY = defineMural({
     ar: 'تضاريس متخيَّلة على هيئة مدرّجات ارتفاع ملوّنة بخطوط كنتور وبألوانك، تنجرف ببطء باتجاه القراءة.',
   },
   tags: ['generative', 'calm', 'background', 'map'],
-  libs: ['kit', 'noise', 'geom'],
+  libs: ['kit', 'noise', 'geom', 'viewport'],
   params: [
     ...sharedParams({ seed: 41 }),
     range('levels', 'Levels', 'عدد المستويات', 9, 3, 16, 1, 'look'),
@@ -23,7 +23,7 @@ export const TERRACED_TOPOGRAPHY = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:41,speed:1,density:1,levels:9,scale:420,drift:0.5,lines:true});
-const s=await ck.scene({libs:['noise','geom'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['noise','geom','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,W=1280,H=720;
 const n=s.lib.noise.create(s,{fractal:'fbm',octaves:4,scale:p.scale,warp:p.scale*0.2});
 const L=Math.max(3,Math.round(p.levels)),cell=Math.max(8,Math.round(16/Math.sqrt(Math.max(0.2,p.density)*s.quality)));

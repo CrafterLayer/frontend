@@ -14,7 +14,7 @@ export const DOMAIN_WARP_LIQUID = definePreset({
     ar: 'ضجيج يُطوى داخل نفسه مرتين على معالج الرسوميات: رخام سائل وتدرّجات زيتية بألوانك مع حبيبات ناعمة، ويدوّمه المؤشر.',
   },
   tags: ['generative', 'background', 'hero', 'calm', 'loop'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 11, interactive: true }),
     range('warp', 'Warp', 'قوة الالتواء', 2.2, 0, 4, 0.1, 'look'),
@@ -24,7 +24,7 @@ export const DOMAIN_WARP_LIQUID = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:11,speed:1,density:1,interactive:true,warp:2.2,scale:2.4,grain:0.08,stops:4});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette;
 function v3(c){return 'vec3('+[16,8,0].map(function(b){return ((c>>b&255)/255).toFixed(3);}).join(',')+')';}
 function f(x){return (+x).toFixed(4);}
@@ -73,18 +73,17 @@ function uniforms(filter){
 const u=uniforms(fx);
 const quad=new PIXI.Graphics();
 quad.filters=[fx];
-s.stage.addChild(quad);
+s.world.addChild(quad);
 function res(q){fx.resolution=q<1?0.5:0.75;}
 res(s.quality);
 s.onQuality(res);
 function layout(w,h){quad.clear().rect(0,0,w,h).fill(0xffffff);}
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 let mx=0.5,my=0.5,mk=0;
 s.tick(function(){
   if(!u)return;
   const on=p.interactive&&s.pointer.inside&&!s.reducedMotion;
-  const tx=on?s.pointer.x/Math.max(1,s.width):0.5,ty=on?s.pointer.y/Math.max(1,s.height):0.5;
+  const tx=on?s.pointer.x/1280:0.5,ty=on?s.pointer.y/720:0.5;
   mx+=(tx-mx)*0.08;my+=(ty-my)*0.08;mk+=((on?1:0)-mk)*0.05;
   u.uMx=mx;u.uMy=my;u.uMk=mk;
 });

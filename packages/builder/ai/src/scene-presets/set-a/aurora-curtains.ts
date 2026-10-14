@@ -13,7 +13,7 @@ export const AURORA_CURTAINS = definePreset({
     ar: 'ستائر شفقٍ متوهّجة تتموّج فوق سلسلة جبلية داكنة بمزج ضوئي وتوهّج، ويرفع المؤشر الضوء حيث يمرّ.',
   },
   tags: ['generative', 'light', 'calm', 'background', 'hero'],
-  libs: ['kit', 'filters'],
+  libs: ['kit', 'filters', 'viewport'],
   params: [
     ...sharedParams({ seed: 23, interactive: true }),
     range('ribbons', 'Curtains', 'عدد الستائر', 6, 3, 12, 1, 'look'),
@@ -23,10 +23,10 @@ export const AURORA_CURTAINS = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:23,speed:1,density:1,interactive:true,ribbons:6,amplitude:0.6,hueDrift:0.4,glow:1.2});
-const s=await ck.scene({libs:['filters'],seed:p.seed});
+const s=await ck.scene({libs:['filters','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,F=s.lib.filters,R=s.app.renderer;
 const sky=new PIXI.Graphics(),stars=new PIXI.Graphics(),veil=new PIXI.Container(),ridge=new PIXI.Graphics();
-s.stage.addChild(sky,stars,veil,ridge);
+s.world.addChild(sky,stars,veil,ridge);
 const blur=new F.KawaseBlurFilter({strength:3,quality:3});
 const bloom=new F.AdvancedBloomFilter({threshold:0.55,bloomScale:p.glow*0.6,brightness:1,blur:8,quality:6});
 veil.filters=[blur,bloom];
@@ -73,8 +73,7 @@ function layout(w,h){
     ropes.push({rope:rope,pts:pts,base:H*(0.38+0.3*s.random()),ph:s.rand(0,100),amp:s.rand(0.6,1.2),k:k});
   }
 }
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 let lift=0,lx=0;
 s.tick(function(time){
   const T=s.reducedMotion?3:time.t*p.speed;

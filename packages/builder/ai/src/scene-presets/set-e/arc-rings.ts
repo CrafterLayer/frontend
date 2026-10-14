@@ -15,7 +15,7 @@ export const ARC_RINGS = defineMuralE({
     ar: 'حلقات متّحدة المركز من أقواس مستديرة بألوانك، تدور ببطء في اتجاهات متعاكسة داخل مدارات منسابة، كأنها أسطرلاب.',
   },
   tags: ['geometric', 'calm', 'background', 'hero'],
-  libs: ['kit', 'geom', 'color'],
+  libs: ['kit', 'geom', 'color', 'viewport'],
   params: [
     ...sharedParams({ seed: 33 }),
     range('rings', 'Rings', 'عدد الحلقات', 7, 3, 12, 1, 'look'),
@@ -24,7 +24,7 @@ export const ARC_RINGS = defineMuralE({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:33,speed:1,density:1,rings:7,gap:0.04,orbits:true});
-const s=await ck.scene({libs:['geom','color'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['geom','color','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,Co=s.lib.color,W=1280,H=720,cx=W/2,cy=H/2;
 const R=Math.max(3,Math.min(12,Math.round(p.rings))),band=300/R;
 const tones=Co.ramp(Co.mix(C.surface,C.accent,0.3),C.accent,R,{space:'oklch'});

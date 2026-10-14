@@ -14,7 +14,7 @@ export const RIBBON_FLOW = defineMural({
     ar: 'أشرطة حريرية بألوانك تنتفخ وتتمايل في حلقة متصلة بلا انقطاع، وتستدق باتجاه القراءة.',
   },
   tags: ['generative', 'calm', 'background', 'hero'],
-  libs: ['kit', 'noise', 'geom'],
+  libs: ['kit', 'noise', 'geom', 'viewport'],
   params: [
     ...sharedParams({ seed: 85 }),
     range('ribbons', 'Ribbons', 'عدد الأشرطة', 6, 2, 12, 1, 'look'),
@@ -23,7 +23,7 @@ export const RIBBON_FLOW = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:85,speed:1,density:1,ribbons:6,width:70,wave:0.5});
-const s=await ck.scene({libs:['noise','geom'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['noise','geom','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,W=1280,H=720;
 const n=s.lib.noise.create(s,{fractal:'fbm',octaves:2,scale:520});
 const N=Math.max(2,Math.min(12,Math.round(p.ribbons))),colors=C.ramp(N);

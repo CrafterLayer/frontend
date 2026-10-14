@@ -18,7 +18,7 @@ export const REACTION_DIFFUSION_SKIN = definePreset({
     ar: 'كيمياء غراي-سكوت تُحاكى على معالج الرسوميات فتنمو أنماط المرجان والانقسام والمتاهة والبقع بلمعة بارزة، وارسم نموّاً جديداً بالمؤشر.',
   },
   tags: ['generative', 'interactive', 'background', 'loop'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 13, interactive: true }),
     select(
@@ -42,7 +42,7 @@ export const REACTION_DIFFUSION_SKIN = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:13,speed:1,density:1,interactive:true,pattern:'coral',feed:0.0545,kill:0.062,cell:2});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,R=s.app.renderer;
 const FK={coral:[0.0545,0.062],mitosis:[0.0367,0.0649],maze:[0.029,0.057],spots:[0.035,0.065],waves:[0.026,0.051]}[p.pattern]||[p.feed,p.kill];
 function f(x){return (+x).toFixed(4);}
@@ -85,7 +85,7 @@ const u=uniforms(step);
 step.resolution=res0;seedFx.resolution=res0;
 const sim=new PIXI.Sprite(),view=new PIXI.Sprite();
 sim.filters=[step];view.filters=[look];
-s.stage.addChild(view);
+s.world.addChild(view);
 let W=1,H=1,sw=1,sh=1,a=null,b=null,fresh=true,acc=0;
 
 function layout(w,h){
@@ -104,8 +104,7 @@ function run(n){
   for(let i=0;i<n;i++){sim.texture=a;R.render({container:sim,target:b,clear:true});const t=a;a=b;b=t;}
   view.texture=a;view.width=W;view.height=H;
 }
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 // The first GROW steps come in large batches, so even software WebGL shows a grown pattern within
 // seconds; after that the steps per frame follow the measured frame time (fewer on a slow GPU,
 // never none), at most RATE steps a second.

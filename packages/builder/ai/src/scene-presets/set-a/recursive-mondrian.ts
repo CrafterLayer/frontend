@@ -15,7 +15,7 @@ export const RECURSIVE_MONDRIAN = definePreset({
     ar: 'شبكة على طريقة دي ستيل تعيد تقسيم نفسها بحركة انسيابية بألوانك المميّزة، وانقر أي لوح لتقسمه.',
   },
   tags: ['geometric', 'bold', 'interactive', 'generative', 'loop'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 3, interactive: true }),
     range('depth', 'Depth', 'العمق', 5, 2, 7, 1, 'look'),
@@ -26,14 +26,14 @@ export const RECURSIVE_MONDRIAN = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:3,speed:1,density:1,interactive:true,depth:5,splitChance:0.7,lineWidth:8,accentRatio:0.28,interval:3.5});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette;
 const g=new PIXI.Graphics();
-s.stage.addChild(g);
+s.world.addChild(g);
 const paper=C.surface,paper2=C.mix(C.surface,C.text,0.07),line=C.text;
 const colours=[C.colors[0],C.colors[4],C.colors[1],C.colors[3]];
 const maxDepth=Math.max(2,Math.min(7,Math.round(p.depth)));
-let W=Math.max(1,s.width),H=Math.max(1,s.height),timer=0;
+let W=1280,H=720,timer=0;
 
 function neutral(){return s.random()<0.3?paper2:paper;}
 function colour(){return s.random()<p.accentRatio*1.2?s.pick(colours):neutral();}
@@ -79,8 +79,7 @@ function lines(n,x,y,w,h){
 }
 function settle(n,k){n.r+=(n.tr-n.r)*k;if(!n.leaf){settle(n.a,k);settle(n.b,k);}}
 function layout(w,h){W=Math.max(1,w);H=Math.max(1,h);g.scale.x=s.dir;g.x=s.dir<0?W:0;}
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 
 s.pointer.onDown(function(){
   if(!p.interactive||!s.pointer.inside||s.editor)return;

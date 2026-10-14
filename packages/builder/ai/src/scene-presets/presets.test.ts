@@ -126,10 +126,32 @@ describe.each(CASES)('scene preset %s', (_id, preset) => {
       unknown: [],
       dynamic: false,
     });
-    // … and the code reads each of them as `s.lib.<key>`, and nothing else.
-    expect(libsReadInCode(preset.code)).toEqual([...extra].sort());
+    // … and the code reads each of them as `s.lib.<key>`, and nothing else — except 'viewport',
+    // which the kit reads itself when the design zooms (s.world is then the Viewport).
+    const zooms = /design:\{[^}]*\bzoom:true\b/u.test(preset.code);
+    expect(libsReadInCode(preset.code)).toEqual(
+      extra.filter((key) => !(zooms && key === 'viewport')).sort(),
+    );
     expect(preset.sound).toBe(loaded.sound);
   });
+
+  /*
+    Mural scale (2026-10-14): a mural or pattern laid out from s.width/s.height in CSS pixels
+    showed its desktop details zoomed ~3× on a 390 px phone and zoomed out on a 1920 px screen.
+    Each one now composes once at a fixed 1280 × 720 design in s.world, a pixi-viewport camera
+    the kit fits to the region on every resize — the same picture in the editor at any zoom,
+    in Preview on every device and on the published page.
+  */
+  it.runIf(preset.category === 'mural' || preset.category === 'pattern')(
+    'composes at a fixed design in a viewport camera, never in region pixels',
+    () => {
+      expect(preset.code).toMatch(
+        /ck\.scene\(\{[^)]*design:\{width:1280,height:720,fit:'(?:cover|contain)',zoom:true\}/u,
+      );
+      expect(preset.libs).toContain('viewport');
+      expect(preset.code).not.toMatch(/\bs\.(?:width|height|onResize|stage)\b/u);
+    },
+  );
 
   it('fits the customCode js limit', () => {
     expect(CUSTOM_CODE_JS_MAX_LENGTH).toBe(STUDIO_CODE_MAX);

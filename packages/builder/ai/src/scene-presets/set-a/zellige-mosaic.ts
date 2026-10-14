@@ -14,7 +14,7 @@ export const ZELLIGE_MOSAIC = definePreset({
     ar: 'بلاطات نجمية مقطوعة يدوياً بطلاء متفاوت وفواصل جصّية، يمرّ عليها لمعان ضوئي متوهّج، بتشكيلات النجمة الثمانية أو الاثني عشرية أو السداسية.',
   },
   tags: ['arabic', 'geometric', 'light', 'background'],
-  libs: ['kit', 'filters'],
+  libs: ['kit', 'filters', 'viewport'],
   params: [
     ...sharedParams({ seed: 4, interactive: true }),
     select(
@@ -36,12 +36,12 @@ export const ZELLIGE_MOSAIC = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:4,speed:1,density:1,interactive:true,pattern:'8-star',tileSize:96,glazeVariance:0.5,sheenSpeed:0.6,grout:2});
-const s=await ck.scene({libs:['filters'],seed:p.seed});
+const s=await ck.scene({libs:['filters','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,F=s.lib.filters,TAU=Math.PI*2;
 const root=new PIXI.Container(),base=new PIXI.Graphics(),tiles=new PIXI.Graphics(),sheen=new PIXI.Graphics();
 sheen.blendMode='add';
 root.addChild(base,tiles,sheen);
-s.stage.addChild(root);
+s.world.addChild(root);
 const bloom=new F.AdvancedBloomFilter({threshold:0.6,bloomScale:0.9,brightness:1,blur:5,quality:5});
 root.filters=[bloom];
 const glazes=[C.colors[0],C.colors[4],C.colors[1],C.mix(C.colors[0],C.text,0.35)];
@@ -84,8 +84,7 @@ function build(w,h){
   for(const q of pieces)tiles.poly(q.pts).fill(q.col);
   if(p.grout>0){for(const q of pieces)tiles.poly(q.pts);tiles.stroke({width:p.grout,color:groutC,join:'round'});}
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?0:time.t*p.speed;
   let target=s.reducedMotion?0.4:((T*p.sheenSpeed*0.15)%1.6)-0.3;

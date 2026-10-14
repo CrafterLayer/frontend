@@ -146,14 +146,14 @@ for(const action of ['back','next','reset']){const button=root.querySelector('[d
 if(voice){voice.hidden=!speech;const fn=()=>{if(s.editor)return;reading=!reading;voice.setAttribute('aria-pressed',String(reading));speak(content.findIndex(c=>c[0]===story.current))};voice.addEventListener('click',fn);s.dispose(()=>{voice.removeEventListener('click',fn);speech?.cancel()})}
 s.dispose(()=>story.dispose());`;
 
-export const PIXI_MURAL_EXAMPLE = `const s=await ck.scene({seed:23,quality:'auto'});
-const P=s.PIXI,bg=new P.Graphics(),bands=new P.Container(),details=new P.Container();
-s.stage.addChild(bg,bands,details);s.canvas.setAttribute('aria-hidden','true');
+export const PIXI_MURAL_EXAMPLE = `const s=await ck.scene({seed:23,quality:'auto',libs:['viewport'],design:{width:1280,height:720,fit:'cover',zoom:true}});
+const P=s.PIXI,W=1280,H=720,bg=new P.Graphics(),bands=new P.Container(),details=new P.Container();
+s.world.addChild(bg,bands,details);s.canvas.setAttribute('aria-hidden','true');
 const colors=s.palette.ramp(5);
-const ribbons=colors.map(color=>{const g=new P.Graphics();bands.addChild(g);return {g,color,phase:s.rand(0,6)}});
-const marks=Array.from({length:s.count(s.editor?24:80)},()=>{const g=new P.Graphics().circle(0,0,s.rand(1,3)).fill(s.palette.accent);g.alpha=s.rand(.1,.4);details.addChild(g);return {g,x:s.random(),y:s.random()}});
-const layout=()=>{bg.clear().rect(0,0,s.width,s.height).fill(s.palette.surface);ribbons.forEach(({g,color,phase},i)=>{g.clear().moveTo(0,s.height);for(let x=0;x<=s.width+24;x+=24)g.lineTo(x,s.height*(.35+i*.09)+Math.sin(x/Math.max(1,s.width)*6+phase)*s.height*.06);g.lineTo(s.width,s.height).closePath().fill({color,alpha:.3})});marks.forEach(m=>m.g.position.set(m.x*s.width,m.y*s.height))};
-layout();s.onResize(layout);if(!s.editor&&!s.reducedMotion)s.tick(time=>{bands.y=Math.sin(time.t*.35)*s.height*.012;details.x=(s.pointer.nx-.5)*s.width*.008});`;
+bg.rect(0,0,W,H).fill(s.palette.surface);
+colors.forEach((color,i)=>{const g=new P.Graphics(),phase=s.rand(0,6);g.moveTo(0,H);for(let x=0;x<=W+24;x+=24)g.lineTo(x,H*(.35+i*.09)+Math.sin(x/W*6+phase)*H*.06);bands.addChild(g.lineTo(W,H).closePath().fill({color,alpha:.3}))});
+for(let i=0;i<s.count(s.editor?24:80);i++){const g=new P.Graphics().circle(0,0,s.rand(1,3)).fill(s.palette.accent);g.alpha=s.rand(.1,.4);g.position.set(s.rand(0,W),s.rand(0,H));details.addChild(g)}
+if(!s.editor&&!s.reducedMotion)s.tick(time=>{bands.y=Math.sin(time.t*.35)*H*.012;details.x=(s.pointer.nx-.5)*W*.008});`;
 
 /** One-line e.g. entries remain compatible with pixiSkillExamples and canonical skill budgets. */
 function inlineExample(code: string): string {
@@ -218,9 +218,9 @@ export const PIXI_MURAL_SKILL: AiSkillDefinitionV1 = {
   instructions: `PRESETS FIRST: scene.preset mural:flow-field-silk|domain-warp-liquid|aurora-curtains|circle-packing-bloom|recursive-mondrian|differential-growth-coral|reaction-diffusion-skin|topographic-contours|voronoi-stained-glass|low-poly-terrain|rough-notebook|terraced-topography|paper-cut-landscape|ribbon-flow|hex-island|botanical-garden|gradient-waves|arc-rings pattern:girih-starfield|zellige-mosaic|mashrabiya-light|arabesque-vines|mosaic-arch-window|ebru-marbling|arabesque-scroll type:calligraphy-ink-reveal|kinetic-word-grid|falling-letters-pile|particle-text-morph is a tested whole mural set by params, in the page palette; write code only for what no preset covers, and keep new scene code short (under ~9,000 characters).
 NO UI: a mural is the art — no instructions card, dialogue box, Next/Restart/Play buttons or status unless asked.
 ART DIRECTION FIRST: one motif from the brief, one focal area, room for DOM copy, 3-5 coherent colours, depth layers; illustrated geometry, type collage, ribbons, plants or a generative landscape over random particles. Arabic copy stays DOM or unsplit Text.
-Free code OFF: closed media.add and explain opt-in; ON: ck.scene({seed,quality:'auto'}), one v8 namespace, no imports/CDN. s.palette.ramp/mix, seeded s.random/rand/noise2, s.count budgets detail. Build geometry once; animate transforms in s.tick, never rebuild every frame. s.pointer is local; decoration never steals editing clicks. A complete still in reduced motion; fewer marks in editor; a failed load leaves usable DOM.
+Free code OFF: closed media.add and explain opt-in; ON: ck.scene({seed,quality:'auto',libs:['viewport'],design:{width:1280,height:720,fit:'cover',zoom:true}}): compose once in s.world at 1280×720, no s.width/onResize; the viewport fits it everywhere; one v8 namespace, no imports/CDN. s.palette.ramp/mix, seeded s.random/rand/noise2, s.count budgets detail. Build geometry once; animate transforms in s.tick, never rebuild every frame. s.pointer is local; decoration never steals editing clicks. A complete still in reduced motion; fewer marks in editor; a failed load leaves usable DOM.
 LIBS only from the card's allowlist, one useful effect: filters; emitter → s.lib.emitter.spawn(s,'snow'|'petals'|…) (a raw Emitter's parent is a PIXI.ParticleContainer); brush; rough; viewport. noise → n=s.lib.noise.create(s,{type:'simplex'|'perlin'|'cellular'|…,fractal:'fbm'|'ridged'|'billow',scale,warp}): n.at(x,y,t), seamless n.loop(x,y,phase), n.grid({width,height,cell,t}). geom (flat [x,y,…] in design units) → G.bands(grid,8)/G.lines(grid,12) contours, G.draw(g,shapes,fill) cuts holes, G.difference|union|intersect(a,b), G.mosaic(s,{cells,gap,clip:G.arch(x,y,w,h,'pointed')}), G.ribbon(pts,t=>w), G.smooth(pts), G.curve([x0,y0,cx,cy,x1,y1]).outline([4,40]) a tapered stroke, G.spline(pts,{curve}), G.arc({cx,cy,inner,outer,start,end}) per G.pie(values) span, G.simplify(pts,2). color (0xRRGGBB from s.palette) → Co.ramp(a,b,n,{space:'oklch'}), shades(c,n), harmony(c,'analogous'), readable(bg,[…]), adjust(c,{l,c,h}). lsys → r=L.fit(L.grow(s,{preset:'fern'|'tree'|'vine'|'arabesque',dir:s.dir}),box); L.draw(g.clear(),L.upTo(r,t),{color,width}) grows it. hex → (await s.lib.hex.load(s)).board({cols,rows}): Kenney CC0 tiles, RTL-mirrored.
-Bound redraws and GPU filters; s.dispose owned textures, filters, listeners. Size in design units or s.width/height, never window; check phone focal point and contrast. Meaning stays accessible outside the canvas.
+Bound redraws and GPU filters; s.dispose owned textures, filters, listeners. Size in design units, never window; a phone shows the middle 540: focal point there; check contrast. Meaning stays accessible outside the canvas.
 e.g. layered ribbon mural: ${inlineExample(PIXI_MURAL_EXAMPLE)}`,
 };
 

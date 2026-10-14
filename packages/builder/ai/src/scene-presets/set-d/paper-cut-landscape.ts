@@ -14,7 +14,7 @@ export const PAPER_CUT_LANDSCAPE = defineMural({
     ar: 'تلال من طبقات ورقية بظلال ناعمة تحت سماء ورقية قُصّت منها الشمس، بألوانك؛ تنجرف كل طبقة بحسب عمقها.',
   },
   tags: ['illustration', 'calm', 'hero', 'landscape'],
-  libs: ['kit', 'noise', 'geom'],
+  libs: ['kit', 'noise', 'geom', 'viewport'],
   params: [
     ...sharedParams({ seed: 52 }),
     range('layers', 'Layers', 'عدد الطبقات', 5, 3, 8, 1, 'look'),
@@ -23,7 +23,7 @@ export const PAPER_CUT_LANDSCAPE = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:52,speed:1,density:1,layers:5,relief:1,sun:true});
-const s=await ck.scene({libs:['noise','geom'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['noise','geom','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,W=1280,H=720,N=Math.max(3,Math.min(8,Math.round(p.layers)));
 const n=s.lib.noise.create(s,{fractal:'ridged',octaves:3,scale:460});
 const sky=new P.Graphics();

@@ -14,7 +14,7 @@ export const EBRU_MARBLING = defineMural({
     ar: 'ورق مُرخّم على طريقة فن الإبرو: عروق من ألوانك تتداخل كأنها مُشّطت على الماء، وتنساب ببطء في حلقة بلا انقطاع.',
   },
   tags: ['generative', 'arabic', 'calm', 'background'],
-  libs: ['kit', 'noise', 'geom'],
+  libs: ['kit', 'noise', 'geom', 'viewport'],
   params: [
     ...sharedParams({ seed: 74 }),
     range('veins', 'Veins', 'العروق', 14, 6, 28, 1, 'look'),
@@ -23,7 +23,7 @@ export const EBRU_MARBLING = defineMural({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:74,speed:1,density:1,veins:14,swirl:220,scale:380});
-const s=await ck.scene({libs:['noise','geom'],seed:p.seed,design:{width:1280,height:720,fit:'cover'}});
+const s=await ck.scene({libs:['noise','geom','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const P=s.PIXI,C=s.palette,G=s.lib.geom,W=1280,H=720;
 const n=s.lib.noise.create(s,{fractal:'fbm',octaves:3,scale:p.scale,warp:p.swirl,speed:0.8});
 const L=Math.max(6,Math.round(p.veins)),cell=Math.max(8,Math.round(14/Math.sqrt(Math.max(0.2,p.density)*s.quality)));

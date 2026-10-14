@@ -120,7 +120,7 @@ it.skipIf(process.env['CRAFTKIT_BROWSER_QA'] !== '1')(
 
             const mural = await mount(page, PIXI_MURAL_EXAMPLE, '', true, dir);
             const details = await mural.evaluate<number>(
-              'window.__creativeScene.stage.children[2].children.length',
+              'window.__creativeScene.world.children[2].children.length',
             );
             expect(details).toBeGreaterThan(20);
             expect(details).toBeLessThanOrEqual(80);

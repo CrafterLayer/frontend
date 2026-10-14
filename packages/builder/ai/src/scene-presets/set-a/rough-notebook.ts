@@ -15,7 +15,7 @@ export const ROUGH_NOTEBOOK = definePreset({
     ar: 'رسومات يدوية على ورق مسطّر تظهر واحدة تلو الأخرى وترتعش كالرسوم المتحركة، بتظليل خطّي أو متقاطع أو متعرّج أو منقّط، وانقر لتضيف المزيد.',
   },
   tags: ['interactive', 'bold', 'loop', 'background'],
-  libs: ['kit', 'rough'],
+  libs: ['kit', 'rough', 'viewport'],
   params: [
     ...sharedParams({ seed: 6, interactive: true }),
     range('shapes', 'Doodles', 'عدد الرسومات', 14, 4, 40, 1, 'look'),
@@ -39,10 +39,10 @@ export const ROUGH_NOTEBOOK = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:6,speed:1,density:1,interactive:true,shapes:14,roughness:1.4,hachureGap:6,fillStyle:'hachure',wobble:0.5});
-const s=await ck.scene({libs:['rough'],seed:p.seed});
+const s=await ck.scene({libs:['rough','viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,RG=s.lib.rough,gen=RG.generator();
 const paper=new PIXI.Graphics(),board=new PIXI.Container();
-s.stage.addChild(paper,board);
+s.world.addChild(paper,board);
 const kinds=['rectangle','circle','star','arrow','ellipse','squiggle','triangle','cloud'];
 const seed0=Math.max(1,Math.round(p.seed))*97;
 let W=1,H=1,items=[],extra=0;
@@ -85,8 +85,7 @@ function layout(w,h){
   items=spots.map(function(q,i){return {x:q[0]+(s.dir>0?110:40),y:q[1]+35,r:r*s.rand(0.7,1),k:kinds[i%kinds.length],c:i%5,rot:s.rand(-0.25,0.25),at:i*0.3};});
   items.forEach(make);
 }
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 s.pointer.onDown(function(){
   if(!p.interactive||!s.pointer.inside||s.reducedMotion||s.editor||extra>=12)return;
   const it={x:s.pointer.x,y:s.pointer.y,r:items.length?items[0].r*0.8:40,k:kinds[(extra*3+1)%kinds.length],c:extra%5,rot:s.rand(-0.3,0.3),at:-1};

@@ -43,7 +43,9 @@ describe.each(CASES)('library mural %s', (id, entry, category) => {
   it('leans on the new libraries and draws in 1280 × 720 design units on s.world', () => {
     expect(entry.libs).toContain('color');
     expect(entry.libs.some((key) => key === 'lsys' || key === 'geom')).toBe(true);
-    expect(entry.code).toMatch(/design:\{width:1280,height:720,fit:'(?:cover|contain)'\}/u);
+    expect(entry.code).toMatch(
+      /design:\{width:1280,height:720,fit:'(?:cover|contain)',zoom:true\}/u,
+    );
     expect(entry.code).toContain('s.world.addChild(');
     expect(entry.code).not.toMatch(/s\.onResize|window\.|document\.|Math\.random/u);
   });

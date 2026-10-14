@@ -15,7 +15,7 @@ export const DIFFERENTIAL_GROWTH_CORAL = definePreset({
     ar: 'خطوطٌ حيّة تنمو وتتنافر مع نفسها فتنطوي في أشكال مرجانية ودماغية تاركةً حلقات نموّ خلفها، ويدفعها المؤشر.',
   },
   tags: ['generative', 'calm', 'loop', 'hero'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 9, interactive: true }),
     range('maxNodes', 'Max nodes', 'أقصى عدد للعُقد', 1400, 300, 3000, 100, 'look'),
@@ -25,12 +25,12 @@ export const DIFFERENTIAL_GROWTH_CORAL = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:9,speed:1,density:1,interactive:true,maxNodes:1400,repulsion:14,growthRate:0.5,smoothing:0.5});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,R=s.app.renderer,TAU=Math.PI*2;
 const bg=new PIXI.Graphics(),view=new PIXI.Sprite(),world=new PIXI.Container(),g=new PIXI.Graphics();
 const stamp=new PIXI.Container(),ink=new PIXI.Graphics();
 world.addChild(g);stamp.addChild(ink);
-s.stage.addChild(bg,view,world);
+s.world.addChild(bg,view,world);
 const RR=Math.max(4,p.repulsion),R2=RR*RR,SPLIT=RR*0.85,cap=Math.max(60,s.count(p.maxNodes));
 const RATE=0.03*p.growthRate,HOLD=9,PACE=80;
 // Nodes live in flat arrays; each closed curve is a ring of prev/next links starting at its head.
@@ -125,8 +125,7 @@ function layout(w,h){
   gw=Math.ceil(W/RR)+3;gh=Math.ceil(H/RR)+3;cellHead=new Int32Array(gw*gh);
   seed();
 }
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 s.tick(function(time){
   if(s.reducedMotion){
     const t0=performance.now();

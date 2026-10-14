@@ -328,6 +328,7 @@ function harness(PIXI: PixiNamespace, reducedMotion = false, editor = false) {
     held,
     ticks,
     fixed,
+    resizes,
     resize: (nextWidth = 400, nextHeight = 300) => {
       width = nextWidth;
       height = nextHeight;
@@ -554,7 +555,7 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
   );
 
   it.each([false, true])(
-    'builds and resizes an art-directed mural (reduced: %s)',
+    'builds an art-directed mural once in design units (reduced: %s)',
     async (reduced) => {
       const run = harness(PIXI, reduced);
       await new AsyncFunction('ck', PIXI_MURAL_EXAMPLE)(run.ck);
@@ -567,8 +568,12 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
         run.ticks[0]?.({ t: 1, dt: 1 / 60 });
         expect(run.stage.children[1]?.y).not.toBe(0);
       }
-      run.resize();
-      expect(run.stage.children[2]?.children[0]?.x).toBeLessThanOrEqual(400);
+      // Mural scale (2026-10-14): composed once at 1280 × 720; the kit's viewport fits it.
+      expect(run.resizes).toEqual([]);
+      for (const mark of run.stage.children[2]?.children ?? []) {
+        expect(mark.x).toBeLessThanOrEqual(1280);
+        expect(mark.y).toBeLessThanOrEqual(720);
+      }
       run.dispose();
     },
   );

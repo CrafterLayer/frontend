@@ -948,3 +948,23 @@ history.
       (botanical-garden, gradient-waves, arc-rings, arabesque-scroll), offered to build writers as
       ready scenes. 7b7614b aligns one stale ai-server assertion with efea3b7's always-on `text`
       listener.
+
+## Increment 2026-10-14 (h) — analytical report pages
+
+- [x] T273 Excel and JSON on the agent panel (dc41055): a dropped `.xlsx` is read in the tab by
+      `model/xlsx-rows.ts` (fflate unzip, MIT, lazy chunk; the browser's XML parser) — first
+      sheet, shared/inline strings, numbers without float noise, percentages, ISO dates (1900 and
+      1904) — and goes into the draft as CSV under the instruction line. Bounded: each inflated
+      part capped, 5,000 rows x 40 columns, 2 MB file, 20 KB of rows; a damaged workbook gets an
+      "unreadable" refusal (EN/AR). `.json` files are taken as they are.
+- [x] T274 `report.page` and the deterministic analysis engine (6b7e7d3): `data-tools/analysis/`
+      computes every figure (totals, averages, median/spread, change, growth, CAGR, shares, trend
+      with R² and a worded projection, outliers, correlations, group-by, pivot, profit/margin,
+      attainment, budget remaining) and ranks EN/AR findings. One call (~47 tokens) appends a
+      stats header with up to four key-stat cards, charts chosen from the analysis, a findings
+      list, and interactive summary and data tables (sortable by column kind, sticky header,
+      search and pages past ten rows). `readDataText` reads JSON; the zero-token path routes
+      "detailed report / dashboard page / analyse" and the Arabic wording to it; data-viz 1.2.0
+      teaches it. ai-server `handler.test.ts` "answers a unary page plan…" fails on dc41055 with
+      or without this change (it expects a `restart` subscription the handler no longer makes);
+      left for the owner.

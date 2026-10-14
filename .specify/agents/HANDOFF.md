@@ -1,5 +1,14 @@
 # Active Work Handoff
 
+## Current continuation — analytical report pages, 2026-10-14 (h)
+
+Done and pushed (T273–T274): Excel/JSON drop on the agent panel (dc41055) and `report.page` with a
+deterministic analysis engine (6b7e7d3) — key stats, several charts, findings and interactive tables,
+every figure computed by code. Open: ai-server `handler.test.ts` "answers a unary page plan…" fails
+on the branch head independently of these commits (expects a `restart` subscription); the size
+guard says `cli-client.ts`, `index.ts`, `route-intent.ts`, `generate-plan.ts` shrank and can be
+tightened.
+
 ## Current continuation — empty canvas and request skills, 2026-10-13 (g)
 
 Status: local implementation, verification, final scoped convergence and fresh independent review

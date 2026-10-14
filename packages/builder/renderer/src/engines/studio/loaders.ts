@@ -39,6 +39,7 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-hex': async () => (await import('./hex-source')).HEX_SOURCE,
   'lib-color': async () => (await import('./color-source')).COLOR_SOURCE,
   'lib-lsys': async () => (await import('./lsys-source')).LSYS_SOURCE,
+  'lib-mural': async () => (await import('./mural-source')).MURAL_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

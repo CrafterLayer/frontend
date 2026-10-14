@@ -35,6 +35,7 @@ export const STUDIO_LIB_KEYS = [
   'hex',
   'color',
   'lsys',
+  'mural',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
@@ -79,6 +80,9 @@ export function declaredLibs(code: string): DeclaredLibs {
     quotedKeys(match[1] ?? '', libs);
   const scene = /\bck\s*\.\s*scene\s*\(/u.test(code);
   if (scene) libs.add('kit');
+  // mural kit (2026-10-14): s.lib.mural tells its beats on the scene's s.lib.anim, so a page that
+  // lists 'mural' ships 'anim' with it.
+  if (libs.has('mural')) libs.add('anim');
   const sound =
     /\bck\s*\.\s*sound\b/u.test(code) ||
     /\.\s*sound\s*\.\s*(?:play|ambient|analyser|setMuted)\s*\(/u.test(code) ||

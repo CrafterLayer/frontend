@@ -109,11 +109,31 @@ describe('Pixi creative skills — actual prompt activation', () => {
   });
 
   // mural libraries (2026-10-13): presets first, then the noise/geom/hex calls, in the same budget.
-  it('opens the mural playbook with its presets and teaches the mural libraries by their calls', () => {
+  // mural kit (2026-10-14): compose with s.lib.mural first, its vocabulary in one line, the presets
+  // when one clearly matches, then the mural libraries for abstract art, in the same budget.
+  it('opens the mural playbook with the kit and its vocabulary, then presets and libraries', () => {
     const mural = PIXI_CREATIVE_SKILLS.find(({ id }) => id === MURAL)?.instructions ?? '';
-    expect(mural.split('\n')[0]).toMatch(
-      /^PRESETS FIRST: scene\.preset mural:.* pattern:.* type:/u,
+    const [compose = '', kit = '', presets = ''] = mural.split('\n');
+    expect(compose).toMatch(/^COMPOSE FIRST: any illustrated mural/u);
+    expect(compose).toContain("ck.scene({libs:['mural','anim'],");
+    expect(compose).toContain('m=s.lib.mural.compose(s,spec), a 1-3k-character spec');
+    for (const word of [
+      'mood:meadow|',
+      'underwater',
+      'tree(round|pine|palm|olive|cypress|blossom|bare)',
+      'skyline(old|modern)',
+      'camel horse dog cat',
+      'person(robe|casual|dress|child|diver)',
+      'planet(earth|moon|mars|ringed) rocket comet',
+      'castle dragon fireflies sparkles',
+      'BEAT {label,dur,camera:0..1,time,walk:{id:x}',
+    ])
+      expect(kit).toContain(word);
+    expect(presets).toMatch(
+      /^PRESETS only when the request clearly is one: scene\.preset mural:.* pattern:.* type:/u,
     );
+    expect(PIXI_MURAL_EXAMPLE).toContain('s.lib.mural.compose(s,{');
+    expect(PIXI_MURAL_EXAMPLE.length).toBeLessThan(800);
     expect(mural).toContain('under ~9,000 characters');
     for (const call of [
       's.lib.noise.create(s,',
@@ -349,6 +369,17 @@ const mediaEngines = fileURLToPath(
   new URL('../../../../extensions/media-engines/package.json', import.meta.url),
 );
 const pixiPath = createRequire(mediaEngines).resolve('pixi.js');
+/* mural kit (2026-10-14): the taught mural composes with the real s.lib.mural and s.lib.anim. */
+const studioLib = (file: string) =>
+  fileURLToPath(
+    new URL(`../../../../extensions/media-engines/src/studio/libs/${file}`, import.meta.url),
+  );
+
+interface MuralHandle {
+  readonly warnings: readonly string[];
+  readonly root: { readonly destroyed: boolean };
+  readonly timeline?: { time(): number };
+}
 
 describe('Pixi creative examples — real v8 scene objects without GPU claims', () => {
   let PIXI: PixiNamespace;
@@ -555,26 +586,41 @@ describe('Pixi creative examples — real v8 scene objects without GPU claims', 
   );
 
   it.each([false, true])(
-    'builds an art-directed mural once in design units (reduced: %s)',
+    'composes the taught kit mural once in design units, warning-free (reduced: %s)',
     async (reduced) => {
-      const run = harness(PIXI, reduced);
+      const { createMuralLibrary } = (await import(studioLib('mural-entry.ts'))) as {
+        createMuralLibrary: () => { compose: (s: unknown, spec: unknown) => MuralHandle };
+      };
+      const { createAnimLibrary } = (await import(studioLib('anim-entry.ts'))) as {
+        createAnimLibrary: () => unknown;
+      };
+      const kit = createMuralLibrary();
+      const made: MuralHandle[] = [];
+      // Node has no canvas for FillGradient textures: the kit then fills flat (its own fallback).
+      const run = harness({ ...PIXI, FillGradient: undefined } as PixiNamespace, reduced);
+      Object.assign(run.scene, {
+        dir: 1,
+        lib: {
+          anim: createAnimLibrary(),
+          mural: {
+            compose: (s: unknown, spec: unknown) => made[made.push(kit.compose(s, spec)) - 1],
+          },
+        },
+      });
       await new AsyncFunction('ck', PIXI_MURAL_EXAMPLE)(run.ck);
-      expect(run.stage.children).toHaveLength(3);
-      expect(run.stage.children[1]?.children).toHaveLength(3);
-      expect(run.stage.children[2]?.children).toHaveLength(80);
-      if (reduced) expect(run.ticks).toEqual([]);
-      else {
-        expect(run.ticks).toHaveLength(1);
-        run.ticks[0]?.({ t: 1, dt: 1 / 60 });
-        expect(run.stage.children[1]?.y).not.toBe(0);
-      }
+      const [mural] = made;
+      expect(mural?.warnings).toEqual([]);
+      // One mural root in s.world, its five layers drawn; one tick drives the story.
+      expect(run.stage.children).toHaveLength(1);
+      expect(run.ticks).toHaveLength(1);
+      const before = mural?.timeline?.time();
+      run.ticks[0]?.({ t: 1, dt: 1 / 60 });
+      if (reduced) expect(mural?.timeline?.time()).toBe(before);
+      else expect(mural?.timeline?.time()).toBeGreaterThan(before ?? 0);
       // Mural scale (2026-10-14): composed once at 1280 × 720; the kit's viewport fits it.
       expect(run.resizes).toEqual([]);
-      for (const mark of run.stage.children[2]?.children ?? []) {
-        expect(mark.x).toBeLessThanOrEqual(1280);
-        expect(mark.y).toBeLessThanOrEqual(720);
-      }
       run.dispose();
+      expect(mural?.root.destroyed).toBe(true);
     },
   );
 });

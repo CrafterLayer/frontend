@@ -4,6 +4,8 @@ import { gzipSync } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
+import { libraryEntry } from '@craftkit/builder-schema';
+
 import { ANIM_BANNER, ANIM_SHA256, ANIM_SOURCE } from './anim-source';
 import { AUDIO_BANNER, AUDIO_SHA256, AUDIO_SOURCE } from './audio-source';
 import { BRUSH_BANNER, BRUSH_SHA256, BRUSH_SOURCE } from './brush-source';
@@ -20,6 +22,7 @@ import { HUD_BANNER, HUD_SHA256, HUD_SOURCE } from './hud-source';
 import { INK_BANNER, INK_SHA256, INK_SOURCE } from './ink-source';
 import { KIT_BANNER, KIT_SHA256, KIT_SOURCE } from './kit-source';
 import { LSYS_BANNER, LSYS_SHA256, LSYS_SOURCE } from './lsys-source';
+import { MURAL_BANNER, MURAL_SHA256, MURAL_SOURCE } from './mural-source';
 import { NOISE_BANNER, NOISE_SHA256, NOISE_SOURCE } from './noise-source';
 import { PEEPS_BANNER, PEEPS_SHA256, PEEPS_SOURCE } from './peeps-source';
 import { PHYSICS_BANNER, PHYSICS_SHA256, PHYSICS_SOURCE } from './physics-source';
@@ -64,6 +67,8 @@ const ASSETS = [
   ['hex', HEX_SOURCE, HEX_BANNER, HEX_SHA256, 79_400],
   ['color', COLOR_SOURCE, COLOR_BANNER, COLOR_SHA256, 11_000],
   ['lsys', LSYS_SOURCE, LSYS_BANNER, LSYS_SHA256, 7_700],
+  // mural kit (2026-10-14): first-party s.lib.mural, measured 24,706 bytes gzip + 5 %, rounded up.
+  ['mural', MURAL_SOURCE, MURAL_BANNER, MURAL_SHA256, 26_000],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;
 
@@ -149,5 +154,41 @@ describe('generated Studio engine assets', () => {
     expect(LSYS_SOURCE.match(/Math\.random\(\)/gu)?.length ?? 0).toBeLessThanOrEqual(2);
     // culori ships only through culori/fn: no colour space beyond the four the library registers.
     expect(COLOR_SOURCE).not.toMatch(/mode:"(?:hsl|hsv|hwb|p3|rec2020|a98|prophoto)"/u);
+  });
+
+  /*
+    mural kit (2026-10-14): the built asset is first-party, plain and eval-free, and the schema's
+    library reference — the compact vocabulary the mural playbooks point the agent to — names every
+    item and kind the built kit draws, so the agent is never taught a word the kit would skip.
+  */
+  it('ships s.lib.mural plain and first-party, its whole vocabulary in the schema reference', () => {
+    expect(MURAL_BANNER).toContain('first-party source');
+    expect(MURAL_SOURCE).toContain('pixi:false');
+    expect(MURAL_SOURCE).not.toMatch(/\beval\(|new Function\b|WebAssembly|Ticker\.shared|gsap/iu);
+    const ready: { mount?: (el: unknown, ctx: { provide(factory: unknown): void }) => void }[] = [];
+    const window = {
+      ckEngines: { ready: (_kind: string, engine: (typeof ready)[number]) => ready.push(engine) },
+    };
+    new Script(MURAL_SOURCE).runInNewContext({ window });
+    let factory:
+      | {
+          pixi: boolean;
+          create(): { items: Record<string, string[]>; kinds: Record<string, string[]> };
+        }
+      | undefined;
+    ready[0]?.mount?.(null, { provide: (made) => (factory = made as typeof factory) });
+    const lib = factory?.create();
+    expect(factory?.pixi).toBe(false);
+    expect(Object.values(lib?.items ?? {}).flat().length).toBeGreaterThanOrEqual(55);
+    const reference = libraryEntry('mural')?.api.join('\n') ?? '';
+    for (const name of Object.values(lib?.items ?? {}).flat()) {
+      const kinds = lib?.kinds[name];
+      expect(reference, name).toMatch(
+        new RegExp(
+          `(?:^|[\\s:·])${name}${kinds ? `\\(${kinds.join('\\|')}\\)` : '(?![(\\w])'}`,
+          'u',
+        ),
+      );
+    }
   });
 });

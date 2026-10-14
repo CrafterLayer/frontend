@@ -34,6 +34,7 @@ export const STUDIO_LIB_KEYS = [
   'hex',
   'color',
   'lsys',
+  'mural',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 

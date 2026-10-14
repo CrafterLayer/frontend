@@ -5,7 +5,7 @@
     node scripts/build-studio-engines.mjs all
     node scripts/build-studio-engines.mjs kit
     node scripts/build-studio-engines.mjs sound
-    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap|audio|gameai|hud|peeps|procgen|gif|noise|geom|hex|color|lsys
+    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap|audio|gameai|hud|peeps|procgen|gif|noise|geom|hex|color|lsys|mural
     (hex first needs node scripts/build-hex-atlas.mjs when its tile list changes)
 
   Each output is one minified browser IIFE with no chunks. Pixi-bound libraries

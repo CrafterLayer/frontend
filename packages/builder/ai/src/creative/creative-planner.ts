@@ -38,6 +38,7 @@ import {
   muralStoryBeats,
 } from './mural-cues';
 import { accessibilityFor } from './creative-accessibility';
+import { muralKitBrief } from './mural-kit';
 
 export type {
   CreativeBeat,
@@ -390,9 +391,15 @@ function briefFrom(
   const muralStory =
     rule.genre === 'mural' &&
     (asked(MURAL_STORY_WORDS) || (asked(MURAL_WORDS) && asked(STORY_CUE_WORDS)));
+  // mural kit (2026-10-14): an illustrated mural composes with s.lib.mural (mural-kit.ts).
+  const kit = muralKitBrief(
+    rule.genre === 'mural' && (muralStory || asked(MURAL_WORDS)),
+    page === '' ? source : `${page}\n${source}`,
+  );
   const libs = unique<CreativeLib>([
     ...rule.libs,
     ...(muralStory ? (['anim'] as const) : []),
+    ...kit.libs,
     ...(muralStory && (memoryCast.length > 0 || requested.length > 0) ? (['peeps'] as const) : []),
     ...(asked(['ink', 'inkle', 'لغة ink']) ? (['ink', 'dialogue'] as const) : []),
     ...(asked(['zoom', 'pan', 'big map', 'خريطة كبيرة', 'تكبير']) ? (['viewport'] as const) : []),
@@ -427,6 +434,7 @@ function briefFrom(
     libs,
     mechanics: [
       ...rule.mechanics,
+      ...kit.mechanics,
       ...(muralStory ? MURAL_STORY_MECHANICS : []),
       ...libs.flatMap((lib) => (rule.libs.includes(lib) ? [] : (GAME_LIB_MECHANICS[lib] ?? []))),
       ...(asked(SCROLL_CUE_WORDS) ? SCROLL_MECHANICS : []),

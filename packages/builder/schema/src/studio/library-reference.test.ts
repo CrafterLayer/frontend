@@ -131,4 +131,34 @@ describe('CK_LIBRARY_REFERENCE', () => {
     for (const call of ['L.grow(s, {', 'L.fit(', 'L.upTo(r, t)', 'dir: s.dir'])
       expect(lsys?.api.join('\n')).toContain(call);
   });
+
+  // mural kit (2026-10-14): the compact reference the mural playbooks point to.
+  it('describes s.lib.mural: compose with anim, the spec, every group of items, the beats', () => {
+    const mural = libraryEntry('mural');
+    expect(mural?.pixiBound).toBe(false);
+    expect(mural?.source).toBe('first-party');
+    expect(mural?.purpose.en).toMatch(/s\.lib\.mural\.compose\(s, spec\)/u);
+    expect(mural?.purpose.en).toContain('mirrors with s.dir');
+    expect(mural?.purpose.ar).toContain('s.dir');
+    const api = mural?.api.join('\n') ?? '';
+    for (const part of [
+      "libs: ['mural', 'anim']",
+      's.lib.mural.compose(s, spec)',
+      'sky:',
+      'land:',
+      'water:',
+      'plants:',
+      'built:',
+      'creatures:',
+      'people:',
+      'space:',
+      'fantasy:',
+      'beat: { label',
+      'walk: { id: x }',
+      "lights: 'on'|'off'",
+      "m.layer('near')",
+      'm.warnings',
+    ])
+      expect(api).toContain(part);
+  });
 });

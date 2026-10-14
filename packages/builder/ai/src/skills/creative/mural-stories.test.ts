@@ -44,32 +44,39 @@ describe('mural story playbooks', () => {
     expect(ids).not.toContain(SCROLL);
   });
 
-  it('names the four stories first in the mural playbook and teaches the form in one line', () => {
-    const [first = '', ...rest] = PIXI_MURAL_SKILL.instructions.split('\n');
-    for (const id of STORY_IDS) expect(first).toContain(id);
-    const story = rest.find((line) => line.startsWith('STORY murals:')) ?? '';
+  // mural kit (2026-10-14): any mural composes with s.lib.mural first; the four stories stay
+  // named in the presets line, offered when the request clearly is one.
+  it('names the four stories in the presets line and teaches the form in one line', () => {
+    const lines = PIXI_MURAL_SKILL.instructions.split('\n');
+    expect(lines[0]).toMatch(/^COMPOSE FIRST/u);
+    const presets = lines.find((line) => line.startsWith('PRESETS only when')) ?? '';
+    for (const id of STORY_IDS) expect(presets).toContain(id);
+    const story = lines.find((line) => line.startsWith('STORY murals:')) ?? '';
     expect(story).toContain('3-5 beats on one labelled anim.timeline');
     expect(story).toContain('anim.rig');
-    expect(story).toContain('tl.progress(s.scroll.progress)');
+    expect(story).toContain("the kit's beats");
+    expect(story).toContain("mode:'scrub' is tl.progress(s.scroll.progress)");
     expect(PIXI_MURAL_SKILL.instructions).toMatch(/^NO UI: a mural is the art/mu);
   });
 
-  it('teaches the mural story in the scroll playbook: vignettes, depth, rigs, beats, scrub, no UI', () => {
+  it('teaches the mural story in the scroll playbook: the kit, vignettes, depth, rigs, beats, scrub, no UI', () => {
     const line =
       CREATIVE_SCROLL_MURAL_SKILL.instructions
         .split('\n')
         .find((candidate) => candidate.startsWith('MURAL STORY')) ?? '';
     expect(line).toContain(
-      'ready presets desert-caravan, fishing-village, seed-to-forest, souq-morning',
+      'Ready presets desert-caravan, fishing-village, seed-to-forest, souq-morning only when the request clearly is one',
     );
     for (const phrase of [
+      "compose it with s.lib.mural (libs:['mural','anim'])",
+      "beats:[3-5 {label,camera,walk:{id:x},time,lights:'on'}],mode:'scrub'",
       'illustrated vignettes',
       'far/mid/near layers',
       'anim.rig',
-      'anim.timeline({repeat:-1}) with labels per beat (3-5)',
-      'timeline({paused:true}) and tl.progress(eased s.scroll.progress)',
+      'one labelled anim.timeline',
+      "mode:'scrub' is tl.progress(eased s.scroll.progress)",
       'NO UI: no buttons, captions or dialogue boxes',
-      'tl.progress(strongest beat)',
+      'the still its strongest beat',
     ]) {
       expect(line).toContain(phrase);
     }

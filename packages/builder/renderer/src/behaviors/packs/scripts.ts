@@ -170,7 +170,7 @@ export function mountScripts(
   // STUDIO_PIXI_BOUND_KEYS by scripts.studio.test.ts (this body cannot import them).
   const PARAMS_ATTRIBUTE = 'data-ck-params';
   const LIB_KEYS: readonly string[] =
-    'kit filters emitter physics brush rough viewport anim fx dialogue ink tilemap audio gameai hud peeps procgen gif noise geom hex color lsys'.split(
+    'kit filters emitter physics brush rough viewport anim fx dialogue ink tilemap audio gameai hud peeps procgen gif noise geom hex color lsys mural'.split(
       ' ',
     );
   const PIXI_BOUND: readonly string[] = 'kit filters emitter viewport fx tilemap audio hud'.split(
@@ -717,9 +717,9 @@ export function mountScripts(
     ) as CkSceneOptions;
     const keys: string[] = ['kit'];
     const extra: readonly unknown[] = Array.isArray(given.libs) ? (given.libs as unknown[]) : [];
-    for (const key of extra) {
+    // mural kit (2026-10-14): s.lib.mural animates through s.lib.anim, loaded with it.
+    for (const key of [...extra, ...(extra.includes('mural') ? ['anim'] : [])])
       if (typeof key !== 'string' || !keys.includes(key)) keys.push(key as string);
-    }
     // Audio bands start loading the sound engine (never on the canvas, never under reduced motion).
     if (given.audio === true && !canvas && !reducedMotion) ck.sound.analyser();
     const stage = openStage(

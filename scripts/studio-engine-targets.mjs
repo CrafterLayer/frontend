@@ -278,6 +278,18 @@ export const TARGETS = {
       },
     ],
   },
+  // mural kit (2026-10-14): s.lib.mural, first-party. Parametric illustration primitives (skies,
+  // land, water, plants, towns, vehicles, creatures, people, space, fantasy) and compose(s, spec):
+  // depth layers, time-of-day light, a camera and beats on the scene's s.lib.anim timeline.
+  // Plain: it draws with the scene's s.PIXI. Measured 24,706 bytes gzip (first-party code, ~60
+  // primitives and the spec reader); budget + 5 %, rounded up to 100 bytes.
+  mural: {
+    entry: 'src/studio/libs/mural-entry.ts',
+    factory: 'createMuralLibrary',
+    pixi: false,
+    budget: 26_000,
+    version: '1.0.0',
+  },
   sound: {
     entry: 'src/sound/entry.ts',
     budget: 10_000,

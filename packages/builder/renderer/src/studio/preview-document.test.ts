@@ -67,6 +67,16 @@ describe('studioPreviewEngines', () => {
     ).toEqual(['lib-physics', 'sound']);
     expect(studioPreviewEngines({ code: 'ck.root.title = "x"' })).toEqual([]);
   });
+
+  // mural kit (2026-10-14): s.lib.mural tells its beats on s.lib.anim, so listing 'mural' ships both.
+  it('ships anim with mural', () => {
+    expect(studioPreviewEngines({ code: "await ck.scene({ libs: ['mural'] });" })).toEqual([
+      'pixi',
+      'lib-kit',
+      'lib-anim',
+      'lib-mural',
+    ]);
+  });
 });
 
 describe('buildStudioPreviewHtml', () => {

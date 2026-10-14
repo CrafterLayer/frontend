@@ -40,7 +40,8 @@ export type CreativeLib =
   | 'geom'
   | 'hex'
   | 'color'
-  | 'lsys';
+  | 'lsys'
+  | 'mural';
 
 export interface CreativeBeat {
   readonly id: string;

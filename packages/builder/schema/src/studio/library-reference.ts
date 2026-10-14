@@ -384,6 +384,28 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     source: 'lindenmayer',
     since: MEDIA,
   },
+  // mural kit (2026-10-14): any illustrated mural as a short spec. The api lines ARE the compact
+  // reference the mural playbooks point to: the whole item vocabulary, kinds and beat actions.
+  {
+    key: 'mural',
+    pixiBound: false,
+    purpose: {
+      en: "Any illustrated mural as a 1-3k-character spec: s.lib.mural.compose(s, spec) paints a seeded panorama in s.world from parametric flat-painted items (skies, land, water, plants, towns, vehicles, creatures, people, space, fantasy) in sky/far/mid/near/front layers with parallax, atmospheric fade and time-of-day light, mirrors with s.dir, and tells 3-5 beats on one labelled s.lib.anim timeline (camera, walks, lights, time of day, things that appear or grow) that loops, scrubs with s.scroll or holds its strongest beat still; never throws on a typo (m.warnings); add your own Graphics to m.layer('near').",
+      ar: "أي جدارية مرسومة بمواصفة قصيرة (1-3 آلاف حرف): s.lib.mural.compose(s, spec) ترسم بانوراما ببذرة المشهد في s.world من عناصر مرسومة مسطحة بمعاملات (سماء وأرض وماء ونباتات ومدن ومركبات وكائنات وناس وفضاء وخيال) في طبقات sky/far/mid/near/front مع بارالاكس وضباب المسافة وإضاءة وقت اليوم، وتنعكس مع s.dir، وتحكي 3-5 مشاهد على خط زمني واحد من s.lib.anim (الكاميرا والمشي والأضواء ووقت اليوم وظهور الأشياء ونموها) يتكرر أو يتبع s.scroll أو يثبت على أقوى مشهد؛ لا ترمي خطأ عند خطأ إملائي (m.warnings)؛ وأضف رسومك إلى m.layer('near').",
+    },
+    api: [
+      "const s = await ck.scene({ libs: ['mural', 'anim'], seed, design: { width: 1280, height: 720, fit: 'cover' } }); const m = s.lib.mural.compose(s, spec)",
+      "spec: { width: 1280..8000 panorama, seed, mood: 'meadow'|'farm'|'desert'|'sea'|'winter'|'forest'|'city'|'oldcity'|'garden'|'fairy'|'space'|'reef', colors: { wall: '#hex', … }, tones: 'theme', time: 'day' | ['dusk','night'] (an arc over the beats; dawn|day|golden|dusk|night), horizon: 470, ground: 640, sky: false, layers: { sky|far|mid|near|front: [item…] }, cast: [item…], beats: [beat…], mode: 'loop'|'scrub'|'still'|'once', still: label | 0..1 }",
+      "item: 'name' | { item, id, x (panorama units; sky: screen x), y, size (shrinks with depth), from, to (wide items), kind, count (repeats a placed item), seed, color: '#hex', colors: […], snow, lights, flowers, hang, staff, head: 'keffiyeh'|'hijab'|'hat'|'none', peep: 'name' }",
+      'sky: gradient sun moon(crescent|full) stars clouds(puffy|streak) aurora rain snow · land: hills mountains(rocky|snowy) dunes plains(grass|fields|snow|sand|road) rocks cliffs · water: sea waves river lake(lake|pond) underwater bubbles',
+      'plants: tree(round|pine|palm|olive|cypress|blossom|bare) bush grass flowers cactus seaweed coral(branch|fan|brain) · built: house(cottage|arab|japanese) skyline(generic|old|modern) mosque(teal|gold) arches bridge(stone|wood) lantern(fanous|paper|street) lanterns(fanous|paper) tent(bedouin|camp) campfire fence barn windmill torii pagoda boat(sail|row) ship car train',
+      'creatures: bird fish(tropical|koi) butterfly camel horse dog cat sheep cow · people: person(robe|casual|dress|child|diver) · space: planet(earth|moon|mars|ringed|ice) rocket comet · fantasy: castle dragon fireflies sparkles',
+      "beat: { label, dur: 5, at, camera: 0..1 | { x }, time: 'night', walk: { id: x }, move|fly|drive|swim: { id: x | { x, y, rotation, scale, alpha } }, show: [id], hide: [id], grow: [id], lights: 'on'|'off', state: { id: 'wave'|'idle'|'think'|'celebrate'|… }, still: true }",
+      "m.warnings / m.timeline (s.lib.anim) / m.layer('near') and m.lights('near') for your own Graphics / m.get(id) / m.seek(0..1) / m.still / m.dispose(); s.lib.mural.item(s, parent, 'tree', { kind, x, y, size, seed }) draws one; s.lib.mural.validate(spec) → warnings",
+    ],
+    source: 'first-party',
+    since: '2026-10-14',
+  },
 ];
 
 /** One library's entry, or undefined for `kit` and unknown keys. */

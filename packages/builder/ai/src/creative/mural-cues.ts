@@ -99,7 +99,7 @@ export const MURAL_STORY_MECHANICS: readonly string[] = [
   'one s.lib.anim timeline with a label per beat (3-5) moves the cast (anim.rig walk/idle at their stride pace), relights the layers and pans the camera across a wide panorama; it loops',
   'scroll scrubbing when asked: a paused timeline driven by tl.progress(s.scroll.progress)',
   'no UI of its own: no buttons, captions or dialogue boxes; the still frame (editor, reduced motion) is its strongest beat',
-  'or a ready mural story: scene.preset desert-caravan | fishing-village | seed-to-forest | souq-morning',
+  'a ready mural story only when the request clearly is one: scene.preset desert-caravan | fishing-village | seed-to-forest | souq-morning',
 ];
 
 /** The beats of a mural story, in the brief's language. */

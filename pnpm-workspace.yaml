@@ -76,13 +76,13 @@ catalog:
   '@codemirror/lint': 6.9.7
   '@codemirror/merge': 6.12.2
   culori: 4.0.2
-  eslint: 10.9.0
+  eslint: 10.12.0
   esbuild: 0.28.2
   embla-carousel: 8.6.0
   eslint-config-prettier: 10.1.8
   eslint-plugin-react-hooks: 7.1.1
-  eslint-plugin-react-refresh: 0.5.4
-  eslint-plugin-storybook: 10.5.10
+  eslint-plugin-react-refresh: 0.5.7
+  eslint-plugin-storybook: 10.6.2
   fast-check: 4.9.0
   # data reports (2026-10-14): the agent panel reads a dropped .xlsx (a zip of XML) with fflate's
   # unzip (MIT, (c) 2020 Arjun Barrett), loaded only when an Excel file is dropped.
@@ -107,7 +107,7 @@ catalog:
   tailwindcss: 4.3.3
   turbo: 2.10.10
   typescript: 6.0.3
-  typescript-eslint: 8.67.0
+  typescript-eslint: 8.71.2
   vite: 8.2.2
   vitest: 4.1.11
   zod: 4.4.3

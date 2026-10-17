@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pinned pnpm and Node
-        uses: pnpm/setup@v2.0.2
+        uses: pnpm/setup@v3.1.1
         with:
           version: 11.23.0
           runtime: node@24.19.0

@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CanvasEmptyStateStories from './CanvasEmptyState.stories';
+
+<Meta of={CanvasEmptyStateStories} />
+
+# CanvasEmptyState
+
+The invitation an empty page shows. While the document has no blocks the canvas used to be a bare
+white rectangle; this card floats over it and names the two ways in: **Add a block** (the library's
+blocks) and **Start from a template** (the library's page templates).
+
+## Usage
+
+The playground renders it inside the canvas slot (the positioned ancestor) whenever the page root
+has no children, and wires both actions to the library request on the editor panes.
+
+```tsx
+<CanvasEmptyState
+  onAddBlock={() => panes.openLibrary('blocks')}
+  onUseTemplate={() => panes.openLibrary('templates')}
+  labels={canvasEmptyStateLabels(editorLocale)}
+  dir={labels.dir}
+/>
+```
+
+## API
+
+- `onAddBlock: () => void` — opens the library on its blocks.
+- `onUseTemplate: () => void` — opens the library on its page templates.
+- `labels?: CanvasEmptyStateLabels` — English by default; `CANVAS_EMPTY_STATE_LABELS_AR` for Arabic.
+- `dir?: 'ltr' | 'rtl'` — the editor's direction.
+
+## Behaviour
+
+- Only the two buttons take the pointer. The rest of the card is transparent to pointer events, so a
+  block dragged from the library still drops onto the page beneath it.
+- The card enters with a short rise; `prefers-reduced-motion: reduce` removes the animation.
+
+## Accessibility
+
+- A `region` named by its heading ("This page is empty").
+- Two native buttons in reading order, with the chrome's visible focus ring.
+- Every colour is a chrome token, so the card follows the editor's light and dark themes.

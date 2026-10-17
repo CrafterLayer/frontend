@@ -1,0 +1,87 @@
+.bldr-segmented-choice {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+/* The overflow menu sits INLINE at the end of the icon row as one small
+   square "…" button (Webstudio's pattern), not a full-width row under the
+   icons. Once a value from it is chosen it grows to show that value. */
+.bldr-segmented-choice__more {
+  display: inline-flex;
+  flex: 0 0 auto;
+  inline-size: var(--bldr-control-md);
+  position: relative;
+}
+
+.bldr-segmented-choice[data-overflow-active] .bldr-segmented-choice__more {
+  flex: 0 1 auto;
+  inline-size: auto;
+  max-inline-size: calc(var(--bldr-control-md) * 4);
+  min-inline-size: var(--bldr-control-md);
+}
+
+.bldr-segmented-choice__select {
+  appearance: none;
+  background: var(--bldr-surface-sunken);
+  block-size: var(--bldr-control-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-inline: 0;
+  text-align: center;
+  text-align-last: center;
+  text-overflow: ellipsis;
+}
+
+.bldr-segmented-choice[data-overflow-active] .bldr-segmented-choice__select {
+  padding-inline: var(--bldr-space-md) var(--bldr-space-4xl);
+  text-align: start;
+  text-align-last: start;
+}
+
+/* The chevron only appears with a chosen value; the bare "…" says "more". */
+.bldr-segmented-choice:not([data-overflow-active]) .bldr-segmented-choice__chevron {
+  display: none;
+}
+
+.bldr-segmented-choice[data-overflow-active] .bldr-segmented-choice__select {
+  background: var(--bldr-surface-raised);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-segmented-choice__select:hover:not(:disabled) {
+  color: var(--bldr-panel-text);
+}
+
+.bldr-segmented-choice__select:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-border-hairline) * -1);
+}
+
+.bldr-segmented-choice__select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-segmented-choice__chevron {
+  block-size: var(--bldr-space-xl);
+  fill: none;
+  inline-size: var(--bldr-space-xl);
+  inset-block-start: 50%;
+  inset-inline-end: var(--bldr-space-sm);
+  pointer-events: none;
+  position: absolute;
+  stroke: var(--bldr-panel-muted);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  translate: 0 -50%;
+}

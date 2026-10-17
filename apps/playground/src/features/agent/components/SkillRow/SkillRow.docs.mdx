@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SkillRowStories from './SkillRow.stories';
+
+<Meta of={SkillRowStories} />
+
+# SkillRow
+
+One of the person's skills in the Skills tab (2026-10-12): a switch to use it, its name and when it
+turns on, and Edit, Copy as SKILL.md and Delete.
+
+<Canvas of={SkillRowStories.Default} />
+
+## Purpose
+
+A person keeps a few skills and turns them on and off as the work changes: a seasonal menu in
+winter, a launch voice for a week. The row shows each at a glance and makes every action one press
+away. Delete asks once more in place, because nothing brings a deleted skill back.
+
+## When to use / not
+
+Inside SkillsTab's list (`<ul role="list">`), one per skill. It never changes the skill itself: the
+switch calls `onToggle`, which answers with a refusal line or nothing.
+
+## Props
+
+| prop       | type                                        | default | notes                                                   |
+| ---------- | ------------------------------------------- | ------- | ------------------------------------------------------- |
+| `skill`    | `UserSkill`                                 | none    |                                                         |
+| `labels`   | `KnowledgeLabels`                           | none    | `knowledgeLabels(locale)`                               |
+| `onToggle` | `(enabled: boolean) => string \| undefined` | none    | the refusal to show (the every-request budget), or none |
+| `onEdit`   | `() => void`                                | none    | SkillsTab opens SkillEditor                             |
+| `onCopy`   | `() => Promise<boolean>`                    | none    | `true` once the clipboard has the SKILL.md              |
+| `onRemove` | `() => void`                                | none    | called on Delete's second press only                    |
+
+## States
+
+| story                            | what it shows                                           |
+| -------------------------------- | ------------------------------------------------------- |
+| `Default`, `Dark`                | on, turned on by its words                              |
+| `EveryRequest`                   | "In every request"                                      |
+| `Off`, `OffDark`                 | off: the name in the soft text colour, the switch clear |
+| `Refused`, `RefusedRightToLeft`  | turning it on refused by the budget, said in the row    |
+| `ConfirmingDelete`               | Delete armed, in the Alarm colour, named "Delete …?"    |
+| `Copied`                         | Copy says "Copied"                                      |
+| `RightToLeft`, `DarkRightToLeft` | Arabic                                                  |
+
+## Anatomy
+
+```text
+[●━]  Brand voice                       ✎  ⧉  🗑
+      When a request mentions copy, headline
+      There is no more room for …             refusal (Alarm), when refused
+```
+
+The switch sits at the text edge, the name (Read 500, Ink) over the trigger line (Meta, Graphite),
+the three 32px actions at the inline end (44px on a coarse pointer). A skill that is off shows its
+name in the soft text colour. It is never dimmed by opacity, which would take its trigger line and
+refusal under the contrast floor.
+
+## Accessibility
+
+- The switch is a native checkbox with `role="switch"`, named "Use {name}".
+- The actions are named for the skill: "Edit {name}", "Copy {name} as SKILL.md", "Delete {name}";
+  after a copy the button is named "Copied".
+- Delete takes two presses: the first arms it (`data-confirming`, named "Delete {name}?"), the
+  second deletes. Leaving the button disarms it.
+- A refusal is an `alert` in the row, under the line it explains.
+
+## RTL
+
+Logical properties only: the switch's knob travels toward the inline end, and the actions sit at the
+row's inline end (left in Arabic).

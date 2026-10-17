@@ -1,0 +1,34 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MentionPickerStories from './MentionPicker.stories';
+
+<Meta of={MentionPickerStories} />
+
+# MentionPicker
+
+The list under the caret while an `@` is open. Naming a block is the most precise selection a person
+can make — more precise than clicking it, because it survives the click that follows.
+
+<Canvas of={MentionPickerStories.Default} />
+
+## Recognised by words, not ids
+
+A person reaching for "the hero" knows it by what it says, not by `node-7f3a`. Each row carries the
+block's first non-empty string prop, trimmed to 48 characters. A block with no words to show is
+still perfectly pickable by id and type.
+
+<Canvas of={MentionPickerStories.NoExcerpt} />
+
+## A typo does not close it
+
+<Canvas of={MentionPickerStories.NoMatch} />
+
+A picker that disappears when nothing matches is indistinguishable from a picker that never opened,
+and leaves the person wondering whether `@` works at all. It stays, and it says what happened.
+
+## Pointed at, not arrowed through
+
+The rows are `role="option"` inside a `listbox`, and every one of them reports `aria-selected`
+`false`. There is no active descendant because there is no keyboard cursor to move: claiming a
+selection a person cannot change would be a worse lie than claiming none. `Escape` closes the
+picker; that key belongs to the field, which owns the caret.

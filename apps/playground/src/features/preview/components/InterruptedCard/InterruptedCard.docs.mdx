@@ -1,0 +1,59 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as InterruptedCardStories from './InterruptedCard.stories';
+
+<Meta of={InterruptedCardStories} />
+
+# InterruptedCard
+
+What a person meets when they come back to a run that never finished — after a reload, a crash, or a
+tab they closed while it was still working.
+
+<Canvas of={InterruptedCardStories.Resumable} />
+
+## Four actions, because four things can be true
+
+Only the person knows which. The page may already carry sections they like (**Keep what worked**),
+the plan may still be right and merely unfinished (**Resume**), the whole attempt may have been
+wrong (**Start over**), or they may have moved on (**Discard**). A card offering only "try again"
+would decide that for them, and would quietly throw away work that landed.
+
+## Every section is named
+
+A count does not say **which**. "3/8" tells a person how much was lost and nothing about whether the
+part they cared about survived — so each section appears with what happened to it, and a refused one
+carries the door's own sentence rather than a generic failure.
+
+## Resume is withdrawn, not disabled
+
+<Canvas of={InterruptedCardStories.NothingToResume} />
+
+A disabled button is a promise that some condition would light it up. For these runs no such
+condition exists: every section either landed or was refused twice. So the control goes and a
+sentence takes its place.
+
+Resume also skips a section that was already **refused**. It was attempted twice and turned down;
+continuing means going on to the first section nobody has tried. Retrying the refused ones is a
+different action with a different request.
+
+<Canvas of={InterruptedCardStories.OnlyASkeleton} />
+
+## The skeleton warning
+
+A settled record still at `scaffolding` means the run died between laying the skeleton and knowing
+what its sections were. The page carries placeholders that no section list describes — so **Start
+over** must remove them first, and the card says so. Without that, starting over lays a second
+skeleton on top of the first.
+
+<Canvas of={InterruptedCardStories.NothingKept} />
+
+Nothing landed, so **Keep what worked** is absent: there is nothing to keep, and offering it would
+be offering an empty commit.
+
+<Canvas of={InterruptedCardStories.Busy} />
+
+## Where the data comes from
+
+Entirely from the run journal — the durable record written at every checkpoint. That is what makes
+this card possible at all: the draft survives a reload, but only the journal knows which sections
+were written, which were refused and why, and where a resume would have to start.

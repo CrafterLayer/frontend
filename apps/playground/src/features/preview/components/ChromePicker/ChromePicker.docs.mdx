@@ -1,0 +1,50 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ChromePickerStories from './ChromePicker.stories';
+
+<Meta of={ChromePickerStories} />
+
+# ChromePicker
+
+Controlled radio group selecting the theme the **editor** wears. Its sibling `ThemePicker` selects
+the theme of the **page being edited**. They are separate controls because they answer separate
+questions: an author working on a dark website should not be forced into a dark editor, and a dark
+editor must never repaint their light page.
+
+Before this control existed the chrome silently followed the operating system, so the dark chrome
+theme — built, tokenised and contrast-gated in Chromium — could not be reached from inside the app
+at all.
+
+## API
+
+- `value: 'system' | 'light' | 'dark'`
+- `onChange(next)`
+- `labels?: ChromePickerLabels` — the legend, the three choices and each option's spoken name;
+  English by default (`CHROME_PICKER_LABELS_EN`). The Settings panel passes Arabic in the Arabic
+  editor.
+- `chromeThemeFor(choice)` → `'light' | 'dark' | undefined`, the shape `BuilderTheme` accepts
+
+## Why three states
+
+`system` is a state, not the absence of one. It maps to `undefined`, and passing no `theme` prop is
+what lets the stylesheet's `prefers-color-scheme` block answer. Choosing `light` on a dark machine
+is a different decision from not choosing at all, and a two-state control would offer no way back to
+the machine's own answer — which is where every viewer starts.
+
+## Variants
+
+- **Interactive** — the resolved value is rendered beside the control, and the play function proves
+  in a real browser that `system` resolves to `undefined` in both directions.
+- **Overridden** — an explicit choice that beats the machine.
+
+## Accessibility
+
+A `fieldset` with a legend, three labelled native radios sharing one name, fully keyboard-operable
+as a single tab stop with arrow-key selection. The choice is conveyed by the radio state itself, so
+nothing depends on colour.
+
+## RTL, responsive and theme
+
+Native radios and a flex row inherit direction from the document; nothing here is positioned with
+physical properties. The control lives in the playground's harness group in the top bar, which sizes
+every control from `--bldr-hit-target-min`.

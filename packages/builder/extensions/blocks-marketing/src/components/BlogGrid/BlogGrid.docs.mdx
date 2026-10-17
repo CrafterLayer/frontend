@@ -1,0 +1,59 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BlogGridStories from './BlogGrid.stories';
+
+<Meta of={BlogGridStories} />
+
+# Blog Grid
+
+An editorial section for articles, case studies, resources, or news. `cards` produces an even
+collection, `editorial` reduces visual chrome, and `featured` gives the first explicitly featured
+post—or the first post when none is marked—more room.
+
+## Content model
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–80) = 'Latest insights'`
+- `body?: string (1–240)`
+- `posts (≤12)` include title, excerpt, URL, and optional category, author, display date, machine
+  date, reading time, image, alt text, and featured state.
+- `actionLabel: string (1–40) = 'Read article'`
+- `showImages: boolean = true`
+- `variant: 'cards' | 'editorial' | 'featured' = 'cards'`
+- `columns: '2' | '3' = '3'`
+
+## Accessibility and responsive behavior
+
+Every item is a semantic `article`; publication labels use `time` and authored machine dates.
+Repeated action labels include the article title for assistive technology. Missing image alt text
+makes the optional image decorative because its adjacent title already describes the destination.
+Container queries let the cards adapt to the actual canvas column, and all directional spacing is
+logical for RTL layouts.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`post.title` for every card, `post.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name                  | kind  | bind                                               | label (en / ar)                             |
+| --------------------- | ----- | -------------------------------------------------- | ------------------------------------------- |
+| `eyebrow`             | text  | `eyebrow`                                          | Eyebrow / الشارة                            |
+| `heading`             | text  | `heading`                                          | Heading / العنوان                           |
+| `body`                | text  | `body`                                             | Body / الوصف (multiline)                    |
+| `posts`               | list  | `posts`                                            | Articles / المقالات                         |
+| `post`                | item  | `posts.*`                                          | Article / المقالة                           |
+| `post.image`          | image | `{ src: posts.*.imageSrc, alt: posts.*.imageAlt }` | Article image / صورة المقالة                |
+| `post.category`       | text  | `posts.*.category`                                 | Article category / تصنيف المقالة            |
+| `post.title`          | text  | `posts.*.title`                                    | Article title / عنوان المقالة               |
+| `post.excerpt`        | text  | `posts.*.excerpt`                                  | Article excerpt / مقتطف المقالة (multiline) |
+| `post.author`         | text  | `posts.*.author`                                   | Article author / كاتب المقالة               |
+| `post.publishedLabel` | text  | `posts.*.publishedLabel`                           | Publication date / تاريخ النشر              |
+| `post.readingTime`    | text  | `posts.*.readingTime`                              | Reading time / مدة القراءة                  |
+| `post.link`           | link  | `{ text: posts.*.title, href: posts.*.href }`      | Article link / رابط المقالة                 |
+| `actionLabel`         | text  | `actionLabel`                                      | Link label / نص الرابط                      |
+
+`actionLabel` is one part shown on every card; while it is edited in place, the first card hosts the
+editor. The link's accessible name is its label followed by the article title, read through
+`aria-labelledby`, so no bound value is copied into an attribute.

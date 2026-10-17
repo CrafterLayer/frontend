@@ -1,0 +1,266 @@
+/*
+  CommandPalette (Studio Indigo, 2026-10-12).
+
+  The trigger is a quiet search field in the top bar: a sunken pill with the search glyph,
+  the words "Search and commands" and the shortcut in a key cap, so the palette is found by
+  sight before it is learned by hand. The dialog floats 12vh from the top, 640px wide (twice
+  the popover maximum; the viewport less a 16px gutter on a phone), on the Panel with a Hairline edge, the large
+  radius and the overlay elevation, over a dim Rail-tinted veil.
+
+  Rows are 40px (44 on a coarse pointer): the label in Ink, the current place marked with a
+  quiet chip, the shortcut in a key cap at the inline end. The active row takes the Accent
+  wash; a disabled row is listed at reduced strength. Tokens only, logical properties only.
+*/
+
+.pg-command__trigger {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  box-sizing: border-box;
+  min-inline-size: 0;
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-lg) var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  white-space: nowrap;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-command__trigger:hover {
+  border-color: var(--bldr-panel-border-strong);
+  color: var(--bldr-panel-text);
+}
+
+.pg-command__trigger:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-command__trigger-icon {
+  flex: none;
+}
+
+.pg-command__trigger-label {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-command__kbd {
+  flex: none;
+  padding-inline: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-panel);
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-normal);
+  white-space: nowrap;
+}
+
+/* ── The dialog ─────────────────────────────────────────────────────────── */
+
+.pg-command__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background-color: color-mix(in srgb, var(--bldr-rail) 45%, transparent);
+}
+
+.pg-command__content {
+  position: fixed;
+  inset-block-start: 12vh;
+  inset-inline: 0;
+  z-index: 71;
+  box-sizing: border-box;
+  inline-size: min(
+    calc(2 * var(--bldr-measure-popover-max)),
+    calc(100% - 2 * var(--bldr-space-3xl))
+  );
+  margin-inline: auto;
+  overflow: hidden;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-overlay);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.pg-command__content:focus-visible {
+  outline: none;
+}
+
+.pg-command {
+  display: flex;
+  flex-direction: column;
+  max-block-size: 70vh;
+}
+
+.pg-command__search {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-lg);
+  padding-inline: var(--bldr-space-3xl);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  color: var(--bldr-panel-muted);
+}
+
+.pg-command__input {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  block-size: calc(var(--bldr-control-lg) + var(--bldr-space-xl));
+  border: 0;
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-body);
+  /* The dialog is the focus context: the caret and the open palette say where focus is. */
+  outline: none;
+}
+
+.pg-command__input::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.pg-command__list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--bldr-space-md);
+}
+
+.pg-command__empty {
+  padding-block: var(--bldr-space-5xl);
+  padding-inline: var(--bldr-space-3xl);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  text-align: center;
+}
+
+.pg-command__group [cmdk-group-heading] {
+  padding-block: var(--bldr-space-md) var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-lg);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-command__item {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  box-sizing: border-box;
+  min-block-size: var(--bldr-control-lg);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-lg);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-body);
+}
+
+.pg-command__item[data-selected='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.pg-command__item[data-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pg-command__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.pg-command__current {
+  flex: none;
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-command__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-3xl);
+  padding-block: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-3xl);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+/*
+  A narrower desk keeps the trigger's glyph and key cap and lets the words go (they stay
+  its accessible name); a phone keeps only the glyph, since it has no K to press.
+*/
+@media (width < 1200px) {
+  .pg-command__trigger {
+    padding-inline: var(--bldr-space-md) var(--bldr-space-sm);
+  }
+
+  .pg-command__trigger-label {
+    position: absolute;
+    overflow: hidden;
+    block-size: var(--bldr-border-hairline);
+    inline-size: var(--bldr-border-hairline);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (width < 600px) {
+  .pg-command__trigger {
+    padding-inline: var(--bldr-space-md);
+  }
+
+  .pg-command__trigger .pg-command__kbd {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .pg-command__item {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+
+  .pg-command__footer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-command__trigger {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .pg-command__content,
+  .pg-command__trigger {
+    border-color: CanvasText;
+  }
+
+  .pg-command__item[data-selected='true'] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "@craftkit/builder-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tailwind.css": {
+      "types": "./src/tailwind/tailwind-theme.css.d.ts",
+      "default": "./src/tailwind/tailwind-theme.css"
+    },
+    "./tailwind-animate.css": {
+      "types": "./src/tailwind/tailwind-animate.css.d.ts",
+      "default": "./src/tailwind/tailwind-animate.css"
+    },
+    "./tailwind-content.css": {
+      "types": "./src/tailwind/tailwind-content.css.d.ts",
+      "default": "./src/tailwind/tailwind-content.css"
+    },
+    "./motion.css": {
+      "types": "./src/motion/motion.css.d.ts",
+      "default": "./src/motion/motion.css"
+    }
+  },
+  "scripts": {
+    "generate:icons": "node scripts/generate-lucide-icon-names.mjs",
+    "generate:tabler-icons": "node scripts/generate-tabler-icon-names.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@craftkit/builder-core": "workspace:*",
+    "@craftkit/builder-schema": "workspace:*",
+    "@tabler/icons": "catalog:",
+    "@tailwindcss/forms": "catalog:",
+    "@tailwindcss/typography": "catalog:",
+    "lucide": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@storybook/addon-docs": "catalog:",
+    "@storybook/react-vite": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "storybook": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,111 @@
+/*
+  RecordMenu (SPEC §4.15): e2, floating on the Sheet (SPEC §2.5), radius 9 like every
+  decision object and menu (SPEC §2.4). Items are the panel's rows: 32px on a fine
+  pointer, 44px on a coarse one, one `--bldr-agent-row-height` token deciding both.
+
+  The highlighted item takes the Wash, never Indigo: a menu option is not "on the page"
+  (SPEC §2.1 rule 3).
+*/
+
+.ck-agent-menu {
+  z-index: 40;
+  min-inline-size: 200px;
+  max-inline-size: min(320px, calc(100vw - var(--bldr-space-3xl)));
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-menu__item {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--bldr-agent-row-height);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  cursor: default;
+  outline: none;
+  text-wrap: pretty;
+  user-select: none;
+}
+
+.ck-agent-menu__item[data-highlighted] {
+  background-color: var(--bldr-surface-hover);
+}
+
+/* Keyboard focus keeps the product's ring, drawn inside the row so rows never collide. */
+.ck-agent-menu__item:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-thick));
+}
+
+.ck-agent-menu__item[data-disabled] {
+  color: var(--bldr-panel-muted);
+}
+
+/* High contrast drops the Wash; the highlighted row keeps a visible edge. */
+@media (forced-colors: active) {
+  .ck-agent-menu__item[data-highlighted] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+}
+
+/* ── Motion (SPEC §5 moment 9): opacity and a 4px rise away from the anchor ──── */
+
+.ck-agent-menu[data-side='bottom'] {
+  --ck-agent-float-from: calc(-1 * var(--bldr-space-xs));
+}
+
+.ck-agent-menu[data-side='top'] {
+  --ck-agent-float-from: var(--bldr-space-xs);
+}
+
+.ck-agent-menu[data-state='open'] {
+  animation: ck-agent-menu-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-menu[data-state='closed'] {
+  animation: ck-agent-menu-out var(--bldr-duration-exit) var(--bldr-easing-exit) forwards;
+}
+
+@keyframes ck-agent-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-menu-out {
+  to {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-menu-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-menu-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-menu[data-state='open'] {
+    animation: ck-agent-menu-fade-in var(--bldr-duration-state) linear;
+  }
+
+  .ck-agent-menu[data-state='closed'] {
+    animation: ck-agent-menu-fade-out var(--bldr-duration-state) linear forwards;
+  }
+}

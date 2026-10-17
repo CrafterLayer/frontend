@@ -1,0 +1,27 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssetFieldStories from './AssetField.stories';
+
+<Meta of={AssetFieldStories} />
+
+# AssetField
+
+The editor for `imagePropSchema`: a block image that is either a picture the site's asset table
+holds (`{ assetId }`) or a stated, deliberate absence (`{ absent: true, reason }`). The Image
+block's `asset` property is the first user.
+
+<Canvas of={AssetFieldStories.WithLibrary} />
+
+## Behaviour
+
+- **Current picture.** With a library, the field shows the picture and its description. Without one,
+  it names the asset id.
+- **Pick.** "Choose from library" opens the shared `AssetPicker`. A pick writes `{ assetId }` once.
+- **Remove image** writes a stated absence, because the schema requires an absence to be labelled.
+- **No library.** The person can type an asset id, committed once on blur or Enter.
+
+Before this field the property showed `{"assetId":"…"}` as raw JSON.
+
+<Canvas of={AssetFieldStories.NoLibrary} />
+
+<Canvas of={AssetFieldStories.Arabic} />

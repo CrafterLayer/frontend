@@ -1,0 +1,26 @@
+{
+  "id": "22-bento-features",
+  "title": "A named layout for features",
+  "category": "named-block",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Show the product capabilities as a bento grid, with one large tile and three small ones.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "allBlockTypes": ["bento-grid"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Is it a bento grid with one featured tile and three smaller ones?",
+  "why": "The block name here (\"bento grid\") is a layout term rather than a content term, which is where keyword matching against block descriptions tends to break."
+}

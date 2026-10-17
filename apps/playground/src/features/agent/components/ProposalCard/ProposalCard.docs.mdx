@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ProposalCardStories from './ProposalCard.stories';
+
+<Meta of={ProposalCardStories} />
+
+# ProposalCard
+
+Ask mode's proposed edit (SPEC §3.8, §4.13): what would change, the promise that nothing has changed
+yet, and Apply / Discard. Boxed until it is answered.
+
+<Canvas of={ProposalCardStories.Pending} />
+
+## Purpose
+
+In Ask mode an edit is prepared, never applied, until the person says so. The card shows the change
+in the page's own words ("Heading “FAQ” → “Questions patients ask”") and says, only while it is
+true, that the page has not changed. Apply writes it; Discard leaves a one-line end note.
+
+It never shows a token or cost estimate. Those belong to telemetry and Technical details (SPEC
+§7.4); the owner once saw «تقدير: ~11.3k توكن» on a one-step plan, and that line does not exist
+here.
+
+## When to use / not
+
+Use it for a `proposal` turn. While the proposal is being prepared it is a working record.
+
+Do not use it after Apply (the turn becomes an EditRecord titled "Applied: FAQ") or after Discard
+(an EndNote). Do not use it for a page request in Ask mode: that is PagePlanCard with its approval
+tag.
+
+## Props
+
+| prop             | type                                                             | default | notes                                         |
+| ---------------- | ---------------------------------------------------------------- | ------- | --------------------------------------------- |
+| `locale`         | `'ar' \| 'en'`                                                   | none    |                                               |
+| `view`           | `ProposalView`                                                   | none    | `pageUnchanged` gates the honesty line        |
+| `actions`        | `Pick<AgentController, 'apply' \| 'discard' \| 'togglePreview'>` | none    |                                               |
+| `onMenuSelect`   | `(item: RecordMenuItem) => void`                                 | none    | `view.menu`: View as code                     |
+| `menuTriggerRef` | `Ref<HTMLButtonElement>`                                         | none    | where a dialog opened from the menu returns   |
+| `className`      | `string`                                                         | none    | appended to `ck-agent-card ck-agent-proposal` |
+
+## States
+
+| story                                                           | what it shows                                       |
+| --------------------------------------------------------------- | --------------------------------------------------- |
+| `Pending`, `PendingDark`, `PendingRightToLeft…`, `PendingAt420` | the proposal, the honesty line, Apply and Discard   |
+| `PartialSalvage`, `…RightToLeft`, `…Dark`                       | validation dropped a change: an Amber count         |
+| `Previewing`, `PreviewingRightToLeftDark`                       | the Preview toggle pressed                          |
+| `PageAlreadyChanged`                                            | the run wrote to the page: the honesty line is gone |
+| `PageWide`, `PageWideRightToLeft`                               | no target: "Proposed change to the page"            |
+| `Drafting`, `DraftingRightToLeft`                               | the working record while the proposal is prepared   |
+
+## Anatomy
+
+The DecisionCard shell (e1, Sheet, Hairline, radius 9, 12px in). The head is the decision diamond
+and `proposal.title`, "Proposed change: FAQ". The body starts on the title's edge, 24px in, where
+the applied record keeps it: ChangeLines, then the Amber partial line when some changes did not
+survive, then the honesty line (Meta, Graphite). The footer: Apply (the Indigo fill), Discard
+(Indigo words), and at the inline end the Preview toggle and `[⋯]`.
+
+## Accessibility
+
+- An `<article>` named by its `h3`; the target is a `<bdi>`.
+- Preview is a toggle (`aria-pressed`); while pressed it is described by "End preview". Esc inside
+  the card ends the preview and focus lands on the toggle.
+- Apply waits `aria-disabled` when validation kept nothing.
+- Focus names its destination (SPEC §6.3): Apply → the resulting record's Undo; Discard → the
+  composer. The card never holds focus through the change: it names the destination and waits for it
+  to appear in the same turn.
+- No live region of its own: the controller announces through LiveStatus.
+
+## RTL
+
+Logical properties only. The target is quoted «» in Arabic and “” in English by the catalog, and
+takes its own `lang` when its script differs from the UI.
+
+## Motion
+
+None of its own. When the decision is answered the turn becomes a record (SPEC §5 moment 7).

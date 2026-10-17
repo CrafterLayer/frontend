@@ -1,0 +1,418 @@
+.bldr-palette {
+  background: var(--bldr-panel);
+  /* NO separator of its own. The shell region that places this panel already
+     draws the line between itself and the canvas; a component that draws one
+     too puts two var(--bldr-border-hairline) rules in the same place — measured, both were painted at
+     the panel's trailing edge. Worse, a border that is correct in one position
+     is wrong in every other: the layer tree's leading border made sense beside
+     the canvas and became a stray line against the rail the moment the tree
+     moved into the left panel. Separators belong to whoever decides placement. */
+  block-size: 100%;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  /* The CONTAINER decides the size. Naming the left panel's width token here
+     made the palette right in exactly one place, and leaving the block size to
+     content stopped its background short of the column's end — the region's own
+     ground showed through below the last card, as a band of a different shade. */
+  inline-size: 100%;
+  min-block-size: 0;
+  padding-block: var(--bldr-panel-padding);
+  padding-inline: var(--bldr-panel-padding);
+}
+
+.bldr-palette__tabs {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block-end: var(--bldr-space-xl);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-palette__tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) /
+    var(--bldr-line-height-snug) var(--bldr-font);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-palette__tab[aria-selected='true'] {
+  background: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-palette__search {
+  align-items: center;
+  display: grid;
+  grid-template-areas: 'control';
+  margin-block-end: var(--bldr-space-4xl);
+}
+
+.bldr-palette__search-input {
+  appearance: none;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-control) / var(--bldr-line-height-snug)
+    var(--bldr-font);
+  grid-area: control;
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-height);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: calc(var(--bldr-space-4xl) + var(--bldr-space-xl));
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__search-input::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-palette__search-input:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-palette__search-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.bldr-palette__search-icon {
+  block-size: var(--bldr-space-3xl);
+  color: var(--bldr-panel-muted);
+  grid-area: control;
+  inline-size: var(--bldr-space-3xl);
+  pointer-events: none;
+}
+
+.bldr-palette__search-icon--start {
+  justify-self: start;
+  margin-inline-start: var(--bldr-space-xl);
+}
+
+.bldr-palette__search-icon--end {
+  justify-self: end;
+  margin-inline-end: var(--bldr-space-xl);
+}
+
+.bldr-palette__groups {
+  display: grid;
+  gap: var(--bldr-space-4xl);
+}
+
+.bldr-palette__group-heading {
+  margin-block: var(--bldr-space-0) var(--bldr-space-md);
+}
+
+.bldr-palette__group-toggle {
+  align-items: center;
+  appearance: none;
+  background: var(--bldr-panel);
+  border: var(--bldr-space-0);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: flex;
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-micro) / var(--bldr-line-height-tight)
+    var(--bldr-font);
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+  text-transform: uppercase;
+  transition: color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__group-toggle:hover {
+  color: var(--bldr-accent);
+}
+
+.bldr-palette__chevron {
+  block-size: var(--bldr-space-xl);
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__chevron[data-collapsed='true'] {
+  transform: rotate(180deg);
+}
+
+.bldr-palette__grid {
+  display: grid;
+  gap: var(--bldr-space-md);
+  grid-template-columns: repeat(3, minmax(var(--bldr-space-0), 1fr));
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-palette__item {
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-palette__entry {
+  align-items: center;
+  appearance: none;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  /* The grid stretches the CELL to the tallest card in the row; without this
+     the button kept its own content height and sat short inside it. Measured:
+     a row holding "Page Header" grew its cells to 102px while "Page" and
+     "Stack" stayed 86px — three cards of two different sizes on one row, which
+     reads as a rendering fault rather than a layout. A name that wraps is
+     normal in a 3-column palette, so the row's height must govern every card
+     in it. */
+  block-size: 100%;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  min-block-size: calc(var(--bldr-space-6xl) * 2 + var(--bldr-space-xl));
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-space-sm);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__entry:hover {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent-ring);
+  color: var(--bldr-accent);
+}
+
+.bldr-palette__entry:active {
+  background: var(--bldr-accent-soft-hover);
+  cursor: grabbing;
+}
+
+.bldr-palette__tile {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: calc(var(--bldr-space-6xl) + var(--bldr-space-xs));
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  display: flex;
+  flex: none;
+  inline-size: calc(var(--bldr-space-6xl) + var(--bldr-space-xs));
+  justify-content: center;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__entry:hover .bldr-palette__tile,
+.bldr-palette__entry:focus-visible .bldr-palette__tile {
+  background: var(--bldr-accent-soft-hover);
+}
+
+.bldr-palette__entry:active .bldr-palette__tile {
+  background: var(--bldr-accent-ring);
+}
+
+.bldr-palette__diagram {
+  block-size: var(--bldr-space-5xl);
+  color: inherit;
+  display: block;
+  inline-size: calc(var(--bldr-space-6xl) + var(--bldr-space-2xs));
+}
+
+.bldr-palette__entry-name {
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  /* `anywhere` alone splits a word at whatever character happens to reach the
+     edge — "Testimonials" rendered as "Testimonial / s" in a 76px card, which
+     reads as a typo rather than a wrap. Hyphenation breaks at a syllable and
+     marks the break, and `anywhere` stays as the last resort for a word no
+     dictionary can help with. */
+  hyphens: auto;
+  line-height: var(--bldr-line-height-snug);
+  /* `break-word`, not `anywhere`: `anywhere` is considered BEFORE hyphenation,
+     so the browser split "Testimonials" as "Testimonial / s" while a perfectly
+     good syllable break was available. This keeps the last-resort break for a
+     word hyphenation cannot help with. */
+  overflow-wrap: break-word;
+  text-align: center;
+}
+
+.bldr-palette__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-3xl);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-palette__template-grid {
+  display: grid;
+  gap: var(--bldr-space-lg);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-palette__template {
+  appearance: none;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: grid;
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  padding: var(--bldr-space-md);
+  text-align: start;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-palette__template:hover,
+.bldr-palette__template:focus-visible {
+  border-color: var(--bldr-accent-ring);
+  transform: translateY(calc(var(--bldr-space-xs) * -1));
+}
+
+.bldr-palette__template-preview {
+  aspect-ratio: 16 / 10;
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-md);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  padding: var(--bldr-space-md);
+}
+
+.bldr-palette__template-preview > span {
+  background: var(--bldr-accent);
+  border-radius: var(--bldr-radius-sm);
+  opacity: 0.24;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:first-child {
+  grid-column: 1 / -1;
+  grid-row: 1 / 3;
+  opacity: 0.78;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:nth-child(2) {
+  grid-column: 1 / 3;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:nth-child(3) {
+  grid-column: 3 / 5;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:nth-child(4) {
+  grid-column: 5 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:nth-child(5) {
+  grid-column: 1 / 4;
+}
+
+.bldr-palette__template-preview[data-preview-kind='saas'] > span:nth-child(6) {
+  grid-column: 4 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='agency'] > span:first-child {
+  grid-column: 1 / 4;
+  grid-row: 1 / 4;
+  opacity: 0.78;
+}
+
+.bldr-palette__template-preview[data-preview-kind='agency']
+  > span:nth-child(n + 2):nth-child(-n + 4) {
+  grid-column: 4 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='agency'] > span:nth-child(5) {
+  grid-column: 1 / 3;
+}
+
+.bldr-palette__template-preview[data-preview-kind='agency'] > span:nth-child(6) {
+  grid-column: 3 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='commerce'] > span:first-child {
+  grid-column: 1 / 4;
+  grid-row: 1 / 4;
+  opacity: 0.78;
+}
+
+.bldr-palette__template-preview[data-preview-kind='commerce']
+  > span:nth-child(n + 2):nth-child(-n + 4) {
+  grid-column: 4 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='commerce'] > span:nth-child(5) {
+  grid-column: 1 / 4;
+}
+
+.bldr-palette__template-preview[data-preview-kind='commerce'] > span:nth-child(6) {
+  grid-column: 4 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='services'] > span:first-child {
+  grid-column: 1 / -1;
+  opacity: 0.78;
+}
+
+.bldr-palette__template-preview[data-preview-kind='services'] > span:nth-child(2) {
+  grid-column: 1 / 4;
+  grid-row: 2 / -1;
+}
+
+.bldr-palette__template-preview[data-preview-kind='services'] > span:nth-child(n + 3) {
+  grid-column: 4 / -1;
+}
+
+.bldr-palette__template-copy {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-palette__template-copy strong {
+  font-size: var(--bldr-font-size-body);
+}
+
+.bldr-palette__template-copy small {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+/* library-playground additions (2026-10-08): template cards and the "Other language" group. */
+.bldr-palette__template-card {
+  display: flex;
+}
+
+.bldr-palette__template-group {
+  margin-block-start: var(--bldr-space-xl);
+}
+
+.bldr-palette__template-group-heading {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin-block: var(--bldr-space-0) var(--bldr-space-sm);
+}
+/* end library-playground additions */

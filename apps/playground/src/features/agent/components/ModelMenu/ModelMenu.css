@@ -1,0 +1,12 @@
+/*
+  ModelMenu (SPEC §4.17). The trigger and the menu are ChoiceMenu's (ComposerToolbar). The
+  tier's name cuts with an ellipsis at 10 characters, and the trigger may shrink before
+  the mode's does: of the two, the mode is the one that must stay whole. Two selectors,
+  so the flex out-ranks ChromeButton's `flex: none` whichever stylesheet comes first.
+*/
+
+.ck-agent-model[data-bldr-chrome-button] {
+  --ck-agent-choice-measure: 10ch;
+
+  flex: 0 1 auto;
+}

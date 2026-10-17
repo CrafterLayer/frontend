@@ -1,0 +1,41 @@
+/* Media param rows: chrome tokens only, logical properties, mirrored by the group's `dir`. */
+.bldr-media-params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-media-params__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-media-params__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-media-params__input {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-media-params__input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: 0;
+}
+
+.bldr-media-params__hint {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+}

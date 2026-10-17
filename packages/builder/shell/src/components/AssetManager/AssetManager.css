@@ -1,0 +1,269 @@
+.bldr-asset-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding: var(--bldr-panel-padding);
+}
+
+/* A destination's title: the one Title step every panel uses (Pages, Site, History…). */
+.bldr-asset-manager__title {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-asset-manager__subtitle {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-asset-manager__tabs,
+.bldr-asset-manager__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+}
+
+.bldr-asset-manager__tablist {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-asset-manager__tab {
+  background: transparent;
+  border: none;
+  border-block-end: var(--bldr-border-thick) solid transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-asset-manager__tab[data-state='active'] {
+  border-block-end-color: var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-asset-manager__drop {
+  align-items: center;
+  border: var(--bldr-border-thick) dashed var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-3xl) var(--bldr-space-xl);
+  text-align: center;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-asset-manager__drop:hover {
+  border-color: var(--bldr-accent);
+}
+
+.bldr-asset-manager__drop[data-over='true'] {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+}
+
+.bldr-asset-manager__drop-icon {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-lg);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-strong);
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
+}
+
+/* The native input stays the labelled, focusable control; the label is its button. */
+.bldr-asset-manager__file {
+  block-size: var(--bldr-border-hairline);
+  clip-path: inset(50%);
+  inline-size: var(--bldr-border-hairline);
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.bldr-asset-manager__upload-label {
+  align-items: center;
+  background: var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-xl);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-asset-manager__upload-label:hover {
+  background: var(--bldr-accent-strong);
+}
+
+.bldr-asset-manager__upload-label[data-busy='true'] {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.bldr-asset-manager__file:focus-visible + .bldr-asset-manager__upload-label {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-asset-manager__hint,
+.bldr-asset-manager__muted {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-asset-manager__check {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__check input {
+  accent-color: var(--bldr-accent);
+  margin: var(--bldr-space-0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-asset-manager__drop,
+  .bldr-asset-manager__upload-label {
+    transition: none;
+  }
+}
+
+.bldr-asset-manager__grid {
+  display: grid;
+  gap: var(--bldr-space-sm);
+  /* Two thumbnails a row in the 320px panel at its 16px gutter: the full thumb width
+     (144px) left room for one, and each tile became a 288px blank while it loaded. */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--bldr-thumb-width) - var(--bldr-space-xl)), 1fr)
+  );
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-asset-manager__card {
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  overflow: hidden;
+  padding-block-end: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__thumb {
+  aspect-ratio: 4 / 3;
+  background: var(--bldr-surface-sunken);
+  display: block;
+  inline-size: 100%;
+  object-fit: cover;
+}
+
+.bldr-asset-manager__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__name {
+  color: var(--bldr-panel-text);
+  flex-basis: 100%;
+  font-size: var(--bldr-font-size-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-asset-manager__size {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-asset-manager__flag {
+  background: var(--bldr-warning-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-micro);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__alt {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  margin-inline: var(--bldr-space-xs);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-asset-manager__button {
+  align-self: flex-start;
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-asset-manager__button--danger {
+  color: var(--bldr-danger);
+}
+
+.bldr-asset-manager__button:focus-visible,
+.bldr-asset-manager__tab:focus-visible,
+.bldr-asset-manager__alt:focus-visible,
+.bldr-asset-manager__file:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-asset-manager__status {
+  font-size: var(--bldr-font-size-caption);
+  margin: var(--bldr-space-0);
+  min-block-size: 1em;
+}
+
+.bldr-asset-manager__status[data-kind='refused'] {
+  color: var(--bldr-danger);
+}

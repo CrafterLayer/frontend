@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as IconBrowserStories from './IconBrowser.stories';
+
+<Meta of={IconBrowserStories} />
+
+# IconBrowser
+
+Lucide (ISC, the default set) plus Tabler 3.48.0 outline and filled (MIT), searchable
+(style-manager DESIGN.md §C.3, §G).
+
+- Names come from the schema's generated lists, the same ones the door checks, and are spelled the
+  way an icon node stores them: `mail`, `tabler:mail`, `tabler-filled:heart`.
+- Ranking: exact match, then prefix, then substring; Lucide first within a rank. The grid draws the
+  first `limit` results and says when it is capped.
+- Each result is drawn by the page's own `CustomCode` icon renderer, so the pick looks exactly like
+  the page; Tabler's path data loads on first use.
+- The browser never writes. `onPick(name)` goes to the host, and `iconSteps(page, target, name)`
+  builds the one transaction: `setTreeNode` replacing a selected icon (keeping size, stroke, classes
+  and label) or `insertTreeNode` appending one inside a selected element.
+
+Labels: `ICON_BROWSER_LABELS_EN` / `_AR`. Icon names are English kebab-case in both.

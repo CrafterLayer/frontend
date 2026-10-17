@@ -1,0 +1,406 @@
+interface DiagramPart {
+  readonly key: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly opacity: number;
+}
+
+type BlockDiagramKind =
+  | 'action'
+  | 'app'
+  | 'chart'
+  | 'columns'
+  | 'compare'
+  | 'countdown'
+  | 'generic'
+  | 'goal'
+  | 'grid'
+  | 'hero'
+  | 'list'
+  | 'location'
+  | 'media'
+  | 'menu'
+  | 'pricing'
+  | 'quote'
+  | 'rating'
+  | 'section'
+  | 'story'
+  | 'table'
+  | 'testimonial'
+  | 'text'
+  | 'timeline';
+
+interface BlockDiagram {
+  readonly kind: BlockDiagramKind;
+  readonly parts: readonly DiagramPart[];
+}
+
+function heroDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 17, height: 4, opacity: 0.9 },
+    { key: 'body', x: 2, y: 9, width: 13, height: 2, opacity: 0.42 },
+    { key: 'button', x: 2, y: 15, width: 8, height: 4, opacity: 0.72 },
+    { key: 'panel', x: 22, y: 3, width: 10, height: 17, opacity: 0.22 },
+  ];
+}
+
+function columnsDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'column-1', x: 2, y: 3, width: 8, height: 18, opacity: 0.35 },
+    { key: 'column-2', x: 13, y: 3, width: 8, height: 18, opacity: 0.62 },
+    { key: 'column-3', x: 24, y: 3, width: 8, height: 18, opacity: 0.9 },
+  ];
+}
+
+function gridDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'top-1', x: 2, y: 3, width: 8, height: 8, opacity: 0.32 },
+    { key: 'top-2', x: 13, y: 3, width: 8, height: 8, opacity: 0.56 },
+    { key: 'top-3', x: 24, y: 3, width: 8, height: 8, opacity: 0.8 },
+    { key: 'bottom-1', x: 2, y: 13, width: 8, height: 8, opacity: 0.8 },
+    { key: 'bottom-2', x: 13, y: 13, width: 8, height: 8, opacity: 0.56 },
+    { key: 'bottom-3', x: 24, y: 13, width: 8, height: 8, opacity: 0.32 },
+  ];
+}
+
+function textDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 21, height: 4, opacity: 0.9 },
+    { key: 'line-1', x: 2, y: 10, width: 30, height: 2, opacity: 0.35 },
+    { key: 'line-2', x: 2, y: 14, width: 26, height: 2, opacity: 0.35 },
+    { key: 'line-3', x: 2, y: 18, width: 18, height: 2, opacity: 0.35 },
+  ];
+}
+
+function mediaDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'frame', x: 2, y: 3, width: 30, height: 14, opacity: 0.25 },
+    { key: 'subject', x: 6, y: 7, width: 9, height: 7, opacity: 0.72 },
+    { key: 'caption', x: 2, y: 19, width: 19, height: 2, opacity: 0.48 },
+  ];
+}
+
+function actionDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 4, y: 4, width: 26, height: 4, opacity: 0.88 },
+    { key: 'body', x: 8, y: 10, width: 18, height: 2, opacity: 0.38 },
+    { key: 'button', x: 11, y: 16, width: 12, height: 5, opacity: 0.72 },
+  ];
+}
+
+function pricingDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'card-1', x: 2, y: 3, width: 8, height: 18, opacity: 0.2 },
+    { key: 'price-1', x: 4, y: 6, width: 4, height: 3, opacity: 0.68 },
+    { key: 'action-1', x: 4, y: 16, width: 4, height: 2, opacity: 0.48 },
+    { key: 'card-2', x: 13, y: 3, width: 8, height: 18, opacity: 0.38 },
+    { key: 'price-2', x: 15, y: 6, width: 4, height: 3, opacity: 0.9 },
+    { key: 'action-2', x: 15, y: 16, width: 4, height: 2, opacity: 0.7 },
+    { key: 'card-3', x: 24, y: 3, width: 8, height: 18, opacity: 0.2 },
+    { key: 'price-3', x: 26, y: 6, width: 4, height: 3, opacity: 0.68 },
+    { key: 'action-3', x: 26, y: 16, width: 4, height: 2, opacity: 0.48 },
+  ];
+}
+
+function testimonialDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'quote-1', x: 3, y: 3, width: 5, height: 6, opacity: 0.84 },
+    { key: 'quote-2', x: 10, y: 3, width: 5, height: 6, opacity: 0.84 },
+    { key: 'line-1', x: 3, y: 12, width: 28, height: 2, opacity: 0.35 },
+    { key: 'line-2', x: 3, y: 16, width: 23, height: 2, opacity: 0.35 },
+    { key: 'author', x: 3, y: 20, width: 11, height: 2, opacity: 0.62 },
+  ];
+}
+
+function sectionDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'surface', x: 2, y: 3, width: 30, height: 18, opacity: 0.2 },
+    { key: 'heading', x: 6, y: 7, width: 15, height: 3, opacity: 0.82 },
+    { key: 'body', x: 6, y: 13, width: 22, height: 2, opacity: 0.4 },
+    { key: 'detail', x: 6, y: 17, width: 13, height: 2, opacity: 0.4 },
+  ];
+}
+
+function tableDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
+    { key: 'row-1', x: 2, y: 9, width: 30, height: 3, opacity: 0.3 },
+    { key: 'row-2', x: 2, y: 13.5, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-3', x: 2, y: 18, width: 30, height: 3, opacity: 0.3 },
+  ];
+}
+
+function chartDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'bar-1', x: 4, y: 13, width: 4, height: 8, opacity: 0.45 },
+    { key: 'bar-2', x: 11, y: 8, width: 4, height: 13, opacity: 0.72 },
+    { key: 'bar-3', x: 18, y: 11, width: 4, height: 10, opacity: 0.45 },
+    { key: 'bar-4', x: 25, y: 4, width: 4, height: 17, opacity: 0.9 },
+    { key: 'axis', x: 2, y: 21, width: 30, height: 1, opacity: 0.35 },
+  ];
+}
+
+function timelineDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'rail', x: 4.5, y: 3, width: 1, height: 18, opacity: 0.3 },
+    { key: 'dot-1', x: 3, y: 3, width: 4, height: 4, opacity: 0.9 },
+    { key: 'line-1', x: 10, y: 4, width: 18, height: 2, opacity: 0.5 },
+    { key: 'dot-2', x: 3, y: 10, width: 4, height: 4, opacity: 0.9 },
+    { key: 'line-2', x: 10, y: 11, width: 14, height: 2, opacity: 0.5 },
+    { key: 'dot-3', x: 3, y: 17, width: 4, height: 4, opacity: 0.4 },
+    { key: 'line-3', x: 10, y: 18, width: 20, height: 2, opacity: 0.35 },
+  ];
+}
+
+function menuDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 12, height: 3, opacity: 0.85 },
+    { key: 'name-1', x: 2, y: 10, width: 10, height: 2, opacity: 0.6 },
+    { key: 'leader-1', x: 13, y: 11.5, width: 12, height: 0.5, opacity: 0.35 },
+    { key: 'price-1', x: 27, y: 10, width: 5, height: 2, opacity: 0.85 },
+    { key: 'name-2', x: 2, y: 15, width: 13, height: 2, opacity: 0.6 },
+    { key: 'leader-2', x: 16, y: 16.5, width: 9, height: 0.5, opacity: 0.35 },
+    { key: 'price-2', x: 27, y: 15, width: 5, height: 2, opacity: 0.85 },
+  ];
+}
+
+function locationDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'map', x: 18, y: 3, width: 14, height: 18, opacity: 0.22 },
+    { key: 'pin', x: 23, y: 9, width: 4, height: 4, opacity: 0.9 },
+    { key: 'address', x: 2, y: 4, width: 13, height: 3, opacity: 0.75 },
+    { key: 'hours-1', x: 2, y: 11, width: 12, height: 2, opacity: 0.45 },
+    { key: 'hours-2', x: 2, y: 15, width: 10, height: 2, opacity: 0.45 },
+  ];
+}
+
+function countdownDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'unit-1', x: 2, y: 7, width: 6, height: 10, opacity: 0.85 },
+    { key: 'unit-2', x: 10, y: 7, width: 6, height: 10, opacity: 0.65 },
+    { key: 'unit-3', x: 18, y: 7, width: 6, height: 10, opacity: 0.45 },
+    { key: 'unit-4', x: 26, y: 7, width: 6, height: 10, opacity: 0.3 },
+  ];
+}
+
+// ── 2026-10-13: before/after, pull quote, ratings, app, lists, case study, fundraiser ──
+function compareDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'before', x: 2, y: 3, width: 15, height: 18, opacity: 0.25 },
+    { key: 'after', x: 17, y: 3, width: 15, height: 18, opacity: 0.5 },
+    { key: 'divider', x: 16.5, y: 3, width: 1, height: 18, opacity: 0.95 },
+    { key: 'knob', x: 15, y: 10, width: 4, height: 4, opacity: 0.95 },
+  ];
+}
+
+function quoteDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'mark', x: 2, y: 3, width: 5, height: 4, opacity: 0.9 },
+    { key: 'line-1', x: 2, y: 9, width: 30, height: 3, opacity: 0.75 },
+    { key: 'line-2', x: 2, y: 14, width: 22, height: 3, opacity: 0.75 },
+    { key: 'author', x: 2, y: 19, width: 10, height: 2, opacity: 0.4 },
+  ];
+}
+
+function ratingDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'score', x: 2, y: 3, width: 8, height: 7, opacity: 0.9 },
+    { key: 'bar-1', x: 2, y: 12, width: 12, height: 1.5, opacity: 0.7 },
+    { key: 'bar-2', x: 2, y: 15, width: 8, height: 1.5, opacity: 0.5 },
+    { key: 'bar-3', x: 2, y: 18, width: 4, height: 1.5, opacity: 0.35 },
+    { key: 'review-1', x: 17, y: 3, width: 15, height: 8, opacity: 0.3 },
+    { key: 'review-2', x: 17, y: 13, width: 15, height: 8, opacity: 0.3 },
+  ];
+}
+
+function appDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 4, width: 14, height: 3, opacity: 0.85 },
+    { key: 'body', x: 2, y: 9, width: 11, height: 2, opacity: 0.45 },
+    { key: 'store-1', x: 2, y: 14, width: 7, height: 4, opacity: 0.8 },
+    { key: 'store-2', x: 10, y: 14, width: 7, height: 4, opacity: 0.8 },
+    { key: 'phone', x: 22, y: 2, width: 9, height: 20, opacity: 0.35 },
+  ];
+}
+
+function listDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'heading', x: 2, y: 3, width: 12, height: 3, opacity: 0.85 },
+    { key: 'row-1', x: 2, y: 8, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-2', x: 2, y: 12.5, width: 30, height: 3, opacity: 0.45 },
+    { key: 'row-3', x: 2, y: 17, width: 30, height: 3, opacity: 0.45 },
+    { key: 'go', x: 28, y: 8.5, width: 3, height: 2, opacity: 0.9 },
+  ];
+}
+
+function storyDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'metric-1', x: 2, y: 3, width: 8, height: 4, opacity: 0.85 },
+    { key: 'metric-2', x: 12, y: 3, width: 8, height: 4, opacity: 0.65 },
+    { key: 'metric-3', x: 22, y: 3, width: 8, height: 4, opacity: 0.45 },
+    { key: 'line-1', x: 2, y: 10, width: 13, height: 2, opacity: 0.5 },
+    { key: 'line-2', x: 2, y: 14, width: 11, height: 2, opacity: 0.5 },
+    { key: 'line-3', x: 2, y: 18, width: 12, height: 2, opacity: 0.5 },
+    { key: 'image', x: 18, y: 10, width: 14, height: 11, opacity: 0.3 },
+  ];
+}
+
+function goalDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'amount', x: 2, y: 4, width: 14, height: 4, opacity: 0.9 },
+    { key: 'track', x: 2, y: 11, width: 30, height: 3, opacity: 0.2 },
+    { key: 'fill', x: 2, y: 11, width: 20, height: 3, opacity: 0.85 },
+    { key: 'button', x: 2, y: 17, width: 30, height: 4, opacity: 0.7 },
+  ];
+}
+
+function genericDiagram(): readonly DiagramPart[] {
+  return [
+    { key: 'header', x: 2, y: 3, width: 30, height: 4, opacity: 0.72 },
+    { key: 'aside', x: 2, y: 10, width: 9, height: 11, opacity: 0.28 },
+    { key: 'content', x: 14, y: 10, width: 18, height: 5, opacity: 0.5 },
+    { key: 'footer', x: 14, y: 18, width: 13, height: 3, opacity: 0.36 },
+  ];
+}
+
+function diagramKey(type: string): string {
+  return type.replace(/[^a-zA-Z0-9]/g, '').toLocaleLowerCase();
+}
+
+/* The 2026-10-13 blocks, by exact type: their names share words with older checks. */
+const NAMED_DIAGRAMS: Readonly<Record<string, BlockDiagram>> = {
+  beforeafter: { kind: 'compare', parts: compareDiagram() },
+  pullquote: { kind: 'quote', parts: quoteDiagram() },
+  reviewsummary: { kind: 'rating', parts: ratingDiagram() },
+  appdownload: { kind: 'app', parts: appDiagram() },
+  jobslist: { kind: 'list', parts: listDiagram() },
+  downloadlist: { kind: 'list', parts: listDiagram() },
+  casestudy: { kind: 'story', parts: storyDiagram() },
+  fundraiser: { kind: 'goal', parts: goalDiagram() },
+};
+
+export function diagramForBlockType(type: string): BlockDiagram {
+  const key = diagramKey(type);
+  // First: `reviewsummary` and `pullquote` would otherwise take the testimonial miniature.
+  const named = NAMED_DIAGRAMS[key];
+  if (named !== undefined) return named;
+
+  if (key.includes('pricing') || key.includes('plan') || key.includes('comparison')) {
+    return { kind: 'pricing', parts: pricingDiagram() };
+  }
+  // After pricing, so a comparison table keeps its plan-columns miniature.
+  if (key.includes('table')) {
+    return { kind: 'table', parts: tableDiagram() };
+  }
+  // A report's miniature is its chart.
+  if (key.includes('chart') || key === 'report') {
+    return { kind: 'chart', parts: chartDiagram() };
+  }
+  if (key.includes('timeline')) {
+    return { kind: 'timeline', parts: timelineDiagram() };
+  }
+  if (key.includes('menusection')) {
+    return { kind: 'menu', parts: menuDiagram() };
+  }
+  if (key === 'location') {
+    return { kind: 'location', parts: locationDiagram() };
+  }
+  if (key.includes('countdown')) {
+    return { kind: 'countdown', parts: countdownDiagram() };
+  }
+  if (key.includes('testimonial') || key.includes('review') || key.includes('quote')) {
+    return { kind: 'testimonial', parts: testimonialDiagram() };
+  }
+  if (
+    key.includes('cta') ||
+    key.includes('button') ||
+    key.includes('shimmer') ||
+    key.includes('action') ||
+    key.includes('form') ||
+    key.includes('progress') ||
+    key === 'dialog'
+  ) {
+    return { kind: 'action', parts: actionDiagram() };
+  }
+  if (
+    key.includes('hero') ||
+    key.includes('banner') ||
+    key.includes('announcement') ||
+    key.includes('spotlight') ||
+    key.includes('aurora') ||
+    key.includes('dotpattern') ||
+    key.includes('cloudshader')
+  ) {
+    return { kind: 'hero', parts: heroDiagram() };
+  }
+  if (
+    key.includes('column') ||
+    key.includes('row') ||
+    key === 'breadcrumbs' ||
+    key === 'pagination' ||
+    key === 'tabs'
+  ) {
+    return { kind: 'columns', parts: columnsDiagram() };
+  }
+  if (
+    key.includes('grid') ||
+    key.includes('feature') ||
+    key.includes('gallery') ||
+    key.includes('logo') ||
+    key.includes('stats') ||
+    key.includes('team') ||
+    key.includes('blog') ||
+    key.includes('portfolio') ||
+    key.includes('product') ||
+    key.includes('marquee') ||
+    key.includes('avatar')
+  ) {
+    return { kind: 'grid', parts: gridDiagram() };
+  }
+  if (
+    key.includes('richtext') ||
+    key.includes('text') ||
+    key.includes('heading') ||
+    key.includes('paragraph') ||
+    key.includes('faq') ||
+    key.includes('contentsection') ||
+    key.includes('process') ||
+    key.includes('accordion')
+  ) {
+    return { kind: 'text', parts: textDiagram() };
+  }
+  if (
+    key.includes('image') ||
+    key.includes('media') ||
+    key.includes('video') ||
+    key.includes('embed') ||
+    key.includes('contact') ||
+    key.includes('newsletter') ||
+    key.includes('carousel')
+  ) {
+    return { kind: 'media', parts: mediaDiagram() };
+  }
+  if (
+    key.includes('page') ||
+    key.includes('section') ||
+    key.includes('container') ||
+    key.includes('navigation') ||
+    key.includes('navbar') ||
+    key.includes('footer') ||
+    key.includes('stack') ||
+    key.includes('spacer') ||
+    key.includes('divider') ||
+    key === 'card' ||
+    key === 'badge' ||
+    key === 'separator' ||
+    key === 'shadcnalert' ||
+    key === 'tabpanel' ||
+    key === 'shineborder'
+  ) {
+    return { kind: 'section', parts: sectionDiagram() };
+  }
+
+  return { kind: 'generic', parts: genericDiagram() };
+}

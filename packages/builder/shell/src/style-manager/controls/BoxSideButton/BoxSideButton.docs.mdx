@@ -1,0 +1,17 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BoxSideButtonStories from './BoxSideButton.stories';
+
+<Meta of={BoxSideButtonStories} />
+
+# BoxSideButton
+
+One side of a `BoxModelControl` ring. It is a button that:
+
+- **scrubs**: dragging previews the landing value (shown on the button and sent to `onPreview`) and
+  commits it once on release; a cancelled drag writes nothing;
+- **opens an exact editor** when pressed without travel (a `ScaleNumberControl` in a popover);
+- reads **Shift** (all sides) and **Alt** (opposite pair) at the moment of the drag or the press.
+
+Growth follows the page direction (`dir`): away from the box centre is bigger, so inline-start grows
+when dragged towards the right on an RTL page. Pixel scrubs snap to scale steps within 2px.

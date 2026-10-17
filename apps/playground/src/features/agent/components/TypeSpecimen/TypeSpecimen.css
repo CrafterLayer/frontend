@@ -1,0 +1,310 @@
+/*
+  The type specimen (SPEC §2.2). Everything it shows is read from the `--bldr-*` tokens,
+  so the page is the scale, not a picture of it: change a token and the specimen moves.
+
+  `font-family` inherits as a COMPUTED value, so re-pointing `--bldr-font` under
+  `:lang(ar)` does nothing for an element that inherits a family from a Latin parent.
+  Every element with a `lang` re-declares it (SPEC §2.2, the panel's own rule).
+*/
+
+.ck-agent-specimen {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--bldr-space-6xl);
+  padding: var(--bldr-space-5xl) var(--bldr-space-3xl);
+  background: var(--bldr-panel);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-specimen,
+.ck-agent-specimen [lang] {
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-specimen :where(h2, h3, p, ol, dl, dd, table) {
+  margin: 0;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.ck-agent-specimen__header {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  max-inline-size: 60ch;
+}
+
+.ck-agent-specimen__title {
+  font-size: var(--bldr-font-size-lead);
+  line-height: var(--bldr-line-height-lead);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-specimen__lede,
+.ck-agent-specimen__note {
+  color: var(--bldr-panel-text-soft);
+  text-wrap: pretty;
+}
+
+.ck-agent-specimen__note {
+  max-inline-size: 60ch;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+
+.ck-agent-specimen__section {
+  display: grid;
+  gap: var(--bldr-space-md);
+}
+
+.ck-agent-specimen__heading {
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+/* ── Roles ───────────────────────────────────────────────────────────────── */
+
+.ck-agent-specimen__roles {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-specimen__role {
+  display: grid;
+  gap: var(--bldr-space-md);
+  padding-block: var(--bldr-space-xl);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-specimen__role:last-child {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-specimen__role-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--bldr-space-xs) var(--bldr-space-md);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-specimen__role-name {
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-specimen__role-use {
+  color: var(--bldr-panel-muted);
+}
+
+/* The spec values sit at the inline end, one tabular slot each. */
+.ck-agent-specimen__spec {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-agent-specimen__spec > div {
+  display: flex;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-specimen__spec dt {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-specimen__spec dd {
+  color: var(--bldr-panel-text-soft);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.ck-agent-specimen__role-note {
+  flex-basis: 100%;
+  color: var(--bldr-panel-muted);
+}
+
+/* One script under the other at panel widths; side by side once there is room. The
+   Arabic sample starts at the inline end of its own column, so the pair reads as a
+   mirror in both page directions. */
+.ck-agent-specimen__samples {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+@container (min-inline-size: 560px) {
+  .ck-agent-specimen__samples {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--bldr-space-3xl);
+  }
+}
+
+.ck-agent-specimen__sample {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-specimen__sample[data-ink='ink'] {
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-specimen__sample[data-ink='graphite'] {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-specimen__sample[data-ink='slate'] {
+  color: var(--bldr-panel-muted);
+}
+
+/* The SPEC §2.2 table, one rule per role. Arabic values arrive through `:lang(ar)`. */
+.ck-agent-specimen__sample[data-role='figure'] {
+  font-size: var(--bldr-font-size-figure);
+  line-height: var(--bldr-line-height-figure);
+  font-weight: var(--bldr-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-agent-specimen__sample[data-role='meta'] {
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-specimen__sample[data-role='read'] {
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-specimen__sample[data-role='heading'] {
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-specimen__sample[data-role='name'] {
+  font-size: var(--bldr-font-size-name);
+  line-height: var(--bldr-line-height-name);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-specimen__sample[data-role='input'],
+.ck-agent-specimen__sample[data-role='inputCoarse'] {
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-specimen__sample[data-role='lead'] {
+  font-size: var(--bldr-font-size-lead);
+  line-height: var(--bldr-line-height-lead);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+/* ── Figures ─────────────────────────────────────────────────────────────── */
+
+.ck-agent-specimen__figures,
+.ck-agent-specimen__files {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-specimen__figures th,
+.ck-agent-specimen__files th,
+.ck-agent-specimen__files td {
+  padding-block: var(--bldr-space-sm);
+  padding-inline: 0 var(--bldr-space-xl);
+  text-align: start;
+  vertical-align: baseline;
+}
+
+.ck-agent-specimen__figures thead th,
+.ck-agent-specimen__files thead th {
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-specimen__figures td {
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: 0 var(--bldr-space-xl);
+}
+
+/* A gap between the two groups: clocks, then counts. */
+.ck-agent-specimen__figure-group + .ck-agent-specimen__figure-group td {
+  padding-block-start: var(--bldr-space-md);
+}
+
+/* Tinted to its own width: a proportional face would show ragged boxes here. */
+.ck-agent-specimen__figure {
+  display: inline-block;
+  padding-inline: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-xs);
+  background: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-figure);
+  line-height: var(--bldr-line-height-figure);
+  font-weight: var(--bldr-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Files ───────────────────────────────────────────────────────────────── */
+
+.ck-agent-specimen__files tbody tr {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-specimen__files tbody th {
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-specimen__glyphs {
+  display: inline-block;
+  min-inline-size: 3em;
+  margin-inline-end: var(--bldr-space-md);
+  font-size: var(--bldr-font-size-lead);
+  line-height: var(--bldr-line-height-lead);
+}
+
+.ck-agent-specimen__glyphs[data-weight='400'] {
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-specimen__glyphs[data-weight='500'] {
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.ck-agent-specimen__glyphs[data-weight='600'] {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.ck-agent-specimen__file {
+  color: var(--bldr-panel-text-soft);
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-specimen__bytes {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ck-agent-specimen__files tfoot th,
+.ck-agent-specimen__files tfoot td {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+/* Below a 400px container the glyph samples and the file column go: face and weight
+   already name the file, and the byte count keeps its one line. */
+@container (max-inline-size: 399px) {
+  .ck-agent-specimen__glyphs,
+  .ck-agent-specimen__file {
+    display: none;
+  }
+}

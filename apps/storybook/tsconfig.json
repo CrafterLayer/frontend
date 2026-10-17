@@ -3,6 +3,12 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": [".storybook", "vitest.config.ts"],
+  "include": [
+    ".storybook/main.ts",
+    ".storybook/preview.ts",
+    ".storybook/vitest.setup.ts",
+    "globals.d.ts",
+    "vitest.config.ts"
+  ],
   "exclude": ["storybook-static"]
 }

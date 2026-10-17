@@ -1,0 +1,101 @@
+/*
+  SpineList (SPEC §4.8, §2.3). The columns every row shares, through subgrid: the 16px glyph
+  column the spine runs down, the 20px number column, the title, the state word, and the
+  trailing action when some row has one. 8px between them, so titles start 52px in.
+
+  It spans the record body's two columns (the glyph column and the text column), so its
+  glyph column is the record's: the head's node, every row's node and the spine between
+  them sit on one vertical line.
+*/
+
+.ck-agent-spine {
+  --ck-agent-sweep-light: var(--bldr-accent-ring);
+
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns:
+    [node] var(--bldr-space-3xl)
+    [number] var(--bldr-space-4xl)
+    [title] minmax(0, 1fr)
+    [state] auto;
+  column-gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-spine[data-trailing] {
+  grid-template-columns:
+    [node] var(--bldr-space-3xl)
+    [number] var(--bldr-space-4xl)
+    [title] minmax(0, 1fr)
+    [state] auto
+    [trail] auto;
+}
+
+/*
+  The completion sweep (SPEC §5 moment 5): when the last section lands the spine is one
+  unbroken Indigo stroke, and a single light passes down it, first node to last, once. It
+  waits for the last stroke to fill (`land`), passes behind the nodes, then the record
+  removes it. The light is the palest Indigo in light (Halo) and the brightest in dark
+  (Indigo deep), so it reads as light on the ink in both.
+*/
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-bldr-theme='light'])) .ck-agent-spine {
+    --ck-agent-sweep-light: var(--bldr-accent-strong);
+  }
+}
+
+:where([data-bldr-theme='dark']) .ck-agent-spine {
+  --ck-agent-sweep-light: var(--bldr-accent-strong);
+}
+
+:where([data-bldr-theme='light']) .ck-agent-spine {
+  --ck-agent-sweep-light: var(--bldr-accent-ring);
+}
+
+.ck-agent-spine[data-sweep]::after {
+  position: absolute;
+  z-index: 1;
+  inset-block: calc(var(--bldr-agent-row-height) / 2);
+  inset-inline-start: calc(var(--bldr-space-md) - var(--bldr-border-thick) / 2);
+  inline-size: var(--bldr-border-thick);
+  background-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--ck-agent-sweep-light),
+    transparent
+  );
+  background-repeat: no-repeat;
+  background-size: 100% var(--bldr-space-6xl);
+  content: '';
+  pointer-events: none;
+  animation: ck-agent-spine-sweep var(--bldr-duration-sweep) var(--bldr-easing)
+    var(--bldr-duration-land) both;
+}
+
+@keyframes ck-agent-spine-sweep {
+  from {
+    background-position-y: calc(-1 * var(--bldr-space-6xl));
+  }
+
+  to {
+    background-position-y: calc(100% + var(--bldr-space-6xl));
+  }
+}
+
+/* Reduced motion and high contrast: none; the unbroken stroke is itself the signal. */
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-spine[data-sweep]::after {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-spine[data-sweep]::after {
+    display: none;
+  }
+}

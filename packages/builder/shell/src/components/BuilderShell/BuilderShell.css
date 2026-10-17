@@ -1,0 +1,196 @@
+/* The editor's layout, and the only file in the product that knows it.
+   Every track is a token, so density is one decision rather than twenty
+   paddings, and nothing INSIDE a region needs to know where it sits.
+
+   Logical properties throughout: the whole editor mirrors in RTL with no
+   second stylesheet and no JavaScript. */
+
+.bldr-shell {
+  position: relative;
+  background: var(--bldr-ground);
+  block-size: 100%;
+  color: var(--bldr-panel-text);
+  display: grid;
+  font-family: var(--bldr-font);
+  /* Named areas rather than track indices: a region moves by being renamed,
+     and a missing region collapses its track to zero without renumbering
+     anything. */
+  grid-template-areas:
+    'top    top     top    top'
+    'rail   panel   main   aside'
+    'status status  status status';
+  grid-template-columns:
+    auto
+    var(--bldr-shell-panel-track, var(--bldr-panel-width))
+    minmax(0, 1fr)
+    var(--bldr-shell-aside-track, var(--bldr-inspector-width));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inline-size: 100%;
+  /* The grid is the ONLY scroll authority: regions scroll inside their track,
+     the page itself never does. A workspace that scrolls as a whole loses its
+     toolbars the moment content grows. */
+  overflow: hidden;
+}
+
+/* A region that is not rendered must not reserve a pixel. `:has()` keeps that
+   decision in CSS rather than making the component compute a template string,
+   which is how a layout ends up with two sources of truth. */
+.bldr-shell:not(:has(> .bldr-shell__panel)) {
+  --bldr-shell-panel-track: 0px;
+}
+
+.bldr-shell:not(:has(> .bldr-shell__aside)) {
+  --bldr-shell-aside-track: 0px;
+}
+
+.bldr-shell__top {
+  block-size: var(--bldr-topbar-height);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  grid-area: top;
+  min-inline-size: 0;
+}
+
+.bldr-shell__rail {
+  grid-area: rail;
+  min-block-size: 0;
+}
+
+/* A scrolling region must ALSO be a containing block. `overflow` alone does not
+   clip an absolutely positioned descendant — it escapes to the nearest
+   positioned ancestor and stretches the document, which is a page-level scroll
+   nobody asked for. Measured in a real browser: a visually-hidden live region
+   inside the inspector pushed the document 90px past the viewport while every
+   region was otherwise sized correctly. */
+.bldr-shell__panel {
+  position: relative;
+  border-inline-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  grid-area: panel;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden auto;
+}
+
+/* The canvas column carries the dock, so it is a grid of its own: the dock
+   takes the height it needs and the canvas takes the rest. Sizing the dock
+   from the outer grid instead would make "the canvas is what is left over"
+   a calculation rather than a fact. */
+.bldr-shell__main {
+  display: grid;
+  grid-area: main;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.bldr-shell__canvas {
+  position: relative;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.bldr-shell__dock {
+  position: relative;
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  max-block-size: 60%;
+  min-block-size: 0;
+  overflow: hidden auto;
+}
+
+.bldr-shell__aside {
+  position: relative;
+  border-inline-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  grid-area: aside;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden auto;
+}
+
+.bldr-shell__status {
+  block-size: var(--bldr-statusbar-height);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  grid-area: status;
+  min-inline-size: 0;
+}
+
+/* Narrow viewports: the palette is the first thing to go, because the canvas
+   is the subject and the inspector is what you act with. This is a layout
+   decision, so it lives here — not in a resize listener.
+
+   But only when the HOST agrees. That reasoning is true of a palette and false
+   of the document's structure, and this file never sees which one it was
+   handed. A host that put navigation in the panel says `essential`, and the
+   canvas narrows instead — measured, without this the layer tree simply
+   vanished between 900 and 1180 while the rail still marked it as the open
+   destination. */
+@media (width < 1180px) {
+  .bldr-shell:not([data-adaptive]):not([data-bldr-panel-priority='essential']) {
+    --bldr-shell-panel-track: 0px;
+  }
+
+  .bldr-shell:not([data-adaptive]):not([data-bldr-panel-priority='essential']) .bldr-shell__panel {
+    display: none;
+  }
+}
+
+@media (width < 900px) {
+  .bldr-shell:not([data-adaptive]) {
+    --bldr-shell-aside-track: 0px;
+  }
+
+  .bldr-shell:not([data-adaptive]) .bldr-shell__aside {
+    display: none;
+  }
+}
+
+.bldr-shell[data-panel-open='false'],
+.bldr-shell[data-panel-overlay] {
+  --bldr-shell-panel-track: 0px;
+}
+
+.bldr-shell[data-aside-open='false'],
+.bldr-shell[data-panel-overlay] {
+  --bldr-shell-aside-track: 0px;
+}
+
+.bldr-shell[data-adaptive] > [hidden] {
+  display: none;
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__panel,
+.bldr-shell[data-panel-overlay] > .bldr-shell__aside {
+  position: absolute;
+  grid-area: auto;
+  grid-column: 1 / -1;
+  grid-row: 2 / 3;
+  inset-block: 0;
+  z-index: 20;
+  background: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-overlay);
+  max-inline-size: calc(100% - var(--bldr-shell-rail-size));
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__panel {
+  inset-inline-start: var(--bldr-shell-rail-size);
+  inline-size: var(--bldr-panel-width);
+}
+
+.bldr-shell[data-panel-overlay] > .bldr-shell__aside {
+  inset-inline-end: 0;
+  inline-size: var(--bldr-inspector-width);
+}
+
+.bldr-shell__resize {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: var(--bldr-space-sm);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.bldr-shell__resize:hover,
+.bldr-shell__resize:focus-visible {
+  background: var(--bldr-accent-ring);
+}

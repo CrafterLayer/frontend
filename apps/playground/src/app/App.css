@@ -1,0 +1,16 @@
+/*
+  The playground's own stylesheet, split by region (2026-10-12: no file over 500 lines).
+  The ORDER below is the cascade order the single file had: a later file may override an
+  earlier one at equal specificity, so new rules go in the file that owns their region,
+  never in a new file appended out of order.
+*/
+@import './styles/frame.css';
+@import './styles/assistant-header.css';
+@import './styles/assistant-starters.css';
+@import './styles/assistant-thread.css';
+@import './styles/assistant-build.css';
+@import './styles/assistant-composer.css';
+@import './styles/assistant-overlays.css';
+@import './styles/boot-and-dock.css';
+@import './styles/assistant-dock.css';
+@import './styles/site-builder.css';

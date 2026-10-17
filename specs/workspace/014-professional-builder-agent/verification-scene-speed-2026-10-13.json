@@ -1,0 +1,128 @@
+{
+  "measurement": "offline scene initialization; no model or network calls",
+  "node": "v24.19.0",
+  "presets": 22,
+  "initializationRuns": 1100,
+  "initializationMs": {
+    "p50": 0.111,
+    "p95": 0.257
+  },
+  "outputChars": {
+    "compact": 3015,
+    "expanded": 171950,
+    "reductionPercent": 98.25
+  },
+  "payloads": [
+    {
+      "preset": "flow-field-silk",
+      "compactChars": 135,
+      "expandedChars": 6355
+    },
+    {
+      "preset": "domain-warp-liquid",
+      "compactChars": 138,
+      "expandedChars": 6861
+    },
+    {
+      "preset": "aurora-curtains",
+      "compactChars": 135,
+      "expandedChars": 6751
+    },
+    {
+      "preset": "circle-packing-bloom",
+      "compactChars": 140,
+      "expandedChars": 6325
+    },
+    {
+      "preset": "recursive-mondrian",
+      "compactChars": 138,
+      "expandedChars": 7468
+    },
+    {
+      "preset": "differential-growth-coral",
+      "compactChars": 145,
+      "expandedChars": 9512
+    },
+    {
+      "preset": "reaction-diffusion-skin",
+      "compactChars": 143,
+      "expandedChars": 9774
+    },
+    {
+      "preset": "topographic-contours",
+      "compactChars": 140,
+      "expandedChars": 6869
+    },
+    {
+      "preset": "voronoi-stained-glass",
+      "compactChars": 141,
+      "expandedChars": 5716
+    },
+    {
+      "preset": "low-poly-terrain",
+      "compactChars": 136,
+      "expandedChars": 5880
+    },
+    {
+      "preset": "girih-starfield",
+      "compactChars": 135,
+      "expandedChars": 12904
+    },
+    {
+      "preset": "zellige-mosaic",
+      "compactChars": 134,
+      "expandedChars": 6990
+    },
+    {
+      "preset": "mashrabiya-light",
+      "compactChars": 136,
+      "expandedChars": 7365
+    },
+    {
+      "preset": "arabesque-vines",
+      "compactChars": 135,
+      "expandedChars": 9833
+    },
+    {
+      "preset": "rough-notebook",
+      "compactChars": 134,
+      "expandedChars": 7822
+    },
+    {
+      "preset": "boids-murmuration",
+      "compactChars": 137,
+      "expandedChars": 8119
+    },
+    {
+      "preset": "firefly-garden",
+      "compactChars": 134,
+      "expandedChars": 7073
+    },
+    {
+      "preset": "ember-storm",
+      "compactChars": 131,
+      "expandedChars": 7507
+    },
+    {
+      "preset": "starfield-warp",
+      "compactChars": 134,
+      "expandedChars": 7793
+    },
+    {
+      "preset": "confetti-celebration",
+      "compactChars": 140,
+      "expandedChars": 9269
+    },
+    {
+      "preset": "magnetic-dot-grid",
+      "compactChars": 137,
+      "expandedChars": 7647
+    },
+    {
+      "preset": "soft-blob-cluster",
+      "compactChars": 137,
+      "expandedChars": 8117
+    }
+  ],
+  "limitations": "Measures local initialization CPU and exact JSON characters. Provider tokens, latency, bills and visual quality are not measured."
+}

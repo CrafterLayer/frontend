@@ -1,0 +1,254 @@
+import {
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
+
+import {
+  AssetManager,
+  HistoryList,
+  LayersTree,
+  LibraryPanel,
+  Palette,
+  SitePages,
+  type CanvasDragHandle,
+  type LiveUtilities,
+  type StyleBucket,
+  type Theme,
+} from '@craftkit/builder';
+
+import { paletteShortcutLabel } from '../features/command';
+import { SiteBuilderPanel } from '../features/preview/components/SiteBuilderPanel';
+import { HelpPanel, helpPanelLabels } from '../features/preview/components/HelpPanel';
+import { HistoryPanel } from '../features/preview/components/HistoryPanel';
+import { PageWorkspace } from '../features/preview/page-workspace';
+import {
+  playgroundTemplatesState,
+  preloadPlaygroundTemplatesWhenIdle,
+  requestPlaygroundTemplates,
+  subscribePlaygroundTemplates,
+} from '../features/preview/playground-templates';
+import { LOAD_FONT_PREVIEWS } from './app-env';
+import type { ReadySession } from './app-helpers';
+import { DesignRailPanel } from './design-rail-panel';
+import type { EditorLabels, EditorLocale } from './editor-labels';
+import type { AgentHost } from './use-agent-host';
+import type { EditorChrome } from './use-editor-chrome';
+import type { LibraryRequest } from './use-editor-panes';
+
+/** Read once: the platform decides `Ctrl` or `⌘` for the whole session. */
+const PLATFORM = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+
+/** The Templates tab while the page templates are still on their way (they load on demand). */
+const TEMPLATES_LOADING = {
+  en: 'Loading page templates…',
+  ar: 'جارٍ تحميل قوالب الصفحات…',
+} as const;
+
+export interface RailSectionPanelProps {
+  readonly railSection: string;
+  readonly session: ReadySession;
+  readonly labels: EditorLabels;
+  readonly editorLocale: EditorLocale;
+  readonly chrome: EditorChrome;
+  readonly styleBucket: StyleBucket;
+  /** The Settings destination: the scenario harness. */
+  readonly harness: ReactNode;
+  readonly host: Pick<AgentHost, 'assetLibrary' | 'siteHost' | 'siteSeam'>;
+  readonly theme: Theme;
+  readonly docDir: string;
+  readonly announce: (message: string) => void;
+  readonly dragHandle: CanvasDragHandle | undefined;
+  readonly templates: ComponentProps<typeof LibraryPanel>['templates'];
+  readonly libraryKitSections: ComponentProps<typeof LibraryPanel>['sections'];
+  readonly libraryPreviewCss: string;
+  readonly liveUtilities: LiveUtilities | undefined;
+  /** The last request to show the library on a tab (the empty page, Help). */
+  readonly libraryRequest: LibraryRequest | undefined;
+  /** Opens the command palette (Help's "Search and commands"). */
+  readonly openPalette: (open: boolean) => void;
+}
+
+/**
+ * The panel column's destination for every rail section but the Assistant (which
+ * stays mounted beside it): one panel per section, mounted on demand.
+ */
+export function RailSectionPanel({
+  railSection,
+  session,
+  labels,
+  editorLocale,
+  chrome,
+  styleBucket,
+  harness,
+  host,
+  theme,
+  docDir,
+  announce,
+  dragHandle,
+  templates,
+  libraryKitSections,
+  libraryPreviewCss,
+  liveUtilities,
+  libraryRequest,
+  openPalette,
+}: RailSectionPanelProps) {
+  const { assetLibrary, siteHost, siteSeam } = host;
+  /*
+    The page templates and their photo cards load on demand (playground-templates.ts).
+    Until they land the Templates tab says so, and the kernel's registry gains the
+    compositions the moment they do, so the cards and the tiles arrive together.
+  */
+  const templateState = useSyncExternalStore(
+    subscribePlaygroundTemplates,
+    playgroundTemplatesState,
+    playgroundTemplatesState,
+  );
+  const templateCards =
+    templateState.status === 'ready' ? templateState.templates.marketingTemplateCatalog : undefined;
+  const pending = templateState.status === 'pending';
+  const libraryLabels = useMemo(
+    () =>
+      pending
+        ? { ...labels.libraryPanel, noTemplates: TEMPLATES_LOADING[labels.libraryPanel.language] }
+        : labels.libraryPanel,
+    [pending, labels.libraryPanel],
+  );
+  // The canvas hands out its drag handle once it is live: fetch them in the next idle moment.
+  useEffect(() => {
+    if (dragHandle !== undefined) {
+      preloadPlaygroundTemplatesWhenIdle();
+    }
+  }, [dragHandle]);
+  // "Start from a template" (the empty page) and Help open the Templates tab: fetch them now.
+  useEffect(() => {
+    if (libraryRequest?.tab === 'templates') {
+      requestPlaygroundTemplates();
+    }
+  }, [libraryRequest]);
+  return railSection === 'pages' ? (
+    <PageWorkspace siteKernel={session.siteKernel} labels={labels.pageWorkspace} />
+  ) : railSection === 'layers' ? (
+    /*
+      The pages ABOVE the layers, in the same panel. The layer tree
+      shows one page's structure; the list above says which page
+      that is and lets a person move between them — reading the two
+      in the other order tells you the shape of something you have
+      not been told the name of.
+    */
+    <div className="pg-structure">
+      <SitePages siteKernel={session.siteKernel} labels={labels.sitePages} />
+      <LayersTree
+        kernel={session.kernel}
+        selection={chrome.selection}
+        clipboard={chrome.clipboard}
+        bucket={styleBucket}
+        labels={labels.layersTree}
+        actionLabels={labels.elementActions}
+        words={labels.elementWords}
+        onSaveTemplate={chrome.saveTemplate}
+        onMakeSymbol={chrome.makeSymbol}
+      />
+    </div>
+  ) : railSection === 'settings' ? (
+    harness
+  ) : railSection === 'history' ? (
+    /*
+      Restore points: the one part of the vault a person addresses
+      directly. The session's own saving is continuous and invisible;
+      this is the shelf they put something on deliberately.
+    */
+    <div className="pg-panel-scroll">
+      {/* The session's labelled steps (click to jump), beside the vault's restore points. */}
+      <HistoryList kernel={session.kernel} labels={labels.historyList} />
+      <HistoryPanel kernel={session.kernel} shelf={session.shelf} labels={labels.historyPanel} />
+    </div>
+  ) : railSection === 'assets' ? (
+    <div className="pg-panel-scroll">
+      <AssetManager
+        site={session.siteKernel}
+        library={assetLibrary}
+        target={chrome.targets[0]}
+        labels={labels.assetManager}
+        cropperLabels={labels.imageCropper}
+        iconLabels={labels.iconBrowser}
+        dir={labels.dir}
+      />
+    </div>
+  ) : railSection === 'design' ? (
+    <DesignRailPanel
+      siteKernel={session.siteKernel}
+      targets={chrome.targets}
+      theme={theme}
+      pageDir={docDir === 'rtl' ? 'rtl' : 'ltr'}
+      labels={labels}
+      announce={announce}
+      loadFontPreviews={LOAD_FONT_PREVIEWS}
+    />
+  ) : railSection === 'help' ? (
+    <div className="pg-panel-scroll">
+      <HelpPanel
+        onOpenShortcuts={() => {
+          chrome.setShortcutsOpen(true);
+        }}
+        onOpenCommands={() => {
+          openPalette(true);
+        }}
+        commandsShortcut={paletteShortcutLabel(PLATFORM)}
+        labels={helpPanelLabels(editorLocale)}
+      />
+    </div>
+  ) : railSection === 'site' ? (
+    <div className="pg-panel-scroll">
+      <SiteBuilderPanel
+        site={siteHost}
+        seam={siteSeam}
+        locale={editorLocale}
+        onStop={() => {
+          siteSeam.stop();
+        }}
+      />
+    </div>
+  ) : railSection === 'assistant' ? null : railSection === 'blocks' ? (
+    /*
+      The library: elements, sections, the registered blocks (the
+      palette, composed in its Blocks tab) and the site's saved
+      templates. Click inserts at the selection; a drag lands
+      through the canvas's tree drop.
+    */
+    <LibraryPanel
+      /* A library request re-opens the panel at its tab (the Library keeps its own tab). */
+      key={libraryRequest?.nonce ?? 0}
+      kernel={session.kernel}
+      dragHandle={dragHandle}
+      templates={templates}
+      onRemoveTemplate={chrome.removeTemplate}
+      // The rail item is "Blocks": it opens on them; Elements, Sections and Saved are one tab away.
+      defaultTab={libraryRequest?.tab ?? 'blocks'}
+      labels={libraryLabels}
+      actionLabels={labels.elementActions}
+      words={labels.elementWords}
+      sections={libraryKitSections}
+      // library-playground additions (2026-10-08): photo cards in the top-level Templates tab.
+      templateCards={templateCards}
+      // end library-playground additions
+      previewStylesheet={libraryPreviewCss}
+      {...(liveUtilities === undefined
+        ? {}
+        : {
+            compilePreviewCss: (names: readonly string[]) => liveUtilities.compileFor(names),
+          })}
+    />
+  ) : (
+    // Code: the palette stays beside the projection, because
+    // reading the document as text is not a reason to lose the
+    // ability to add to it.
+    <Palette
+      kernel={session.kernel}
+      dragHandle={dragHandle}
+      templateCards={templateCards} /* library-playground additions (2026-10-08) */
+    />
+  );
+}

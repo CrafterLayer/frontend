@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "profileId": "craftkit-builder-frontend",
+  "profileVersion": "2.1.0",
+  "laneCapabilities": {
+    "codex": [
+      { "id": "analysis", "score": 4 },
+      { "id": "planning", "score": 1 },
+      { "id": "architecture", "score": 2 },
+      { "id": "implementation", "score": 4 },
+      { "id": "debugging", "score": 4 },
+      { "id": "testing", "score": 4 },
+      { "id": "refactor", "score": 4 },
+      { "id": "review", "score": 2 },
+      { "id": "security-review", "score": 2 },
+      { "id": "documentation", "score": 2 },
+      { "id": "integration", "score": 4 }
+    ],
+    "claude-host": [
+      { "id": "analysis", "score": 2 },
+      { "id": "planning", "score": 4 },
+      { "id": "architecture", "score": 4 },
+      { "id": "implementation", "score": 2 },
+      { "id": "debugging", "score": 2 },
+      { "id": "testing", "score": 2 },
+      { "id": "refactor", "score": 2 },
+      { "id": "review", "score": 4 },
+      { "id": "security-review", "score": 4 },
+      { "id": "documentation", "score": 4 },
+      { "id": "integration", "score": 2 }
+    ]
+  },
+  "taskPolicies": [
+    {
+      "kind": "analysis",
+      "requirements": [{ "capabilityId": "analysis", "minimumScore": 1, "weight": 1 }]
+    },
+    {
+      "kind": "planning",
+      "requirements": [{ "capabilityId": "planning", "minimumScore": 1, "weight": 1 }]
+    },
+    {
+      "kind": "architecture",
+      "requirements": [{ "capabilityId": "architecture", "minimumScore": 2, "weight": 1 }]
+    },
+    {
+      "kind": "implementation",
+      "requirements": [
+        { "capabilityId": "implementation", "minimumScore": 2, "weight": 3 },
+        { "capabilityId": "testing", "minimumScore": 2, "weight": 1 }
+      ]
+    },
+    {
+      "kind": "debugging",
+      "requirements": [
+        { "capabilityId": "debugging", "minimumScore": 2, "weight": 3 },
+        { "capabilityId": "analysis", "minimumScore": 2, "weight": 1 }
+      ]
+    },
+    {
+      "kind": "testing",
+      "requirements": [{ "capabilityId": "testing", "minimumScore": 2, "weight": 1 }]
+    },
+    {
+      "kind": "refactor",
+      "requirements": [
+        { "capabilityId": "refactor", "minimumScore": 2, "weight": 3 },
+        { "capabilityId": "testing", "minimumScore": 2, "weight": 1 }
+      ]
+    },
+    {
+      "kind": "review",
+      "requirements": [{ "capabilityId": "review", "minimumScore": 2, "weight": 1 }]
+    },
+    {
+      "kind": "security-review",
+      "requirements": [{ "capabilityId": "security-review", "minimumScore": 2, "weight": 1 }]
+    },
+    {
+      "kind": "documentation",
+      "requirements": [{ "capabilityId": "documentation", "minimumScore": 1, "weight": 1 }]
+    },
+    {
+      "kind": "integration",
+      "requirements": [{ "capabilityId": "integration", "minimumScore": 2, "weight": 1 }]
+    }
+  ],
+  "checkProfiles": [
+    { "id": "ck-typecheck", "cwd": ".", "argv": ["pnpm", "typecheck"] },
+    { "id": "ck-lint", "cwd": ".", "argv": ["pnpm", "lint"] },
+    { "id": "ck-test", "cwd": ".", "argv": ["pnpm", "test"] },
+    { "id": "ck-boundaries", "cwd": ".", "argv": ["pnpm", "check:boundaries"] },
+    { "id": "ck-components", "cwd": ".", "argv": ["pnpm", "check:components"] }
+  ],
+  "requiredChecks": {
+    "always": [],
+    "byKind": {
+      "implementation": ["ck-components"],
+      "refactor": ["ck-boundaries"],
+      "integration": ["ck-boundaries"],
+      "debugging": ["ck-test"],
+      "testing": ["ck-test"]
+    },
+    "byRisk": {
+      "high": ["ck-boundaries"],
+      "critical": ["ck-boundaries", "ck-components"]
+    },
+    "byAuthority": {
+      "write": ["ck-typecheck", "ck-lint", "ck-test"]
+    }
+  },
+  "codexPolicy": {
+    "default": {
+      "model": "gpt-5.6-terra",
+      "reasoningEffort": "high"
+    },
+    "byKind": {
+      "documentation": { "model": "gpt-5.6-luna", "reasoningEffort": "medium" },
+      "analysis": { "model": "gpt-5.6-sol", "reasoningEffort": "high" },
+      "testing": { "model": "gpt-5.6-sol", "reasoningEffort": "high" },
+      "planning": { "model": "gpt-5.6-sol", "reasoningEffort": "xhigh" },
+      "review": { "model": "gpt-5.6-sol", "reasoningEffort": "xhigh" },
+      "implementation": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "refactor": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "integration": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "debugging": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "architecture": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "security-review": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" }
+    },
+    "byRisk": {
+      "high": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" },
+      "critical": { "model": "gpt-5.6-sol", "reasoningEffort": "ultra" }
+    }
+  },
+  "writePolicy": {
+    "allowedRoots": ["packages/builder", "apps/playground", "apps/storybook"],
+    "additionalDeniedRoots": []
+  }
+}

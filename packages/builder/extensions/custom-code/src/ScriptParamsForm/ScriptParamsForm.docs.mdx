@@ -1,0 +1,77 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+import * as Stories from './ScriptParamsForm.stories';
+
+<Meta of={Stories} />
+
+# ScriptParamsForm
+
+Existing editor-owned controls for a script's declared parameters. This component renders controls,
+not script execution, kernel transactions, asset upload or sound playback. The Inspector's Scene
+settings (`CustomCodeParamsField`) wrap it for a composed region's `jsParams`; the Script Studio
+does not use it yet.
+
+Controls follow the SPEC order — the author's order is the order a person reads. Consecutive params
+of one group (Look, Motion, Interaction, Sound; no group reads as Look) share a fieldset under the
+group's legend; a group that comes back later in the spec opens a new one.
+
+<Canvas of={Stories.Default} />
+
+## Usage and API
+
+Import `ScriptParamsForm` and its prop types from the component's local `index.ts`. The extension's
+root export remains unchanged; apps must continue using the Builder facade.
+
+| Prop                           | Contract                                                                                                                                              |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spec`                         | Required readonly `ScriptParamSpec[]`; bilingual labels, types, defaults and constraints.                                                             |
+| `values`                       | Stored overrides, or `undefined` for defaults. Keep this committed source authoritative.                                                              |
+| `onChange(values, { commit })` | Required callback; values are validated/clamped and defaults omitted. `false` previews only; `true` ends one gesture. The host owns undo/persistence. |
+| `locale`, `dir`                | Default `en`, `ltr`. Arabic labels use an `ar` prefix; pass `rtl` explicitly.                                                                         |
+| `disabled`                     | Default `false`; disables every editing control.                                                                                                      |
+| `assets`                       | Optional image ids, URLs and labels; uses host-owned assets, never fetches/uploads.                                                                   |
+| `onPickImage(key)`             | Optional sync/async host picker returning an id/URL or `undefined` for cancel.                                                                        |
+| `soundOptions`                 | Optional named sound references; absent options use a text field. No audio is played.                                                                 |
+
+Store `values` only on committed callbacks; apply preview values to the scene separately. Do not
+feed preview-only values back as committed form props: doing so changes the gesture's baseline and
+can suppress its final commit. Native range/colour changes preview live; release, keyboard release
+or blur commits once. Text/number/hex fields finish on Enter or blur. Toggle, select, palette mode,
+add/remove and reset commit immediately. Returning to the original value makes no commit.
+
+```tsx
+<ScriptParamsForm
+  spec={script.params}
+  values={storedOverrides}
+  onChange={(values, change) => {
+    previewScene(values);
+    if (change.commit) saveOverridesInOneTransaction(values);
+  }}
+/>
+```
+
+## States
+
+<Canvas of={Stories.Changed} />
+<Canvas of={Stories.CustomPalette} />
+<Canvas of={Stories.AssetsAndSounds} />
+<Canvas of={Stories.Empty} />
+<Canvas of={Stories.Disabled} />
+<Canvas of={Stories.InvalidColour} />
+
+Empty specs show an explanatory message; changed values get a labelled reset. Invalid hex/URL input
+reports inline status without committing invalid values. Palette editing supports at most six
+swatches in this UI. Loading/picker failure is owned by the host; this form has no loading API.
+
+## Accessibility, direction and layout
+
+Native inputs/radios/selects, labelled switches, fieldset legends and associated help support
+keyboard navigation. Reset/add/remove controls have accessible names. Visible focus uses chrome
+tokens; a site's design tokens do not recolour editor controls. All fields shrink within a 288px
+panel; segmented options wrap. Hex and URLs remain LTR, text follows its content. No animation.
+
+<Canvas of={Stories.Arabic} />
+<Canvas of={Stories.Dark} />
+
+Picker cancellation does not write. Host picker rejection should be handled in `onPickImage` before
+it returns to the form; this component does not provide a picker error state. Browser/native colour
+picker behavior varies by platform; automated checks do not replace manual screen-reader testing.

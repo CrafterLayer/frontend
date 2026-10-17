@@ -8,6 +8,7 @@
   ],
   "exports": {
     "./base": "./src/base.mjs",
+    "./headless": "./src/headless.mjs",
     "./react": "./src/react.mjs",
     "./storybook": "./src/storybook.mjs"
   },

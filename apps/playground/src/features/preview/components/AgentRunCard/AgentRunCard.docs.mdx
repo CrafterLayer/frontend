@@ -1,0 +1,19 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './AgentRunCard.stories';
+
+<Meta of={Stories} />
+
+# AgentRunCard
+
+One card represents one run from queue through completion. It leads with the current task while work
+runs and the actual result, diff, and Undo when done. Tool and file detail stays collapsed.
+
+<Canvas of={Stories.Running} />
+<Canvas of={Stories.RunningWithLiveStream} />
+<Canvas of={Stories.Done} />
+<Controls />
+
+Progress uses native progress semantics. Status never relies on color alone. Stop and revise remains
+available while running; completed cards expose review and one Undo. Logical borders support RTL and
+motion is removed under reduced-motion preferences. While the provider is running, its status frames
+appear in a bounded live stream so the card reflects the Agent's actual narration.

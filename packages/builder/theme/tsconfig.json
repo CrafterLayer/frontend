@@ -1,0 +1,15 @@
+{
+  "extends": "@craftkit/typescript-config/headless.json",
+  "compilerOptions": {
+    // The tokens are DATA — no DOM, no Node — but the drift and coverage gates
+    // read the workspace's stylesheets, so the test files need node types.
+    "types": ["node"],
+    // The package's RUNTIME is headless — no React, no DOM. The contrast gate
+    // is a Storybook story, so the compiler needs JSX and the DOM lib for that
+    // one file; nothing in `src/index.ts` reaches them.
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["coverage"]
+}

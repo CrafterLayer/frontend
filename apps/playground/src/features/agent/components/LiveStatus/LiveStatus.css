@@ -1,0 +1,22 @@
+/*
+  LiveStatus (SPEC §4.3, §6.1): the panel's one live region, heard and never seen.
+
+  The screen-reader-only recipe, declared here rather than borrowed from the shell's
+  `.bldr-visually-hidden`: that class is a stylesheet side effect of the shell's own
+  components, not part of the package's public API, and the one element the whole panel
+  relies on to speak must not depend on which other component happened to load first.
+
+  Hidden with `clip-path`, never `display: none` or `visibility: hidden`: either of those
+  removes the region from the accessibility tree, and a screen reader stops listening.
+*/
+
+.ck-agent-live {
+  position: absolute;
+  overflow: hidden;
+  inline-size: var(--bldr-border-hairline);
+  block-size: var(--bldr-border-hairline);
+  margin: 0;
+  padding: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

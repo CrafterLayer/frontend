@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CornerRadiusControlStories from './CornerRadiusControl.stories';
+
+<Meta of={CornerRadiusControlStories} />
+
+# CornerRadiusControl
+
+Corner radius, linked or per corner (style-manager DESIGN.md §A.4 Borders).
+
+- **Linked** (the default when all corners agree): one field that writes `rounded-*` through
+  `onCommit('all', value)`.
+- **Unlinked**: four fields for the logical corners `start-start`, `start-end`, `end-start` and
+  `end-end` (written `rounded-ss/se/es/ee`), laid out in the **page** direction so start corners sit
+  on the right of an RTL page.
+- Each field is a `ScaleNumberControl`: arrows walk the radius scale, typed values go arbitrary (free
+  mode) or snap (tokens mode).
+
+Labels: `CORNER_RADIUS_CONTROL_LABELS_EN` and `CORNER_RADIUS_CONTROL_LABELS_AR`.

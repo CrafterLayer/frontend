@@ -1,0 +1,59 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PromoBannerStories from './PromoBanner.stories';
+
+<Meta of={PromoBannerStories} />
+
+# Promo banner
+
+A high-emphasis campaign section for launches, seasonal offers, upgrade prompts, and featured
+collections. It can remain copy-led or introduce responsive media without changing its action model.
+
+## Content and actions
+
+- `label`, `headline`, and `body` define the message hierarchy.
+- Up to two actions accept primary or secondary emphasis and safe destinations.
+- Optional media carries explicit alt text and can be hidden without leaving a placeholder.
+
+## Design controls
+
+- `variant`: `centered`, responsive `split`, or immersive `media` overlay.
+- `panelStyle`: token-backed surface, accent, or inverse treatment.
+- `mediaPosition`, `mediaAspect`, `padding`, and `radius` provide intentional composition choices.
+- Shared colour, motion, typography, custom class, and logical spacing controls remain optional and
+  do not rewrite existing documents with new defaults.
+
+The split variant collapses to one copy column whenever media is absent or intentionally hidden, so
+it never reserves a blank half-panel.
+
+## Accessibility, safety, and RTL
+
+The semantic complementary region is named by its visible headline. Actions are real anchors with
+visible focus styles and are prevented from navigating on the builder canvas. Destinations reject
+executable, protocol-relative, and slash-backslash URLs; media accepts only safe relative and
+HTTP(S) sources. Container queries and logical positioning serve LTR and RTL from the same markup.
+
+The block intentionally does not expose a cosmetic dismiss button. A trustworthy dismissal needs a
+persistence contract and host-owned consent state; hiding content only until the next render would
+be misleading behavior.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name          | kind  | bind                                 | label (en / ar)          |
+| ------------- | ----- | ------------------------------------ | ------------------------ |
+| `panel`       | box   | —                                    | Panel / اللوحة           |
+| `label`       | text  | `label`                              | Label / الوسم            |
+| `headline`    | text  | `headline`                           | Headline / العنوان       |
+| `body`        | text  | `body`                               | Body / الوصف (multiline) |
+| `actions`     | list  | `actions`                            | Actions / الأزرار        |
+| `action`      | item  | `actions.*`                          | Action / زر              |
+| `action.link` | link  | `actions.*.label` + `actions.*.href` | Action label / نص الزر   |
+| `image`       | image | `imageSrc` + `imageAlt`              | Image / الصورة           |
+
+Each action is an item of the `actions` list (add, duplicate, move, remove). A `this item` style is
+stored under `action@<index>`, an `all items` style under `action`.

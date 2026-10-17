@@ -1,0 +1,43 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as HistoryPanelStories from './HistoryPanel.stories';
+
+<Meta of={HistoryPanelStories} />
+
+# HistoryPanel
+
+The restore points a person kept on purpose: a whole page, by name, with its age and its weight. It
+is not the session's autosave — the vault compacts the open document continuously and invisibly —
+and it is not undo, which walks one step at a time and forgets a step once you move past it.
+
+## API
+
+- `kernel: BuilderKernel` — the live session the restore lands in
+- `shelf: SnapshotShelf` — the document's shelf, from the vault that opened the kernel
+- `now?: () => number` — captured once on mount; injected so a test and a story can state the time
+
+## How a restore happens
+
+`restoreDocument` projects the stored page to canonical text, parses it against the **live**
+document, and dispatches the difference through the kernel's `applyPatches` door as **one**
+transaction. That is what lets the panel promise "one undo puts it back": the revert is an ordinary
+forward change, and nothing here reaches around the kernel. A restore of a page that already matches
+parses to zero patches — `applyPatches` refuses an empty batch — so the panel says so and dispatches
+nothing.
+
+## Accessibility
+
+- Each row's Restore button is named for its own restore point; the visible word is contained in the
+  accessible name (WCAG 2.5.3).
+- Outcomes — saved, restored, already-matching, refused — are announced through a polite live region
+  labelled "History status", which takes no room until it speaks.
+- The name field is sized from `--bldr-hit-target-min`, like every other control in the editor.
+- Colours, spacing and radii are chrome tokens only, so the panel is legible in both themes; row
+  hover motion is dropped under `prefers-reduced-motion`.
+
+## Language
+
+Every string comes from `labels` (`HistoryPanelLabels`, `HISTORY_PANEL_LABELS_EN` by default; the
+Arabic editor passes `HISTORY_PANEL_LABELS_AR`), ages and sizes included: «قبل دقيقتين», «1.2
+كيلوبايت», digits Latin. A storage or restore reason passed through from the vault is shown as it
+was given.

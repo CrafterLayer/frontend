@@ -1,0 +1,30 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StyleColorControlStories from './StyleColorControl.stories';
+
+<Meta of={StyleColorControlStories} />
+
+# StyleColorControl
+
+The colour control of every element (style-manager DESIGN.md §A.4–A.5): text, background, border,
+outline, decoration and gradient stops.
+
+- **Theme colours** first: a token (`bg-accent`) keeps the page re-themable. A token takes an
+  **opacity** (`bg-accent/80`), committed on Enter or blur.
+- **Site palette** (free mode): library colours written as variables, `bg-(--ck-c-brand-600)`.
+- **Custom colour** (free mode, agent trees): a `react-colorful` `HexAlphaColorPicker` with a hex
+  field. Dragging previews through `onPreview`; the colour is committed **once**, on pointer or key
+  release, or on Enter in the hex field.
+- **Contrast**: when `contrastWith` is given (the effective background for text, the text colour for
+  a background), a culori WCAG check warns below 4.5:1. "Use accessible colour" writes the nearest
+  colour with the same hue that passes (free mode) or the most legible theme token (tokens mode).
+
+The swatches are a radio group with one tab stop. `mixed` shows the group as "(Mixed)" with nothing
+checked. Labels: `STYLE_COLOR_CONTROL_LABELS_EN` and `STYLE_COLOR_CONTROL_LABELS_AR`.
+
+## `picker="inline"`
+
+Inside the side panel's `ColorField` popover, the control draws its free picker and hex field under
+the swatches instead of behind the rainbow button. Theme tokens and palette colours become **chips**
+(swatch + name, two to a row). The quick bar keeps the default `picker="popover"`. Write rules are
+identical in both modes.

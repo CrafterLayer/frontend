@@ -1,0 +1,22 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StaticNodeStories from './StaticNode.stories';
+
+<Meta of={StaticNodeStories} />
+
+# StaticNode
+
+The static renderer's per-node recursion: pure (document, blocks, breakpoint) → markup. Internal to
+`StaticDocument`; it mirrors the live `NodeView`'s output shape, which is what makes live/static
+content parity structural rather than coincidental.
+
+## API
+
+- `document: BuilderDocument`, `id: NodeId`
+- `blocks: (type) => RegisteredBlock | undefined`
+- `breakpoint: RenderBreakpoint`
+
+## Behavior
+
+Registered types render with cascade-resolved props (`isCanvas: false`); unknown types render
+`UnknownBlock`; missing ids render nothing.

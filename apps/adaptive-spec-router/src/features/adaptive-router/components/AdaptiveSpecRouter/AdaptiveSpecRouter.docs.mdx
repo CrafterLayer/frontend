@@ -1,0 +1,31 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AdaptiveSpecRouterStories from './AdaptiveSpecRouter.stories';
+
+<Meta of={AdaptiveSpecRouterStories} />
+
+# AdaptiveSpecRouter
+
+`AdaptiveSpecRouter` is the app-owned feature composition root. It intentionally coordinates only
+local scenario, plan-revision, and reset state; the routing policy remains pure and the supporting
+surfaces remain focused components.
+
+## Use when
+
+Use it as the private product shell for evaluating routing policy, dual plan review freshness, and
+evidence visibility. It is not an agent runtime or an integration client.
+
+## Behavior
+
+Applying a scenario recalculates the deterministic route. Simulating a material plan revision makes
+previous review evidence stale. Reset restores the original local example across all surfaces.
+
+## Accessibility and constraints
+
+The root preserves labelled descendants, text status, keyboard-native controls, and responsive grid
+collapse. The local-demo boundary appears in both the header and the primary content.
+
+## Limitations
+
+This release intentionally excludes credentials, provider calls, repository access, persistent data,
+multi-user control, deployment, and public publishing.

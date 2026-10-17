@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BentoGridStories from './BentoGrid.stories';
+
+<Meta of={BentoGridStories} />
+
+# Bento grid
+
+A professional editorial grid for combining product capabilities, outcomes, and proof points in one
+high-signal section. Its hierarchy is document data rather than positional CSS guesswork.
+
+## Props
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–100)`
+- `body?: string (1–240)`
+- `items: Array<{ kicker?, title, body, metric?, size, emphasis }>` — up to 12 cards.
+- `layout: 'mosaic' | 'equal' = 'mosaic'`
+- Shared alignment, tone, spacing, width, colour, motion, typography, and logical spacing controls.
+
+## Accessibility
+
+The section is named by its visible `h2`. Cards are a semantic list and each card is an `article`
+with an `h3`; the numeric label remains readable content rather than decoration.
+
+## Responsive and RTL behavior
+
+The grid is one column by default, then grows to six and twelve container-query tracks. Logical text
+alignment and spacing work in both directions. The equal layout deliberately overrides item sizes so
+every card has the same responsive span.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name          | kind | bind             | label (en / ar)                    |
+| ------------- | ---- | ---------------- | ---------------------------------- |
+| `eyebrow`     | text | `eyebrow`        | Eyebrow / الشارة                   |
+| `heading`     | text | `heading`        | Heading / العنوان                  |
+| `body`        | text | `body`           | Body / الوصف (multiline)           |
+| `items`       | list | `items`          | Cards / البطاقات                   |
+| `item`        | item | `items.*`        | Card / البطاقة                     |
+| `item.kicker` | text | `items.*.kicker` | Card kicker / تمهيد البطاقة        |
+| `item.metric` | text | `items.*.metric` | Card metric / رقم البطاقة          |
+| `item.title`  | text | `items.*.title`  | Card title / عنوان البطاقة         |
+| `item.body`   | text | `items.*.body`   | Card text / نص البطاقة (multiline) |
+
+The numbered label shown when a card has no `kicker` is decoration, not a part.

@@ -1,0 +1,78 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LiveStatusStories from './LiveStatus.stories';
+
+<Meta of={LiveStatusStories} />
+
+# LiveStatus
+
+The agent panel's one live region (SPEC §4.3, §6.1): a visually hidden
+`p role="status" aria-live="polite" aria-atomic="true"` that speaks what the run did, in the UI
+language.
+
+<Canvas of={LiveStatusStories.AnnouncementSequence} />
+
+The story shows the region's words in a transcript under it, because the region itself is heard and
+never seen. Press "Next announcement" to hand it the next one.
+
+## Purpose
+
+A screen-reader user cannot watch the spine ink. LiveStatus tells them what matters, when it
+matters: the build started, the page was laid out, how many sections are on the page (at most every
+4 seconds), a section is blocked, the outcome. It is the only thing in the panel that speaks: the
+thread, the records, the RunBar's visible line and the clock are all silent, so nothing is said
+twice and nothing races.
+
+## When to use / not
+
+AgentPanel mounts exactly one, for the panel's whole life, so the final outcome is spoken even after
+the RunBar has gone. Never mount a second one, and never give another element `aria-live`,
+`role="status"`, `role="log"` or `role="alert"` inside the panel (SPEC §6.1: a test counts them).
+
+## Props
+
+| prop           | type                       | default | notes                                                                   |
+| -------------- | -------------------------- | ------- | ----------------------------------------------------------------------- |
+| `locale`       | `'ar' \| 'en'`             | none    | the sentence's language, and the region's `lang`                        |
+| `announcement` | `AnnouncementView \| null` | none    | `{ key, params, seq }`, from `use-live-status`; `null` before the first |
+
+## Behaviour
+
+- It speaks `announce.*` from the catalog: MSA only, never the character's dialect, never a clock or
+  an estimate. What to say and when is decided upstream (`model/agent-status.ts`, driven by
+  `hooks/use-live-status.ts`): the start and outcome at once, landings coalesced to one progress
+  line per 4 seconds, "blocked" once after 10 seconds.
+- The sentence sits in a child keyed by `seq`. The same sentence twice ("Copied", then "Copied"
+  again) is a new node each time, so it is spoken each time; a re-render with the same `seq` leaves
+  the node alone, so nothing is repeated by accident.
+- The last sentence stays until the next one. The region is never emptied on a timer.
+
+## Stories
+
+`Silent` (mounted, nothing said), `Spoken` and `SpokenArabic` (one outcome), and
+`AnnouncementSequence`, `AnnouncementSequenceArabic`, `AnnouncementSequenceArabicDark`: one build
+from start to finish, then a queued request and "Copied" twice. Their plays press through the whole
+sequence and check, at every step, the region's exact words, that it is still the only live region,
+and that every announcement is a new node.
+
+## Accessibility
+
+- Polite, atomic, `lang` set to the UI locale, so a screen reader reads the whole sentence in the
+  right voice, after what it is already saying.
+- Hidden by clipping (`clip-path: inset(50%)`, 1px, `position: absolute`), never with
+  `display: none` or `visibility: hidden`, which would take it out of the accessibility tree. The
+  rule is its own, not the shell's `.bldr-visually-hidden`, which is a stylesheet side effect of the
+  shell's components rather than public API.
+- A region that exists before its first sentence is announced; one inserted together with its text
+  often is not. That is why it is always mounted, and silent until spoken to.
+
+## RTL
+
+Not drawn, so nothing to mirror. The sentence is Arabic in the Arabic panel and carries `lang="ar"`.
+
+## Composition
+
+```tsx
+// AgentPanel, once, for the panel's whole life:
+<LiveStatus locale={state.locale} announcement={state.announcement} />
+```

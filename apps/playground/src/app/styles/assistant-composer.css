@@ -1,0 +1,483 @@
+/* The legacy assistant composer: card, aurora, send and footnote. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* THE COMPOSER: one card, not a stack of controls.
+   The field and its send action share a single bordered surface, so the panel
+   ends in one object rather than in two rectangles a person has to read as
+   related. Focus lights the whole card; while the assistant is working the
+   same edge breathes, which is the only place this panel spends motion on
+   atmosphere rather than on status. */
+.pg-chat__composer-card {
+  /* The field's fill lives on ::after below, NOT here: the card must stay
+     transparent so the aura can slide UNDER it and read as light behind the
+     card, never as a wash across the field. `isolation` pins the aura's and
+     the cover's negative z-indexes inside this card. */
+  background: transparent;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  position: relative;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The opaque cover: the field's actual background, floated one layer above
+   the aura. Everything the aura paints inside the card's bounds hides behind
+   this; only the spill past the edges survives — a glow OUTSIDE the card. */
+.pg-chat__composer-card::after {
+  background: var(--bldr-input-bg);
+  border-radius: inherit;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+/* THE AURORA, in two layers on the same conic gradient.
+
+   The GLOW is a crisp gradient RING: the layer is inset past the card's own
+   border, filled with the aurora, then masked so only a 2px band at the edge
+   survives (padding-box XOR full box). The mask is also why the halo cannot
+   live here — a mask clips its element's shadows and pseudos with it.
+
+   The AURA is that halo: the same gradient on its own layer, blurred wide and
+   held translucent, so the colour appears to spill off the ring into the
+   panel. Both layers rotate the one registered angle, so ring and halo always
+   agree on where each colour is. */
+.pg-chat__composer-aura {
+  animation: pg-magic-spin 12s linear infinite;
+  background: var(--pg-magic-conic);
+  border-radius: inherit;
+  filter: blur(var(--bldr-space-3xl));
+  inset: calc(var(--bldr-space-md) * -1);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--bldr-duration-move) var(--bldr-easing);
+  z-index: -2;
+}
+
+.pg-chat__composer-glow {
+  animation: pg-magic-spin 12s linear infinite;
+  background: var(--pg-magic-conic);
+  border-radius: inherit;
+  inset: calc(var(--bldr-space-2xs) * -1);
+  -webkit-mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  mask-composite: exclude;
+  opacity: 0.4;
+  padding: var(--bldr-space-2xs);
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--bldr-duration-move) var(--bldr-easing);
+}
+
+/* The CARD owns the focus ring for the whole composer, exactly as
+   `.bldr-richtext-field` does for its own composite field: the field and its
+   send button are one control, so one ring belongs around the pair rather
+   than a second box drawn inside the first. The ring is a real `outline`, not
+   a shadow — the product's law is that focus may be re-coloured but never
+   removed, and a decorative glow is not an indicator. */
+.pg-chat__composer-card:hover:not(:focus-within) {
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-chat__composer-card:focus-within {
+  border-color: transparent;
+  box-shadow: var(--bldr-shadow-floating);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-focus-ring-offset) + var(--bldr-space-2xs));
+}
+
+.pg-chat__composer-card:focus-within .pg-chat__composer-glow {
+  opacity: 1;
+}
+
+.pg-chat__composer-card:focus-within .pg-chat__composer-aura {
+  opacity: 0.5;
+}
+
+/* Stopped: the halo goes out with him; nothing else is tinted. */
+.pg-chat[data-mood='stopped'] {
+  --pg-face-glow: transparent;
+}
+
+.pg-chat[data-mood='stopped'] .pg-chat__composer-aura {
+  opacity: 0.15;
+}
+
+/* Working: the aurora quickens. The card's own border holds still — the spin
+   and the halo's brightness are the only things that move, so nothing in the
+   layout is animated. The field stays writable while the assistant thinks, so
+   busy and focus can never stack into a doubled treatment. */
+.pg-chat__composer-card[data-busy] {
+  border-color: transparent;
+}
+
+.pg-chat__composer-card[data-busy] .pg-chat__composer-glow {
+  animation: pg-magic-spin 2.4s linear infinite;
+  opacity: 1;
+}
+
+.pg-chat__composer-card[data-busy] .pg-chat__composer-aura {
+  animation:
+    pg-magic-spin 2.4s linear infinite,
+    pg-chat-glow 1.8s var(--bldr-easing) infinite;
+  opacity: 0.85;
+}
+
+@keyframes pg-chat-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* Stillness keeps every state readable: the gradient holds its pose and only
+   the busy halo keeps a steady, brighter presence. */
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__composer-aura,
+  .pg-chat__composer-glow,
+  .pg-chat__composer-card[data-busy] .pg-chat__composer-aura,
+  .pg-chat__composer-card[data-busy] .pg-chat__composer-glow {
+    animation: none;
+  }
+
+  .pg-chat__composer-card[data-busy] .pg-chat__composer-aura {
+    opacity: 0.6;
+  }
+}
+
+.pg-chat__composer-card textarea {
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  color: var(--bldr-panel-text);
+  field-sizing: content;
+  font: inherit;
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  max-block-size: calc(var(--bldr-space-6xl) * 5);
+  min-block-size: calc(var(--bldr-space-6xl) * 1.5);
+  outline: none;
+  padding: var(--bldr-space-xl) var(--bldr-space-xl) var(--bldr-space-md);
+  position: relative;
+  resize: none;
+}
+
+.pg-chat__composer-card textarea::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.pg-chat__composer-card textarea:disabled {
+  color: var(--bldr-panel-muted);
+}
+
+/* NO divider. The field and the send button are one object; a rule between
+   them re-created the two stacked boxes this card exists to replace. */
+.pg-chat__composer-actions {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+  padding: var(--bldr-space-0) var(--bldr-space-md) var(--bldr-space-md);
+  position: relative;
+}
+
+.pg-chat__composer-model {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 1 8.5rem;
+  min-inline-size: 0;
+  position: relative;
+}
+
+.pg-chat__composer-model select {
+  appearance: none;
+  /* A control surface. It was --bldr-panel-muted, a TEXT colour, which drew a
+     dark grey box with grey text that read as a disabled control. */
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  line-height: 1.15;
+  max-inline-size: 8.5rem;
+  min-block-size: 2rem;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-xl);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.pg-chat__composer-model::after {
+  color: var(--bldr-panel-muted);
+  content: '⌄';
+  font-size: 0.8rem;
+  inset-inline-end: var(--bldr-space-sm);
+  pointer-events: none;
+  position: absolute;
+}
+
+.pg-chat__composer-model select:hover:not(:disabled) {
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-chat__composer-model select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.pg-chat__composer-model select:focus-visible {
+  border-color: var(--bldr-focus-ring);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: 1px;
+}
+
+.pg-chat__queue-next {
+  margin-inline-start: auto;
+}
+
+/* THE SEND: solid accent when it can actually send, with the aurora as a
+   halo that only appears when the hand or the focus is on it — never as the
+   button's fill, where it would sit under the glyph. While the assistant
+   works the same slot is STOP, and Stop is unmistakably red in both themes.
+   Scoped past the chrome button's own tone rules by specificity, and to
+   :enabled only, so the disabled state keeps the system's muted look. */
+.pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled {
+  background: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+  isolation: isolate;
+  position: relative;
+}
+
+.pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled::before {
+  background: var(--pg-magic-conic);
+  border-radius: inherit;
+  content: '';
+  inset: calc(var(--bldr-space-2xs) * -1);
+  -webkit-mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(currentColor 0 0) content-box,
+    linear-gradient(currentColor 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  padding: var(--bldr-space-2xs);
+  position: absolute;
+  transition: opacity var(--bldr-duration-state) var(--bldr-easing);
+  z-index: -1;
+}
+
+.pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled:hover {
+  background: var(--bldr-accent-strong);
+}
+
+.pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled:hover::before,
+.pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled:focus-visible::before {
+  animation: pg-magic-spin 12s linear infinite;
+  opacity: 0.55;
+}
+
+.pg-chat__composer-card:focus-within .pg-chat__composer-actions .pg-chat__send:enabled::before {
+  animation: pg-magic-spin 12s linear infinite;
+  opacity: 1;
+}
+
+.pg-chat__composer-card[data-busy] .pg-chat__composer-actions .pg-chat__send:enabled {
+  background: var(--bldr-danger);
+  color: var(--bldr-accent-text);
+}
+
+.pg-chat__composer-card[data-busy] .pg-chat__composer-actions .pg-chat__send:enabled::before {
+  animation: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat__composer .pg-chat__composer-actions .pg-chat__send:enabled::before {
+    animation: none;
+  }
+}
+
+/* The footnote: what the chosen mode will do, then the whole guarantee. */
+.pg-chat__footnote {
+  color: var(--bldr-panel-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--bldr-font-size-micro);
+  gap: var(--bldr-space-xs) var(--bldr-space-lg);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+}
+
+.pg-code-runtime {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  background: var(--bldr-ground);
+}
+
+.pg-code-runtime__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  min-block-size: 44px;
+  padding: var(--bldr-space-md) var(--bldr-space-xl);
+  border-block-end: 1px solid var(--bldr-panel-border);
+  background: var(--bldr-panel);
+}
+
+.pg-code-runtime__revision {
+  margin-inline-start: auto;
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-code-runtime__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--bldr-space-xl);
+  min-block-size: 0;
+  flex: 1;
+  padding: var(--bldr-space-xl);
+}
+
+.pg-code-runtime__selection {
+  overflow: auto;
+  padding: var(--bldr-space-3xl);
+  border: 1px solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background: var(--bldr-panel);
+  color: var(--bldr-panel-text);
+}
+
+.pg-code-runtime__selection h2 {
+  margin: 0 0 var(--bldr-space-xl);
+  font-size: var(--bldr-font-size-body);
+}
+
+.pg-code-runtime__selection p,
+.pg-code-runtime__selection label {
+  display: grid;
+  gap: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-code-runtime__selection textarea {
+  inline-size: 100%;
+  resize: vertical;
+  border: 1px solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  padding: var(--bldr-space-xl);
+  background: var(--bldr-input-bg);
+  color: var(--bldr-panel-text);
+  font: inherit;
+}
+
+.pg-canvas-status {
+  display: flex;
+  align-items: center;
+  block-size: 100%;
+  /* The status bar's own surface, so the zoom control is part of the bar rather than a
+     grey band of the shell's ground beside it (UX pass, 2026-10-13). */
+  background-color: var(--bldr-surface);
+}
+
+.pg-canvas-status > :first-child {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.pg-canvas-zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
+  font-size: var(--bldr-font-size-caption);
+  white-space: nowrap;
+}
+
+.pg-canvas-zoom {
+  color: var(--bldr-panel-muted);
+}
+
+.pg-canvas-zoom select {
+  color: var(--bldr-panel-text);
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  font: inherit;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-canvas-zoom select:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.pg-canvas-zoom select:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-chat__mode-hint {
+  color: var(--bldr-panel-text-soft);
+}
+
+.pg-chat__guarantee {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--bldr-space-xs);
+}
+
+.pg-chat__guarantee svg {
+  flex: none;
+}
+
+/* Step rows: the human sentence leads, the exact command rides in mono at the
+   trailing edge — visible truth, never the headline. */
+.pg-chat__steps li {
+  align-items: baseline;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+}
+
+.pg-chat__step-title {
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-chat__step-cmd {
+  color: var(--bldr-panel-muted);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+}

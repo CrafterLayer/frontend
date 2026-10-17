@@ -1,0 +1,37 @@
+{
+  "id": "13-very-long-brief",
+  "title": "Very long, detailed brief",
+  "category": "long",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "We are launching Fieldwork, a research repository for product teams. I need the full marketing page and I have opinions about all of it. Start with an announcement bar promoting our launch week with a link to the changelog. The hero should lead with the outcome, not the category: something about decisions, not about \"a research repository\". Underneath it I want two buttons, a primary one that says Start free and a quieter one that says Book a walkthrough. Then a logo strip with five customer names — Northstar, Arcform, Meridian, Canopy and Fieldnote — because social proof this early is what converts. After that, three reasons to believe: everything searchable in one place, evidence linked to the decision it produced, and a shareable weekly digest. Then a section of numbers: how many interviews teams store, how much time they save, how many decisions get traced back to evidence. Then testimonials — two of them, from a product lead and a researcher, with the company named. Then pricing with two plans, one for a single team and one for a whole company, and make the company plan the featured one. Then an FAQ that answers: does this replace our note-taking tool, who can see what, and can we export everything if we leave. Finish with a newsletter sign-up for the research digest, and keep the whole page in a calm, confident tone. No exclamation marks anywhere.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 8,
+    "maxCommands": 40,
+    "anyBlockTypes": ["hero"],
+    "allBlockTypes": [
+      "announcementBar",
+      "hero",
+      "logoCloud",
+      "features",
+      "stats",
+      "testimonials",
+      "pricing",
+      "faq",
+      "newsletter"
+    ]
+  },
+  "budget": {
+    "maxCommands": 40,
+    "maxContextTokens": 200000,
+    "maxElapsedMs": 600000
+  },
+  "rubric": "Were all ten requested sections produced, in the requested order, with the two named buttons and the five named logos actually present, and no exclamation marks?",
+  "why": "A long brief is where planners silently drop half the requirements. Every clause here is checkable, so the coverage score degrades in proportion to what was skipped."
+}

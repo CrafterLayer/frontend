@@ -1,0 +1,28 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BucketStateSwitcherStories from './BucketStateSwitcher.stories';
+
+<Meta of={BucketStateSwitcherStories} />
+
+# BucketStateSwitcher
+
+Decides where a style edit applies (style-manager DESIGN.md §A.5, §A.7).
+
+- **Bucket** (desktop-first): Desktop writes unprefixed classes, Tablet `max-lg:`, Mobile `max-md:`
+  and a custom bucket `max-[Npx]:`. Custom breakpoints already used on the page are listed so they
+  can be picked again. When the device is free-width at a width that is not a preset (1280, 834,
+  390), an "Edit at ≤ N px" button creates that custom bucket.
+- **State**: Default, Hover, Focus (`focus-visible:`), Active, Open and Group hover.
+
+Both rows are `ChoiceGroup` radio groups (one tab stop each, arrows mirrored for RTL). The host keeps
+the bucket in step with the DeviceBar; this control only reports choices.
+
+Labels: `BUCKET_STATE_SWITCHER_LABELS_EN` (default) and `BUCKET_STATE_SWITCHER_LABELS_AR`.
+
+## Compact header (panel design)
+
+The switcher fits on one line. The buckets are device glyphs in an icon radio group (custom widths
+are text segments beside them), and the state is a labelled native menu ("State"). When the state is
+not Default, the header turns accent (`data-state-active`). When the bucket is not Desktop, the
+checked device turns warning (`data-bucket-active`). An edit that will land on Mobile · Hover never
+looks like a Desktop edit.

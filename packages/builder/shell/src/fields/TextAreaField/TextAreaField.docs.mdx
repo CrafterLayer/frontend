@@ -1,0 +1,37 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TextAreaFieldStories from './TextAreaField.stories';
+
+<Meta of={TextAreaFieldStories} />
+
+# TextAreaField
+
+The Inspector control for long text: a paragraph, a bio, an FAQ answer, a quote.
+
+<Canvas of={TextAreaFieldStories.Paragraph} />
+
+## When it is chosen
+
+Field resolution picks it from the schema or the block's declaration, never from a property name:
+
+- the block declares the property `kind: 'multiline'`, or
+- the string has no maximum length, or a maximum above 120 characters.
+
+A short, bounded string (`max(80)`, a label) keeps the one-line `TextField`.
+
+## Behaviour
+
+- **Grows with its content.** CSS `field-sizing: content` where supported, a measured height
+  otherwise, capped at eight control heights before it scrolls.
+- **Enter finishes, Shift+Enter breaks the line**, the multiline rule the canvas inline editor uses
+  too (DESIGN §2.7). Inside a repeater item, Enter commits the drafted text as one Undo.
+- **Bidi.** `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end
+  instead of jumping to the start.
+- **Draft discipline.** The same as `TextField`: every change commits through the row's door, a
+  door-rejected state stays visible, and an external write (undo, redo) drops the draft.
+
+<Canvas of={TextAreaFieldStories.MixedDirection} />
+
+## When not to use
+
+Rich text (bold, links, lists) is a `richText()` property and gets the rich-text editor instead.

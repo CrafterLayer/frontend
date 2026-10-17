@@ -1,0 +1,74 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ProductGridStories from './ProductGrid.stories';
+
+<Meta of={ProductGridStories} />
+
+# Product Grid
+
+A commerce-ready product section with real merchandising hierarchy: product imagery, current and
+original prices, badges, ratings, review counts, and a clear call to action. The `featured` variant
+promotes one authored product—or the first product when none is marked—without changing the product
+data.
+
+## Content model
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–80) = 'Featured products'`
+- `body?: string (1–240)`
+- `products (≤12)` require name, display price, and safe URL. Description, previous price, image,
+  alt text, badge, 0–5 rating, localized rating label, review count, and featured state are
+  optional.
+- `actionLabel: string (1–40) = 'View product'`
+- `showRatings: boolean = true`
+- `ratingPrefix`, `ratingSuffix`, and `reviewCountLabel` localize generated accessible labels.
+- `variant: 'grid' | 'featured' = 'grid'`
+  - `featured` gives the featured product a full row of its own (photo and copy side by side from a
+    32rem container, the photo filling its half), and lays the remaining products out in the column
+    count nearest `columns` that divides them evenly, so no row ends with an empty cell.
+  - A product without a photo shows a short monogram band rather than an empty full-ratio frame.
+- `columns: '2' | '3' | '4' = '4'`
+- `imageRatio: 'square' | 'portrait' = 'square'`
+
+Shared section controls remain optional with no defaults and provide token roles, motion,
+typography, logical spacing, gutter, and validated utility classes.
+
+## Accessibility and responsive behavior
+
+Products are semantic `article` elements in a list. Images preserve authored alternatives and become
+decorative when adjacent product copy already carries their meaning. Each star treatment is one
+labelled image exposing the exact rating and review count rather than five noisy glyphs; fractional
+fills reflect the authored tenth precisely instead of rounding. Repeated calls to action include the
+product name through `aria-labelledby`. Safe raster-image and destination schemas reject executable,
+protocol-relative, and slash-backslash URLs. Links stay semantic but cannot navigate on the canvas,
+where an empty grid receives clear setup guidance. Container queries follow the builder column,
+badge positioning uses logical `start`, RTL copy remains natural, and hover motion is removed for
+reduced-motion users.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`product.name` for every instance, `product.name@2` for the third),
+and addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English
+line on an Arabic page keeps its full stop at the end.
+
+| name                    | kind  | bind                                                     | label (en / ar)                              |
+| ----------------------- | ----- | -------------------------------------------------------- | -------------------------------------------- |
+| `eyebrow`               | text  | `eyebrow`                                                | Eyebrow / الشارة                             |
+| `heading`               | text  | `heading`                                                | Heading / العنوان                            |
+| `body`                  | text  | `body`                                                   | Body / الوصف (multiline)                     |
+| `products`              | list  | `products`                                               | Products / المنتجات                          |
+| `product`               | item  | `products.*`                                             | Product / المنتج                             |
+| `product.image`         | image | `{ src: products.*.imageSrc, alt: products.*.imageAlt }` | Product image / صورة المنتج                  |
+| `product.badge`         | text  | `products.*.badge`                                       | Product badge / شارة المنتج                  |
+| `product.name`          | text  | `products.*.name`                                        | Product name / اسم المنتج                    |
+| `product.description`   | text  | `products.*.description`                                 | Product description / وصف المنتج (multiline) |
+| `product.price`         | text  | `products.*.price`                                       | Price / السعر                                |
+| `product.originalPrice` | text  | `products.*.originalPrice`                               | Original price / السعر الأصلي                |
+| `product.link`          | link  | `{ text: products.*.name, href: products.*.href }`       | Product link / رابط المنتج                   |
+| `actionLabel`           | text  | `actionLabel`                                            | Button label / نص الزر                       |
+
+`actionLabel` is one part shown on every card; while it is edited in place, the first card hosts the
+editor. The button's accessible name is its label followed by the product name, read through
+`aria-labelledby`. The rating words (`ratingPrefix`, `ratingSuffix`, `reviewCountLabel`,
+`ratingLabel`) are read only by assistive technology, so they stay Inspector rows.

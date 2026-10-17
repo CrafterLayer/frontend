@@ -1,0 +1,27 @@
+{
+  "id": "30-edit-leaves-neighbours",
+  "title": "An edit stays where it was asked",
+  "category": "edit",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Change the hero heading to \"Built in Amman, shipped everywhere\" and leave everything else exactly as it is.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 3,
+    "anyCommands": ["setProp"],
+    "forbiddenBlockTypes": ["hero", "features"]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Did it change the hero heading and nothing else?",
+  "why": "Refinement isolation (SC-007) is measured over a whole site later, but its smallest form belongs here: an edit that also rewrites the section next to it is a different product from one that does not, and the corpus could not tell them apart."
+}

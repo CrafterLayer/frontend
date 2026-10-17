@@ -1,0 +1,65 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as StopButtonStories from './StopButton.stories';
+
+<Meta of={StopButtonStories} />
+
+# StopButton
+
+Stop (SPEC §4.17): ■ **and** the word at every width, in its own fixed place at the RunBar's inline
+end. Never swapped into the Send slot, so a second press on Send can never stop the run the first
+press started.
+
+<Canvas of={StopButtonStories.Live} />
+
+## Purpose
+
+The one control whose mistake costs work. A lone ■ in a 32px box is the easiest control in the panel
+to mistake, so it always carries «إيقاف» / "Stop".
+
+## Props
+
+| prop        | type                     | default        | notes                                                        |
+| ----------- | ------------------------ | -------------- | ------------------------------------------------------------ |
+| `locale`    | `Locale`                 | none           |                                                              |
+| `stopping`  | `boolean`                | none           | spinner, name "Stopping…", `aria-disabled` (never `disabled`)|
+| `onStop`    | `() => void`             | none           | never called while stopping                                  |
+| `apple`     | `boolean`                | the platform's | ⌘. or Ctrl+. in the tooltip and `aria-keyshortcuts`          |
+| `ref`       | `Ref<HTMLButtonElement>` | none           |                                                              |
+| `className` | `string`                 | none           | appended to `ck-agent-stop`                                  |
+
+`isStopShortcut(event)` accepts ⌘. and Ctrl+. on every platform (no Shift, no Alt, no repeat, not
+already spent); the Composer and the panel root both listen through it. `stopShortcutLabel` and
+`stopKeyShortcuts` print the chord for the tooltip and for `aria-keyshortcuts`.
+
+## States
+
+| story                                        | what it shows                                            |
+| -------------------------------------------- | -------------------------------------------------------- |
+| `Live`, `Tooltip`                            | ■ and the word; the tooltip names the chord              |
+| `Stopping`, `StoppingDark`                   | the spinner; the word stays; the name says "Stopping…"   |
+| `Dark`, `RightToLeft`, `StoppingRightToLeftDark` | theme and Arabic                                     |
+| `KeepsFocusWhileStopping`                    | a press stops it and focus stays on the same button      |
+
+## Anatomy
+
+32px tall (44 on a coarse pointer), radius 6, a 1px Rule border on the Sheet, an Ink ■ and the word in
+Read 500. Padding 6 before the glyph box and 10 after the word, so the 7px square and the word read
+balanced. Hover lays the Wash; never Indigo. Stopping steps the word back to Graphite.
+
+## Accessibility
+
+- The name contains the visible word, even while stopping ("Stopping…" contains "Stop", WCAG 2.5.3).
+- Stopping is `aria-disabled`, not `disabled`: the focus the press put here stays (SPEC §6.3). When
+  the RunBar leaves, the Composer moves focus to the textarea.
+- The glyphs are static JSX, so a re-render between pointerdown and pointerup cannot take the press
+  away (`Composer.test.tsx`, "the first press after the textarea blurs").
+
+## RTL
+
+It sits at the RunBar's inline end: the left in Arabic. The spinner always turns clockwise.
+
+## Motion
+
+Colour only on hover (120ms) and press (80ms). The spinner turns while stopping; under reduced motion
+it holds still.

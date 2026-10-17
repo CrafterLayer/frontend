@@ -1,0 +1,42 @@
+import { Meta, Canvas, Story } from '@storybook/addon-docs/blocks';
+import * as Stories from './SelectionToolbar.stories';
+
+<Meta of={Stories} />
+
+# SelectionToolbar
+
+`SelectionToolbar` exposes commands for the exact `SelectionTarget` shown on the canvas. It is owned
+by the builder shell and should be mounted beside the selected element. Do not use it for page-wide
+commands or as a generic navigation toolbar.
+
+<Canvas of={Stories.Native} />
+
+## API and states
+
+- `targets` is the reconciled native, source, instance, or multi-selection.
+- `onAction` receives the action and the same captured targets. The command handler must still
+  verify their site/source revisions before it writes.
+- `hasParent` exposes the parent command. Other commands appear only when every target shares the
+  required capability.
+- `state="stale"` keeps the context visible, disables commands, and asks for a new selection.
+- `sharedScope` clearly states the affected instance and page counts before source-wide editing.
+- `onMovePointerDown` is the only pointer start for structural movement; the button is stamped with
+  `data-bldr-drag-handle` and the drag session applies its 8px threshold.
+
+## Keyboard and accessibility
+
+The component is a named ARIA toolbar. One button is in the tab order; arrow keys, Home, and End
+move within it. Horizontal direction mirrors in RTL. Button names remain visible and programmatic,
+destructive actions keep a distinct hover treatment, and stale commands use native `disabled`.
+
+## Responsive and theme behavior
+
+The toolbar uses editor tokens, logical spacing, and horizontal overflow when the canvas is narrow.
+Site colors never change its chrome. Shared-scope text truncates visually while remaining available
+as the toolbar description.
+
+<Story of={Stories.Source} />
+<Story of={Stories.Instance} />
+<Story of={Stories.MultiSelection} />
+<Story of={Stories.Limited} />
+<Story of={Stories.SharedSource} />

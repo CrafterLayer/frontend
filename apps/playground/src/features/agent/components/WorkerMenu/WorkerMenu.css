@@ -1,0 +1,7 @@
+/*
+  WorkerMenu (compact composer, 2026-10-12): the trigger and its menu are ChoiceMenu's. The
+  chip shows a glyph and the count, so its word needs no more than three characters.
+*/
+.ck-agent-workers {
+  --ck-agent-choice-measure: 3ch;
+}

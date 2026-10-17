@@ -1,0 +1,61 @@
+/*
+  EnhanceButton: the ✨ Improve action, a 32px ghost square (44 on a coarse pointer),
+  radius 6, exactly IconButton's ghost: no fill, a Graphite glyph, the Wash under Ink on
+  hover, and Slate when it cannot run. Never Indigo (SPEC §2.1 rule 3).
+
+  Drawn over ChromeButton: every rule starts from four simple selectors, (0,4,0), so each
+  state out-ranks ChromeButton's matching one (its quiet hover paints the glyph Indigo).
+*/
+
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size] {
+  inline-size: var(--ck-agent-target, var(--bldr-control-md));
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding: var(--bldr-space-0);
+  border-color: transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* It cannot run now: Slate (4.69:1 on the Sheet), no answer to hover or press. */
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover,
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+/* Working: the spinner stays in Graphite, and the cursor says it is busy, not refused. */
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][data-working],
+.ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][data-working]:enabled:hover {
+  color: var(--bldr-panel-text-soft);
+  cursor: progress;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-enhance {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-enhance[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'] {
+    color: GrayText;
+  }
+}

@@ -1,0 +1,279 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantPanelStories from './AssistantPanel.stories';
+
+<Meta of={AssistantPanelStories} />
+
+# AssistantPanel
+
+`AssistantPanel` is the playground-owned conversation surface over the headless `runAiAgent`
+contract. Each request receives a fresh run id, resolves Built-in or host-provided Skills, assembles
+the bounded canonical context, validates commands on a scratch kernel, and retains the authenticated
+proposal with its message. Ask waits for **Apply**; Auto applies only that pinned proposal through
+the runner; Plan remains preview-only.
+
+## Use it for
+
+Use this component in an editor rail when an author needs inspectable, undoable agent changes with
+observable progress, explicit Skill activation, cancellation, and typed failure recovery. Use the
+optional code-review action when the host can show a proposal through the separate code-view
+workflow.
+
+Do not use it as a general chat surface or as a way to bypass the builder kernel. All accepted
+commands still cross the same validated document door as a direct edit.
+
+## API
+
+- `kernel` — required live `BuilderKernel`. The panel reads its document and selection, dry-runs
+  proposals on a scratch kernel, and applies accepted authenticated proposals with `author: 'ai'`.
+- `onReviewAsCode` — optional callback. When absent, the **Review as code** action is not rendered.
+- `planProvider` — optional proposal source for a deterministic or embedded host. The default is the
+  local provider; every provider result still crosses the same policy, validation, and preflight.
+- `skillRegistry` — optional host `AiSkillRegistry`. The default registry contains CraftKit's
+  reviewed Built-in Skills. Supplying a registry makes the host the source of available Skills.
+- `selectedSkillIds` — optional explicit activations applied to every request on this panel.
+  Unknown, conflicting, untrusted, or over-budget activations fail through the typed agent boundary.
+- `agentPolicy` — optional `Partial<AiAgentPolicy>` that can narrow commands, deny commands,
+  constrain active Skills, and lower Skill/context/command/operation budgets. It cannot grant
+  commands absent from the live kernel.
+- `onAgentEvent` — optional ordered observer for `AiAgentEvent`. Observer failures are isolated and
+  cannot affect validation or application authority.
+- `persistKey` — optional local-storage key for conversation revival. Persisted plans lose their
+  module-private authentication after reload and therefore cannot be applied until revalidated.
+- `defaultMode` — `'ask' | 'auto' | 'plan'`, default `'ask'`. The mode the panel starts in until the
+  person chooses one. A chosen mode is saved under `persistKey` and wins over this on every later
+  load; a saved mode nobody chose does not. The playground passes `'auto'` (see **Modes and
+  authority**).
+- `locale` — `'ar' | 'en'`, default `'ar'`. The language of the character's one visible line (the
+  panel's live region) and nothing else. Not an i18n layer: the chrome stays English because
+  everything it names is Latin. `'en'` exists so tests, Storybook a11y and an English-speaking
+  reviewer see the same persona deterministically.
+
+## Modes and authority
+
+| Mode | Runner setting   | Outcome                                                           |
+| ---- | ---------------- | ----------------------------------------------------------------- |
+| Ask  | `apply: 'never'` | Shows the pinned proposal and offers Apply, Preview, and Discard. |
+| Auto | `apply: 'auto'`  | Applies inside the runner as one AI-authored transaction.         |
+| Plan | `apply: 'never'` | Shows reasoning and Preview, but never offers Apply.              |
+
+The panel starts in `defaultMode` — Ask unless the host says otherwise; the playground starts in
+Auto, because every change lands as undoable history. Only the person's own choice outlives that
+default. With `persistKey` set, pressing a mode radio records the mode _and_ that it was chosen, and
+a later load restores it whatever the host default has become. A mode saved without that mark reads
+as the host default, so a default saved on some earlier visit never pins a browser to it. Data saved
+before the mark existed is read by what it could mean: then the default was Ask and only the radios
+could store Plan or Auto, so a saved Plan or Auto is honoured as a choice and a saved Ask yields to
+the host default. `StartsInAuto` shows a panel whose first request applies with no radio pressed.
+
+The panel never calls a separate generate/apply shortcut. Manual Apply and Preview consume the
+authenticated `AiValidatedProposal`; a substituted plan, broader policy, copied proposal, or expired
+persisted proposal fails closed.
+
+## Host Skills and activation pins
+
+Skills are bounded data: instructions, logical text references, metadata, and optional command
+restrictions. They do not execute scripts, fetch URLs, access the filesystem, register tools, or
+write Builder state. Active bodies enter context once; inactive Skills remain metadata-only.
+
+Every proposed plan lists its activation pins under **Activated Skills** in this format:
+`id · vVERSION · FINGERPRINT`, followed by the activation reason. The UI intentionally shows only
+the first eight fingerprint characters for scanning; the immutable proposal retains the full value.
+
+The `HostSkillActivation` story demonstrates an explicit reviewed host Skill and verifies the
+corresponding `skills.resolved` event.
+
+## Observable progress, cancellation, and supersession
+
+`onAgentEvent` receives monotonically sequenced run events for Skill resolution, context readiness,
+proposal progress, validation/repair, proposal/application, and one terminal outcome. The panel uses
+`plan.progress` for live narration and forwards the same event unchanged to the host.
+
+While work is active, Send becomes **Stop**. Stop aborts the provider and produces a non-error
+**Stopped.** turn. Each retry or new request receives a fresh run id and controller. The synchronous
+runner lease rejects late cache/provider results from superseded runs before validation or apply,
+even when an adapter ignores abort.
+
+`StopCancelsTheRun` covers cooperative cancellation. `NewChatSupersedesLateRun` deliberately uses a
+provider that ignores abort and proves its late result cannot enter the replacement conversation.
+
+## Typed failure and retry behavior
+
+A failed run renders the human message plus its stable `code`, source, and optional HTTP status.
+**Retry** appears only when `AiRunFailure.retryable === true` and replays the same request through a
+fresh bounded run. The panel never guesses from message text or status codes.
+
+- Provider transport/output failures may be retryable according to their typed error.
+- Explicit refusal, context-budget, Skill/policy, unsafe-command, proposal-integrity, and kernel
+  failures are non-retryable until the request or host policy changes.
+- `ContextBudgetFailure` proves the complete canonical request is rejected before provider work.
+- `RetryableProviderFailure` proves a typed HTTP failure can recover; `NonRetryableRefusal` proves
+  the Retry action remains absent.
+
+## Conversation and safety
+
+Each proposal remains attached to the message that requested it. Asking again never replaces an
+older plan. **Discard** marks that plan as discarded without touching the document. **Apply**
+records the commands as the assistant and exposes an in-thread **Undo**; the normal kernel history
+restores the exact prior document.
+
+The context line is deliberately explicit: it says either `the whole page` or `<type> · selected`,
+and updates when the live kernel selection changes. `@block-id` mentions become the request-local
+selection. If policy or preflight refuses a command, the panel shows the typed reason rather than
+replacing it with a generic apology.
+
+## Abu Ghadab — the person inside the tool
+
+The tool is called Assistant; the person inside it is أبو غضب, Abu Ghadab ("father of anger" — a
+kunya, how you name someone you know). Grumpy but competent is a behaviour the status line proves,
+not a slogan, so there is no tagline. The heading shows ONE name, chosen by `locale`: «أبو غضب»
+(`lang="ar"`, `dir="rtl"`) by default, "Abu Ghadab" (`lang="en"`) for `en` — never both, because a
+bilingual header reads as two people; the transliteration lives only here. The region's accessible
+name, the composer's label, the rail tab and the persist key all stay `Assistant` — the accessible
+surface is the product role, the visible name is the character.
+
+### When you hover him
+
+The face is stateless; the element that holds it (its seat) writes what he reads: `--pg-face-look-x`
+/ `--pg-face-look-y` move his eyes toward the pointer as it crosses the header (or the empty state —
+never the composer), and `data-press` boops the disc on a press. `useFaceLook()` writes those
+straight onto the DOM once per animation frame, so a pointer never re-renders the panel; his voice
+line does not change on hover, the face stays `aria-hidden`, and a press never moves the composer's
+caret. Reply avatars (24 px) never pose or follow. Under `prefers-reduced-motion` the look is zeroed
+and no listener is attached.
+
+### While he works
+
+The thinking turn is a `GenerationProgress` card with the run's honest rows — Plan (skills and
+context), Structure (propose, check, repair) and, in Auto only, Apply — driven by the run's own
+events: Plan settles on `context.ready` with its elapsed time, Structure reads "Checking" /
+"Checking again" / "Repairing n" and settles on `plan.proposed`, Apply settles on `run.completed`; a
+failure marks the active row and the refusal card says where it broke ("· at Structure"). The card
+renders with `announce={false}` — the panel's voice is the one live region — and offers no Cancel:
+the composer's Stop is the one abort. A settled plan card keeps the receipt ("Plan 00:01.123 ·
+Structure 00:00.310").
+
+The character appears in three seats, all of them the boxes the old sparkle occupied so nothing
+moves: the header (32 px, live — the only face that animates), each reply avatar (24 px, frozen at
+the mood that turn earned: thinking, stopped, failed, discarded, or done as proposed / applied /
+planned) and the empty state (48 px, at rest). The face is a pure function of the run log: every
+`AiAgentEvent` of the current run, the turn's outcome, Apply and Discard on a card, and the
+composer's focus and draft drive one reducer with one timer. Composer focus makes him listen; typing
+is a nudge and never a word. See [AgentFace](?path=/docs/playground-agentface--docs) for the eight
+moods, the state machine and the copy deck.
+
+His voice is one `role="status"` line under the name — the panel's single live region — that says
+what the face shows: reading, working, checking, the proposal, the applied change, the refusal, the
+stop. Where a card already prints a string the English mirrors it exactly (`Applied as one change.`,
+`Stopped.`) so ear and eye agree; the Arabic tier is Levantine colloquial. Idle and listening share
+one line on purpose, so focusing the composer or typing never triggers an announcement. The
+`LiveFace` story proves the header follows a run to `done` and that exactly one status line exists.
+
+## Reading the thread at a glance
+
+Every assistant outcome lands in one card whose **leading edge carries the state**: accent while a
+plan is pending, success once applied, danger on typed failure, and a muted edge once stopped or
+discarded. Scanning the stripe down the thread tells you what happened without reading a word.
+Colour is never the only signal: each state also carries an icon, wording, and—when applicable—a
+stable failure code.
+
+Motion is spent on status, never atmosphere: the three-dot pulse while a proposal is being
+generated, the composer's glow while the assistant is working, and the header face's phase loops
+(reading eyes, drafting ring, applying spin) with one-shot entries for a proposal, an applied change
+or a stop. Reply avatars never animate. Everything resolves to a still state under
+`prefers-reduced-motion`; every mood is carried by geometry, so nothing is lost.
+
+## Accessibility
+
+The panel is a named region, the thread is a named log, activated Skills are a named list, the
+composer has a programmatic label, and all decisions use native buttons. Enter sends a request;
+Shift+Enter adds a line. Stop and Retry retain explicit accessible names.
+
+The character's voice is the panel's one `role="status"` (`aria-live="polite"`,
+`aria-atomic="true"`, `lang` set to the locale, `dir="auto"` so the text declares its own
+direction). It sits outside every `aria-hidden` wrapper, so what is announced is exactly what is
+read. The thread stays `role="log"`; the faces are decoration inside `aria-hidden` seats, never
+focusable, and a mood change never moves focus — the header can go from reading to done while the
+person keeps typing.
+
+The conversation history appears only when more than one chat exists. It is a labelled button that
+opens a `menu` of `menuitemradio` entries — the past is a list of things you have already said, not
+a form field to fill in, so it carries each chat's own weight (its message count) and marks the one
+you are in. It closes on Escape or on a press outside it, and Escape returns focus to the trigger
+rather than dropping it on the document body.
+
+The composer is one focus surface: the field and its send action share a card, so the ring is drawn
+around the pair by `:focus-within` and the field's own ring is suppressed — the same composite-field
+pattern `.bldr-richtext-field` uses. The ring MOVES; it is never removed.
+
+## Layout, direction, and content
+
+The host rail supplies `--bldr-panel-width`; the `CompactColumn` story renders at that token and
+proves no horizontal overflow. The panel grid leaves the composer at the foot and makes only the
+thread scroll. Its CSS uses logical properties, so the chrome inherits content direction. Keep
+requests concise enough for a conversation title; the first request names a new chat.
+
+## Composition
+
+```tsx
+const skillRegistry = createCraftkitAiSkillRegistry([
+  {
+    schemaVersion: 1,
+    id: 'acme.brand-voice',
+    name: 'Acme brand voice',
+    description: 'Apply the reviewed Acme writing rules.',
+    version: '1.0.0',
+    instructions: 'Use direct, concrete language and preserve product names.',
+    activation: { mode: 'explicit' },
+    restrictToCommands: ['setProp'],
+  },
+]);
+
+<AssistantPanel
+  kernel={kernel}
+  skillRegistry={skillRegistry}
+  selectedSkillIds={['acme.brand-voice']}
+  agentPolicy={{ maxContextTokens: 48_000, deniedCommands: ['removeNode'] }}
+  onAgentEvent={(event) => {
+    recordAssistantTelemetry(event);
+  }}
+  onReviewAsCode={() => {
+    openCodeView();
+  }}
+/>;
+```
+
+## Known limits
+
+The panel does not own model credentials, Skill persistence, or server transport. A host that needs
+a remote model supplies a hardened `planProvider`; it must still produce declarative commands inside
+the effective policy and scratch-kernel contract. The host supplies Skills through props; there is
+no Skill-management UI in this phase. If the live document changes before **Apply**, the same
+pinned-policy and kernel doors may refuse the proposal; the thread shows that real reason and leaves
+the document untouched.
+
+## Visual hierarchy
+
+The header uses the raised surface, with current document context in a quiet inset row. The thread
+uses the panel surface, roomier turn spacing, and control-sized user text. Starter cards and the
+composer share theme borders and radii. Context and the empty-state mark remain still; active
+generation retains its existing feedback and reduced-motion support.
+
+## Source layout (maintainers)
+
+`AssistantPanel.tsx` is the composition root and renders the panel; the behaviour lives in hooks
+beside it (split 2026-10-13, behaviour unchanged):
+
+| Module                                   | Owns                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `AssistantPanel.types.ts`                | the public props and the internal request/build shapes                                      |
+| `use-assistant-sessions.ts`              | conversations, the chosen mode, persistence under `persistKey`, ids that never repeat a key |
+| `use-assistant-providers.ts`             | the skill registry, the wired or local provider, the catalog-first provider, suggestions    |
+| `use-page-build.ts`                      | a page-sized request as a split build (skeleton, one run per section, the one approval)     |
+| `use-assistant-ask.ts`, `run-outline.ts` | routing a request: queue, build, an answer in words, or one agent run                       |
+| `use-run-queue.ts`                       | the queued request, Stop, and the one run lease shared with the site run                    |
+| `use-build-report-actions.ts`            | answering a build's question, putting one section back, removing unfilled placeholders      |
+| `use-plan-actions.ts`                    | Apply (fails closed in Plan), the would-be-page preview dialog, Discard                     |
+
+The suites are split by theme (`AssistantPanel.test.tsx`, `.preview-memory`, `.modes`, `.face`,
+`.split-build`, `.routing`) and share three `*.test-helpers.tsx` fixture modules.

@@ -1,0 +1,453 @@
+import { collectAssetRefs, unresolvedAssetReferences } from '../assets/validate';
+import { codePageReferenceSchema, pageLinkSchema } from '../code/types';
+import { LATEST_SCHEMA_VERSION, type BuilderDocument, type Node } from '../document/types';
+import { validateDocument } from '../document/validate';
+import { validateDesignSystem } from '../theme/validate';
+import type { SiteLibrary } from './library';
+import { symbolCycle } from './library-usage';
+import { parseSiteByMember, reuseFrozen } from './site-validation-memo';
+import {
+  builderSiteSchema,
+  LATEST_SITE_VERSION,
+  type BuilderSite,
+  type PageId,
+  type SharedRegionId,
+  type SitePage,
+} from './types';
+
+interface ValidSiteValidationResult {
+  ok: true;
+  site: BuilderSite;
+}
+
+interface InvalidSiteValidationResult {
+  ok: false;
+  issues: readonly SiteValidationIssue[];
+}
+
+interface SiteShapeIssue {
+  message: string;
+  path: readonly PropertyKey[];
+}
+
+export type SiteValidationResult = ValidSiteValidationResult | InvalidSiteValidationResult;
+
+export interface SiteValidationIssue {
+  code:
+    /*
+      `malformed-site` was added during integration. The worker had to route
+      every unreadable envelope through `unknown-site-version`, because the
+      contract published no generic shape code — which meant a site whose
+      `pages` was a string reported a VERSION problem, and the first person to
+      read that message would go looking in entirely the wrong place.
+    */
+    | 'malformed-site'
+    | 'unknown-site-version'
+    | 'missing-home-page'
+    | 'duplicate-page-address'
+    | 'duplicate-page-id'
+    | 'invalid-code-project'
+    | 'invalid-code-page'
+    | 'unresolved-page-link'
+    | 'unknown-shared-region'
+    | 'invalid-page-document'
+    | 'page-direction-mismatch'
+    | 'unresolved-asset-reference'
+    | 'design-system-contrast-failure'
+    /* style-manager DESIGN.md §2: the optional site design library. */
+    | 'invalid-site-library';
+  message: string;
+  at?: {
+    pageId?: PageId;
+    regionId?: SharedRegionId;
+    projectId?: string;
+    modulePath?: string;
+    /** The library entry at fault, e.g. `symbols.card`. */
+    libraryPath?: string;
+  };
+}
+
+/**
+ * Whole-site validation. Page validity remains owned by validateDocument().
+ *
+ * Incremental for an immutable site (2026-10-12): the shape is parsed member by
+ * member and each page's own work — its shape, its document, the asset refs and
+ * page links it holds — is reused for a FROZEN page object seen before
+ * (site-validation-memo.ts). That is every untouched page of an immer-produced
+ * site, so the site door's check on each commit costs the pages a transaction
+ * changed, not every page there is. Cross-page rules (one home, unique
+ * addresses and ids, links resolve, regions exist, one direction) still run
+ * over every page on every call, and a refusal of the shape is Zod's own,
+ * from the whole-site parse.
+ */
+export function validateSite(value: unknown): SiteValidationResult {
+  const byMember = parseSiteByMember(value);
+  if (byMember !== undefined) return collectSiteIssues(byMember);
+  const parsed = builderSiteSchema.safeParse(value);
+  if (!parsed.success) {
+    return { ok: false, issues: shapeIssues(value, parsed.error.issues) };
+  }
+  return collectSiteIssues(parsed.data);
+}
+
+/** Every rule past the shape, over a site that already parsed. */
+function collectSiteIssues(site: BuilderSite): SiteValidationResult {
+  const issues: SiteValidationIssue[] = [];
+  const pageIds = new Set(site.pages.map((page) => page.id));
+
+  if (site.siteVersion !== LATEST_SITE_VERSION) {
+    issues.push({
+      code: 'unknown-site-version',
+      message: `Site format v${String(site.siteVersion)} is not supported; expected v${String(LATEST_SITE_VERSION)}.`,
+    });
+  }
+
+  const homePages = site.pages.filter((page) => page.address === '/');
+  if (homePages.length !== 1) {
+    issues.push({
+      code: 'missing-home-page',
+      message: `A site must contain exactly one home page at "/"; found ${String(homePages.length)}.`,
+    });
+  }
+
+  collectDuplicatePageIssues(site.pages, 'address', 'duplicate-page-address', issues);
+  collectDuplicatePageIssues(site.pages, 'id', 'duplicate-page-id', issues);
+  collectCodeProjectIssues(site, issues);
+  collectLibraryIssues(site, issues);
+
+  for (const page of site.pages) {
+    collectCodePageIssues(site, page, issues);
+    collectPageLinkIssues(page.document, pageIds, { pageId: page.id }, issues);
+    for (const regionId of page.regions) {
+      if (!Object.hasOwn(site.sharedRegions, regionId)) {
+        issues.push({
+          code: 'unknown-shared-region',
+          message: `Page "${page.id}" references unknown shared region "${regionId}".`,
+          at: { pageId: page.id },
+        });
+      }
+    }
+
+    collectDocumentIssues(page.document, `Page "${page.id}"`, { pageId: page.id }, issues);
+
+    if (page.document.dir !== site.dir) {
+      issues.push({
+        code: 'page-direction-mismatch',
+        message: `Page "${page.id}" direction "${page.document.dir}" does not match site direction "${site.dir}".`,
+        at: { pageId: page.id },
+      });
+    }
+
+    const pageRefs = reuseFrozen(collectAssetRefs, page.document.nodes);
+    for (const assetIssue of unresolvedAssetReferences(pageRefs, site.assets)) {
+      issues.push({
+        code: 'unresolved-asset-reference',
+        message: assetIssue.message,
+        at: { pageId: page.id },
+      });
+    }
+  }
+
+  for (const region of Object.values(site.sharedRegions)) {
+    if (reuseFrozen(holdsCodePage, region.document.nodes)) {
+      issues.push({
+        code: 'invalid-code-page',
+        message: 'A shared region cannot own a code page.',
+        at: { regionId: region.id },
+      });
+    }
+    collectPageLinkIssues(region.document, pageIds, { regionId: region.id }, issues);
+    collectDocumentIssues(
+      region.document,
+      `Shared region "${region.id}"`,
+      { regionId: region.id },
+      issues,
+    );
+
+    const regionRefs = reuseFrozen(collectAssetRefs, region.document.nodes);
+    for (const assetIssue of unresolvedAssetReferences(regionRefs, site.assets)) {
+      issues.push({
+        code: 'unresolved-asset-reference',
+        message: assetIssue.message,
+        at: { regionId: region.id },
+      });
+    }
+  }
+
+  /*
+    Rule 9 (FR-014): the design system's declared pairings must be legible.
+
+    Delegated in full to `validateDesignSystem`, which owns the thresholds and
+    the fail-closed behaviour on a colour it cannot parse. Nothing about
+    contrast is computed here — a second implementation would be a second
+    answer to one question, and the two would drift.
+
+    This check was a written no-op until now. The issue code was public, the
+    contract listed the rule, and a site whose body text was unreadable against
+    its own background validated cleanly — which is the most expensive kind of
+    gap, because everything downstream is entitled to believe the validator.
+  */
+  const designSystem = reuseFrozen(validateDesignSystem, site.designSystem);
+  if (!designSystem.ok) {
+    for (const issue of designSystem.issues) {
+      /*
+        Every design-system failure is reported under the contrast code, which
+        is narrower than what it carries: the validator also rejects an unknown
+        token, a missing one, a pairing naming a role that is not a colour, and
+        a system with no seed. The site contract publishes exactly one code for
+        this rule, so the CODE stays the contract's and the MESSAGE carries the
+        real reason — a reader is told what is wrong even when the label is
+        broader than the fault. Widening the union is a contract change and
+        belongs in a spec revision, not in a validator.
+      */
+      issues.push({
+        code: 'design-system-contrast-failure',
+        message: `Design system "${site.designSystem.name}": ${issue.message}`,
+      });
+    }
+  }
+
+  return issues.length === 0 ? { ok: true, site } : { ok: false, issues };
+}
+
+/*
+  The library's SHAPE is the schema's (every limit, id and colour rule parses
+  in `builderSiteSchema`); what is checked here is what no single entry can
+  see: a symbol that, through the instances in its tree, contains itself.
+  Rendering one would recurse until the stack gives out.
+*/
+function collectLibraryIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
+  if (site.library === undefined) return;
+  for (const [symbolId, cycle] of reuseFrozen(symbolCycles, site.library)) {
+    issues.push({
+      code: 'invalid-site-library',
+      message: `Symbol "${symbolId}" contains itself: ${cycle.join(' → ')}.`,
+      at: { libraryPath: `symbols.${symbolId}` },
+    });
+  }
+}
+
+function symbolCycles(library: SiteLibrary): readonly (readonly [string, readonly string[]])[] {
+  const cycles: (readonly [string, readonly string[]])[] = [];
+  for (const symbolId of Object.keys(library.symbols ?? {})) {
+    const cycle = symbolCycle(library, symbolId);
+    if (cycle !== undefined) cycles.push([symbolId, cycle]);
+  }
+  return cycles;
+}
+
+function holdsCodePage(nodes: Readonly<Record<string, Node>>): boolean {
+  return Object.values(nodes).some((node) => node.type === 'codePage');
+}
+
+function collectCodeProjectIssues(site: BuilderSite, issues: SiteValidationIssue[]): void {
+  const pageIds = new Set(site.pages.map((page) => page.id));
+  for (const [projectId, project] of Object.entries(site.codeProjects ?? {})) {
+    for (const modulePath of Object.keys(project.files)) {
+      const segments = modulePath.split('/');
+      if (
+        (segments[0] === 'shared' && segments.length >= 2) ||
+        (segments[0] === 'pages' && segments.length >= 3 && pageIds.has(segments[1] ?? ''))
+      )
+        continue;
+      issues.push({
+        code: 'invalid-code-project',
+        message: 'A module must belong to shared/ or pages/<existing page id>/.',
+        at: { projectId, modulePath },
+      });
+    }
+  }
+}
+
+function collectCodePageIssues(
+  site: BuilderSite,
+  page: SitePage,
+  issues: SiteValidationIssue[],
+): void {
+  if (!reuseFrozen(holdsCodePage, page.document.nodes)) return;
+  const root = page.document.nodes[page.document.rootId];
+  const reference = codePageReferenceSchema.safeParse(root?.props);
+  const validRoot =
+    root?.type === 'codePage' &&
+    Object.keys(page.document.nodes).length === 1 &&
+    Object.keys(root.slots ?? {}).length === 0 &&
+    page.regions.length === 0;
+  if (!validRoot || !reference.success) {
+    issues.push({
+      code: 'invalid-code-page',
+      message:
+        'A code page requires one codePage root, valid reference props, no slots, and no shared regions.',
+      at: { pageId: page.id },
+    });
+    return;
+  }
+  const { projectId, entry } = reference.data;
+  const project = site.codeProjects?.[projectId];
+  if (!project || !Object.hasOwn(project.files, entry) || !entry.startsWith(`pages/${page.id}/`)) {
+    issues.push({
+      code: 'invalid-code-page',
+      message: 'A code page must reference an existing project and its own private entry module.',
+      at: { pageId: page.id, projectId, modulePath: entry },
+    });
+  }
+}
+
+function collectPageLinkIssues(
+  document: BuilderDocument,
+  pageIds: ReadonlySet<PageId>,
+  at: NonNullable<SiteValidationIssue['at']>,
+  issues: SiteValidationIssue[],
+): void {
+  for (const target of reuseFrozen(pageLinkTargets, document)) {
+    if (target === undefined || !pageIds.has(target)) {
+      issues.push({
+        code: 'unresolved-page-link',
+        message: 'An internal page link must reference an existing page.',
+        at,
+      });
+    }
+  }
+}
+
+/** Every internal page link in a document, in walk order: its page, or `undefined` if malformed. */
+function pageLinkTargets(document: BuilderDocument): readonly (PageId | undefined)[] {
+  const targets: (PageId | undefined)[] = [];
+  function visit(value: unknown): void {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!isRecord(value)) return;
+    if (value['kind'] === 'page' && Object.hasOwn(value, 'pageId')) {
+      const link = pageLinkSchema.safeParse(value);
+      targets.push(link.success ? link.data.pageId : undefined);
+      return;
+    }
+    Object.values(value).forEach(visit);
+  }
+  for (const node of Object.values(document.nodes)) {
+    visit(node.props);
+    visit(node.responsive);
+  }
+  return targets;
+}
+
+function collectDocumentIssues(
+  document: BuilderDocument,
+  owner: string,
+  at: NonNullable<SiteValidationIssue['at']>,
+  issues: SiteValidationIssue[],
+): void {
+  if (document.schemaVersion !== LATEST_SCHEMA_VERSION) {
+    issues.push({
+      code: 'invalid-page-document',
+      message: `${owner} document uses format v${String(document.schemaVersion)}; expected v${String(LATEST_SCHEMA_VERSION)}.`,
+      at,
+    });
+  }
+
+  for (const documentIssue of reuseFrozen(validateDocumentAlone, document)) {
+    const path = documentIssue.path === undefined ? '' : ` at ${documentIssue.path.join('.')}`;
+    issues.push({
+      code: 'invalid-page-document',
+      message: `${owner} document failed ${documentIssue.code}${path}: ${documentIssue.message}`,
+      at,
+    });
+  }
+}
+
+function validateDocumentAlone(document: BuilderDocument): ReturnType<typeof validateDocument> {
+  return validateDocument(document);
+}
+
+function collectDuplicatePageIssues(
+  pages: readonly SitePage[],
+  field: 'address' | 'id',
+  code: 'duplicate-page-address' | 'duplicate-page-id',
+  issues: SiteValidationIssue[],
+): void {
+  const seen = new Set<string>();
+  for (const page of pages) {
+    const value = page[field];
+    if (seen.has(value)) {
+      issues.push({
+        code,
+        message: `Page ${field} "${value}" is used more than once.`,
+        at: { pageId: page.id },
+      });
+      continue;
+    }
+    seen.add(value);
+  }
+}
+
+/*
+  An unreadable envelope reports `malformed-site`; a malformed nested page
+  document keeps its dedicated code, so the message points at the page rather
+  than at the site. The Zod path is narrowed because Zod 4 admits symbol
+  segments and a public location here is JSON-addressable only.
+*/
+function shapeIssues(
+  value: unknown,
+  zodIssues: readonly SiteShapeIssue[],
+): readonly SiteValidationIssue[] {
+  return zodIssues.map((issue) => {
+    const path = issue.path.filter(
+      (segment): segment is string | number =>
+        typeof segment === 'string' || typeof segment === 'number',
+    );
+    const at = locationFromRawSite(value, path);
+    const isNestedDocument =
+      (path[0] === 'pages' && path[2] === 'document') ||
+      (path[0] === 'sharedRegions' && path[2] === 'document');
+
+    return {
+      code:
+        path[0] === 'codeProjects'
+          ? 'invalid-code-project'
+          : path[0] === 'library'
+            ? 'invalid-site-library'
+            : isNestedDocument
+              ? 'invalid-page-document'
+              : 'malformed-site',
+      message: `Site shape is invalid${path.length === 0 ? '' : ` at ${path.join('.')}`}: ${issue.message}`,
+      ...(at === undefined ? {} : { at }),
+    };
+  });
+}
+
+function locationFromRawSite(
+  value: unknown,
+  path: readonly (string | number)[],
+): SiteValidationIssue['at'] | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (path[0] === 'pages' && typeof path[1] === 'number') {
+    /*
+      `value` is the REJECTED input, so nothing about its shape is known —
+      indexing it yields `any` unless the unknown is carried explicitly.
+      Naming the type is what lets the guards below actually mean something.
+    */
+    const pages: unknown = value['pages'];
+    const page: unknown = Array.isArray(pages) ? (pages as unknown[])[path[1]] : undefined;
+    if (isRecord(page) && typeof page['id'] === 'string') {
+      return { pageId: page['id'] };
+    }
+  }
+
+  if (path[0] === 'sharedRegions' && typeof path[1] === 'string') {
+    return { regionId: path[1] };
+  }
+
+  if (path[0] === 'library' && path.length > 1) {
+    return { libraryPath: path.slice(1, 3).join('.') };
+  }
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}

@@ -16,6 +16,8 @@ export const baseConfig = typescript.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/playwright-report/**',
+      // The remember plugin's scratch folder (gitignored by its own .gitignore).
+      '**/.remember/**',
       '**/storybook-static/**',
       '**/test-results/**',
       '.agents/**',
@@ -24,6 +26,10 @@ export const baseConfig = typescript.config(
       '.specify/extensions/**',
       '.specify/integrations/**',
       '.specify/presets/**',
+      // Vendored third-party code is kept VERBATIM for provenance (vendor/VENDOR.md):
+      // it is never compiled, imported, or shipped, and must not be reformatted or
+      // linted against our rules — the adaptations live inside our own packages.
+      'vendor/**',
     ],
   },
   {
@@ -42,10 +48,7 @@ export const baseConfig = typescript.config(
   {
     name: '@craftkit/typescript',
     files: typeScriptFiles,
-    extends: [
-      ...typescript.configs.strictTypeChecked,
-      ...typescript.configs.stylisticTypeChecked,
-    ],
+    extends: [...typescript.configs.strictTypeChecked, ...typescript.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,

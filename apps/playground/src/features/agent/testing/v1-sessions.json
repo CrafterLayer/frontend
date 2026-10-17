@@ -1,0 +1,1342 @@
+{
+  "_about": "Real v1 storage (pg-assistant-sessions-v1). Shapes from AssistantPanel.turns.ts and what AssistantPanel.tsx wrote: JSON.stringify({ sessions, activeId, mode, modeChosen }) of live state, so undoable and proposal clones reach storage. everyKind is live state, one turn of every v1 kind: you, building (running and awaiting), built (completed, stopped by signal with undone sections, stopped by budget, stopped by the person when the run threw before the engine's own ending), thinking, stopped (with and without a receipt), refused (full), discarded, outline (with and without sections) and plan (applied, unapplied in Ask, unapplied in Plan). revivedByV1 is what v1 itself wrote back after every load (its persist effect saves reviveSessions' output on mount), so it is the commonest shape in real browsers: a building revived as built (stopped: true, no request, rows still running, no engine time), built stripped of request, undoable and undone counters (completed, and stopped by the engine before its own ending), plans stripped of impact, salvaged, run and authority, and the refusals v1 never revived because it wrote them in their final shape: the build path's (failure and request, no receipt), an apply's (failure, no request) and the plan path's (text and request, no failure: v1's Plan-mode catch kept only the thrown error's message, or \"The plan could not be written.\" when there was none, and settled it retryable). Every engine string is one a real engine version wrote: run-build.ts's section reasons, remote-provider.ts's \"The assistant server answered with status N.\" and \"could not be reached\", the kernel door's refusals as validate-plan.ts and salvage-plan.ts phrase them. legacy is data from before receipts, modes and unique ids.",
+  "everyKind": {
+    "sessions": [
+      {
+        "id": "session-1",
+        "title": "صفحة لعيادة أسنان في عمّان، والحج",
+        "turns": [
+          {
+            "id": "turn-3",
+            "from": "you",
+            "text": "صفحة لعيادة أسنان في عمّان، والحجز عبر واتساب"
+          },
+          {
+            "id": "turn-4",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-2",
+              "phase": "completed",
+              "direction": "هادئ وطبّي: خلفية فاتحة، لون فيروزي للأزرار، وخط عربي واضح.",
+              "tasks": [
+                {
+                  "id": "n-hero",
+                  "title": "الافتتاحية",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790499621000,
+                  "elapsedMs": 48210
+                },
+                {
+                  "id": "n-services",
+                  "title": "الخدمات",
+                  "position": 2,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790499621040,
+                  "elapsedMs": 61377
+                },
+                {
+                  "id": "n-doctors",
+                  "title": "الأطباء",
+                  "position": 3,
+                  "status": "skipped",
+                  "attempts": 2,
+                  "reason": "Section \"الأطباء\" exceeded its 90000ms budget.",
+                  "startedAt": 1790499621080,
+                  "elapsedMs": 180400
+                },
+                {
+                  "id": "n-contact",
+                  "title": "تواصل معنا",
+                  "position": 4,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790499669300,
+                  "elapsedMs": 39900
+                }
+              ],
+              "startedAt": 1790499600000,
+              "applied": 3,
+              "skipped": 1,
+              "run": null,
+              "elapsedMs": 201480,
+              "liveLine": "Writing the contact section…",
+              "liveLog": [
+                "Choosing the sections…",
+                "Writing the hero…",
+                "Writing the contact section…"
+              ]
+            },
+            "request": "صفحة لعيادة أسنان في عمّان، والحجز عبر واتساب",
+            "undoable": true,
+            "receipt": {
+              "applied": 3,
+              "total": 4,
+              "elapsed": "03:21",
+              "stopped": false,
+              "skipped": [
+                {
+                  "position": 3,
+                  "title": "الأطباء",
+                  "reason": "Section \"الأطباء\" exceeded its 90000ms budget."
+                }
+              ],
+              "notStarted": 0
+            }
+          },
+          {
+            "id": "turn-5",
+            "from": "you",
+            "text": "اجعل الافتتاحية داكنة وأضف زر واتساب"
+          },
+          {
+            "id": "turn-6",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "جعلتُ خلفية الافتتاحية داكنة وأضفت زر واتساب بجانب زر الحجز.",
+              "commands": [
+                {
+                  "command": "setProp",
+                  "args": {
+                    "id": "n-hero",
+                    "key": "surface",
+                    "value": "dark"
+                  },
+                  "title": "تغيير خلفية الافتتاحية"
+                },
+                {
+                  "command": "insertNode",
+                  "args": {
+                    "parent": "n-hero",
+                    "slot": "actions",
+                    "index": 1,
+                    "node": {
+                      "type": "button",
+                      "props": {
+                        "label": "واتساب"
+                      }
+                    }
+                  },
+                  "title": "إضافة زر واتساب"
+                }
+              ],
+              "followUp": "أضف قسم أسعار بثلاث خطط"
+            },
+            "proposal": {
+              "schemaVersion": 1,
+              "plan": {
+                "rationale": "جعلتُ خلفية الافتتاحية داكنة وأضفت زر واتساب بجانب زر الحجز.",
+                "commands": [
+                  {
+                    "command": "setProp",
+                    "args": {
+                      "id": "n-hero",
+                      "key": "surface",
+                      "value": "dark"
+                    },
+                    "title": "تغيير خلفية الافتتاحية"
+                  },
+                  {
+                    "command": "insertNode",
+                    "args": {
+                      "parent": "n-hero",
+                      "slot": "actions",
+                      "index": 1,
+                      "node": {
+                        "type": "button",
+                        "props": {
+                          "label": "واتساب"
+                        }
+                      }
+                    },
+                    "title": "إضافة زر واتساب"
+                  }
+                ],
+                "followUp": "أضف قسم أسعار بثلاث خطط"
+              },
+              "policy": {
+                "allowedCommands": ["insertNode", "setProp", "removeNode"],
+                "maxCommands": 40,
+                "maxOperations": 400
+              },
+              "skillActivations": [
+                {
+                  "id": "craftkit.hero",
+                  "version": "1.2.0",
+                  "contentFingerprint": "sha256-13a7",
+                  "reason": "auto"
+                }
+              ],
+              "contextFingerprint": "sha256-4f1c0a9e",
+              "proposalFingerprint": "sha256-9b27e3d1"
+            },
+            "skills": [
+              {
+                "id": "craftkit.hero",
+                "version": "1.2.0",
+                "contentFingerprint": "sha256-13a7",
+                "reason": "auto"
+              }
+            ],
+            "applied": true,
+            "mode": "auto",
+            "costTokens": 11240,
+            "run": {
+              "stages": [
+                {
+                  "id": "sitemap",
+                  "status": "done",
+                  "detail": "00:02.114"
+                },
+                {
+                  "id": "structure",
+                  "status": "done",
+                  "detail": "00:11.870"
+                },
+                {
+                  "id": "assembly",
+                  "status": "done",
+                  "detail": "00:00.412"
+                }
+              ],
+              "startedAt": 1790499900000,
+              "stageSince": null,
+              "failedAt": null
+            }
+          },
+          {
+            "id": "turn-7",
+            "from": "you",
+            "text": "أضف قسم أسعار بثلاث خطط"
+          },
+          {
+            "id": "turn-8",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "أضيف قسم أسعار بثلاث خطط، وأربطه بزر الافتتاحية.",
+              "commands": [
+                {
+                  "command": "insertNode",
+                  "args": {
+                    "parent": "root",
+                    "slot": "children",
+                    "index": 3,
+                    "node": {
+                      "type": "pricing-table"
+                    }
+                  },
+                  "title": "إضافة قسم الأسعار"
+                },
+                {
+                  "command": "setProp",
+                  "args": {
+                    "id": "n-hero-cta",
+                    "key": "href",
+                    "value": "#pricing"
+                  },
+                  "title": "ربط زر الافتتاحية بالأسعار"
+                }
+              ]
+            },
+            "impact": {
+              "meta": [],
+              "added": ["n-pricing"],
+              "changed": ["n-hero-cta"],
+              "removed": [],
+              "addedTypes": ["pricing-table"],
+              "empty": false
+            },
+            "salvaged": {
+              "kept": 2,
+              "dropped": [
+                {
+                  "step": 3,
+                  "command": "setProp",
+                  "reason": "The grouped plan was rejected by the kernel door: Type \"hero\" declares no prop \"glow\"."
+                }
+              ]
+            },
+            "costTokens": 9870,
+            "proposal": {
+              "schemaVersion": 1,
+              "plan": {
+                "rationale": "أضيف قسم أسعار بثلاث خطط، وأربطه بزر الافتتاحية.",
+                "commands": [
+                  {
+                    "command": "insertNode",
+                    "args": {
+                      "parent": "root",
+                      "slot": "children",
+                      "index": 3,
+                      "node": {
+                        "type": "pricing-table"
+                      }
+                    },
+                    "title": "إضافة قسم الأسعار"
+                  },
+                  {
+                    "command": "setProp",
+                    "args": {
+                      "id": "n-hero-cta",
+                      "key": "href",
+                      "value": "#pricing"
+                    },
+                    "title": "ربط زر الافتتاحية بالأسعار"
+                  }
+                ]
+              },
+              "policy": {
+                "allowedCommands": ["insertNode", "setProp", "removeNode"],
+                "maxCommands": 40,
+                "maxOperations": 400
+              },
+              "skillActivations": [],
+              "contextFingerprint": "sha256-4f1c0a9e",
+              "proposalFingerprint": "sha256-9b27e3d1"
+            },
+            "skills": [
+              {
+                "id": "craftkit.pricing",
+                "version": "1.2.0",
+                "contentFingerprint": "sha256-16a7",
+                "reason": "auto"
+              }
+            ],
+            "applied": false,
+            "mode": "ask",
+            "run": {
+              "stages": [
+                {
+                  "id": "sitemap",
+                  "status": "done",
+                  "detail": "00:01.950"
+                },
+                {
+                  "id": "structure",
+                  "status": "done",
+                  "detail": "00:14.020"
+                }
+              ],
+              "startedAt": 1790500020000,
+              "stageSince": null,
+              "failedAt": null
+            }
+          },
+          {
+            "id": "turn-9",
+            "from": "you",
+            "text": "غيّر الخط إلى خط أنعم"
+          },
+          {
+            "id": "turn-10",
+            "from": "assistant",
+            "kind": "discarded"
+          },
+          {
+            "id": "turn-11",
+            "from": "you",
+            "text": "أعد كتابة قسم الأطباء"
+          },
+          {
+            "id": "turn-12",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The assistant server answered with status 429.",
+            "failure": {
+              "source": "provider",
+              "code": "http-status",
+              "message": "The assistant server answered with status 429.",
+              "retryable": true,
+              "status": 429
+            },
+            "request": "أعد كتابة قسم الأطباء",
+            "failedAt": "structure",
+            "receipt": {
+              "elapsed": "00:07.301",
+              "stage": "structure",
+              "stageLabel": "Structure",
+              "lastLine": "Asking the model…"
+            }
+          },
+          {
+            "id": "turn-13",
+            "from": "you",
+            "text": "اجعل الألوان أدفأ"
+          },
+          {
+            "id": "turn-14",
+            "from": "assistant",
+            "kind": "stopped",
+            "receipt": {
+              "elapsed": "00:16.044",
+              "stage": "structure",
+              "stageLabel": "Structure",
+              "lastLine": "Checking the colours against the text…"
+            }
+          },
+          {
+            "id": "turn-15",
+            "from": "you",
+            "text": "احذف قسم الأطباء"
+          },
+          {
+            "id": "turn-16",
+            "from": "assistant",
+            "kind": "stopped",
+            "receipt": {
+              "elapsed": "00:01.210",
+              "stage": "sitemap",
+              "stageLabel": "Plan"
+            }
+          },
+          {
+            "id": "turn-17",
+            "from": "you",
+            "text": "أضف معرض صور للعيادة"
+          },
+          {
+            "id": "turn-18",
+            "from": "assistant",
+            "kind": "thinking",
+            "subject": "the page",
+            "progress": "Fixing two props the validator rejected…",
+            "progressLog": [
+              "Reading the page…",
+              "Writing the gallery…",
+              "Fixing two props the validator rejected…"
+            ],
+            "run": {
+              "stages": [
+                {
+                  "id": "sitemap",
+                  "status": "done",
+                  "detail": "00:01.902"
+                },
+                {
+                  "id": "structure",
+                  "status": "active",
+                  "detail": "Repairing 2"
+                },
+                {
+                  "id": "assembly",
+                  "status": "pending"
+                }
+              ],
+              "startedAt": 1790500500000,
+              "stageSince": 1790500501902,
+              "failedAt": null
+            }
+          }
+        ]
+      },
+      {
+        "id": "session-2",
+        "title": "Plan a landing page for a yoga s",
+        "turns": [
+          {
+            "id": "turn-20",
+            "from": "you",
+            "text": "Plan a landing page for a yoga studio in Amman"
+          },
+          {
+            "id": "turn-21",
+            "from": "assistant",
+            "kind": "outline",
+            "text": "Calm studio: sand, sage, a light serif. A hero with the first class free, then classes, prices and a map.",
+            "dropped": 0,
+            "sections": ["Hero", "Classes", "Prices", "Teachers", "Visit us"],
+            "request": "Plan a landing page for a yoga studio in Amman",
+            "skills": [
+              {
+                "id": "craftkit.page-build",
+                "version": "1.2.0",
+                "contentFingerprint": "sha256-19a7",
+                "reason": "auto"
+              }
+            ]
+          },
+          {
+            "id": "turn-22",
+            "from": "you",
+            "text": "How should I reorganise the services section?"
+          },
+          {
+            "id": "turn-23",
+            "from": "assistant",
+            "kind": "outline",
+            "text": "GOAL: make the six services scannable in one screen.\nOUTLINE: group them into three pairs · give each a one-line price hint · move the booking button under the grid.\n\nRISK: the prices are guesses until you confirm them.",
+            "followUp": "Group the services into three pairs",
+            "skills": [
+              {
+                "id": "craftkit.plan-mode",
+                "version": "1.2.0",
+                "contentFingerprint": "sha256-18a7",
+                "reason": "auto"
+              }
+            ],
+            "dropped": 2,
+            "run": {
+              "stages": [
+                {
+                  "id": "sitemap",
+                  "status": "done",
+                  "detail": "00:01.400"
+                },
+                {
+                  "id": "structure",
+                  "status": "done",
+                  "detail": "00:09.880"
+                }
+              ],
+              "startedAt": 1790501100000,
+              "stageSince": null,
+              "failedAt": null
+            }
+          },
+          {
+            "id": "turn-24",
+            "from": "you",
+            "text": "Build a specialty café page: menu, hours and map"
+          },
+          {
+            "id": "turn-25",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-9",
+              "phase": "stopped",
+              "direction": "Warm and roasted: cream paper, espresso brown, one serif for headings.",
+              "tasks": [
+                {
+                  "id": "c-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790501600000,
+                  "elapsedMs": 41000
+                },
+                {
+                  "id": "c-menu",
+                  "title": "Menu",
+                  "position": 2,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790501600050,
+                  "elapsedMs": 55300
+                },
+                {
+                  "id": "c-hours",
+                  "title": "Hours",
+                  "position": 3,
+                  "status": "waiting",
+                  "attempts": 0,
+                  "reason": "The build was stopped before this section started."
+                },
+                {
+                  "id": "c-map",
+                  "title": "Map",
+                  "position": 4,
+                  "status": "waiting",
+                  "attempts": 0,
+                  "reason": "The build was stopped before this section started."
+                }
+              ],
+              "startedAt": 1790501580000,
+              "applied": 2,
+              "skipped": 0,
+              "run": null,
+              "elapsedMs": 77900,
+              "stopReason": "signal"
+            },
+            "request": "Build a specialty café page: menu, hours and map",
+            "stopped": true,
+            "undoable": true,
+            "undoneFrom": 2,
+            "undoneSteps": 1,
+            "receipt": {
+              "applied": 2,
+              "total": 4,
+              "elapsed": "01:17",
+              "stopped": true,
+              "skipped": [],
+              "notStarted": 2
+            }
+          },
+          {
+            "id": "turn-26",
+            "from": "you",
+            "text": "A small perfume shop that sells on Instagram"
+          },
+          {
+            "id": "turn-27",
+            "from": "assistant",
+            "kind": "building",
+            "request": "A small perfume shop that sells on Instagram",
+            "progress": {
+              "runId": "run-11",
+              "phase": "building",
+              "direction": "Quiet luxury: ivory, gold accent, generous spacing.",
+              "tasks": [
+                {
+                  "id": "p-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790502610000,
+                  "elapsedMs": 38000
+                },
+                {
+                  "id": "p-collection",
+                  "title": "Collection",
+                  "position": 2,
+                  "status": "running",
+                  "attempts": 2,
+                  "startedAt": 1790502610040
+                },
+                {
+                  "id": "p-story",
+                  "title": "Our story",
+                  "position": 3,
+                  "status": "running",
+                  "attempts": 1,
+                  "startedAt": 1790502610080
+                },
+                {
+                  "id": "p-order",
+                  "title": "Order on Instagram",
+                  "position": 4,
+                  "status": "waiting",
+                  "attempts": 0
+                }
+              ],
+              "startedAt": 1790502600000,
+              "applied": 1,
+              "skipped": 0,
+              "run": {
+                "stages": [
+                  {
+                    "id": "sitemap",
+                    "status": "active"
+                  },
+                  {
+                    "id": "structure",
+                    "status": "pending"
+                  },
+                  {
+                    "id": "assembly",
+                    "status": "pending"
+                  }
+                ],
+                "startedAt": 1790502610000,
+                "stageSince": 1790502652500,
+                "failedAt": null
+              },
+              "liveLine": "Writing the collection grid…",
+              "liveLog": ["Writing the hero…", "Writing the collection grid…"]
+            }
+          },
+          {
+            "id": "turn-28",
+            "from": "you",
+            "text": "A dental clinic page, ask me before building"
+          },
+          {
+            "id": "turn-29",
+            "from": "assistant",
+            "kind": "building",
+            "request": "A dental clinic page, ask me before building",
+            "progress": {
+              "runId": "run-13",
+              "phase": "planned",
+              "direction": "Clean and reassuring: white, teal, rounded cards.",
+              "tasks": [
+                {
+                  "id": "d-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "waiting",
+                  "attempts": 0
+                },
+                {
+                  "id": "d-services",
+                  "title": "Services",
+                  "position": 2,
+                  "status": "waiting",
+                  "attempts": 0
+                },
+                {
+                  "id": "d-booking",
+                  "title": "Booking",
+                  "position": 3,
+                  "status": "waiting",
+                  "attempts": 0
+                }
+              ],
+              "startedAt": 1790503600000,
+              "applied": 0,
+              "skipped": 0,
+              "run": null
+            },
+            "awaiting": true
+          },
+          {
+            "id": "turn-30",
+            "from": "you",
+            "text": "Make the header sticky"
+          },
+          {
+            "id": "turn-31",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "Make the header sticky so the booking button stays in reach.",
+              "commands": [
+                {
+                  "command": "setProp",
+                  "args": {
+                    "id": "n-header",
+                    "key": "sticky",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            "impact": {
+              "meta": [],
+              "added": [],
+              "changed": ["n-header"],
+              "removed": [],
+              "addedTypes": [],
+              "empty": false
+            },
+            "costTokens": 3020,
+            "applied": false,
+            "mode": "plan",
+            "run": {
+              "stages": [
+                {
+                  "id": "sitemap",
+                  "status": "done",
+                  "detail": "00:00.900"
+                },
+                {
+                  "id": "structure",
+                  "status": "done",
+                  "detail": "00:06.100"
+                }
+              ],
+              "startedAt": 1790504100000,
+              "stageSince": null,
+              "failedAt": null
+            }
+          },
+          {
+            "id": "turn-32",
+            "from": "you",
+            "text": "A yoga studio: classes and prices"
+          },
+          {
+            "id": "turn-33",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-15",
+              "phase": "stopped",
+              "direction": "Calm studio: sand, sage, a light serif.",
+              "tasks": [
+                {
+                  "id": "y-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790504620000,
+                  "elapsedMs": 70000
+                },
+                {
+                  "id": "y-classes",
+                  "title": "Classes",
+                  "position": 2,
+                  "status": "skipped",
+                  "attempts": 2,
+                  "reason": "Section \"Classes\" exceeded its 240000ms budget.",
+                  "startedAt": 1790504620050,
+                  "elapsedMs": 240100
+                },
+                {
+                  "id": "y-prices",
+                  "title": "Prices",
+                  "position": 3,
+                  "status": "waiting",
+                  "attempts": 0,
+                  "reason": "The build budget ran out before this section started."
+                }
+              ],
+              "startedAt": 1790504600000,
+              "applied": 1,
+              "skipped": 1,
+              "run": null,
+              "elapsedMs": 900000,
+              "stopReason": "budget"
+            },
+            "request": "A yoga studio: classes and prices",
+            "stopped": true,
+            "receipt": {
+              "applied": 1,
+              "total": 3,
+              "elapsed": "15:00",
+              "stopped": true,
+              "skipped": [
+                {
+                  "position": 2,
+                  "title": "Classes",
+                  "reason": "Section \"Classes\" exceeded its 240000ms budget."
+                }
+              ],
+              "notStarted": 1
+            }
+          },
+          {
+            "id": "turn-34",
+            "from": "you",
+            "text": "A barber shop in Zarqa with online booking"
+          },
+          {
+            "id": "turn-35",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-17",
+              "phase": "building",
+              "direction": "Bold and masculine: charcoal, brass accent, condensed headings.",
+              "tasks": [
+                {
+                  "id": "z-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790506010000,
+                  "elapsedMs": 36500
+                },
+                {
+                  "id": "z-services",
+                  "title": "Services",
+                  "position": 2,
+                  "status": "running",
+                  "attempts": 1,
+                  "startedAt": 1790506010040
+                },
+                {
+                  "id": "z-booking",
+                  "title": "Book a chair",
+                  "position": 3,
+                  "status": "waiting",
+                  "attempts": 0
+                }
+              ],
+              "startedAt": 1790506000000,
+              "applied": 1,
+              "skipped": 0,
+              "run": {
+                "stages": [
+                  {
+                    "id": "sitemap",
+                    "status": "active"
+                  },
+                  {
+                    "id": "structure",
+                    "status": "pending"
+                  },
+                  {
+                    "id": "assembly",
+                    "status": "pending"
+                  }
+                ],
+                "startedAt": 1790506010000,
+                "stageSince": 1790506010040,
+                "failedAt": null
+              },
+              "liveLine": "Writing the services list…",
+              "liveLog": ["Writing the hero…", "Writing the services list…"]
+            },
+            "request": "A barber shop in Zarqa with online booking",
+            "undoable": true,
+            "stopped": true,
+            "receipt": {
+              "applied": 1,
+              "total": 3,
+              "elapsed": "00:52",
+              "stopped": false,
+              "skipped": [],
+              "notStarted": 1
+            }
+          }
+        ]
+      }
+    ],
+    "activeId": "session-2",
+    "mode": "plan",
+    "modeChosen": true
+  },
+  "revivedByV1": {
+    "sessions": [
+      {
+        "id": "session-4",
+        "title": "مخبز صغير في إربد يبيع الكعك وال",
+        "turns": [
+          {
+            "id": "turn-40",
+            "from": "you",
+            "text": "مخبز صغير في إربد يبيع الكعك والمعمول"
+          },
+          {
+            "id": "turn-41",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-41",
+              "phase": "building",
+              "direction": "دافئ وبيتي: كريمي وبنّي، خط نسخي، وصور خبز قريبة.",
+              "tasks": [
+                {
+                  "id": "b-hero",
+                  "title": "الافتتاحية",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790510010000,
+                  "elapsedMs": 41200
+                },
+                {
+                  "id": "b-menu",
+                  "title": "القائمة",
+                  "position": 2,
+                  "status": "running",
+                  "attempts": 2,
+                  "startedAt": 1790510010040
+                },
+                {
+                  "id": "b-story",
+                  "title": "قصتنا",
+                  "position": 3,
+                  "status": "running",
+                  "attempts": 1,
+                  "startedAt": 1790510051300
+                },
+                {
+                  "id": "b-visit",
+                  "title": "زورونا",
+                  "position": 4,
+                  "status": "waiting",
+                  "attempts": 0
+                }
+              ],
+              "startedAt": 1790510000000,
+              "applied": 1,
+              "skipped": 0,
+              "run": {
+                "stages": [
+                  {
+                    "id": "sitemap",
+                    "status": "active"
+                  },
+                  {
+                    "id": "structure",
+                    "status": "pending"
+                  },
+                  {
+                    "id": "assembly",
+                    "status": "pending"
+                  }
+                ],
+                "startedAt": 1790510010000,
+                "stageSince": 1790510064000,
+                "failedAt": null
+              },
+              "liveLine": "Writing the menu cards…",
+              "liveLog": ["Writing the hero…", "Writing the menu cards…"]
+            },
+            "stopped": true,
+            "receipt": {
+              "applied": 1,
+              "total": 4,
+              "elapsed": "01:04",
+              "stopped": false,
+              "skipped": [],
+              "notStarted": 1
+            }
+          },
+          {
+            "id": "turn-42",
+            "from": "you",
+            "text": "Make the header sticky"
+          },
+          {
+            "id": "turn-43",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "Pin the header to the top so the order button stays in reach.",
+              "commands": [
+                {
+                  "command": "setProp",
+                  "args": {
+                    "id": "n-header",
+                    "key": "sticky",
+                    "value": true
+                  },
+                  "title": "Pin the header"
+                }
+              ],
+              "followUp": "Shrink the header while scrolling"
+            },
+            "applied": false,
+            "mode": "ask"
+          },
+          {
+            "id": "turn-44",
+            "from": "you",
+            "text": "Add a WhatsApp button to the hero"
+          },
+          {
+            "id": "turn-45",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "Added a WhatsApp button beside the order button.",
+              "commands": [
+                {
+                  "command": "insertNode",
+                  "args": {
+                    "parent": "n-hero",
+                    "slot": "actions",
+                    "index": 1,
+                    "node": {
+                      "type": "button",
+                      "props": {
+                        "label": "WhatsApp"
+                      }
+                    }
+                  },
+                  "title": "Add the WhatsApp button"
+                }
+              ]
+            },
+            "applied": true,
+            "skills": [
+              {
+                "id": "craftkit.hero",
+                "version": "1.2.0",
+                "contentFingerprint": "sha256:9f1c2a",
+                "reason": "auto"
+              }
+            ],
+            "mode": "auto"
+          },
+          {
+            "id": "turn-46",
+            "from": "you",
+            "text": "Build a specialty café page"
+          },
+          {
+            "id": "turn-47",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-47",
+              "phase": "completed",
+              "direction": "Roastery calm: oat, espresso brown, a humanist sans.",
+              "tasks": [
+                {
+                  "id": "k-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790511010000,
+                  "elapsedMs": 38400
+                },
+                {
+                  "id": "k-menu",
+                  "title": "Menu",
+                  "position": 2,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790511010040,
+                  "elapsedMs": 52100
+                },
+                {
+                  "id": "k-hours",
+                  "title": "Hours and map",
+                  "position": 3,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790511048400,
+                  "elapsedMs": 29600
+                }
+              ],
+              "startedAt": 1790511000000,
+              "applied": 3,
+              "skipped": 0,
+              "run": null,
+              "elapsedMs": 96400
+            },
+            "receipt": {
+              "applied": 3,
+              "total": 3,
+              "elapsed": "01:36",
+              "stopped": false,
+              "skipped": [],
+              "notStarted": 0
+            }
+          },
+          {
+            "id": "turn-48",
+            "from": "you",
+            "text": "A florist in Amman with same-day delivery"
+          },
+          {
+            "id": "turn-49",
+            "from": "assistant",
+            "kind": "built",
+            "progress": {
+              "runId": "run-49",
+              "phase": "stopped",
+              "direction": "Fresh and airy: blush, leaf green, a light serif.",
+              "tasks": [
+                {
+                  "id": "f-hero",
+                  "title": "Hero",
+                  "position": 1,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790512010000,
+                  "elapsedMs": 31000
+                },
+                {
+                  "id": "f-bouquets",
+                  "title": "Bouquets",
+                  "position": 2,
+                  "status": "applied",
+                  "attempts": 1,
+                  "startedAt": 1790512010040,
+                  "elapsedMs": 44500
+                },
+                {
+                  "id": "f-delivery",
+                  "title": "Same-day delivery",
+                  "position": 3,
+                  "status": "waiting",
+                  "attempts": 0,
+                  "reason": "The build was stopped before this section started."
+                },
+                {
+                  "id": "f-contact",
+                  "title": "Contact",
+                  "position": 4,
+                  "status": "waiting",
+                  "attempts": 0,
+                  "reason": "The build was stopped before this section started."
+                }
+              ],
+              "startedAt": 1790512000000,
+              "applied": 2,
+              "skipped": 0,
+              "run": null,
+              "stopReason": "signal"
+            },
+            "stopped": true,
+            "receipt": {
+              "applied": 2,
+              "total": 4,
+              "elapsed": "00:58",
+              "stopped": true,
+              "skipped": [],
+              "notStarted": 2
+            }
+          }
+        ]
+      },
+      {
+        "id": "session-5",
+        "title": "Build a gym page with a class ti",
+        "turns": [
+          {
+            "id": "turn-50",
+            "from": "you",
+            "text": "Build a gym page with a class timetable"
+          },
+          {
+            "id": "turn-51",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The assistant server answered with status 500.",
+            "failure": {
+              "source": "provider",
+              "code": "http-status",
+              "message": "The assistant server answered with status 500.",
+              "retryable": true,
+              "status": 500
+            },
+            "request": "Build a gym page with a class timetable"
+          },
+          {
+            "id": "turn-52",
+            "from": "you",
+            "text": "Make the prices bigger"
+          },
+          {
+            "id": "turn-53",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "Step 0 was rejected by the kernel door: Node \"n-prices\" does not exist. The document's nodes are: root (page), n-hero (hero), n-services (features), n-contact (contact). A node this plan INSERTS is given its id by the kernel after the plan is written, so it can never be named by a later step of the same plan — put that node's props inside its own insertNode instead.",
+            "failure": {
+              "source": "plan",
+              "code": "plan-rejected",
+              "message": "Step 0 was rejected by the kernel door: Node \"n-prices\" does not exist. The document's nodes are: root (page), n-hero (hero), n-services (features), n-contact (contact). A node this plan INSERTS is given its id by the kernel after the plan is written, so it can never be named by a later step of the same plan — put that node's props inside its own insertNode instead.",
+              "retryable": false
+            }
+          },
+          {
+            "id": "turn-54",
+            "from": "you",
+            "text": "Plan a new pricing section"
+          },
+          {
+            "id": "turn-55",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The plan could not be written.",
+            "request": "Plan a new pricing section"
+          },
+          {
+            "id": "turn-56",
+            "from": "you",
+            "text": "Plan a booking section"
+          },
+          {
+            "id": "turn-57",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The assistant server could not be reached: Failed to fetch",
+            "request": "Plan a booking section"
+          },
+          {
+            "id": "turn-58",
+            "from": "you",
+            "text": "Plan a gallery"
+          },
+          {
+            "id": "turn-59",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The assistant server answered with status 429.",
+            "request": "Plan a gallery"
+          }
+        ]
+      }
+    ],
+    "activeId": "session-4",
+    "mode": "auto",
+    "modeChosen": true
+  },
+  "legacy": {
+    "sessions": [
+      {
+        "id": "session-1",
+        "title": "New chat",
+        "turns": [
+          {
+            "id": "turn-2",
+            "from": "you",
+            "text": "make it blue"
+          },
+          {
+            "id": "turn-2",
+            "from": "assistant",
+            "kind": "discarded"
+          },
+          {
+            "id": "turn-3",
+            "from": "you",
+            "text": "try again"
+          },
+          {
+            "id": "turn-3",
+            "from": "assistant",
+            "kind": "stopped"
+          },
+          {
+            "id": "turn-4",
+            "from": "you",
+            "text": "what about green"
+          },
+          {
+            "id": "turn-4",
+            "from": "assistant",
+            "kind": "thinking",
+            "subject": "the page"
+          },
+          {
+            "id": "turn-5",
+            "from": "you",
+            "text": "rewrite the hero"
+          },
+          {
+            "id": "turn-6",
+            "from": "assistant",
+            "kind": "refused",
+            "text": "The plan could not be written."
+          },
+          {
+            "id": "turn-7",
+            "from": "you",
+            "text": "add a footer"
+          },
+          {
+            "id": "turn-8",
+            "from": "assistant",
+            "kind": "plan",
+            "plan": {
+              "rationale": "Add a footer with the address.",
+              "commands": [
+                {
+                  "command": "insertNode",
+                  "args": {
+                    "type": "footer"
+                  }
+                }
+              ]
+            },
+            "applied": false
+          },
+          {
+            "id": "turn-9",
+            "from": "you",
+            "text": "build a bakery page"
+          },
+          {
+            "id": "turn-10",
+            "from": "assistant",
+            "kind": "building",
+            "request": "build a bakery page"
+          }
+        ]
+      },
+      {
+        "id": "session-2",
+        "title": "New chat",
+        "turns": []
+      }
+    ],
+    "activeId": "session-1"
+  }
+}

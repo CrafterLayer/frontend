@@ -1,0 +1,65 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as DirectionLineStories from './DirectionLine.stories';
+
+<Meta of={DirectionLineStories} />
+
+# DirectionLine
+
+The page's direction on one read-only line (SPEC §4.8 DirectionLine): five swatches of the
+page's own colours, the mood phrase, and from 400px the font pair.
+
+<Canvas of={DirectionLineStories.At420} />
+
+## Purpose
+
+A build says what it is building toward: the style the plan chose, visible beside the spine
+while it is written and after it is done. It is the read-only fold of the plan's DirectionEditor
+(§5 moment 4).
+
+## When to use / not
+
+Inside BuildRecord's lead, in phases building, stopping and done. It is hidden when the engine
+sent no direction at all. To edit a direction, use DirectionEditor in the PagePlanCard.
+
+## Props
+
+| prop        | type            | default | notes                                                         |
+| ----------- | --------------- | ------- | ------------------------------------------------------------- |
+| `locale`    | `Locale`        | none    |                                                               |
+| `direction` | `DirectionView` | none    | `mood`, optional `fonts`, optional `swatches` by role          |
+| `className` | `string`        | none    | appended to `ck-agent-direction`                              |
+
+## States
+
+`Full` (swatches, mood; at 320 the fonts are hidden), `At420` (the fonts join at the inline end),
+`ProseOnly` (before structured direction, SPEC §7.6 E7: the prose on one line, no swatches),
+`Dark`, `RightToLeft`, `RightToLeftAt420Dark` and `ProseOnlyRightToLeft`.
+
+## Anatomy
+
+```text
+▪▪▪▪▪  Calm, clinical, teal                 Reem Kufi / IBM Plex Sans
+12px swatches, 2px apart · 8 · mood (Meta, Graphite, ellipsis) · fonts (Meta, Slate, ≥400)
+```
+
+The swatches follow the roles background, surface, text, accent, text on accent, whatever order
+the view gives them. Each is radius 4 inside the 1px `--bldr-content-outline` ring: the page's
+colours are content, never chrome, and tint nothing around them (SPEC §2.1 rule 4).
+
+## Accessibility
+
+Drawn for the eye and spoken for the ear separately: the drawn line is `aria-hidden`, and one
+catalog sentence names the mood, each colour by its role and hex, and the fonts
+("Style: Calm, clinical, teal. Colours: Background #FBFBFD, Surface #FFFFFF, …. Fonts: Reem Kufi /
+IBM Plex Sans."). A direction without fonts or without swatches says only what it has
+(`direction.aria.colors`, `direction.aria.fonts`, `direction.aria.mood`).
+
+## RTL
+
+The swatches follow the reading direction; the font pair stays a Latin island (`<bdi dir="ltr">`)
+with its slash in place inside Arabic.
+
+## Motion
+
+None.

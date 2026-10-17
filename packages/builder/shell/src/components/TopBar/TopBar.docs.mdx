@@ -1,0 +1,98 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TopBarStories from './TopBar.stories';
+
+<Meta of={TopBarStories} />
+
+# TopBar
+
+`TopBar` is the presentational top band for an editor shell. It keeps product identity at inline
+start, device preview controls in the centre, and document actions at inline end. The host owns the
+selected device and every action; the component does not read a kernel, store, or document.
+
+<Canvas of={TopBarStories.Default} />
+
+## When to use
+
+Use `TopBar` as the primary toolbar in a builder shell. Keep application-specific controls in
+`extra`, immediately before undo and redo. Do not use it as an application header, a state owner, or
+a replacement for feature-specific toolbars.
+
+## Usage
+
+```tsx
+const [device, setDevice] = useState<TopBarDevice>('desktop');
+
+<TopBar
+  productName="CraftKit"
+  logo={<BrandMark />}
+  device={device}
+  onDeviceChange={setDevice}
+  canUndo={history.canUndo}
+  canRedo={history.canRedo}
+  onUndo={history.undo}
+  onRedo={history.redo}
+  onPreview={openPreview}
+  onPublish={publish}
+  onPublishOptions={openPublishOptions}
+  extra={<SaveStatus />}
+/>;
+```
+
+## API
+
+| Prop                 | Type                                | Default            | Purpose                                       |
+| -------------------- | ----------------------------------- | ------------------ | --------------------------------------------- |
+| `productName`        | `string`                            | required           | Visible product identity                      |
+| `logo`               | `ReactNode`                         | none               | Decorative mark inside the product tile       |
+| `device`             | `'desktop' \| 'tablet' \| 'mobile'` | `'desktop'`        | Controlled selected preview device            |
+| `onDeviceChange`     | `(device: TopBarDevice) => void`    | none               | Receives click and radio-keyboard changes     |
+| `canUndo`            | `boolean`                           | `false`            | Enables the native Undo button                |
+| `canRedo`            | `boolean`                           | `false`            | Enables the native Redo button                |
+| `onUndo`             | `() => void`                        | none               | Undo activation                               |
+| `onRedo`             | `() => void`                        | none               | Redo activation                               |
+| `onPreview`          | `() => void`                        | none               | Preview activation                            |
+| `onPublish`          | `() => void`                        | none               | Main Publish activation                       |
+| `onPublishOptions`   | `() => void`                        | none               | Split-button options activation               |
+| `publishDisabled`    | `boolean`                           | `false`            | Wired but not runnable now (disabled, titled) |
+| `publishTitle`       | `string`                            | none               | Why Publish is disabled, as its title         |
+| `showPublishOptions` | `boolean`                           | `true`             | `false`: Publish is one whole primary button  |
+| `extra`              | `ReactNode`                         | none               | Host controls before the standard actions     |
+| `label`              | `string`                            | `'Editor toolbar'` | Accessible name for the complete toolbar band |
+
+## Variants and state
+
+- `Default` shows enabled history actions and the controlled desktop device.
+- `WithExtra` shows the host-owned slot before the standard actions.
+- `UndoRedoDisabled` uses native disabled buttons and the disabled surface token.
+- `RightToLeft` demonstrates the same markup under inherited RTL direction.
+
+## Accessibility and keyboard behavior
+
+The band is a named toolbar. The device segment is a real radio group with one checked option and a
+single tab stop. Right or Down moves to the next device; Left or Up moves to the previous device;
+Home and End move to Desktop and Mobile. Movement wraps and calls `onDeviceChange`, so the host must
+feed the selected value back through `device`. Every shell-owned action uses `ChromeButton` at the
+default `lg` size (`--bldr-control-lg`), and the icon-only type contract requires its accessible
+name. Undo and Redo use the native `disabled` attribute. Publish and Publish options are separate
+buttons inside one visual shell.
+
+The icon-only controls (the three devices, Undo, Redo) carry a visible tooltip with their name and
+shortcut ("Undo · Ctrl Z", "⌘ Z" on Apple platforms) and the same keys in `aria-keyshortcuts`. The
+keys are read from the editor's own keymap (`EDITOR_SHORTCUTS`), so the hint can never advertise a
+shortcut the keyboard host does not run.
+
+## RTL, theme, and content constraints
+
+The three groups rely on inherited direction, a symmetric grid, and logical borders and spacing. RTL
+therefore moves the mark to the right, actions to the left, and the split-button seam to the correct
+side without a direction-specific selector. All visual measurements and colours come from `--bldr-*`
+theme tokens. Long product names truncate rather than displacing the centred device group. Keep
+`extra` concise so the action group fits the available inline space.
+
+## Known limitations
+
+- `TopBar` is intentionally controlled; without `onDeviceChange`, device controls cannot change the
+  host's selected value.
+- The logo is decorative because the adjacent product name carries the identity.
+- Overflow menus, publish state, save state, and command execution belong to the composing host.

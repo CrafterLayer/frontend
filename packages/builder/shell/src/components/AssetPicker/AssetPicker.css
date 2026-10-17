@@ -1,0 +1,104 @@
+.bldr-assets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+}
+
+.bldr-assets__filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-assets__filter-label {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-assets__filter-input {
+  background: var(--bldr-panel);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  min-block-size: var(--bldr-control-sm);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-assets__filter-input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-assets__filter-input:disabled {
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+.bldr-assets__grid {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  /* A picture has to be big enough to tell two of them apart, and small enough
+     that a 288px panel fits two across. */
+  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-thumb-width), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-assets__cell {
+  min-inline-size: 0;
+}
+
+.bldr-assets__pick {
+  background: var(--bldr-panel);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: var(--bldr-space-2xs);
+  inline-size: 100%;
+  overflow: hidden;
+  padding: var(--bldr-space-2xs);
+  text-align: start;
+}
+
+.bldr-assets__pick:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-assets__pick:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-assets__pick[aria-pressed='true'] {
+  border-color: var(--bldr-accent);
+}
+
+.bldr-assets__image {
+  aspect-ratio: 3 / 2;
+  block-size: auto;
+  border-radius: var(--bldr-radius-sm);
+  display: block;
+  inline-size: 100%;
+  object-fit: cover;
+}
+
+.bldr-assets__caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  overflow-wrap: anywhere;
+}
+
+/* The empty, filtered and unavailable states are sentences, never blank space. */
+.bldr-assets__message {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  padding-block: var(--bldr-space-sm);
+}

@@ -1,0 +1,56 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SendButtonStories from './SendButton.stories';
+
+<Meta of={SendButtonStories} />
+
+# SendButton
+
+The Send slot (SPEC §4.17), driven by the pure `model/send-state.ts` machine: Send ↑, Queue as next
+↵, or Queued ✓, and nothing else. Stop is never one of its states (SPEC §6.5).
+
+<Canvas of={SendButtonStories.AllStates} />
+
+## Props
+
+| prop        | type         | default | notes                                                            |
+| ----------- | ------------ | ------- | ---------------------------------------------------------------- |
+| `locale`    | `Locale`     | none    |                                                                  |
+| `state`     | `SendState`  | none    | `AgentViewState.send`                                            |
+| `onSend`    | `() => void` | none    | sends, or queues while a run is live; never called while unavailable |
+| `className` | `string`     | none    | appended to `ck-agent-send`                                      |
+
+## States
+
+| state            | shows                       | `aria-disabled` | Enter             |
+| ---------------- | --------------------------- | --------------- | ----------------- |
+| `idle-empty`     | ↑ on the Wash, Slate glyph  | yes             | nothing           |
+| `idle-ready`     | ↑ Indigo                    | no              | sends             |
+| `running-empty`  | ↑ on the Wash               | yes             | nothing           |
+| `running-ready`  | ↵ Queue as next, Indigo     | no              | queues the draft  |
+| `running-queued` | ✓ Queued, a pill with words | yes             | "already queued"  |
+
+Stories: `IdleEmpty`, `IdleReady`, `RunningEmpty`, `RunningReady`, `RunningQueued`, `Tooltip`,
+`AllStates`, `AllStatesDark`, `AllStatesRightToLeft`, `AllStatesRightToLeftDark`.
+
+## Anatomy
+
+A 32px circle (44 on a coarse pointer). Ready states are the Indigo primary with the On-accent glyph;
+a press deepens it. Queued opens into a pill that says it, Graphite on the Wash: a lone ✓ in a circle
+would read as "done", which it is not.
+
+## Accessibility
+
+- `aria-disabled`, never `disabled`: still focusable, still explained by its tooltip.
+- The tooltip's second line is the description: the keys while Enter sends, "Starts when the current
+  work ends" once queued.
+- The glyph is static JSX: the first press after the textarea blurs always lands
+  (`Composer.test.tsx`, `FirstClickSend`).
+
+## RTL
+
+↑ never mirrors; Queue's ↵ points back to the reading start (AgentIcon mirrors it).
+
+## Motion
+
+Colour only: hover 120ms, press 80ms.

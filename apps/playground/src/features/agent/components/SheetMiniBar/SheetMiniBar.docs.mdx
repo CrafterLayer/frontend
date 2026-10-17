@@ -1,0 +1,99 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SheetMiniBarStories from './SheetMiniBar.stories';
+
+<Meta of={SheetMiniBarStories} />
+
+# SheetMiniBar
+
+The phone sheet's mini detent (SPEC §4.19, §3.16): the horizontal spine, then one 44px row of glyph,
+status and the one action the moment calls for, and always `[⤒]` Back to the chat at the inline end.
+The canvas stays in view above it.
+
+<Canvas of={SheetMiniBarStories.Building} />
+
+## Purpose
+
+On a phone the chat and the page cannot share the screen. `[⤓]` Show the page drops the sheet to
+this row, so a build can be watched landing section by section, an edit checked where it happened,
+or a proposal previewed on the page, with Stop, Undo or Apply still under the thumb.
+
+## When to use / not
+
+Use it only as AgentSheet's `mini` face. It renders a `MiniBarView` that `miniBarView(state)`
+derives from the thread and the live run, and calls the controller; it decides nothing itself.
+
+Do not use it in the docked panel: there the RunBar and each record's footer carry these actions.
+
+## Props
+
+| prop            | type                     | default | notes                                                      |
+| --------------- | ------------------------ | ------- | ---------------------------------------------------------- |
+| `locale`        | `Locale`                 | none    |                                                            |
+| `view`          | `MiniBarView`            | none    | `miniBarView({ turns, run })`                              |
+| `commands`      | `MiniBarCommands`        | none    | a slice of `AgentController`; the controller satisfies it  |
+| `onBackToChat`  | `() => void`             | none    | `[⤒]`: AgentSheet's `backToChat`                           |
+| `backToChatRef` | `Ref<HTMLButtonElement>` | none    | AgentSheet's `backToChatRef`: focus lands here on dropping |
+
+`miniBarView(source)` is pure and table-tested: `source` is `Pick<AgentViewState, 'turns' | 'run'>`.
+
+## States
+
+One answer per moment, the record's own next step (SPEC §3.17):
+
+| moment (story)              | status                      | action              |
+| --------------------------- | --------------------------- | ------------------- |
+| `Skeleton`                  | the RunBar's line           | Stop                |
+| `Building` (+ dark, Arabic) | "1 of 8 on the page"        | Stop                |
+| `Stopping`                  | "Stopping…"                 | Stop, inert         |
+| `EditRunning`               | the edit's stage            | Stop                |
+| `Built` (+ dark, Arabic)    | "Page built: 8 sections"    | Undo build (asks)   |
+| `UndoBuildConfirm`          | the consequence, in the row | Undo, Cancel        |
+| `Partial`                   | "Page built, 1 failed"      | Retry               |
+| `Stopped`                   | "Build stopped"             | Finish the rest (n) |
+| `Undone`                    | "Build undone"              | Redo build          |
+| `Edited` (+ dark, Arabic)   | "Hero updated"              | Undo                |
+| `Proposal` (+ dark, Arabic) | "Proposed change: Hero"     | Apply, Discard      |
+| `Failed`                    | the failure's title         | Try again           |
+| `Answer`                    | "Answer"                    | none                |
+| `Idle`                      | the agent's name            | none                |
+
+Every moment also has an Arabic story. `[⤒]` is always last.
+
+## Anatomy
+
+8px, the 4px spine lane (kept empty when there is no spine, so the row never jumps), then the 44px
+row. The glyph stands on the thread's 16px gutter, the column every record's glyph stands on; `[⤒]`
+ends 8px from the edge, exactly where `[⤓]` ends in the sheet's header, so the two are one control
+in two places. The status is Meta 500 in Ink, one line with an ellipsis. Actions are 44px, 8px
+apart, Read 500: the moment's primary (Apply, Retry, Try again, Finish the rest) is the Indigo
+button; Undo build, Undo and Redo are Rule outlines on the Sheet; Discard is a Graphite ghost; Stop
+is the StopButton's Rule outline with an Ink ■ and its label. Hover is Wash, never Indigo.
+
+The count while building is the landed count (`BuildRecordView.landed`), never drafted or writing
+sections: ink means landed (SPEC §1).
+
+## Accessibility
+
+- The status line is plain text, never live: the panel's one live region speaks for it (§6.1). Each
+  action is described by it (`aria-describedby`), so "Apply" is heard with what it applies.
+- The MiniSpine is `aria-hidden`; the status carries the count in words.
+- Stopping keeps Stop focused and labelled "Stop", named "Stopping…", `aria-disabled`: a second
+  press does nothing (§6.3).
+- When the focused action goes with its moment, focus moves to the new moment's first action, else
+  to `[⤒]`, never to the page body: Apply lands on Undo (§6.3). Focus that was elsewhere is left
+  alone.
+- Undo build asks first with InlineConfirm, in the row: focus on Cancel, Esc returns to Undo build.
+- Every target is 44px with 8px between (§6.4), whatever the pointer: the row lives only in the
+  phone sheet.
+
+## RTL
+
+Logical properties only. In Arabic the glyph is at the right, `[⤒]` at the left; the spine runs
+right to left, and counts sit in `<bdi>` so «على الصفحة 1 من 8» keeps its digits in order. Digits
+are Latin in both locales.
+
+## Motion
+
+None of its own. The MiniSpine carries the landing fill, the writers' light and the one completion
+sweep (SPEC §5 moments 1, 2, 5); AgentSheet moves the row in and out.

@@ -1,0 +1,21 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SegmentedChoiceStories from './SegmentedChoice.stories';
+
+<Meta of={SegmentedChoiceStories} />
+
+# SegmentedChoice
+
+The style panel's icon segmented control with an overflow menu. Display, flex direction, wrap,
+justify, align items, text align, transform, decoration and italic use it, following Webstudio and
+Framer.
+
+- Options with an `icon` become a `ChoiceGroup` (a WAI-ARIA radio group with one tab stop, arrow
+  keys mirrored in RTL). Each glyph keeps its translated label as the accessible name and tooltip.
+- Options without an icon (`inline-grid`, `stretch`, `normal`) go into a native `<select>` named by
+  `moreLabel`. Nothing in the catalogue is dropped.
+- A value from the menu shows in the menu, which is raised like a checked segment, and the segments
+  check nothing. Mixed checks nothing on either side.
+- A click on the checked segment, or picking the value already shown, writes nothing.
+- The menu sits inline at the end of the icon row as one small square "…" (no chevron) and widens
+  to show its value only when a value from it is chosen. It never takes a row of its own.

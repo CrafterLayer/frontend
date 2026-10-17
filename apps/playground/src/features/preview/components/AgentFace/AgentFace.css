@@ -1,0 +1,700 @@
+/* أبو غضب — the assistant's face, and his one visible line.
+
+   Every value here reads a `--bldr-*` chrome token; the only literals are
+   viewBox geometry (brow angles, dash patterns on a pathLength of 100, the
+   sub-pixel nudges of a pose), which is drawing, not styling. The disc, the
+   ink and the glow are owned HERE, so the header, the reply row and the empty
+   state all stop painting their own marks.
+
+   The face reads three things from whoever holds it and writes nothing back:
+   `--pg-face-glow`, an optional inherited halo colour (`.pg-chat` defines it
+   beside the rest of the chat's literals in App.css; outside the chat the glow
+   is transparent); `--pg-face-look-x` / `--pg-face-look-y`, two px lengths a
+   seat writes so the eyes can follow a pointer (absent means straight ahead);
+   and `data-press` on an ancestor seat, which boops the disc while a press is
+   held. Hover is the browser's own `:hover`. No prop, no state, no text.
+
+   A mood never swaps elements. Every feature is always in the DOM and each
+   mood selects with opacity and transform only, so a change is a transition
+   in every engine, and every mood is carried by GEOMETRY — brow angle, eye
+   shape, mouth path, ring dash pattern — never by colour or motion alone. */
+
+.pg-face {
+  block-size: var(--pg-face-size);
+  border-radius: var(--bldr-radius-full);
+  box-shadow: 0 0 var(--bldr-space-md) var(--pg-face-glow, transparent);
+  color: var(--bldr-panel-text);
+  display: inline-grid;
+  flex: none;
+  inline-size: var(--pg-face-size);
+  place-items: center;
+  position: relative;
+  transition: box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The three boxes the sparkle already occupied — reply avatar, header, empty
+   state — so nothing in the panel moves. Strokes are viewBox units: the 2-unit
+   ring renders 1.5 px at sm, 2 px at md, 3 px at lg. One drawing, three scales. */
+.pg-face[data-size='sm'] {
+  --pg-face-size: var(--bldr-space-5xl);
+}
+
+.pg-face[data-size='md'] {
+  --pg-face-size: var(--bldr-space-6xl);
+}
+
+.pg-face[data-size='lg'] {
+  --pg-face-size: calc(var(--bldr-space-6xl) * 1.5);
+}
+
+.pg-face__svg {
+  block-size: 100%;
+  display: block;
+  inline-size: 100%;
+  overflow: visible;
+}
+
+/* ── Resting geometry (idle is the default pose) ─────────────────────────── */
+
+.pg-face__ring {
+  stroke: var(--bldr-panel-border-strong);
+  stroke-dasharray: 100 0;
+  stroke-dashoffset: 0;
+  stroke-width: 1;
+  transform-box: view-box;
+  transform-origin: center;
+  transition:
+    stroke var(--bldr-duration-state) var(--bldr-easing),
+    stroke-width var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-face__tick {
+  opacity: 0;
+  stroke: var(--bldr-panel-muted);
+  transition: opacity var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-face__disc {
+  fill: var(--bldr-accent-soft);
+  transform-box: view-box;
+  transform-origin: center;
+  transition: scale var(--bldr-duration-move) var(--bldr-easing);
+}
+
+.pg-face__features {
+  transform-box: view-box;
+  transform-origin: center;
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing);
+}
+
+/* The resting grump: inner brow ends lower, a shallow V. This tilt is the
+   character's identity and is never fully lost — even the earned smile keeps
+   five degrees of it. */
+.pg-face__brow {
+  stroke-width: 2.2;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing),
+    rotate var(--bldr-duration-move) var(--bldr-easing),
+    scale var(--bldr-duration-move) var(--bldr-easing);
+}
+
+.pg-face__brow--start {
+  transform: rotate(14deg);
+}
+
+.pg-face__brow--end {
+  transform: rotate(-14deg);
+}
+
+.pg-face__eye {
+  fill: var(--bldr-panel-text);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform var(--bldr-duration-move) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing),
+    rotate var(--bldr-duration-move) var(--bldr-easing),
+    scale var(--bldr-duration-move) var(--bldr-easing);
+}
+
+.pg-face__mouth {
+  opacity: 0;
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity var(--bldr-duration-state) var(--bldr-easing),
+    transform var(--bldr-duration-move) var(--bldr-easing);
+}
+
+/* ── Presence: the seat writes, the face reads ──────────────────────────────
+      Hover, press and the look are answered here, in CSS, from the browser's
+      own `:hover` / `:active`, the seat's `data-press` and two custom
+      properties the seat writes. Nothing reaches the reducer, the voice never
+      changes, and the `sm` bubbles are excluded from every rule so a thread of
+      avatars stays still. The individual transform properties (`translate`,
+      `rotate`, `scale`) compose with each mood's `transform`, so a pose never
+      has to know which mood it is layered on. Units are viewBox drawing units
+      written as px, like the scan's. ───────────────────────────────────────── */
+
+/* The look: the eyes lead and the face turns a quarter as far. Thinking keeps
+   the scan, stopped keeps one eye shut, failed keeps its stillness. The gain
+   lets reduced motion zero the look at any specificity; the gaze is a mood's
+   own resting offset, added after the gain so it survives. */
+.pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='stopped']):not(
+    [data-mood='failed']
+  )
+  .pg-face__eye {
+  translate: calc(var(--pg-face-look-x, 0px) * var(--pg-face-look-gain, 1))
+    calc(var(--pg-face-look-y, 0px) * var(--pg-face-look-gain, 1) + var(--pg-face-gaze-y, 0px));
+}
+
+.pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='stopped']):not(
+    [data-mood='failed']
+  )
+  .pg-face__features {
+  translate: calc(var(--pg-face-look-x, 0px) * var(--pg-face-look-gain, 1) / 4)
+    calc(var(--pg-face-look-y, 0px) * var(--pg-face-look-gain, 1) / 4);
+}
+
+/* Life without a pointer: listening eyes rest a touch lower, toward the
+   focused composer; an idle face throws a rare sideways glance. */
+.pg-face[data-mood='listening'] .pg-face__eye {
+  --pg-face-gaze-y: 0.8px;
+}
+
+.pg-face[data-live][data-mood='idle'] .pg-face__features {
+  animation: pg-face-glance 9s var(--bldr-easing) infinite;
+}
+
+/* A real pointer only: on touch there is no hover, and a pose would stick. */
+@media (hover: hover) {
+  /* Every mood notices: the halo widens, the eyes widen, the disc leans in. */
+  .pg-face:not([data-size='sm']):hover {
+    box-shadow: 0 0 var(--bldr-space-xl) var(--pg-face-glow, transparent);
+  }
+
+  .pg-face:not([data-size='sm']):hover .pg-face__eye {
+    scale: 1.12;
+  }
+
+  .pg-face:not([data-size='sm']):hover .pg-face__disc {
+    scale: 1.05;
+  }
+
+  /* Only a settled face lifts a brow — "what do you want?". The busy moods do
+     not look up (the voice says so), and stopped keeps its flat brows, which
+     is the joke. The outer brow arches six degrees further and lifts; the
+     inner one presses, so the V is never lost. Asymmetric on purpose and not
+     mirrored under RTL: this is a face, not text. */
+  .pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='planning']):not(
+      [data-mood='working']
+    ):not([data-mood='stopped']):hover
+    .pg-face__brow--end {
+    rotate: -6deg;
+    translate: 0 -1px;
+  }
+
+  .pg-face:not([data-size='sm']):not([data-mood='thinking']):not([data-mood='planning']):not(
+      [data-mood='working']
+    ):not([data-mood='stopped']):hover
+    .pg-face__brow--start {
+    translate: 0 0.5px;
+  }
+
+  /* Arrival: one perk, once, on the live face. Scoped away from the moods
+     whose features already animate (repairing's tilt, stopped's shake). */
+  .pg-face[data-live]:not([data-size='sm']):not([data-mood='thinking']):not(
+      [data-mood='planning']
+    ):not([data-mood='working']):not([data-mood='stopped']):hover
+    .pg-face__features {
+    animation: pg-face-perk 240ms var(--bldr-easing) 1;
+  }
+}
+
+/* The boop: from the pointer itself, or from a seat holding `data-press`.
+   Declared after the hover lean so the press wins while both apply. */
+:is(.pg-face:active, [data-press] .pg-face):not([data-size='sm']) .pg-face__disc {
+  scale: 0.96;
+}
+
+/* ── idle: the resting face, a hairline ring, a blink ────────────────────── */
+
+.pg-face[data-mood='idle'] .pg-face__mouth--flat {
+  opacity: 1;
+}
+
+.pg-face[data-live][data-mood='idle'] .pg-face__eye {
+  animation: pg-face-blink 5.5s infinite;
+}
+
+/* ── listening: one raised brow, wider eyes, the ring takes the composer's
+      focus colour ─────────────────────────────────────────────────────────── */
+
+.pg-face[data-mood='listening'] .pg-face__brow--end {
+  transform: rotate(-4deg) translateY(-1.5px);
+}
+
+.pg-face[data-mood='listening'] .pg-face__eye {
+  transform: scale(1.1, 1.2);
+}
+
+.pg-face[data-mood='listening'] .pg-face__mouth--short {
+  opacity: 1;
+}
+
+.pg-face[data-mood='listening'] .pg-face__ring {
+  stroke: var(--bldr-accent-ring);
+  stroke-width: 2;
+}
+
+/* Typing: the mouth widens a touch and the features lean toward the composer. */
+.pg-face[data-mood='listening'][data-typing] .pg-face__mouth--short {
+  transform: scaleX(1.15);
+}
+
+.pg-face[data-mood='listening'][data-typing] .pg-face__features {
+  transform: translateY(0.6px);
+}
+
+/* ── thinking: slit eyes on a resting face, twelve static dots, eyes scan ─── */
+
+.pg-face[data-mood='thinking'] .pg-face__eye {
+  transform: scaleY(0.35);
+}
+
+.pg-face[data-mood='thinking'] .pg-face__mouth--flat {
+  opacity: 1;
+}
+
+.pg-face[data-mood='thinking'] .pg-face__ring {
+  stroke: var(--bldr-accent);
+  stroke-dasharray: 0.01 8.33;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.pg-face[data-live][data-mood='thinking'] .pg-face__eye {
+  animation: pg-face-scan 1.4s var(--bldr-easing) infinite alternate;
+}
+
+/* ── planning: deep V, narrowed eyes, pressed mouth, a dashed ring that
+      drifts ───────────────────────────────────────────────────────────────── */
+
+.pg-face[data-mood='planning'] .pg-face__brow {
+  stroke-width: 2.4;
+}
+
+.pg-face[data-mood='planning'] .pg-face__brow--start {
+  transform: rotate(22deg);
+}
+
+.pg-face[data-mood='planning'] .pg-face__brow--end {
+  transform: rotate(-22deg);
+}
+
+.pg-face[data-mood='planning'] .pg-face__eye {
+  transform: scaleY(0.6);
+}
+
+.pg-face[data-mood='planning'] .pg-face__mouth--pressed {
+  opacity: 1;
+  stroke-width: 2.6;
+}
+
+.pg-face[data-mood='planning'] .pg-face__ring {
+  stroke: var(--bldr-accent);
+  stroke-dasharray: 9 3.5;
+  stroke-linecap: butt;
+  stroke-width: 2;
+}
+
+.pg-face[data-live][data-mood='planning']:not([data-variant='checking']) .pg-face__ring {
+  animation: pg-face-drift 6s linear infinite;
+}
+
+/* checking: the one-eyed squint, ring still (checking is deliberate), the
+   open eye blinks. */
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__brow--start {
+  transform: rotate(18deg) translateY(1px);
+}
+
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__brow--end {
+  transform: rotate(-14deg);
+}
+
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__eye--start {
+  transform: scaleY(0.35);
+}
+
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__eye--end {
+  transform: scale(1.05);
+}
+
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__mouth--pressed {
+  opacity: 0;
+}
+
+.pg-face[data-mood='planning'][data-variant='checking'] .pg-face__mouth--flat {
+  opacity: 1;
+}
+
+.pg-face[data-live][data-mood='planning'][data-variant='checking'] .pg-face__eye--end {
+  animation: pg-face-blink 2.6s infinite;
+}
+
+/* repairing: the only mood with slits AND a frown; the ring turns warning so
+   the repair beat is visible without motion, and the head tilts once. */
+.pg-face[data-mood='planning'][data-variant='repairing'] .pg-face__eye {
+  transform: scaleY(0.35);
+}
+
+.pg-face[data-mood='planning'][data-variant='repairing'] .pg-face__mouth--pressed {
+  opacity: 0;
+}
+
+.pg-face[data-mood='planning'][data-variant='repairing'] .pg-face__mouth--frown-small {
+  opacity: 1;
+}
+
+.pg-face[data-mood='planning'][data-variant='repairing'] .pg-face__ring {
+  stroke: var(--bldr-warning);
+}
+
+.pg-face[data-live][data-mood='planning'][data-variant='repairing'] .pg-face__features {
+  animation: pg-face-tilt 240ms var(--bldr-easing);
+}
+
+/* ── working: bearing down; a 270-degree arc spins at GenerationProgress's
+      cadence so the product's two busy rings share one tempo ─────────────── */
+
+.pg-face[data-mood='working'] .pg-face__brow {
+  stroke-width: 2.4;
+}
+
+.pg-face[data-mood='working'] .pg-face__brow--start {
+  transform: rotate(22deg) translateY(1px);
+}
+
+.pg-face[data-mood='working'] .pg-face__brow--end {
+  transform: rotate(-22deg) translateY(1px);
+}
+
+.pg-face[data-mood='working'] .pg-face__eye {
+  transform: scaleY(0.6);
+}
+
+.pg-face[data-mood='working'] .pg-face__mouth--pressed {
+  opacity: 1;
+  stroke-width: 2.6;
+  transform: scaleX(1.3);
+}
+
+.pg-face[data-mood='working'] .pg-face__ring {
+  stroke: var(--bldr-accent-strong);
+  stroke-dasharray: 65 35;
+  stroke-dashoffset: 7.5;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.pg-face[data-live][data-mood='working'] .pg-face__ring {
+  animation: pg-face-spin 900ms linear infinite;
+}
+
+/* ── done: the brows relax but keep the identity tilt ────────────────────── */
+
+.pg-face[data-mood='done'] .pg-face__brow--start {
+  transform: rotate(5deg);
+}
+
+.pg-face[data-mood='done'] .pg-face__brow--end {
+  transform: rotate(-5deg);
+}
+
+/* proposed (and planned): the smirk — one corner lifted. */
+.pg-face[data-mood='done'] .pg-face__mouth--smirk {
+  opacity: 1;
+}
+
+.pg-face[data-mood='done'] .pg-face__ring {
+  stroke: var(--bldr-accent);
+  stroke-width: 2;
+}
+
+/* applied: the one earned, symmetric smile — never the widest thing on the face. */
+.pg-face[data-mood='done'][data-outcome='applied'] .pg-face__eye {
+  transform: scaleY(0.85);
+}
+
+.pg-face[data-mood='done'][data-outcome='applied'] .pg-face__mouth--smirk {
+  opacity: 0;
+}
+
+.pg-face[data-mood='done'][data-outcome='applied'] .pg-face__mouth--smile {
+  opacity: 1;
+}
+
+.pg-face[data-mood='done'][data-outcome='applied'] .pg-face__ring {
+  stroke: var(--bldr-success);
+}
+
+/* planned: a plan that stays a sketch keeps its dashes — greyscale-safe. */
+.pg-face[data-mood='done'][data-outcome='planned'] .pg-face__ring {
+  stroke-dasharray: 9 3.5;
+  stroke-linecap: butt;
+}
+
+/* discarded: the eye-roll, done with the big ellipses. */
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__brow--start {
+  transform: rotate(4deg);
+}
+
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__brow--end {
+  transform: rotate(-8deg) translateY(-1px);
+}
+
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__eye {
+  transform: translateY(-1.4px);
+}
+
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__mouth--smirk {
+  opacity: 0;
+}
+
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__mouth--short {
+  opacity: 1;
+}
+
+.pg-face[data-mood='done'][data-outcome='discarded'] .pg-face__ring {
+  stroke: var(--bldr-panel-muted);
+  stroke-dasharray: 0.01 4;
+  stroke-linecap: round;
+  stroke-width: 1;
+}
+
+/* One-shots on entry. The draw-in is restricted to the SOLID outcomes: on the
+   dashed planned ring it would only shift dashes. */
+.pg-face[data-live][data-mood='done'][data-outcome='proposed'] .pg-face__ring {
+  animation: pg-face-draw 360ms var(--bldr-easing);
+}
+
+.pg-face[data-live][data-mood='done'][data-outcome='applied'] .pg-face__ring {
+  animation: pg-face-draw 360ms var(--bldr-easing);
+}
+
+.pg-face[data-live][data-mood='done'][data-outcome='applied'] .pg-face__disc,
+.pg-face[data-live][data-mood='done'][data-outcome='applied'] .pg-face__features,
+.pg-face[data-live][data-mood='done'][data-outcome='planned'] .pg-face__disc,
+.pg-face[data-live][data-mood='done'][data-outcome='planned'] .pg-face__features {
+  animation: pg-face-pop 180ms var(--bldr-easing);
+}
+
+/* ── failed: the scowl, and a ring broken in two places. Nothing moves —
+      stillness is the signal after all the busy motion ─────────────────────── */
+
+.pg-face[data-mood='failed'] .pg-face__brow {
+  stroke-width: 2.6;
+}
+
+.pg-face[data-mood='failed'] .pg-face__brow--start {
+  transform: rotate(30deg);
+}
+
+.pg-face[data-mood='failed'] .pg-face__brow--end {
+  transform: rotate(-30deg);
+}
+
+.pg-face[data-mood='failed'] .pg-face__eye {
+  transform: scale(1.05);
+}
+
+.pg-face[data-mood='failed'] .pg-face__mouth--frown {
+  opacity: 1;
+}
+
+.pg-face[data-mood='failed'] .pg-face__ring {
+  stroke: var(--bldr-danger);
+  stroke-dasharray: 44 6;
+  stroke-dashoffset: 22;
+  stroke-linecap: butt;
+  stroke-width: 2;
+}
+
+/* ── stopped: the only flat brows (shot up, caught mid-thought), one wince,
+      and the power-symbol ring with its tick dropping into the gap ────────── */
+
+.pg-face[data-mood='stopped'] .pg-face__brow--start,
+.pg-face[data-mood='stopped'] .pg-face__brow--end {
+  transform: rotate(0deg) translateY(-2px);
+}
+
+.pg-face[data-mood='stopped'] .pg-face__eye--start {
+  transform: scaleY(0.12);
+}
+
+.pg-face[data-mood='stopped'] .pg-face__eye--end {
+  transform: none;
+}
+
+.pg-face[data-mood='stopped'] .pg-face__mouth--tilted {
+  opacity: 1;
+}
+
+.pg-face[data-mood='stopped'] .pg-face__ring {
+  stroke: var(--bldr-panel-muted);
+  stroke-dasharray: 84 16;
+  stroke-dashoffset: 17;
+  stroke-width: 2;
+}
+
+.pg-face[data-mood='stopped'] .pg-face__tick {
+  opacity: 1;
+}
+
+.pg-face[data-live][data-mood='stopped'] .pg-face__features {
+  animation: pg-face-shake 240ms linear;
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+
+@keyframes pg-face-blink {
+  0%,
+  96%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  98% {
+    transform: scaleY(0.15);
+  }
+}
+
+/* The slits are kept inside the keyframes: an animated transform replaces the
+   mood's own, and eyes that opened while scanning would stop reading as reading. */
+@keyframes pg-face-scan {
+  from {
+    transform: translateX(-1.5px) scaleY(0.35);
+  }
+
+  to {
+    transform: translateX(1.5px) scaleY(0.35);
+  }
+}
+
+@keyframes pg-face-drift {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pg-face-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pg-face-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pg-face-pop {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes pg-face-tilt {
+  50% {
+    transform: rotate(-4deg);
+  }
+}
+
+@keyframes pg-face-shake {
+  25% {
+    transform: translateX(-1px);
+  }
+
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes pg-face-perk {
+  40% {
+    rotate: -3deg;
+  }
+
+  to {
+    rotate: 0deg;
+  }
+}
+
+@keyframes pg-face-glance {
+  0%,
+  86%,
+  100% {
+    transform: none;
+  }
+
+  90%,
+  95% {
+    transform: translateX(0.8px);
+  }
+}
+
+/* Belt and braces: a thread of a dozen bubble faces is provably static even if
+   a caller passes `live`. `!important` because the live selectors above are
+   more specific by design, and this rule must beat every one of them. */
+.pg-face[data-size='sm'] * {
+  animation: none !important;
+}
+
+/* ── The voice ───────────────────────────────────────────────────────────── */
+
+.pg-face-voice {
+  color: var(--bldr-panel-text-soft);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: start;
+  unicode-bidi: isolate;
+}
+
+/* Every mood is already carried by geometry — brow angle, eye shape, mouth
+   path, ring dash pattern — so holding the face still loses nothing. Hover
+   and press poses snap instead of easing (a state, not a motion), and the
+   look's gain goes to zero so the eyes never follow a pointer. */
+@media (prefers-reduced-motion: reduce) {
+  .pg-face__ring,
+  .pg-face__eye,
+  .pg-face__features,
+  .pg-face__disc,
+  .pg-face__brow,
+  .pg-face__mouth,
+  .pg-face__tick {
+    animation: none;
+  }
+
+  .pg-face *,
+  .pg-face-voice {
+    transition: none;
+  }
+
+  .pg-face {
+    --pg-face-look-gain: 0;
+  }
+}

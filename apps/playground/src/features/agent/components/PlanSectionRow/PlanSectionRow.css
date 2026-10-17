@@ -1,0 +1,241 @@
+/*
+  PlanSectionRow (SPEC §4.11, frame §3.7). The columns are PlanSectionList's (a subgrid), so
+  every row's number, title and purpose line up down the list, and each sits where the
+  build's SpineRow puts it (SPEC §2.3: node 16, 8, number 20, 8, title 52px in): when the
+  plan inks into the build, the titles do not move.
+
+    ○  5  Doctors      The dentists and their…     [⠿] [⋯]
+    node number title   purpose (from 400px)        handle, menu (inline END)
+*/
+
+.ck-agent-plan-row {
+  position: relative;
+  display: grid;
+  /* Set by the row while PlanSectionList drags (the lifted row, and the rows making way). */
+  translate: var(--ck-agent-plan-row-shift, none);
+  /* Set while the plan awaits Build: `ck-plan-row-{key}` (SPEC §5 moment 4). */
+  view-transition-name: var(--ck-agent-plan-row-name, none);
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-block-size: var(--bldr-agent-row-height);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+  animation: ck-agent-plan-row-in var(--bldr-duration-enter) var(--bldr-easing-enter) backwards;
+}
+
+/*
+  The hover fill runs from the glyph column to the row end, radius 6 (SPEC §2.3). The
+  node's ground ring follows it (the Wash over the Sheet), so the node keeps masking the
+  pencil line instead of wearing a pale halo.
+*/
+@media (hover: hover) {
+  .ck-agent-plan-row[data-editable]:hover {
+    --ck-agent-ground: color-mix(in srgb, var(--bldr-surface) 93%, var(--bldr-panel-text));
+
+    background-color: var(--bldr-surface-hover);
+  }
+}
+
+/* SPEC §5 moment 6: the list arrives in page order (the delay is set per row). */
+@keyframes ck-agent-plan-row-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+/* The node sits over the list's pencil line, which it appears to be threaded on. */
+.ck-agent-plan-row__node {
+  position: relative;
+  z-index: 1;
+  grid-column: 1;
+  justify-self: center;
+}
+
+.ck-agent-plan-row__number {
+  grid-column: 2;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+  text-align: end;
+}
+
+/* One line, ending in an ellipsis at the inline end (SPEC §2.2). */
+.ck-agent-plan-row__title,
+.ck-agent-plan-row__purpose {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-plan-row__title {
+  grid-column: 3;
+}
+
+/*
+  A name another section shares: the wavy underline a misspelt word wears, in Amber. A
+  shape as well as a colour, and the handle's description says it in words.
+*/
+.ck-agent-plan-row[data-duplicate] .ck-agent-plan-row__title bdi {
+  text-decoration: underline wavy var(--bldr-warning);
+  text-decoration-skip-ink: none;
+  text-decoration-thickness: var(--bldr-border-hairline);
+  text-underline-offset: var(--bldr-space-xs);
+}
+
+/* The purpose shows from 400px, inline in Slate (SPEC §4.11). */
+.ck-agent-plan-row__purpose {
+  display: none;
+  color: var(--bldr-panel-muted);
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-plan-row__purpose {
+    display: block;
+    grid-column: 4;
+    padding-inline-start: var(--bldr-space-md);
+  }
+}
+
+/* ── Handle and [⋯], at the inline end ───────────────────────────────────────── */
+
+.ck-agent-plan-row__actions {
+  display: flex;
+  grid-column: -2 / -1;
+  gap: var(--bldr-space-xs);
+  justify-self: end;
+}
+
+/*
+  Quiet until the row is pointed at: sixteen glyphs in Graphite would outweigh eight titles.
+  Slate at rest (4.69:1 on the Sheet, above a control's 3:1), Graphite while the row is
+  hovered or holds focus, Ink on the control itself. Each state out-ranks IconButton's
+  matching rule (0,4,0 base, 0,6,0 hover).
+*/
+.ck-agent-plan-row__actions
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-plan-row:is(:hover, :focus-within)
+  .ck-agent-plan-row__actions
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-plan-row__actions
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size]:is(
+    :enabled:hover,
+    [aria-expanded='true'],
+    :focus-visible
+  ) {
+  color: var(--bldr-panel-text);
+}
+
+/* The handle grabs; a touch on it drags the row instead of scrolling the thread. */
+.ck-agent-plan-row__handle[data-bldr-chrome-button] {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* ── Rename in place ─────────────────────────────────────────────────────────── */
+
+/*
+  The input starts 8px before the title column, so with its 1px border and 7px padding the
+  text sits exactly where the title's first letter was; it reaches the row end, where the
+  handle and [⋯] were.
+*/
+.ck-agent-plan-row__rename {
+  grid-column: 3 / -1;
+  box-sizing: border-box;
+  block-size: var(--bldr-control-md);
+  min-inline-size: 0;
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-md));
+  padding-block: 0;
+  padding-inline: calc(var(--bldr-space-md) - var(--bldr-border-hairline));
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  unicode-bidi: plaintext;
+}
+
+.ck-agent-plan-row__rename:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-hairline));
+}
+
+@media (pointer: coarse) {
+  .ck-agent-plan-row__rename {
+    block-size: calc(var(--bldr-hit-target-min) - var(--bldr-space-xs));
+  }
+}
+
+/* ── Drag (PlanSectionList moves the rows) ───────────────────────────────────── */
+
+/* The row under the pointer is lifted off the paper: the Sheet, e2's shadow, no lag. */
+.ck-agent-plan-row[data-lifted] {
+  --ck-agent-ground: var(--bldr-surface);
+
+  z-index: 2;
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  cursor: grabbing;
+  transition: none;
+}
+
+/* ── The row menu (RecordMenu's surface) ─────────────────────────────────────── */
+
+.ck-agent-plan-row__separator {
+  block-size: var(--bldr-border-hairline);
+  margin-block: var(--bldr-space-xs);
+  margin-inline: calc(-1 * var(--bldr-space-xs));
+  background-color: var(--bldr-panel-border);
+}
+
+/* Remove at the floor: reachable, dimmed, its reason under it (Graphite on the Sheet). */
+.ck-agent-menu__item.ck-agent-plan-row__refused {
+  display: grid;
+  align-items: start;
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-plan-row__reason {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-plan-row[data-lifted] {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-plan-row__separator {
+    background-color: CanvasText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .ck-agent-plan-row__separator {
+    background-color: var(--bldr-panel-border-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-plan-row {
+    transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+    animation: none;
+  }
+}

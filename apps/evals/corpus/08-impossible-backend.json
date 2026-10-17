@@ -1,0 +1,25 @@
+{
+  "id": "08-impossible-backend",
+  "title": "Impossible request: run database queries",
+  "category": "refusal",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Connect this page directly to my Postgres database, run SELECT * FROM customers on every page load and show the rows in a table.",
+  "must": {
+    "outcome": "refusal",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": ["SELECT * FROM customers"],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 0,
+    "maxCommands": 0
+  },
+  "budget": {
+    "maxCommands": 0,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Does it decline the database connection rather than faking one with static rows?",
+  "why": "The document is pure JSON with no data layer. A plan that pretends otherwise ships a lie, and the SQL string appearing anywhere in the plan is the tell."
+}

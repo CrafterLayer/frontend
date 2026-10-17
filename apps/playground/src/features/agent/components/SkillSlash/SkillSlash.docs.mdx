@@ -1,0 +1,132 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SkillSlashStories from './SkillSlash.stories';
+
+<Meta of={SkillSlashStories} />
+
+# SkillSlash
+
+The composer's `/` (2026-10-12): a slash at the start of the message or after a space lists the
+skills. Picking one inserts its selection token at the beginning of this message. The list holds the
+person's own skills, then the enabled default skills (under "Default skills", `/pro-max-design` and
+the rest), then the built-ins.
+
+<Canvas of={SkillSlashStories.Open} />
+
+## Purpose
+
+People who use other agents expect `/` to reach a skill by name. A chosen inline skill token is an
+explicit choice for these words. Enabled skills also activate automatically from the request through
+the Builder registry; selecting from `/` is optional. The list shows the person's own enabled skills
+first, then the built-ins, and ends with "Manage skills & memory". The words after the slash narrow
+it: `/brand` finds Brand voice, and «اسلوب» finds «أسلوب المنزل». A picked skill removes the current
+query and inserts its complete token, for example `/brand-voice `, at the beginning of the same
+textarea. Send, Queue, Retry and editing the draft keep the choice with that request. There is no
+separate chip row or three-selection limit; the engine retains its skill/token budget.
+
+## When to use / not
+
+AgentPanel draws it above the Composer when the host gives the panel its `knowledge`. It needs the
+composer's textarea (`inputRef`). That textarea keeps focus throughout and serves as the list's
+combobox, as it does for the `@` list. It reads the enabled vocabulary from `knowledge.skills`;
+`useAgentKnowledge.selectedSkillIdsFor(request)` resolves only consecutive enabled skill tokens at
+the beginning of a request. URLs inside the brief, unknown slash words and paths remain ordinary
+text. Send and Queue capture the chosen IDs and the brief without those tokens; a queued skill
+rename or name collision cannot change that choice. Execution checks those IDs against the current
+enabled registry, so disabled or deleted skills do not load. Editing the queued body, Improve and
+Restore retain its captured choices. Clarify answers, Retry after reload, and continuing from a plan
+card carry the captured IDs and semantic brief into their runs. Older saved turns without this
+optional metadata still work. Reuse fills a fresh draft whose choices resolve from the current skill
+vocabulary. Deleting a token removes that draft's choice. To write or change skills, use the Skills
+tab (KnowledgePopover), which "Manage skills & memory" opens.
+
+## Props
+
+| prop            | type                                     | default | notes                                                |
+| --------------- | ---------------------------------------- | ------- | ---------------------------------------------------- |
+| `locale`        | `Locale`                                 | none    | picks `knowledgeLabels(locale).slash`                |
+| `skills`        | `UserSkillsView`                         | none    | the enabled skill vocabulary                         |
+| `draft`         | `string`                                 | none    | the composer's draft: a `/words` at its end opens it |
+| `onDraftChange` | `(draft: string) => void`                | none    | a pick completes the inline token                    |
+| `inputRef`      | `RefObject<HTMLTextAreaElement \| null>` | none    | the composer's textarea: keys, focus, combobox state |
+| `onManage`      | `() => void`                             | none    | opens Skills & memory                                |
+| `commands`      | `readonly SlashCommand[]`                | all     | which commands to offer                              |
+| `onCommand`     | `(command, text) => Promise<string?>`    | none    | runs one; without it the list offers no commands     |
+
+The model is pure and table-tested: `slashToken`, `withoutSlash`, `commandOf`, `slashOptions`,
+`slashCommands`, `textBeforeSlash`, `withInlineSkill` and `inlineSkillIds` in
+`model/skill-slash.ts`.
+
+## Commands
+
+Above the skills, the commands act on the words typed before the slash. AgentPanel runs them through
+`useKnowledgeUi`:
+
+- **Remember** (`/remember`, `/تذكر`) keeps the words in the project memory as a preference. With no
+  words it opens the Memory tab. A repeat is refused, as the tab refuses it.
+- **Save a checkpoint** (`/checkpoint`, `/نقطة`) keeps the page under the words, or under the
+  default name. It is offered only when the host keeps pages.
+- **New skill** (`/skill`, `/مهارة`) opens New skill on the Skills tab with the words as its
+  instructions.
+- **Run in the background** (`/batch`, `/خلفية`) opens the Background jobs form with the words as
+  the request: the same request on several pages, at half price. It is offered only when the host
+  keeps background jobs. Sent typed out in full (`/batch Translate every page`), the composer opens
+  the same form on the words after it instead of running them.
+
+The words leave the composer with the slash. What happened is said once in a `status` line under the
+list, which clears after four seconds.
+
+## States
+
+| story                                   | what it shows                                      |
+| --------------------------------------- | -------------------------------------------------- |
+| `Open`, `Dark`                          | "/" typed: your skills, the built-ins, Manage last |
+| `RightToLeft`, `DarkRightToLeft`        | Arabic skills and headings                         |
+| `Filtered`                              | "/brand": Brand voice first and active             |
+| `NoMatch`                               | "No skill by that name.", and Manage               |
+| `InlineSelections`, `InlineRightToLeft` | selected tokens stay inside this prompt            |
+| `FourSelections`                        | four inline choices without a UI-only cap          |
+| `Commands`, `CommandsRightToLeft`       | Remember, Save a checkpoint, New skill first       |
+| `Remembered`                            | "/remember" after words: "Remembered. …"           |
+
+AgentPanel's `SlashMenu` story types "/" into the real composer.
+
+## Anatomy
+
+```text
+┌──────────────────────────────────────────┐
+│ Your skills                              │  heading (Meta 500, Graphite), drawn only
+│▌/brand-voice   Brand voice               │  active row: Mist, Indigo bar at the start
+│                Headlines, buttons …      │  description (Meta, one line)
+│ /house-style   House style               │
+│ Built-in                                 │
+│ /arabic-rtl    Arabic and RTL            │
+│ ──────────────────────────────────────── │
+│ ✦ Manage skills & memory                 │
+└──────────────────────────────────────────┘
+[ /brand-voice /house-style Write the hero | ]  this request's inline choices
+```
+
+The list floats 8px above the composer (e2, radius 9) and shows seven rows before it scrolls (four
+on a finger). On the active row the description steps up from Graphite to the soft text colour,
+which keeps it at 4.5:1 on the wash.
+
+## Accessibility
+
+- The composer's textarea is the combobox. While the list is open it carries `aria-expanded="true"`,
+  `aria-controls` (the listbox) and `aria-activedescendant` (the active option). They are set on the
+  element directly and removed when the list closes.
+- The list is a `listbox` named "Skills". Each skill is an `option` with `aria-selected`. The two
+  headings are drawn (`aria-hidden`, `role="presentation"`), never read as options.
+- Keys go to a native listener on the textarea, so the composer never sees them while the list is
+  open: ↑ ↓ move (wrapping), Enter or Tab pick, Esc closes the list for that draft. The next letter
+  typed opens it again. A click picks without taking focus from the textarea.
+- Choices remain readable and editable in the textarea. A chosen skill no longer appears in this
+  prompt's chooser; deleting its token makes it available again. Sending a later prompt does not
+  reuse the previous prompt's explicit selections.
+
+## RTL
+
+Logical properties only: the list starts at the inline start, and the active bar mirrors. Commands
+stay left to right (`dir="ltr"`, `<bdi>`). Names and descriptions run in their own script's
+direction. Search folds case, hamza, taa marbuta and alef maqsura.

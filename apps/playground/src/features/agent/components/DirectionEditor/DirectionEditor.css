@@ -1,0 +1,114 @@
+/*
+  DirectionEditor (SPEC §4.11, frame §3.7):
+
+    Calm, clinical, teal                [✎]    the mood: a field that reads as its line
+    ▪ ▪ ▪ ▪ ▪              Reem Kufi / Plex ▾   swatches 20px in 32px targets; the font pair
+
+  Optical alignment. The card's content edge is where its title starts. The mood field and
+  the swatch row hang into the card's 12px padding by exactly their own inner space, so the
+  mood's first letter and the first swatch's edge sit on that content edge, and the pencil
+  and the font chevron end 8px inside the far edge, on the column the plan rows' [⋯]
+  glyphs end on.
+*/
+
+.ck-agent-direction-editor {
+  display: grid;
+  row-gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  font-family: var(--bldr-font);
+}
+
+/* ── The mood: a text field that looks like text ─────────────────────────────── */
+
+.ck-agent-direction-editor__mood {
+  position: relative;
+  display: grid;
+  align-items: center;
+  margin-inline: calc(-1 * var(--bldr-space-md));
+}
+
+.ck-agent-direction-editor__field {
+  box-sizing: border-box;
+  block-size: var(--bldr-control-md);
+  inline-size: 100%;
+  min-inline-size: 0;
+  margin: 0;
+  padding-block: 0;
+  /* 1px border + 7px = the 8px the field hangs by; the end leaves room for the pencil. */
+  padding-inline: calc(var(--bldr-space-md) - var(--bldr-border-hairline)) var(--bldr-space-6xl);
+  border: var(--bldr-border-hairline) solid transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  unicode-bidi: plaintext;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-direction-editor__field:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+/* Editing: the Sheet with a Rule border, the text in Ink, and the product's focus ring. */
+.ck-agent-direction-editor__field:focus {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-direction-editor__field:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-hairline));
+}
+
+/* The pencil ends 8px inside the card's content edge; it steps aside while editing. */
+.ck-agent-direction-editor__pencil {
+  position: absolute;
+  inset-inline-end: var(--bldr-space-3xl);
+  color: var(--bldr-panel-muted);
+  cursor: text;
+  transition: opacity var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-direction-editor__mood:focus-within .ck-agent-direction-editor__pencil {
+  opacity: 0;
+}
+
+/* ── Swatches and the font pair ───────────────────────────────────────────────── */
+
+.ck-agent-direction-editor__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+/* Adjacent 32px targets put 12px between the 20px chips; the first chip sits on the edge. */
+.ck-agent-direction-editor__swatches {
+  display: flex;
+  flex: none;
+  margin-inline-start: calc(-1 * var(--bldr-space-sm));
+}
+
+.ck-agent-direction-editor__line > .ck-agent-font-menu__trigger {
+  flex: 0 1 auto;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-direction-editor__field {
+    block-size: var(--bldr-hit-target-min);
+  }
+
+  /* 44px targets, 8px apart (SPEC §2.3); the chip still sits on the edge. */
+  .ck-agent-direction-editor__swatches {
+    gap: var(--bldr-space-md);
+    margin-inline-start: calc(-1 * var(--bldr-space-xl));
+  }
+}

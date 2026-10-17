@@ -1,0 +1,115 @@
+/*
+  Scene cards. The swatch only suggests the scene with chrome tokens (dots,
+  a gradient, layers, a wall, rings); it never animates — a picker of moving
+  previews is what reduced motion asks us not to show, and the real scene
+  plays on the canvas in Preview.
+*/
+.bldr-scene-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.bldr-scene-picker__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-scene-picker__cards {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--bldr-hit-target-min) * 2.25), 1fr));
+}
+
+.bldr-scene-picker__card {
+  align-items: stretch;
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+  line-height: var(--bldr-line-height-snug);
+  min-inline-size: 0;
+  padding: var(--bldr-space-xs);
+  text-align: start;
+}
+
+.bldr-scene-picker__card[aria-checked='true'] {
+  border-color: var(--bldr-accent);
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-scene-picker__card[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-scene-picker__card:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-scene-picker__swatch {
+  aspect-ratio: 16 / 9;
+  background: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-xs);
+  inline-size: 100%;
+}
+
+.bldr-scene-picker__card[data-scene='particles'] .bldr-scene-picker__swatch {
+  background-image: radial-gradient(var(--bldr-accent) var(--bldr-border-hairline), transparent 0);
+  background-size: var(--bldr-space-sm) var(--bldr-space-sm);
+}
+
+.bldr-scene-picker__card[data-scene='mesh-gradient'] .bldr-scene-picker__swatch {
+  background:
+    radial-gradient(circle at 20% 30%, var(--bldr-accent-soft), transparent 60%),
+    radial-gradient(circle at 80% 70%, var(--bldr-success-soft), transparent 60%),
+    var(--bldr-surface-raised);
+}
+
+.bldr-scene-picker__card[data-scene='parallax-layers'] .bldr-scene-picker__swatch {
+  background:
+    linear-gradient(var(--bldr-panel-border-strong), var(--bldr-panel-border-strong)) 20% 70% / 40% 30% no-repeat,
+    linear-gradient(var(--bldr-accent-soft), var(--bldr-accent-soft)) 70% 40% / 45% 35% no-repeat,
+    var(--bldr-surface-raised);
+}
+
+.bldr-scene-picker__card[data-scene='mural'] .bldr-scene-picker__swatch {
+  background-image:
+    linear-gradient(90deg, var(--bldr-panel-border) var(--bldr-border-hairline), transparent 0),
+    linear-gradient(var(--bldr-panel-border) var(--bldr-border-hairline), transparent 0);
+  background-size: 33% 50%;
+}
+
+.bldr-scene-picker__card[data-scene='ripple'] .bldr-scene-picker__swatch {
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    var(--bldr-accent-soft) 0 var(--bldr-border-thick),
+    var(--bldr-surface-raised) var(--bldr-border-thick) var(--bldr-space-sm)
+  );
+}
+
+.bldr-scene-picker__name {
+  color: inherit;
+  font-weight: var(--bldr-font-weight-medium);
+  overflow-wrap: normal;
+}
+
+.bldr-scene-picker__description {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-scene-picker__hint {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  margin: 0;
+}

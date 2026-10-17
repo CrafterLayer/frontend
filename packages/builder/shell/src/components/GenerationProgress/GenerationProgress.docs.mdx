@@ -1,0 +1,102 @@
+import { Canvas, Meta, Story } from '@storybook/addon-docs/blocks';
+
+import * as GenerationProgressStories from './GenerationProgress.stories';
+
+<Meta of={GenerationProgressStories} />
+
+# GenerationProgress
+
+The five-stage site pipeline, made observable. A brief does not become a site in one opaque wait —
+it passes through five stages, and this card is where a person watches that happen and can stop it.
+
+<Canvas of={GenerationProgressStories.Applying} />
+
+## Purpose
+
+A full-site generation takes long enough that an unnamed spinner is not honest: the person cannot
+tell a slow stage from a stuck one, and cannot tell how much is left. Naming the stages turns the
+wait into progress that can be reasoned about, and gives a failure somewhere concrete to land.
+
+## Stage vocabulary
+
+The stage **id** is the pipeline's wire vocabulary; the **label** is what a person reads. They
+differ on purpose — renaming a stage in the UI must never rename a wire field.
+
+| id          | label     | what it settles                                           |
+| ----------- | --------- | --------------------------------------------------------- |
+| `sitemap`   | Plan      | which pages the site has, and what each is for            |
+| `structure` | Structure | the sections on each page, in registered block types only |
+| `content`   | Content   | the real words, refused if they would be filler           |
+| `design`    | Design    | one design system whose pairings pass contrast            |
+| `assembly`  | Apply     | the commands that build it — never a document object      |
+
+Each stage carries one `status`: `pending`, `active`, `done`, `failed`, or `cancelled`. `detail` is
+free text shown at the row's end — elapsed time on a settled stage, the reason on a failed one.
+
+The labels are exported as `GENERATION_STAGE_LABELS` (`Record<GenerationStageId, string>`), the same
+map the rows read, so a host can name a stage in its own copy — "failed at Structure" — and be
+certain the word matches the card. The ids remain a closed union: a host may render a **subset** of
+rows (a run that has no design phase omits `design` rather than inventing one), but it cannot add an
+id the pipeline does not have.
+
+## API
+
+| prop       | type                         | default                | notes                                                                                         |
+| ---------- | ---------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| `stages`   | `readonly GenerationStage[]` | required               | One entry per stage, in pipeline order. May be a subset of the five ids.                      |
+| `onCancel` | `() => void`                 | omitted                | Omit to withdraw cancellation; the button also hides once nothing is `active`.                |
+| `heading`  | `string`                     | `'Building your page'` | The card's heading and the region's accessible name.                                          |
+| `announce` | `boolean`                    | `true`                 | `false` renders no live region; the host must then narrate (one `role="status"` per surface). |
+
+<Canvas of={GenerationProgressStories.Failed} />
+
+## Cancel contract
+
+`onCancel` is called on click or <kbd>Enter</kbd>/<kbd>Space</kbd>. The button renders only while
+some stage is `active`: once a run has settled there is nothing to cancel, and a live button that
+does nothing is worse than no button. Omitting `onCancel` withdraws cancellation entirely.
+
+The component does not itself stop anything. It reports the intent; the caller that owns the run
+owns the abort.
+
+<Canvas of={GenerationProgressStories.Cancelled} />
+
+## Accessibility
+
+- The card is a **region** named by its heading, so it can be jumped to.
+- Stages are an **ordered list** — the sequence is part of the meaning.
+- One `role="status"` / `aria-live="polite"` line announces the running stage as `Stage N of M`,
+  completion, failure, and cancellation. It is the only thing that speaks.
+- One live region per surface: a host that already has a `role="status"` passes `announce={false}`,
+  and the card keeps its rows and status words while the host does the talking.
+- **Focus is never moved**, on mount or when a stage advances. A card that grabbed focus would
+  interrupt whatever the person was typing in the composer. A test asserts this for both cases.
+- Status is carried by a **word** (`Done`, `Active`, `Failed`) in every row, not by colour or icon
+  alone.
+- The spinning ring is the one moving part, and `prefers-reduced-motion: reduce` holds it still.
+  Nothing is lost: the word already says `Active`.
+- Cancel meets the chrome hit-target minimum and shows a visible focus ring.
+
+<Canvas of={GenerationProgressStories.SilentInsideAChat} />
+
+## Styling
+
+Every declaration reads a `--bldr-*` chrome token, and none reads a `--t-*` canvas token. That split
+is enforced by a test: `--t-*` belongs to the page being edited, so a site themed red must not
+repaint the builder's own card red.
+
+Row tracks are `grid-template-columns` with logical padding, so the layout mirrors under `dir="rtl"`
+with no separate rule.
+
+<Canvas of={GenerationProgressStories.RightToLeft} />
+
+## Limitations
+
+- **No timer.** The component holds no clock. Elapsed time arrives as `detail`, so a replayed run
+  and a live run render identically.
+- **No stage retry.** A failed stage is reported, not re-run; retry belongs to whoever owns the
+  pipeline.
+- **Fixed vocabulary.** The five ids are a closed union. A sixth stage is a change to the pipeline
+  contract, not a prop.
+- **No overall percentage.** Stages do not take equal time, so a percentage would be a guess
+  presented as a fact. The card counts settled stages instead.

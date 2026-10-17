@@ -1,0 +1,170 @@
+/*
+  AgentHeader (SPEC §4.2, §2.3, §2.5): one 44px line, flat (e0).
+
+  16px at the inline start, the thread's gutter, so the face stands on the same edge as
+  every record's glyph and the composer's first letter; 8px at the inline end, where the
+  32px buttons carry their own air. Face, 8px, name (Name type: 14/20 Latin, 15/22
+  Arabic, 600, Ink), then the two buttons 4px apart.
+
+  The Hairline under it appears only while the thread is scrolled beneath (SPEC §2.5). It
+  is drawn inside the header's last pixel row, an inset shadow, so it moves nothing; it
+  fades in over `state` (120ms), a colour-only change. `prefers-contrast: more` draws it
+  in Rule (SPEC §6.4); forced colours, where shadows are dropped, as a real border.
+*/
+
+.ck-agent-header {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  box-sizing: border-box;
+  block-size: var(--bldr-agent-header-height);
+  min-inline-size: 0;
+  margin: 0;
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-3xl) var(--bldr-space-md);
+  background-color: var(--bldr-panel);
+  box-shadow: inset 0 calc(-1 * var(--bldr-border-hairline)) 0 0 transparent;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  transition: box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-header[data-scrolled] {
+  box-shadow: inset 0 calc(-1 * var(--bldr-border-hairline)) 0 0 var(--bldr-panel-border);
+}
+
+/* In the phone sheet a 44px Close stands at the inline start, with its own air. */
+.ck-agent-header[data-sheet] {
+  padding-inline-start: var(--bldr-space-md);
+}
+
+.ck-agent-header__face {
+  display: inline-grid;
+  flex: none;
+  margin-inline-end: var(--bldr-space-xs);
+}
+
+/*
+  The name and, when AgentPanel passes one, the status line under it: 20 + 16 = 36px inside
+  the 44px header, so the header never grows. Each keeps its own line and truncates.
+*/
+.ck-agent-header__titles {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/* The name is short in both scripts; it never shares its line with the status. */
+.ck-agent-header__name {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-name);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-name);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Meta in Slate: a word or three, glanced at, never read aloud (not a live region). */
+.ck-agent-header__status {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-header__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+}
+
+/*
+  Background jobs (2026-10-12): a 6px dot at the button's block-start, inline-end corner while
+  answers wait to be applied (Ink) or a batch is still answering (Graphite). The button's hint
+  says which; the dot only draws the eye. Never Indigo: the header does not paint the accent.
+*/
+.ck-agent-header__jobs {
+  position: relative;
+  display: inline-flex;
+}
+
+.ck-agent-header__jobs[data-badge]::after {
+  position: absolute;
+  inset-block-start: var(--bldr-space-2xs);
+  inset-inline-end: var(--bldr-space-2xs);
+  inline-size: calc(var(--bldr-space-xs) + var(--bldr-space-2xs));
+  block-size: calc(var(--bldr-space-xs) + var(--bldr-space-2xs));
+  border: var(--bldr-border-hairline) solid var(--bldr-panel);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-muted);
+  content: '';
+  pointer-events: none;
+}
+
+.ck-agent-header__jobs[data-badge='ready']::after {
+  background-color: var(--bldr-panel-text);
+}
+
+/* A panel under 320px narrows the thread's gutter to 12px; the face follows it. */
+@container agent (inline-size < 320px) {
+  .ck-agent-header:not([data-sheet]) {
+    padding-inline-start: var(--bldr-space-xl);
+  }
+}
+
+/* 8px between touch targets (SPEC §2.3); IconButton grows each to 44px. */
+@media (pointer: coarse) {
+  .ck-agent-header,
+  .ck-agent-header__actions {
+    gap: var(--bldr-space-md);
+  }
+
+  .ck-agent-header__face {
+    margin-inline-end: var(--bldr-space-0);
+  }
+}
+
+/*
+  The phone sheet is a touch surface whatever the pointer reports (SPEC §3.16: "all 44px"),
+  so its header takes the coarse geometry itself: 44px targets, 8px apart. IconButton's
+  own rule reaches (0,4,0); scoped under the sheet header, this one out-ranks it.
+*/
+.ck-agent-header[data-sheet],
+.ck-agent-header[data-sheet] .ck-agent-header__actions {
+  gap: var(--bldr-space-md);
+}
+
+.ck-agent-header[data-sheet] .ck-agent-header__face {
+  margin-inline-end: var(--bldr-space-0);
+}
+
+.ck-agent-header[data-sheet]
+  .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-hit-target-min);
+}
+
+@media (prefers-contrast: more) {
+  .ck-agent-header[data-scrolled] {
+    box-shadow: inset 0 calc(-1 * var(--bldr-border-hairline)) 0 0 var(--bldr-panel-border-strong);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-header[data-scrolled] {
+    border-block-end: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-header__jobs[data-badge]::after {
+    background-color: Highlight;
+  }
+}

@@ -1,0 +1,96 @@
+/*
+  Cinematic motion and Animated background cards. Text cards (a name and one
+  line of what it does) in two readable columns; the scene swatches only
+  suggest the scene with chrome tokens and never animate — the real thing
+  plays on the canvas. Logical properties only, so RTL needs no rule of its own.
+*/
+.bldr-engine-motion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-engine-motion__group,
+.bldr-engine-motion__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.bldr-engine-motion__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-engine-motion__cards {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--bldr-hit-target-min) * 2.75), 1fr));
+}
+
+.bldr-engine-motion__card {
+  align-items: stretch;
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+  line-height: var(--bldr-line-height-snug);
+  min-inline-size: 0;
+  padding: var(--bldr-space-xs);
+  text-align: start;
+}
+
+.bldr-engine-motion__card[aria-pressed='true'] {
+  border-color: var(--bldr-accent);
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-engine-motion__card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-engine-motion__card:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-engine-motion__name {
+  color: inherit;
+  font-weight: var(--bldr-font-weight-medium);
+  /* Whole words only: a name wraps between words, never per letter (Arabic stays joined). */
+  overflow-wrap: normal;
+}
+
+.bldr-engine-motion__description {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-engine-motion__swatch {
+  aspect-ratio: 16 / 9;
+  background: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-xs);
+  inline-size: 100%;
+}
+
+.bldr-engine-motion__card[data-value='particles'] .bldr-engine-motion__swatch {
+  background-image: radial-gradient(var(--bldr-accent) var(--bldr-border-hairline), transparent 0);
+  background-size: var(--bldr-space-sm) var(--bldr-space-sm);
+}
+
+.bldr-engine-motion__card[data-value='mesh-gradient'] .bldr-engine-motion__swatch {
+  background:
+    radial-gradient(circle at 20% 30%, var(--bldr-accent-soft), transparent 60%),
+    radial-gradient(circle at 80% 70%, var(--bldr-success-soft), transparent 60%),
+    var(--bldr-surface-raised);
+}

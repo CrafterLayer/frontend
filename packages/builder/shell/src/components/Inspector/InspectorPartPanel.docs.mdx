@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as InspectorPartPanelStories from './InspectorPartPanel.stories';
+
+<Meta of={InspectorPartPanelStories} />
+
+# InspectorPartPanel
+
+The Inspector's panel for ONE part of a registered block (block-parts DESIGN §2.13): what a person
+clicked on the canvas — the hero's heading, a feature card's title, the CTA link — edited on its
+own, the way GrapesJS edits a component. `Inspector` renders it whenever the kernel's ephemeral
+`partFocus` names a declared part of the selected block; the header then reads
+`<part label> · <block name>` (localized) and its back button, **Back to block**, calls
+`kernel.clearPartFocus()` so the block stays selected.
+
+<Canvas of={InspectorPartPanelStories.InTheInspector} />
+
+## Content
+
+The part's bound rows, rendered through the Inspector's own `InspectorRowBody`, so each kind gets
+its editor (never raw JSON):
+
+| Part kind | Rows |
+| --- | --- |
+| `text` | the bound string (a textarea when the part is `multiline`) |
+| `rich` | the rich-text editor |
+| `link` | one link field over `{ label, href }`, or a text row plus an address row when the two live apart |
+| `image` | the image address (asset picker from the Inspector's `assetLibrary`, URL entry without it) and the alt text |
+| `item` | the item's whole group |
+| `list` | the list's repeater |
+| `box` | none: a box is styled, not written |
+
+On the base bucket every write goes through the part planners (`planPartValue` for a text, href,
+src or alt; one immutable path set for an item, a link object or a list) and is ONE labelled
+`dispatchGroup` — "Edit text · Hero heading" — so one Undo puts it back. Under a device bucket a
+top-level row writes its responsive override through the row's own door, exactly as the block panel
+does.
+
+<Canvas of={InspectorPartPanelStories.LinkPart} />
+
+<Canvas of={InspectorPartPanelStories.ImagePart} />
+
+<Canvas of={InspectorPartPanelStories.ItemPart} />
+
+## Design
+
+- The style manager over `partSource(kernel, nodeId, ref, scope)` in **tokens** mode: the part keeps
+  the tokens law of the block's own classes, and every write lands in the block's `partStyles` prop.
+- **Apply to** (repeated parts only): *All items* writes `item.title`, *This item* writes
+  `item.title@2`; a this-item class wins over an all-items class.
+- **Text direction**: Auto / LTR / RTL through `planPartDir`. Auto clears the override, so the part
+  follows its own text again (an English line on an Arabic page keeps its full stop at the end).
+- A host request (`InspectorFocusRequest`, the quick bar's "Style") opens Design at its sector.
+
+<Canvas of={InspectorPartPanelStories.DirectionControl} />
+
+## Arabic
+
+Every string has an Arabic twin (`INSPECTOR_PART_LABELS_AR`), part names come from the declaration's
+`label.ar`, and the tabs follow the editor's direction.
+
+<Canvas of={InspectorPartPanelStories.Arabic} />
+
+## API
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `kernel` / `nodeId` / `part` | `BuilderKernel` / `NodeId` / `PartRef` | the block and its part |
+| `palette` / `onRetheme` | theme | colour rows and swatches |
+| `device` / `onBucketChange` / `freeWidth` | bucket | the DeviceBar's bucket |
+| `locale` / `labels` | `'en' \| 'ar'` / `InspectorPartLabels` | the editor's language |
+| `frameDocument` | `Document` | reads the part's tag so rows that cannot apply drop out |
+| `request` / `onRequestHandled` / `onStyleContextChange` | focus request | as the element panel |

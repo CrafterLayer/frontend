@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ConversationMenuStories from './ConversationMenu.stories';
+
+<Meta of={ConversationMenuStories} />
+
+# ConversationMenu
+
+Which chat you are in, how many there are, and a menu to move between them. It appears in the
+assistant's header only once a second conversation exists — a picker with one option is a label
+wearing a chevron.
+
+<Canvas of={ConversationMenuStories.Default} />
+
+## It owns everything about being a menu
+
+Open state, dismissal, where focus enters and where it returns, and the arrow keys live here. None
+of that is the panel's business, and while it lived up there the panel carried two refs, an id, a
+`useState`, a document-level effect and a keyboard handler for a control it does not otherwise think
+about.
+
+<Canvas of={ConversationMenuStories.ManyConversations} />
+
+## Arrow keys, because `role="menu"` promises them
+
+The items are native buttons, so Tab already reaches each one. But a menu that answers Tab and
+ignores <kbd>ArrowDown</kbd> is a menu only in the accessibility tree, and a screen-reader user who
+is told "menu" reaches for the arrows first. <kbd>Home</kbd> and <kbd>End</kbd> are part of the same
+promise, and the arrows wrap.
+
+## Focus enters where you already are
+
+Opening moves focus to the item that is `aria-checked` — the chat you are in — so the arrows start
+from the reader's own position rather than the top of a list they did not choose.
+
+<kbd>Escape</kbd> closes and returns focus to the trigger. A menu that closes into nowhere strands a
+keyboard user on the document body with no way back to what they just left. A press anywhere outside
+dismisses it too, the way every popup a person has used does.
+
+## Empty is a word, not a number
+
+A conversation with no turns reads "Empty". "0 messages" is the same fact told in a way that makes a
+person do arithmetic to learn nothing.

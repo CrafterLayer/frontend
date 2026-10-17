@@ -1,0 +1,111 @@
+/*
+  RecordButton (SPEC §4.6 footer, §2.1 rule 3, §2.4 control radius, §6.4 targets).
+
+  Drawn over the shell's ChromeButton. ChromeButton's quiet hover paints Indigo text, which
+  the panel never does, and its sizes are 28 and 36 where the panel's control is 32. Every
+  state is restated here from five simple selectors, (0,5,0) with `:enabled:hover` on top, so
+  each out-ranks ChromeButton's matching state, (0,4,0) at most, whichever stylesheet the
+  bundler emits first.
+*/
+
+.ck-agent-button[data-ck-tone][data-bldr-chrome-button][data-variant][data-size] {
+  gap: var(--bldr-space-xs);
+  block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-sm);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Primary: the Indigo fill, On-accent words (5.37:1) ───────────────────── */
+
+.ck-agent-button[data-ck-tone='primary'][data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-accent);
+  background-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-button[data-ck-tone='primary'][data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-button[data-ck-tone='primary'][data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  border-color: var(--bldr-accent-strong);
+  background-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-text);
+}
+
+/* ── Secondary: Sheet, a Rule border (3.39:1), Ink words ──────────────────── */
+
+.ck-agent-button[data-ck-tone='secondary'][data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+}
+
+/* ── Text: Indigo words on the paper (5.19:1), no box until hovered ───────── */
+
+.ck-agent-button[data-ck-tone='text'][data-bldr-chrome-button][data-variant][data-size] {
+  padding-inline: var(--bldr-space-md);
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--bldr-accent);
+}
+
+/* Hover lays the Wash under the words and changes no colour (SPEC §2.1 rule 3). */
+.ck-agent-button[data-ck-tone='secondary'][data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-button[data-ck-tone='text'][data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-accent);
+}
+
+.ck-agent-button[data-ck-tone='secondary'][data-bldr-chrome-button][data-variant][data-size]:enabled:active,
+.ck-agent-button[data-ck-tone='text'][data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/*
+  Unavailable (`aria-disabled`): still focusable and described, answering neither hover nor
+  press. Slate on Paper is 4.54:1.
+*/
+.ck-agent-button[aria-disabled='true'][data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-button[aria-disabled='true'][data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-button[aria-disabled='true'][data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  border-color: var(--bldr-panel-border);
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+.ck-agent-button[data-ck-tone][data-bldr-chrome-button][data-variant][data-size]:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  A text button that opens a footer, or stands alone under a caption, hangs its 8px of
+  padding into the gutter, so its words start on the record's text edge, 24px in.
+*/
+.ck-agent-record__actions > .ck-agent-button[data-ck-tone='text']:first-child,
+.ck-agent-button[data-ck-tone='text'][data-ck-align='text'] {
+  margin-inline-start: calc(-1 * var(--bldr-space-md));
+}
+
+/* A finger needs 44px (SPEC §6.4). */
+@media (pointer: coarse) {
+  .ck-agent-button[data-ck-tone][data-bldr-chrome-button][data-variant][data-size] {
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* High contrast drops fills: a text button keeps a visible edge while hovered. */
+@media (forced-colors: active) {
+  .ck-agent-button[data-ck-tone='text'][data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+    border-color: ButtonText;
+  }
+}

@@ -1,0 +1,55 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantThreadStories from './AssistantThread.stories';
+
+<Meta of={AssistantThreadStories} />
+
+# AssistantThread
+
+The conversation itself: every turn, in order, each rendered as the kind of thing it is.
+
+<Canvas of={AssistantThreadStories.Thinking} />
+
+## It dispatches; it does not decide
+
+Every card below owns its own rules — when Apply is withdrawn, when Undo is a write, when Retry
+would re-send nothing. This component's whole job is to hand each turn to the card that knows what
+to do with it: [PlanCard](?path=/docs/playground-plancard--docs),
+[OutcomeCard](?path=/docs/playground-outcomecard--docs),
+[BuildReportCard](?path=/docs/playground-buildreportcard--docs),
+[BuildSectionList](?path=/docs/playground-buildsectionlist--docs),
+[BuildApprovalCard](?path=/docs/playground-buildapprovalcard--docs),
+[OutlineCard](?path=/docs/playground-outlinecard--docs) and
+[LiveStageClock](?path=/docs/playground-livestageclock--docs).
+
+That is why the props list is wide and shallow: it is a switchboard, and every wire is visible.
+
+## A log, not an announcer
+
+`role="log"` and no `aria-live` of its own. A thread is content appended over time, which a screen
+reader should be able to review at its own pace. The panel keeps exactly one live region — the
+agent's voice in the header — so a person is never told the same thing twice.
+
+## The empty state is an invitation
+
+<Canvas of={AssistantThreadStories.Empty} />
+
+One sentence saying what to ask for, and his face waiting for it. It disappears the moment there is
+a conversation, and it is the only place in the thread that speaks before being spoken to.
+
+## Moods: live above, frozen below
+
+<Canvas of={AssistantThreadStories.Stopped} />
+
+An in-flight bubble — `thinking` or `building` — mirrors the header's live mood. Every settled
+bubble is frozen at the mood it earned, from `moodForTurn`. A finished answer that kept changing
+expression would be re-litigating a decision already made.
+
+Every avatar is `aria-hidden`: the mood is decoration, and the card beneath it carries the words.
+
+<Canvas of={AssistantThreadStories.Outline} />
+
+## What a person wrote keeps its own direction
+
+Their text is rendered `dir="auto"`, exactly like the provider's. The chrome around it is the only
+part with an opinion about direction.

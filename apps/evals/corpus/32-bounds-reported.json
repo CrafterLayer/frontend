@@ -1,0 +1,25 @@
+{
+  "id": "32-bounds-reported",
+  "title": "An impossible size is reported, not truncated",
+  "category": "bounds",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Build me a forty-section page covering every service we offer, one section each.",
+  "must": {
+    "outcome": "any",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 64
+  },
+  "budget": {
+    "maxCommands": 64,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Does it say the request exceeds what one page can hold, rather than silently building a fraction of it?",
+  "why": "FR-025 says a request beyond the limits is REPORTED, never silently truncated. Without a case that exceeds the ceiling, the difference between 'refused with a reason' and 'quietly did twelve' was invisible to the harness."
+}

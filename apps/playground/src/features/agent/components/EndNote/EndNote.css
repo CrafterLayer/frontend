@@ -1,0 +1,23 @@
+/*
+  EndNote (SPEC §4.10). A record's head alone, restated as one quiet line: Read in Slate,
+  regular weight (4.54:1 on Paper), where a record's title is Ink at 600. The line wraps
+  rather than clipping a sentence, so the head aligns to its first line: the glyph centred on
+  the first 32px, the words centred in it too, the rest following at the same edge.
+*/
+
+.ck-agent-end .ck-agent-record__head {
+  align-items: start;
+}
+
+.ck-agent-end .ck-agent-record__head > .ck-agent-glyph {
+  margin-block-start: calc((var(--bldr-control-md) - var(--bldr-space-3xl)) / 2);
+}
+
+.ck-agent-end .ck-agent-record__title {
+  overflow: visible;
+  padding-block: calc((var(--bldr-control-md) - var(--bldr-line-height-read)) / 2);
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
+  text-wrap: pretty;
+  white-space: normal;
+}

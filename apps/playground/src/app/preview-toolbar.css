@@ -1,0 +1,76 @@
+/*
+  Preview's tools: they ride in PreviewMode's bar above the page (with Exit preview at its
+  end), so nothing overlays the preview frame and the row's surface is the bar's. Chrome
+  tokens only (light and dark follow the theme); logical properties only (it mirrors in
+  the Arabic editor).
+*/
+.pg-preview-toolbar {
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex: 1 1 auto;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.pg-preview-toolbar__note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-preview-toolbar:lang(ar) {
+  font-family: var(--bldr-font-arabic);
+}
+
+.pg-preview-chip {
+  align-items: center;
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-height);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-xl);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-preview-chip:hover {
+  border-color: var(--bldr-accent-ring);
+}
+
+.pg-preview-chip[aria-pressed='true'] {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+}
+
+.pg-preview-chip:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-preview-chip__icon {
+  block-size: var(--bldr-space-xl);
+  flex: 0 0 auto;
+  inline-size: var(--bldr-space-xl);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-preview-chip {
+    transition: none;
+  }
+}

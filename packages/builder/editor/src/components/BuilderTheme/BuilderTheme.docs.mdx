@@ -1,0 +1,87 @@
+import { Meta, Story, Canvas } from '@storybook/addon-docs/blocks';
+
+import * as BuilderThemeStories from './BuilderTheme.stories';
+
+<Meta of={BuilderThemeStories} />
+
+# BuilderTheme
+
+The chrome root. It is where the builder's **interface** gets its theme, and the one place a host
+re-points a token.
+
+## Why it is not `Builder`
+
+Two theming systems live side by side and must never be confused:
+
+- **Chrome** — the editor around the page. Owned by `@craftkit/builder-theme` as `--bldr-*` tokens.
+- **Content** — the page being edited. Owned by `@craftkit/builder-renderer` and passed to
+  `Builder`.
+
+An author editing a dark website must not be forced into a dark editor, and a dark editor must never
+repaint their light page. `BuilderTheme` wraps the editor; `Builder` renders the page inside it.
+
+## Usage
+
+```tsx
+import { Builder, BuilderTheme } from '@craftkit/builder';
+
+<BuilderTheme>
+  <Builder kernel={kernel} />
+</BuilderTheme>;
+```
+
+## API
+
+| Prop        | Type                         | Default  | Notes                                                                            |
+| ----------- | ---------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `children`  | `ReactNode`                  | —        | The editor chrome.                                                               |
+| `theme`     | `'light' \| 'dark'`          | _absent_ | **Omit to follow the operating system.** Absent is a state, not a missing value. |
+| `density`   | `'comfortable' \| 'compact'` | _absent_ | Independent of colour.                                                           |
+| `overrides` | `ChromeThemeOverride`        | _absent_ | Name only what changes.                                                          |
+| `className` | `string`                     | —        | Merged after `bldr-root`, never instead of it.                                   |
+
+## Variants
+
+<Canvas of={BuilderThemeStories.FollowsTheSystem} />
+
+Passing nothing is the common case and the correct default. Stamping `light` by default would
+override a viewer's dark preference — which is why `theme` is absent rather than defaulted.
+
+<Canvas of={BuilderThemeStories.Light} />
+<Canvas of={BuilderThemeStories.Dark} />
+
+The dark theme is not an inversion. The accent lightens (a 600 violet drops to about 3:1 on a
+near-black ground and fails for text), hover and active tints become light rather than dark, and
+borders carry more of the elevation because shadow reads poorly on a dark surface.
+
+<Canvas of={BuilderThemeStories.Compact} />
+
+Density moves the shell's bands — rail, panel, inspector, control heights — and no colours. It gives
+a small screen more canvas rather than a smaller copy of everything, which is what zooming out would
+give.
+
+<Canvas of={BuilderThemeStories.Rebranded} />
+
+A re-brand is four lines. Everything unnamed keeps cascading from the stylesheet.
+
+## Accessibility
+
+- The stylesheet attaches **one focus ring** to `.bldr-root :focus-visible` for the whole product. A
+  component may re-colour it through `--bldr-focus-ring`; none may remove it.
+- `prefers-reduced-motion: reduce` is honoured inside the root.
+- Contrast is checked rather than assumed, and the ramps carry the results: `--bldr-panel-muted`
+  sits at 4.8:1 on the light surface and is documented as the floor — captions only, never body
+  text.
+
+## RTL and responsive
+
+The component sets no direction and no width. Direction belongs to the document and to the host's
+own `dir`; the shell's widths come from the density tokens, so a narrow viewport is answered by
+`density="compact"` rather than by this component.
+
+## Why custom properties, not a class per theme
+
+Overrides are set as inline custom properties on this element so they **cascade**. Floating chrome —
+the text bubble, the block action bar — is portalled into the host document, outside this element's
+DOM subtree in React terms but inside it in CSS terms. A class-based theme would miss exactly that
+chrome; a cascading custom property reaches it.

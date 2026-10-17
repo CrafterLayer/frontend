@@ -1,0 +1,1 @@
+export { personalBrandTemplate } from './template';

@@ -1,0 +1,55 @@
+/*
+  PagePlanCard (SPEC §4.11, frame §3.7). The card's box, head, sections and footer are
+  DecisionCard's; this file only says what is particular to a plan.
+
+  The page plan has no head node: its nodes are its sections', threaded on the pencil. So
+  its title starts on the card's content edge, and so does every row's node: node, number
+  and title sit where the build's spine will put them once the box has dissolved (SPEC §5
+  moment 4, "the same list becomes the build, in place").
+*/
+
+.ck-agent-plan__direction {
+  row-gap: var(--bldr-space-xs);
+}
+
+/* The list, then "Add section" directly under its last row. */
+.ck-agent-plan__sections {
+  row-gap: 0;
+}
+
+/* Every reason Build waits for, one Amber line each. */
+.ck-agent-plan__reasons {
+  display: grid;
+  grid-column: 1 / -1;
+  row-gap: var(--bldr-space-2xs);
+}
+
+/* SPEC §7.6 E0c: the honesty line, Meta in Graphite like ProposalCard's. */
+.ck-agent-plan__prepared {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* ── Plan becomes build (SPEC §5 moment 4) ─────────────────────────────────── */
+
+/*
+  The rows and the head are named (`ck-plan-row-{key}`, `ck-plan-head`) so the browser can
+  hold them still across the swap to the build record while the card's border and fill fade
+  under them. They share a class, so one rule times every row's glide: the 12px the card's
+  padding gives back, over `enter`, decelerating. The box itself (the root snapshot) leaves
+  over `exit`. Under reduced motion the controller swaps without a transition at all.
+*/
+.ck-agent-plan .ck-agent-plan-row {
+  view-transition-class: ck-plan-row;
+}
+
+::view-transition-group(*.ck-plan-row),
+::view-transition-group(ck-plan-head) {
+  animation-duration: var(--bldr-duration-enter);
+  animation-timing-function: var(--bldr-easing-enter);
+}
+
+::view-transition-old(*.ck-plan-row),
+::view-transition-old(ck-plan-head) {
+  animation-duration: var(--bldr-duration-exit);
+  animation-timing-function: var(--bldr-easing-exit);
+}

@@ -1,0 +1,97 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ChangeLinesStories from './ChangeLines.stories';
+
+<Meta of={ChangeLinesStories} />
+
+# ChangeLines
+
+What an edit changed (SPEC §4.9), as `label  before → after` lines: at most three, then "Show all
+changes (n)". An addition reads `+ «value»`, a removal `− «value»`, and a block whose look changed
+or that moved reads `«value»  New look` / `«value»  Moved`.
+
+<Canvas of={ChangeLinesStories.More} />
+
+## Purpose
+
+After an edit the person wants to know what moved, in their page's terms: "Background light → deep
+navy", not `setProp(hero.style.bg)`. The lines come from `impactLines()` in schema labels and the
+page's own words; no command name reaches them.
+
+## When to use / not
+
+Use it in a finished EditRecord and in a ProposalCard, under the title. Use the default limit of
+three; the proposal card may pass more.
+
+Do not use it for build results (the spine says what landed), and do not feed it command names or
+node ids.
+
+## Props
+
+| prop        | type                        | default | notes                                              |
+| ----------- | --------------------------- | ------- | -------------------------------------------------- |
+| `locale`    | `Locale`                    | none    | quotes and copy                                    |
+| `changes`   | `readonly ChangeLineView[]` | none    | `changed`, `added`, `removed`, `restyled`, `moved` |
+| `limit`     | `number`                    | `3`     | lines shown before "Show all"                      |
+| `className` | `string`                    | none    | appended to `ck-agent-changes`                     |
+
+## States
+
+| story                                   | what it shows                                              |
+| --------------------------------------- | ---------------------------------------------------------- |
+| `Few`                                   | two changes, no "Show all"                                 |
+| `EveryKind`, `EveryKindRightToLeftDark` | one line of each of the five kinds (RTL at 420, dark)      |
+| `More`                                  | five: three lines, then "Show all changes (5)"             |
+| `Revealed`                              | all five, grown in over 220ms; focus on the first revealed |
+| `Dark`                                  | dark                                                       |
+| `RightToLeft`, `RightToLeftDark`        | Arabic: «» quotes, the arrow points left                   |
+| `Width420`, `Width420RightToLeft`       | the panel at 420: a 96px label column, values on one edge  |
+
+## Anatomy
+
+A `role="list"` of lines. Each line draws a label (`<bdi>`, Slate) and its values (Graphite): each
+value in the locale's quotes around a `<bdi>`, an `arrowEnd` glyph in Slate between before and
+after, or a `+` / `−` sign in a one-character tabular slot before an added or removed value. A
+`restyled` or `moved` line has no before and after: a class, a style or a position changed, so there
+are no words to set around an arrow. It names the block like an added line (`label` is its kind, the
+value its title), then says what happened in the catalog's word (`change.restyled`, `change.moved`)
+in Slate, the arrow's colour, because it is the line's verb, not a value on the page. Read type.
+
+Below a 400px panel the label and its values share a line and wrap together. From 400px (the `agent`
+container) the label takes a 96px column and every value starts on one edge.
+
+"Show all changes (n)" is a quiet text button in Meta, with a disclosure chevron hung into the
+gutter so the chevron's stroke, not the button's box, sits on the lines' edge (a story measures it
+within 1px in both directions).
+
+## Accessibility
+
+- Each line is drawn for the eye and spoken for the ear separately. The drawn line is `aria-hidden`,
+  and a visually hidden sentence from the catalog carries it: "Background: from “light” to “deep
+  navy”", instead of two quotes around "right arrow".
+- "Show all" is a disclosure (SPEC §6.2): `aria-expanded="false"` and `aria-controls` on the list.
+  It reveals the rest in place and moves focus to the first line it revealed (`tabindex="-1"`, a
+  named destination). With nothing left to show, the button goes rather than stay as a control that
+  does nothing. The catalog authors no "show fewer" (SPEC §4.9), so it opens one way.
+- The revealed lines join the same list, so a screen reader still hears one list of every change.
+- Labels in Slate on Paper are 4.54:1 and on the Sheet 4.69:1, never on Tint or Mist (SPEC §2.1 rule
+  2).
+
+## RTL
+
+Quotes follow the locale (SPEC §4.0): «» in Arabic, “” in English. Every label and value is a
+`<bdi>`, so a Latin value like «WhatsApp» keeps its order inside an Arabic line. The arrow mirrors:
+before → after reads right to left. The signs do not.
+
+## Motion
+
+The list grows from the three lines' height to its full height over `enter` (220ms, `easing-enter`),
+SPEC §5 moment 8, so the record's footer glides down instead of jumping. The Web Animations API
+drives it, with the timing read from the theme's tokens on the list: the revealed lines belong to
+the same `<ul>`, so there is no separate region for `grid-template-rows: 0fr → 1fr`. The list clips
+while it grows, so arriving lines never paint over the footer. The `Revealed` story reads the
+running animation in Chromium: 220ms, from the three lines' height, clip released at the end.
+
+Inside it, the revealed lines arrive in order: opacity and a 4px rise over 220ms, 24ms apart, at
+most eight staggered (SPEC §5 moment 6). Under reduced motion the list opens at once and the lines
+appear without motion.

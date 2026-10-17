@@ -1,0 +1,110 @@
+/*
+  Value provenance. Chrome tokens only, logical properties only. The dot is
+  small on purpose; the button around it is not, so it is still a target.
+*/
+.bldr-value-source-dot {
+  align-items: center;
+  background: none;
+  block-size: var(--bldr-control-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  justify-content: center;
+  padding: 0;
+}
+
+.bldr-value-source-dot:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-value-source-dot__mark {
+  block-size: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-full);
+  inline-size: var(--bldr-space-sm);
+}
+
+.bldr-value-source-dot[data-origin='here'] .bldr-value-source-dot__mark {
+  background: var(--bldr-accent);
+  border-color: var(--bldr-accent);
+}
+
+.bldr-value-source-dot[data-origin='larger-bucket'] .bldr-value-source-dot__mark {
+  background: var(--bldr-warning);
+  border-color: var(--bldr-warning);
+}
+
+.bldr-value-source-dot[data-origin='default-state'] .bldr-value-source-dot__mark {
+  background: var(--bldr-panel-muted);
+  border-color: var(--bldr-panel-muted);
+}
+
+.bldr-value-source-dot[data-origin='named-style'] .bldr-value-source-dot__mark {
+  background: var(--bldr-success);
+  border-color: var(--bldr-success);
+}
+
+.bldr-value-source-dot[data-custom-breakpoint] .bldr-value-source-dot__mark {
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-warning);
+}
+
+.bldr-value-source-dot__card {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-xs);
+  max-inline-size: var(--bldr-measure-picker);
+  padding: var(--bldr-space-md);
+  z-index: 40;
+}
+
+.bldr-value-source-dot__origin,
+.bldr-value-source-dot__class,
+.bldr-value-source-dot__note {
+  margin: 0;
+}
+
+.bldr-value-source-dot__class {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-value-source-dot__class code {
+  font-family: var(--bldr-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.bldr-value-source-dot__class-heading,
+.bldr-value-source-dot__note {
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-value-source-dot__reset {
+  align-self: flex-start;
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-value-source-dot__reset:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.bldr-value-source-dot__reset:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}

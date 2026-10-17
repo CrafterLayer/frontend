@@ -1,0 +1,565 @@
+/*
+  The Inspector's shell: panel, head, tabs, sections, pairs, empty states.
+  Rows and field skins live in InspectorRow.css; the repeater in
+  RepeaterField/RepeaterField.css.
+
+  Tokens only (`0` is the one literal, and it is spelt as a token). Logical
+  properties only, so a right-to-left document mirrors by construction. Dark
+  chrome is the same rules under different token values — no branch here.
+*/
+
+.bldr-inspector {
+  background-color: var(--bldr-panel);
+  /* NO separator of its own and NO width of its own (Palette/LayersTree
+     precedent): the `.bldr-shell__aside` that places this panel draws the seam
+     and decides the column. A panel that sizes itself is right in exactly one
+     place; one that draws its own border paints two hairlines where the aside
+     already draws one. Stories supply the frame. */
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--bldr-font);
+  inline-size: 100%;
+  min-block-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+/* The head sticks against the aside (overflow hidden auto) while rows scroll;
+   paint only — it owns its own ground so rows never show through. */
+.bldr-inspector__head {
+  background-color: var(--bldr-panel);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: grid;
+  inset-block-start: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-panel-padding);
+  position: sticky;
+  row-gap: var(--bldr-space-sm);
+  z-index: 1;
+}
+
+/* A sticky header nested in the panel (the style panel's screen size, state
+   and search) parks UNDER the sticky head instead of sliding over its title;
+   InspectorHeader publishes its measured height. */
+.bldr-inspector .bldr-style-panel__header {
+  inset-block-start: var(--bldr-inspector-head-size, var(--bldr-space-0));
+}
+
+.bldr-inspector__title-row {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-sm);
+}
+
+/* "Inspector" is the EYEBROW (LayersTree's h2 idiom): what this panel is,
+   said quietly, so the block's name below can be the title. */
+.bldr-inspector__title {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-bold);
+  letter-spacing: normal;
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  text-transform: uppercase;
+}
+
+/* The ONLY rule that touches the Clear-selection ChromeButton: its seat at
+   the row's end. Its quiet/sm skin is its own and renders untouched. */
+.bldr-inspector__clear-selection {
+  margin-inline-start: auto;
+}
+
+.bldr-inspector__identity {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  min-inline-size: var(--bldr-space-0);
+}
+
+/* The block's display name — the same string as the canvas chip and the
+   layers tree — is the visible title. It wraps rather than elides (walk
+   2026-10-08: beside the MOBILE chip it read "Heading · H"). */
+.bldr-inspector__block-name {
+  align-items: center;
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex: 1 1 auto;
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  min-block-size: var(--bldr-control-height-sm);
+  min-inline-size: var(--bldr-space-0);
+  overflow-wrap: anywhere;
+}
+
+.bldr-inspector__block-name[data-empty='true'] {
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.bldr-inspector__bucket {
+  background-color: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  flex: none;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-md);
+  text-transform: uppercase;
+}
+
+.bldr-inspector__bucket-note {
+  background-color: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-lg);
+}
+
+/* Inside a composed region: the way back out sits before the element's name,
+   and the region it belongs to reads as a quiet second line. */
+.bldr-inspector__back {
+  flex: none;
+}
+
+/* ── block-parts (2026-10-06) ── "back" points toward the reading start: right in RTL. */
+.bldr-inspector__back:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+/* ── /block-parts ── */
+
+.bldr-inspector__within {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+}
+
+/* The strip: a segmented control on the panel's control ground (Palette.css
+   idiom). The selected tab lifts onto the panel colour with the raised shadow;
+   the rest sit muted until hovered. */
+.bldr-inspector__tabs {
+  background-color: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-auto-columns: minmax(var(--bldr-space-0), 1fr);
+  grid-auto-flow: column;
+  margin-block-start: var(--bldr-space-xs);
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-inspector__tab {
+  appearance: none;
+  background-color: transparent;
+  border: var(--bldr-space-0);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-snug);
+  /* Density-aware: the compact scale shrinks every tab with every other control. */
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__tab:hover {
+  color: var(--bldr-panel-text);
+}
+
+.bldr-inspector__tab[aria-selected='true'] {
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+/* The body owns the padding below the head; it grows to fill the column so
+   the panel ground covers the aside end to end. */
+.bldr-inspector__body {
+  flex: 1 1 auto;
+  min-block-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-panel-padding);
+}
+
+.bldr-inspector__tabpanel[hidden] {
+  display: none;
+}
+
+.bldr-inspector__sections {
+  display: grid;
+}
+
+/* Sections are separated by ONE hairline between neighbours — never under the
+   last, never per row. Rows breathe through the grid gap below instead. */
+.bldr-inspector__section + .bldr-inspector__section {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.bldr-inspector__section-heading {
+  margin: var(--bldr-space-0);
+}
+
+.bldr-inspector__section-toggle {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  border: var(--bldr-space-0);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-tight);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-0);
+  text-align: start;
+  text-transform: uppercase;
+  transition: color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__section-toggle:hover {
+  color: var(--bldr-accent);
+}
+
+.bldr-inspector__section-toggle[aria-expanded='true'] {
+  color: var(--bldr-panel-text-soft);
+}
+
+/* An element's sections never fold: a static heading in the toggle's clothes. */
+.bldr-inspector__section-title {
+  align-items: center;
+  color: var(--bldr-panel-text-soft);
+  display: flex;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-block: var(--bldr-space-sm);
+  text-transform: uppercase;
+}
+
+/* ONE chevron glyph, pointing down when expanded; collapsed turns it round.
+   A rotation is direction-agnostic, so it reads the same under rtl. */
+.bldr-inspector__chevron {
+  block-size: var(--bldr-space-xl);
+  display: inline-grid;
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  place-items: center;
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-inspector__chevron svg {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.bldr-inspector__chevron[data-collapsed='true'] {
+  transform: rotate(180deg);
+}
+
+.bldr-inspector__section-region {
+  padding-block: var(--bldr-space-0) var(--bldr-space-xl);
+}
+
+.bldr-inspector__section-region[hidden] {
+  display: none;
+}
+
+.bldr-inspector__rows {
+  display: grid;
+  row-gap: var(--bldr-space-lg);
+}
+
+/* A declared pair: one heading, two cells side by side, each cell's caption
+   quieter than a full row's label because the legend already named the pair. */
+.bldr-inspector__property-pair {
+  border: var(--bldr-space-0);
+  display: grid;
+  gap: var(--bldr-space-xs);
+  margin: var(--bldr-space-0);
+  min-inline-size: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-inspector__property-pair-label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-snug);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-inspector__property-pair-values {
+  column-gap: var(--bldr-space-md);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(var(--bldr-space-0), 1fr));
+  row-gap: var(--bldr-space-sm);
+}
+
+.bldr-inspector__property-pair .bldr-inspector__label {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+/* Nothing selected: an invitation, not an error — dashed, centred, with the
+   pointer mark in a soft accent disc. */
+.bldr-inspector__invitation {
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: grid;
+  gap: var(--bldr-space-md);
+  justify-items: center;
+  padding-block: var(--bldr-space-6xl);
+  padding-inline: var(--bldr-space-xl);
+  text-align: center;
+}
+
+.bldr-inspector__invitation-icon {
+  align-items: center;
+  background-color: var(--bldr-accent-soft);
+  block-size: var(--bldr-space-6xl);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  display: inline-flex;
+  inline-size: var(--bldr-space-6xl);
+  justify-content: center;
+}
+
+.bldr-inspector__invitation-icon svg {
+  block-size: var(--bldr-space-3xl);
+  fill: var(--bldr-accent-soft);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-inspector__empty {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+/* An unregistered type is NOT "nothing to edit": it says what happened, in
+   the warning tone, with the same thick leading edge a rejection carries. */
+.bldr-inspector__empty[data-tone='warning'] {
+  background-color: var(--bldr-warning-soft);
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-warning-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-warning);
+  font-size: var(--bldr-font-size-caption);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-inspector__tab,
+  .bldr-inspector__section-toggle,
+  .bldr-inspector__chevron {
+    transition: none;
+  }
+}
+
+/* ── P6-style-panel additions (style-manager DESIGN.md §A.5) ─────────────── */
+
+.bldr-inspector__element-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__element-tablist {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-sm);
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+}
+
+.bldr-inspector__element-tab {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  /* Sized by its label: "Interactions" takes the room it needs and the short
+     tabs give way, so no label is elided at the panel's usual width. */
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-inline: var(--bldr-space-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-inspector__element-tab[data-state='active'] {
+  background: var(--bldr-surface-raised);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-inspector__element-tab:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-inspector__element-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__element-panel:focus-visible {
+  outline: none;
+}
+
+/* The "Block presets" lead over a registered block's own options (Design tab). */
+.bldr-inspector__presets-lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  padding-block-start: var(--bldr-space-xs);
+}
+
+.bldr-inspector__element-note {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  padding: var(--bldr-space-xs);
+}
+
+.bldr-inspector__advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+}
+
+.bldr-inspector__advanced-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+/* A part's own control row (Text direction): its label above the control, never run into it. */
+.bldr-inspector__part-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-inspector__advanced-label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-inspector__advanced-select,
+.bldr-inspector__convert-button {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-inspector__convert-button {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+  cursor: pointer;
+}
+
+.bldr-inspector__advanced-select:focus-visible,
+.bldr-inspector__convert-button:focus-visible,
+.bldr-inspector__named-style-remove:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-inspector__convert-button:disabled {
+  background: var(--bldr-input-bg);
+  border-color: var(--bldr-panel-border);
+  color: var(--bldr-panel-text-soft);
+  cursor: not-allowed;
+}
+
+.bldr-inspector__convert-refusal {
+  background: var(--bldr-danger-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: var(--bldr-space-xs) var(--bldr-space-sm);
+}
+
+.bldr-inspector__convert {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  margin-block-end: var(--bldr-space-sm);
+}
+
+.bldr-inspector__named-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-inspector__named-style {
+  align-items: center;
+  background: var(--bldr-success-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-success-border);
+  border-radius: var(--bldr-radius-full);
+  display: inline-flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
+}
+
+.bldr-inspector__named-style-remove {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+}
+
+/* ── end P6-style-panel additions ── */

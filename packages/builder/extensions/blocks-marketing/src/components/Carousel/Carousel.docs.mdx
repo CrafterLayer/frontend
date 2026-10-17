@@ -1,0 +1,83 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CarouselStories from './Carousel.stories';
+
+<Meta of={CarouselStories} />
+
+# Carousel
+
+A production-oriented content slider for product stories, destinations, campaigns, and featured
+work. Every slide is always in the DOM, inside one scroll-snap track; a live (React) render shows
+the active slide and hides the others, instead of moving a hidden strip with literal transforms.
+
+## Published pages (no hydration)
+
+The static export renders with `renderToStaticMarkup` and never hydrates, so React state cannot run
+there. The static render therefore hands the block to the site behaviour runtime: the track and the
+previous/next buttons sit inside an element carrying `data-ck-behavior="carousel"`, with
+`data-ck-indicator="dots"` (or `none` when indicators are off) and, when autoplay is on,
+`data-ck-autoplay="true"` and `data-ck-speed` set from `autoplayInterval`. The `carousel` behaviour
+pack (`packages/builder/renderer/src/behaviors/packs/carousel.ts`) derives the buttons, builds the
+dots and the pause/play toggle, and scrolls the track — in the published page exactly as in the
+canvas. The React-only controls (direct indicators, play, the counter and the live status) are not
+part of the static markup.
+
+## Content contract
+
+- `heading`, optional `eyebrow` and `body` introduce the section.
+- Up to ten slides provide a title, optional label/body, optional safe image, and optional safe CTA.
+- `variant` supports `card`, `split`, and immersive `media` presentation.
+- `mediaPosition` and `mediaAspect` shape responsive media without changing content.
+
+## Controls and autoplay
+
+Previous/next buttons, direct indicators, Home/End, and direction-aware arrow keys are supported.
+Indicator buttons retain a minimum 24-by-24-pixel target around their compact visual dot. Autoplay
+is **off by default**. When enabled, keyboard focus always pauses it; pointer hover also pauses it
+when `pauseOnInteraction` is enabled. The carousel exposes a pause/resume control and does not start
+under `prefers-reduced-motion` unless the visitor explicitly presses Play. Intervals are named
+design intents rather than values stored in the document.
+
+## Accessibility
+
+The labelled section declares the carousel role description. The active slide is a named group,
+controls reference it with `aria-controls`, the current indicator uses `aria-current`, and a polite
+status announces manual changes without announcing every autoplay tick. Slides and indicators are
+named by their position followed by the slide title through `aria-labelledby`, never a copy of it;
+the status is a page-only element, so the canvas keeps one home per title.
+
+## Safety, theming, and RTL
+
+CTA destinations allow relative paths, fragments, HTTP(S), mail, or telephone links. Media allows
+only relative and HTTP(S) sources; executable, protocol-relative, and slash-backslash URLs are
+rejected by the schema. CTA anchors remain semantic but cannot navigate while the block is on the
+builder canvas. A split slide collapses to one copy column when no media is present. All visuals use
+token-backed utilities, logical alignment, and container queries. Arrow semantics and keyboard
+direction adapt to RTL, while the numeric progress remains isolated in its natural `current / total`
+order.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`item.title` for every instance, `item.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name          | kind  | bind                                                        | label (en / ar)                     |
+| ------------- | ----- | ----------------------------------------------------------- | ----------------------------------- |
+| `eyebrow`     | text  | `eyebrow`                                                   | Eyebrow / الشارة                    |
+| `heading`     | text  | `heading`                                                   | Heading / العنوان                   |
+| `body`        | text  | `body`                                                      | Body / الوصف (multiline)            |
+| `items`       | list  | `items`                                                     | Slides / الشرائح                    |
+| `item`        | item  | `items.*`                                                   | Slide / الشريحة                     |
+| `item.image`  | image | `{ src: items.*.imageSrc, alt: items.*.imageAlt }`          | Slide image / صورة الشريحة          |
+| `item.label`  | text  | `items.*.label`                                             | Slide label / وسم الشريحة           |
+| `item.title`  | text  | `items.*.title`                                             | Slide title / عنوان الشريحة         |
+| `item.body`   | text  | `items.*.body`                                              | Slide text / نص الشريحة (multiline) |
+| `item.action` | link  | `{ text: items.*.action.label, href: items.*.action.href }` | Slide button / زر الشريحة           |
+| `pauseLabel`  | text  | `pauseLabel`                                                | Pause button / زر الإيقاف           |
+| `playLabel`   | text  | `playLabel`                                                 | Play button / زر التشغيل            |
+
+The autoplay button renders both labels and hides the inactive one, so each is reachable on the
+canvas. The control, indicator and region labels are read only by assistive technology, so they stay
+Inspector rows.

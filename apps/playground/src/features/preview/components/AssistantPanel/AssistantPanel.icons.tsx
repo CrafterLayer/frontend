@@ -1,0 +1,86 @@
+/**
+ * The assistant's own glyphs — 16px grid, 1.5 stroke, round caps, `currentColor`,
+ * the same recipe the rail's icon set uses (`apps/playground/src/app/rail-sections.tsx`),
+ * so a proposal card and the rail tab it lives under read as one visual language.
+ * Every glyph is decorative: the button or line it sits in already carries the
+ * accessible name, so each one renders `aria-hidden`.
+ */
+
+interface IconProps {
+  readonly paths: string;
+  /** For the two directional glyphs the stylesheet mirrors under RTL. */
+  readonly className?: string | undefined;
+}
+
+/*
+  One `{ __html }` object per glyph, for the life of the module. React compares
+  that object by IDENTITY: a fresh one each render rewrote the glyph's
+  innerHTML, and a re-render between pointerdown and pointerup (the composer
+  re-renders as the field blurs) replaced the path under the pointer — the
+  browser then fired no click, and the first press on Send was lost.
+*/
+const markupByPaths = new Map<string, { readonly __html: string }>();
+
+function markupOf(paths: string): { readonly __html: string } {
+  let markup = markupByPaths.get(paths);
+  if (markup === undefined) {
+    markup = { __html: paths };
+    markupByPaths.set(paths, markup);
+  }
+  return markup;
+}
+
+function Icon({ paths, className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      dangerouslySetInnerHTML={markupOf(paths)}
+    />
+  );
+}
+
+// Identical path data to the rail's ASSISTANT glyph — the same mark carries the
+// tab and every message in the thread it opens onto.
+const SPARKLE =
+  '<path d="M8 2.4 9.3 6l3.6 1.3-3.6 1.3L8 12.2 6.7 8.6 3.1 7.3 6.7 6z"/>' +
+  '<path d="M12.6 11.4 13 12.7l1.3.4-1.3.4-.4 1.3-.4-1.3-1.3-.4 1.3-.4z"/>';
+const PLUS = '<path d="M8 3v10M3 8h10"/>';
+const SEND = '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>';
+const CHECK = '<path d="M3.5 8.5 6.5 11.5 12.5 4.5"/>';
+const CLOSE = '<path d="M4 4l8 8M12 4l-8 8"/>';
+const UNDO = '<path d="M4.5 7.5A4.5 4.5 0 1 1 5 12"/><path d="M4.5 4v3.5H8"/>';
+// A filled square reads as STOP at 16px where an outlined one reads as a checkbox.
+const EYE =
+  '<path d="M1.8 8s2.2-4.2 6.2-4.2S14.2 8 14.2 8s-2.2 4.2-6.2 4.2S1.8 8 1.8 8z"/><circle cx="8" cy="8" r="1.8"/>';
+const STOP =
+  '<rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1" fill="currentColor" stroke="none"/>';
+// Shared with the rail's CODE tab glyph — "Review as code" hands off to that tab.
+const CODE = '<path d="m5.4 5-3 3 3 3M10.6 5l3 3-3 3"/>';
+const ALERT = '<path d="M8 2.6 14 13H2z"/><path d="M8 6.4v3M8 11.4h.01"/>';
+const SHIELD =
+  '<path d="M8 2.2 13 4v4.2c0 3.4-2.3 5.7-5 6.6-2.7-.9-5-3.2-5-6.6V4z"/>' +
+  '<path d="M5.8 8 7.3 9.5l3-3.2"/>';
+const CHEVRON = '<path d="M4 6.2 8 10l4-3.8"/>';
+
+export const IconSparkle = () => <Icon paths={SPARKLE} />;
+export const IconPlus = () => <Icon paths={PLUS} />;
+export const IconSend = () => <Icon paths={SEND} />;
+export const IconCheck = () => <Icon paths={CHECK} />;
+export const IconClose = () => <Icon paths={CLOSE} />;
+export const IconUndo = () => <Icon paths={UNDO} className="pg-chat__icon--mirror" />;
+export const IconStop = () => <Icon paths={STOP} />;
+export const IconEye = () => <Icon paths={EYE} />;
+export const IconCode = () => <Icon paths={CODE} className="pg-chat__icon--mirror" />;
+export const IconAlert = () => <Icon paths={ALERT} />;
+export const IconShield = () => <Icon paths={SHIELD} />;
+export const IconChevron = () => <Icon paths={CHEVRON} />;

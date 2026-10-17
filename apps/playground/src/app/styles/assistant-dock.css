@@ -1,0 +1,139 @@
+/* A short assistant dock: container-query fallbacks for the legacy panel. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* Preserve a usable scroll region when the host gives the assistant a short dock. */
+@container (max-height: 420px) {
+  .pg-chat__head,
+  .pg-chat__composer,
+  .pg-chat__thread {
+    padding: var(--bldr-space-md);
+  }
+
+  .pg-chat__head {
+    gap: var(--bldr-space-xs);
+  }
+
+  .pg-chat__empty {
+    padding-block: var(--bldr-space-md);
+  }
+}
+
+.pg-chat__identity {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.pg-chat__identity .pg-chat__voice {
+  font-size: var(--bldr-font-size-micro);
+  margin: 0;
+}
+
+.pg-chat__composer-card:not([data-busy]) .pg-chat__composer-glow,
+.pg-chat__composer-card:not([data-busy]) .pg-chat__composer-aura {
+  opacity: 0;
+}
+
+.pg-chat__reply {
+  gap: var(--bldr-space-sm);
+}
+
+.pg-chat__details {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  padding-block-start: var(--bldr-space-md);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-chat__details > summary {
+  cursor: pointer;
+  padding-block: var(--bldr-space-xs);
+}
+
+.pg-chat__details > .pg-chat__steps {
+  margin-block: var(--bldr-space-md);
+}
+
+.pg-chat__starters[data-layout='rail'] {
+  padding-inline: var(--bldr-space-3xl);
+  gap: var(--bldr-space-md);
+}
+
+.pg-chat__starters[data-layout='rail'] .pg-chat__starter {
+  border-radius: var(--bldr-radius-md);
+  background: var(--bldr-surface);
+}
+
+.pg-chat__starters[data-layout='rail'] .pg-chat__starter:focus-visible {
+  outline-offset: 0;
+}
+
+.pg-chat__composer {
+  padding-block-start: var(--bldr-space-md);
+}
+
+@container (max-height: 420px) {
+  .pg-chat__starters[data-layout='stack'] {
+    max-block-size: calc(var(--bldr-control-lg) * 2);
+    overflow-y: auto;
+  }
+}
+
+.pg-chat__suggestions {
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-xl);
+}
+
+.pg-chat__suggestions[data-layout='rail'] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+}
+
+.pg-chat__suggestions .pg-chat__starters[data-layout='rail'] {
+  padding-inline: var(--bldr-space-xs);
+  scroll-padding-inline: var(--bldr-space-xs);
+  scroll-snap-type: inline mandatory;
+}
+
+.pg-chat__suggestions .pg-chat__starters[data-layout='rail'] > li {
+  flex: 0 0 100%;
+  min-inline-size: 0;
+  scroll-snap-align: start;
+}
+
+.pg-chat__suggestions .pg-chat__starters[data-layout='rail'] .pg-chat__starter {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  padding-inline: var(--bldr-space-md);
+}
+
+.pg-chat__suggestion-arrow {
+  border: 0;
+  background: transparent;
+  color: var(--bldr-panel-text-soft);
+  border-radius: var(--bldr-radius-md);
+  min-block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-space-5xl);
+  font-size: var(--bldr-space-5xl);
+  cursor: pointer;
+}
+
+.pg-chat__suggestion-arrow:hover:enabled {
+  background: var(--bldr-surface-hover);
+}
+
+.pg-chat__suggestion-arrow:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: 0;
+}
+
+.pg-chat__suggestion-arrow:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pg-chat__suggestion-arrow:dir(rtl) > span {
+  display: inline-block;
+  scale: -1 1;
+}

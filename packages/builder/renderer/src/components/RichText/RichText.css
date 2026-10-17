@@ -1,0 +1,85 @@
+.bldr-richtext {
+  color: var(--t-text, #111827);
+  /* Typography is INHERITED from the page/block that hosts the prose — the
+     theme token set carries colors, radius, and gap, never fonts (§11
+     convergence fix: `--t-font-*` named variables no theme can ever set). */
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+/* Rhythm lives BETWEEN siblings, never on a child's own box.
+
+   `p { margin-block: 0.5em }` looked local and was not: the first and last
+   child's margin escapes through the block's edges, so every rich-text block
+   reported a half-line of space above and below it that no section, no
+   inspector control, and no theme token had asked for — space the author can
+   see and cannot find. Sibling-only rules produce the identical prose with a
+   box that measures exactly its content. */
+.bldr-richtext > * {
+  margin-block: 0;
+}
+
+.bldr-richtext > * + * {
+  margin-block-start: 0.5em;
+}
+
+/* A heading opens a new idea, so it wants more air above it than a paragraph
+   does — and stays tight to the prose it introduces, which the sibling rule
+   above already handles. */
+.bldr-richtext > * + :is(h2, h3, h4) {
+  margin-block-start: 0.75em;
+}
+
+/* Headings carry the site's own type scale. The host's reset sets every
+   heading to `font-size: inherit; font-weight: inherit`, so without these an
+   H2 rendered at the paragraph's 16px/400 — on the canvas, in the canvas
+   editor and on the published page alike (walk 2026-10-08). The same rules
+   reach all three because the inline editor's surface carries this class. */
+.bldr-richtext h2,
+.bldr-richtext h3,
+.bldr-richtext h4 {
+  font-family: inherit;
+  font-weight: var(--t-font-weight-bold, 700);
+  line-height: 1.25;
+}
+
+.bldr-richtext h2 {
+  font-size: var(--t-font-size-xxl, 1.75rem);
+}
+
+.bldr-richtext h3 {
+  font-size: var(--t-font-size-xl, 1.375rem);
+}
+
+.bldr-richtext h4 {
+  font-size: var(--t-font-size-lg, 1.125rem);
+}
+
+.bldr-richtext ul,
+.bldr-richtext ol {
+  padding-inline-start: 1.5em;
+}
+
+/* The reset strips list markers too; prose keeps them. */
+.bldr-richtext ul {
+  list-style-type: disc;
+}
+
+.bldr-richtext ol {
+  list-style-type: decimal;
+}
+
+/* `a` as well as the rendered class: the editor draws a plain <a>, and a link
+   lost its colour and underline the moment editing began. */
+.bldr-richtext__link,
+.bldr-richtext a {
+  /* A REAL token (§11 convergence fix): `--t-primary` was never in the set, so
+     links were permanently hardcoded — including ~3.8:1 on the dark surface. */
+  color: var(--t-accent, #4f46e5);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.bldr-richtext__dead-link {
+  text-decoration: underline dotted;
+}

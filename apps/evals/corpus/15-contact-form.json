@@ -1,0 +1,26 @@
+{
+  "id": "15-contact-form",
+  "title": "A contact form with named fields",
+  "category": "form",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add a contact form at the bottom with fields for name, work email, company size and a message, and a button that says Talk to us.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "anyBlockTypes": ["formSection", "contact"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Do all four named fields exist, with the submit button labelled \"Talk to us\"?",
+  "why": "Forms carry structured data inside a single prop, so a planner that can only set scalar props fails here while still producing a valid plan."
+}

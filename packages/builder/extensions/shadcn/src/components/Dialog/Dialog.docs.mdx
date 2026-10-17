@@ -1,0 +1,57 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as DialogStories from './Dialog.stories';
+
+<Meta of={DialogStories} />
+
+# Dialog
+
+A standards-based modal built on the native `<dialog>` element because this package does not own a
+Radix Dialog dependency. In supporting browsers, `showModal()` supplies focus containment, an inert
+page background, Escape semantics, and the top-layer backdrop rather than recreating them in React.
+
+## Content and appearance
+
+- Editable trigger, title, optional body, and safe primary/secondary destinations.
+- `size`: `sm`, `md`, `lg`, or `full` using project width tokens.
+- `tone`: surface, inverse, or accent.
+- Primary, secondary, and ghost trigger treatments.
+- Optional motion and validated utility classes remain absent by default.
+
+## Focus and close behavior
+
+Initial focus can target the close control, primary action, or dialog panel. Focus returns to the
+trigger on close. Escape, backdrop click, action close, and close-control visibility are independent
+schema policies. If an authored combination removes every keyboard-operable route, the renderer
+restores the close control; a backdrop click never counts as the only route. The browser remains
+responsible for containing focus while the modal is open.
+
+## Canvas and URL safety
+
+Actions retain their real destinations but navigation is prevented while rendered on the builder
+canvas. Relative paths, fragments, HTTP(S), mail, and telephone links are accepted; executable and
+protocol-relative destinations are rejected.
+
+## Reduced motion and RTL
+
+Motion passes through the renderer's named motion contract and its reduced-motion fallback. The
+layout uses logical `end` positioning and responsive container variants, so the same markup serves
+LTR and RTL.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name              | kind | bind                                             | label (en / ar)                    |
+| ----------------- | ---- | ------------------------------------------------ | ---------------------------------- |
+| `trigger`         | text | `triggerLabel`                                   | Trigger button / زر الفتح          |
+| `panel`           | box  | —                                                | Dialog panel / لوحة الحوار         |
+| `title`           | text | `title`                                          | Title / العنوان                    |
+| `body`            | text | `body`                                           | Body / الوصف (multiline)           |
+| `primaryAction`   | link | `primaryAction.label` + `primaryAction.href`     | Primary action / الإجراء الرئيسي   |
+| `secondaryAction` | link | `secondaryAction.label` + `secondaryAction.href` | Secondary action / الإجراء الثانوي |
+
+`closeLabel` names the close button through an attribute, so it stays an Inspector row.

@@ -1,0 +1,46 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LiveStageClockStories from './LiveStageClock.stories';
+
+<Meta of={LiveStageClockStories} />
+
+# LiveStageClock
+
+The running clock on a run's active row.
+
+<Canvas of={LiveStageClockStories.Running} />
+
+## Why the timer lives here and nowhere else
+
+`GenerationProgress` is presentational and owns no timer — a replayed run and a live one must render
+identically — and the progress reducer is pure. So the tick lives in the smallest component that
+shows the number: one interval, re-rendering this card and nothing above it.
+
+It is cleared the moment the run settles and on unmount. A settled run schedules nothing at all,
+which is what keeps a finished card from ticking quietly in a closed conversation.
+
+<Canvas of={LiveStageClockStories.Settled} />
+
+## Slow is not wrong
+
+Past ninety seconds the card says "Taking longer than usual." — muted words, never a warning colour.
+A build that takes its time has not failed, and telling somebody it has is worse than saying
+nothing.
+
+<Canvas of={LiveStageClockStories.TakingLonger} />
+
+## One clock, many sections
+
+A split build writes several sections at once and lands them in page order, so more than one row can
+be running. They share this clock — the WAVE's, started by the first section of the wave — because
+"how long has this been going" is a question about the wave. A per-row clock would visibly restart
+every time another writer picked up work.
+
+The heading is the region's accessible name, which is how a screen-reader user tells one running
+section from another.
+
+<Canvas of={LiveStageClockStories.NamedForOneSection} />
+
+## Motion
+
+Nothing changes under `prefers-reduced-motion`. A clock is information, not motion.

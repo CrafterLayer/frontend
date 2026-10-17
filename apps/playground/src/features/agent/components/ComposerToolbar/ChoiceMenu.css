@@ -1,0 +1,224 @@
+/*
+  ChoiceMenu (SPEC §4.17 ModeMenu, ModelMenu).
+
+  The trigger is a ghost at 32px (44 on a coarse pointer): Meta 500 in Graphite and a ▾,
+  the Wash under Ink on hover and while its menu is open. Never Indigo: choosing a mode is
+  not the primary action (SPEC §2.1 rule 3). The ▾'s 16px box carries 4.5px of whitespace
+  on each side, so the trigger pads 8 before the word and 4 after the chevron: the fill
+  looks even around what is drawn.
+
+  The menu is e2 (SPEC §2.5): the Sheet, a hairline, the floating shadow, radius 9. Items
+  are two lines: the name in Read 600 Ink, then what it means in Meta Slate.
+
+  Drawn over ChromeButton: every trigger rule starts from four simple selectors, (0,4,0),
+  so each state out-ranks ChromeButton's matching one (its quiet hover paints Indigo).
+*/
+
+.ck-agent-choice[data-bldr-chrome-button][data-variant][data-size] {
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding-inline: var(--bldr-space-md) var(--bldr-space-xs);
+  border-color: transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-choice[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-choice[data-bldr-chrome-button][data-variant][data-size][aria-expanded='true'] {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-choice[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+  transition-duration: var(--bldr-duration-press);
+}
+
+.ck-agent-choice__label {
+  min-inline-size: 0;
+  max-inline-size: var(--ck-agent-choice-measure, none);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-choice {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+/* ── The menu ─────────────────────────────────────────────────────────────── */
+
+.ck-agent-choices {
+  z-index: 40;
+  box-sizing: border-box;
+  min-inline-size: 240px;
+  max-inline-size: min(320px, calc(100vw - var(--bldr-space-6xl)));
+  /*
+    The model list grows with OpenRouter's free models (a dozen or more), and a menu taller
+    than the space above the composer was cut off with its last rows out of reach. Radix
+    reports the room it has (`--radix-dropdown-menu-content-available-height`, which
+    already honours collisionPadding); the list scrolls inside it instead.
+  */
+  max-block-size: min(var(--radix-dropdown-menu-content-available-height, 60vh), 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+/*
+  Two lines on a 16px check column: [✓] name ··· detail / description. The description
+  starts under the name, so the eye scans one edge of names.
+*/
+.ck-agent-choices__item {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr) auto;
+  grid-template-areas:
+    'check name detail'
+    '. description description';
+  align-items: baseline;
+  column-gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-agent-row-height);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.ck-agent-choices__item[data-highlighted] {
+  background-color: var(--bldr-surface-hover);
+}
+
+/* The selected choice: Mist, the "active option" of SPEC §2.1. */
+.ck-agent-choices__item[data-state='checked'] {
+  background-color: var(--bldr-accent-soft);
+}
+
+.ck-agent-choices__item[data-state='checked'][data-highlighted] {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+.ck-agent-choices__item:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-thick));
+}
+
+.ck-agent-choices__check {
+  display: flex;
+  grid-area: check;
+  align-self: center;
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-choices__name {
+  grid-area: name;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-choices__detail {
+  grid-area: detail;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}
+
+.ck-agent-choices__description {
+  grid-area: description;
+  min-inline-size: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+/* On Mist, secondary text is Graphite (SPEC §2.1 rule 2: Slate on Mist is 4.08:1). */
+.ck-agent-choices__item[data-state='checked'] .ck-agent-choices__detail,
+.ck-agent-choices__item[data-state='checked'] .ck-agent-choices__description {
+  color: var(--bldr-panel-text-soft);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-choices__item[data-highlighted] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+
+  .ck-agent-choices__check {
+    color: CanvasText;
+  }
+}
+
+/* ── Motion (SPEC §5 moment 9): opacity and a 4px rise away from the anchor ──── */
+
+.ck-agent-choices[data-side='bottom'] {
+  --ck-agent-float-from: calc(-1 * var(--bldr-space-xs));
+}
+
+.ck-agent-choices[data-side='top'] {
+  --ck-agent-float-from: var(--bldr-space-xs);
+}
+
+.ck-agent-choices[data-state='open'] {
+  animation: ck-agent-choices-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-choices[data-state='closed'] {
+  animation: ck-agent-choices-out var(--bldr-duration-exit) var(--bldr-easing-exit) forwards;
+}
+
+@keyframes ck-agent-choices-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-choices-out {
+  to {
+    opacity: 0;
+    translate: 0 var(--ck-agent-float-from, 0);
+  }
+}
+
+@keyframes ck-agent-choices-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-choices-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-choices[data-state='open'] {
+    animation: ck-agent-choices-fade-in var(--bldr-duration-state) linear;
+  }
+
+  .ck-agent-choices[data-state='closed'] {
+    animation: ck-agent-choices-fade-out var(--bldr-duration-state) linear forwards;
+  }
+}

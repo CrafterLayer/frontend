@@ -1,0 +1,383 @@
+/*
+  ClarifyPanel: questions before guessing, docked on top of the composer (the composer is
+  the border; this is its first section, a Hairline under it). A decision waiting for the
+  person, so it reads like a decision card's head: the Indigo diamond on the glyph column,
+  the title in Heading type, and every line under it on the record's text column, 24px in
+  (SPEC §2.3). Inside the composer's 7px padding that puts the diamond at the panel's 16
+  and the text at 40: the thread's own two columns.
+
+  Choices are chips (SPEC §2.4 "Control 6"): Tint and Graphite at rest, Mist and Indigo
+  deep with a check once chosen (the active option, SPEC §2.1), 32px tall, 44 on a coarse
+  pointer, 6px apart (8 on a coarse pointer).
+*/
+
+.ck-agent-clarify {
+  --ck-agent-ground: var(--bldr-surface);
+
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr);
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-xs);
+  padding-block-end: var(--bldr-space-xs);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  animation: ck-agent-clarify-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-clarify > * {
+  grid-column: 2;
+  min-inline-size: 0;
+}
+
+.ck-agent-clarify :where(p) {
+  margin: 0;
+}
+
+/* ── Head: ◇ · title · 1 of 3 ─────────────────────────────────────────────── */
+
+.ck-agent-clarify > .ck-agent-clarify__head {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-control-md);
+}
+
+.ck-agent-clarify__title {
+  overflow: hidden;
+  font-weight: var(--bldr-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A focus destination, not a control: the ring hugs the words. */
+.ck-agent-clarify__title:focus-visible {
+  border-radius: var(--bldr-radius-xs);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  The rewriting line takes focus only so a reader lands on what is happening after a
+  choice (the chip they pressed is gone). It is status text, not a control: a ring there
+  clipped its shimmering words and read as something to press.
+*/
+.ck-agent-clarify__working:focus {
+  outline: none;
+}
+
+.ck-agent-clarify__progress {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+  white-space: nowrap;
+}
+
+.ck-agent-clarify__understood {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* ── Answers so far: one row each, a way back to its question ──────────────── */
+
+.ck-agent-clarify__answers {
+  display: grid;
+}
+
+/* A row's hover fill runs from 6px before the text to the row end, radius 6 (SPEC §2.3). */
+.ck-agent-clarify__answer,
+.ck-agent-clarify__answer[data-bldr-chrome-button][data-variant][data-size] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  min-block-size: var(--bldr-control-sm);
+  margin-inline-start: calc(-1 * var(--bldr-space-sm));
+  padding-inline: var(--bldr-space-sm);
+  border-color: transparent;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-meta);
+  text-align: start;
+}
+
+.ck-agent-clarify__answer[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+}
+
+.ck-agent-clarify__answer[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-clarify__asked {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-clarify__given {
+  flex: none;
+  max-inline-size: 60%;
+  overflow: hidden;
+  font-weight: var(--bldr-font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-clarify__edit {
+  color: var(--bldr-panel-muted);
+}
+
+/* ── The question and its choices ─────────────────────────────────────────── */
+
+.ck-agent-clarify__question {
+  display: grid;
+  row-gap: var(--bldr-space-md);
+  padding-block: var(--bldr-space-xs);
+}
+
+.ck-agent-clarify__text {
+  font-weight: var(--bldr-font-weight-medium);
+  text-wrap: pretty;
+  unicode-bidi: plaintext;
+}
+
+.ck-agent-clarify__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ck-agent-chip-gap, var(--bldr-space-sm));
+}
+
+.ck-agent-clarify__choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  min-block-size: var(--ck-agent-target, var(--bldr-control-md));
+  margin: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-xl);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text-soft);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The Wash laid over the Tint: one step darker, from tokens alone. */
+.ck-agent-clarify__choice:hover {
+  background-image: linear-gradient(var(--bldr-surface-hover), var(--bldr-surface-hover));
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-clarify__choice:active {
+  background-image: linear-gradient(var(--bldr-surface-active), var(--bldr-surface-active));
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* Chosen (a revisited question): Mist under Indigo deep, 5.99:1 (SPEC §2.1). */
+.ck-agent-clarify__choice[aria-checked='true'] {
+  background-color: var(--bldr-accent-soft);
+  background-image: none;
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-clarify__choice:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* A check that leads a chip, and Other's pencil, take 4px less padding than the word. */
+.ck-agent-clarify__choice:has(> .ck-agent-clarify__check) {
+  padding-inline-start: var(--bldr-space-md);
+}
+
+/* ── Other: the person's own words ────────────────────────────────────────── */
+
+.ck-agent-clarify__other {
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-clarify__field {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  margin: 0;
+  padding-inline: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  unicode-bidi: plaintext;
+}
+
+.ck-agent-clarify__field::placeholder {
+  color: var(--bldr-panel-muted);
+  opacity: 1;
+}
+
+.ck-agent-clarify__field:focus-visible {
+  border-color: var(--bldr-accent);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* ── Rewriting: the live line, shimmering in the reading direction ─────────── */
+
+.ck-agent-clarify__working {
+  justify-self: start;
+  padding-block: var(--bldr-space-xs);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .ck-agent-clarify__working {
+      background-image: linear-gradient(
+        90deg,
+        var(--bldr-panel-muted) 0 35%,
+        var(--bldr-panel-text) 50%,
+        var(--bldr-panel-muted) 65% 100%
+      );
+      background-size: 250% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: ck-agent-clarify-shimmer var(--bldr-duration-shimmer) linear infinite;
+    }
+
+    .ck-agent-clarify__working:dir(rtl) {
+      animation-direction: reverse;
+    }
+  }
+}
+
+@keyframes ck-agent-clarify-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* ── Send as written (secondary), Cancel (ghost) ───────────────────────────── */
+
+.ck-agent-clarify__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-md);
+}
+
+.ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding-inline: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-sm);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-panel-border-strong);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size] {
+  padding-inline: var(--bldr-space-md);
+  border-color: transparent;
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size]:enabled:active,
+.ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* ── Arrival, target sizes, reduced motion, high contrast ─────────────────── */
+
+@keyframes ck-agent-clarify-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+@media (pointer: coarse) {
+  .ck-agent-clarify {
+    --ck-agent-target: var(--bldr-hit-target-min);
+    --ck-agent-chip-gap: var(--bldr-space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-clarify {
+    animation: none;
+  }
+
+  .ck-agent-clarify__choice {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-clarify__choice {
+    outline: var(--bldr-border-hairline) solid ButtonText;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+
+  .ck-agent-clarify__choice[aria-checked='true'] {
+    outline-color: Highlight;
+    outline-width: var(--bldr-border-thick);
+  }
+
+  .ck-agent-clarify__working {
+    color: CanvasText;
+  }
+}

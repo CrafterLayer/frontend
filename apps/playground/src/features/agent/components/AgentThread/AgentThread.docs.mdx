@@ -1,0 +1,131 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentThreadStories from './AgentThread.stories';
+
+<Meta of={AgentThreadStories} />
+
+# AgentThread
+
+The conversation (SPEC §4.4, §3.12): the panel's middle row and its only scroller. It holds the
+turns, the greeting when there are none, the suggestion rows, and the jump pill.
+
+<Canvas of={AgentThreadStories.ScrolledUpBuilding} />
+
+The stories draw the whole frame AgentPanel will: header, thread, a stand-in composer and the live
+region. The records inside are sketches on the RunRecord, RunGlyph and ChangeLines primitives;
+BuildRecord, EditRecord, UserMessage and PagePlanCard are their own work packages.
+
+## Purpose
+
+- **Read in peace.** The thread follows the newest line while the reader is there
+  (`use-stick-to-bottom`) and lets go the moment a wheel, a pointer, a touch or a key moves it up.
+  After that, the build can write as much as it likes: nothing pulls the reader back down. v1's
+  panel yanked the reader to the bottom on every progress tick.
+- **Know what is happening below.** While the reader is away, the jump pill says why: "Latest",
+  "Building" or "Editing". Pressing it brings them back and puts focus on the newest record's head.
+- **Start well.** With no turns, أبو غضب's greeting and four starters sit at the bottom, directly
+  above the composer, where the eye already is.
+
+## When to use / not
+
+AgentPanel renders one, as its middle grid row (`1fr`), between AgentHeader and the dock. Key it by
+conversation id, so opening another conversation lands at its bottom at once. Do not put another
+scroller inside it or around it.
+
+## Props
+
+| prop               | type                                   | default | notes                                                             |
+| ------------------ | -------------------------------------- | ------- | ----------------------------------------------------------------- |
+| `locale`           | `'ar' \| 'en'`                         | none    |                                                                   |
+| `turns`            | `readonly TurnView[]`                  | none    | oldest first                                                      |
+| `renderTurn`       | `(turn: TurnView) => ReactNode`        | none    | TurnView (WP-20); the thread owns the `li`, keyed by `turnId`     |
+| `activity`         | `RunActivity \| null`                  | none    | `state.run?.activity ?? null`: the pill's word; hides suggestions |
+| `empty`            | `EmptyStateView`                       | none    | the greeting when there are no turns                              |
+| `suggestions`      | `readonly SuggestionView[]`            | none    | starters, or the rows after a run                                 |
+| `draft`            | `string`                               | none    | the composer's text: suggestions hide while it has any            |
+| `onSuggestion`     | `(suggestion: SuggestionView) => void` | none    | fill the composer and focus it, caret at the end; never send      |
+| `onScrolledChange` | `(scrolled: boolean) => void`          | none    | AgentHeader's `scrolled`                                          |
+| `freeCode`         | `FreeCodeView \| null`                 | none    | given, the empty thread adds CreativeStarters                     |
+| `onFreeCodeChange` | `(enabled: boolean) => void`           | none    | CreativeStarters' Turn on free code                               |
+| `ref`              | `Ref<AgentThreadHandle>`               | none    | `scrollToBottom()`, `jumpToLatest()`                              |
+
+`AgentThreadHandle.scrollToBottom` is for the person's own acts, such as sending while scrolled up;
+the panel's growth alone never moves a reader.
+
+## Behaviour
+
+- **Structure**: a `section` named "Conversation" («المحادثة») holding an `ol` of turns, each an
+  `li` keyed by `turnId`, so a plan that becomes its build keeps its node and its focus target.
+  After the list, the suggestions.
+- **Not a log.** `role="log"` is implicitly live, and the panel has exactly one live region,
+  LiveStatus. Nothing in the thread announces itself.
+- **Suggestions** show only when nothing runs, the composer is empty and no decision (a ready plan,
+  step plan or proposal) is waiting.
+- **The pill** shows only while the reader is away from the bottom (more than 70px), and never over
+  the focused element: it hides while focus is anywhere in the newest turn, and whenever the focused
+  element reaches into the 56px band it floats over, whichever turn that element is in.
+- **Jump**: scrolls to the bottom (a spring; instant under reduced motion) and focuses the head of
+  the newest record without scrolling it into view, which would pull the reader back up. A person's
+  own last message has no head, so the record before it takes focus; with no record at all, the
+  thread itself does. Never `body`.
+- **Focus never falls off the pill.** If the pill hides while it has keyboard focus (the reader
+  wheeled back to the bottom instead of pressing it), focus goes where pressing it would have sent
+  it: the newest record's head.
+- **Empty**: no list; EmptyState and its starters, pushed to the bottom.
+- **Viewport changes**: the scrolling hook observes both the viewport and the content. A growing
+  composer follows the latest only while pinned; a reader browsing history keeps their offset.
+- **Hidden panels**: zero-size reports are ignored. Reopening restores the reader's position, or
+  resumes following the latest when they had been pinned. A resize never opts a released reader back
+  in. Browser scroll anchoring is disabled so it cannot compete with this ownership.
+- **Input intent**: wheel-up, upward touch movement, and ArrowUp/PageUp/Home/Shift+Space on the
+  focused conversation release an active spring before it can overwrite the browser scroll.
+  Descendant controls and inner scrollers retain their own input.
+
+## Stories
+
+`Empty`, `EmptyArabic`, `EmptyArabicDark`, `EmptyWithSelection`; `Long`, `LongArabic` (followed to
+the bottom); `ScrolledUpLatest`, `ScrolledUpLatestDark`, `ScrolledUpBuilding`,
+`ScrolledUpBuildingArabic`, `ScrolledUpEditing`, `ScrolledUpEditingArabicDark`,
+`ScrolledUpBuildingAt420` (the pill's three words, with the header's hairline); `LongAt288` (the
+12px gutter); `AfterFirstBuild`, `AfterFirstBuildArabic`; `DecisionWaiting` (no rows while a plan
+waits). Every frame's play checks there is exactly one live region and the thread is not a log; the
+scrolled-up plays check the pill's word and name, that it is centred 12px above the dock, that the
+reader was not moved, and (`ScrolledUpBuilding`) that jumping lands focus on the newest record's
+head.
+
+## Anatomy
+
+```text
+┌ thread (1fr, the only scroller) ───────────────┐
+│ 12                                             │
+│ 16 [turn]                                   16 │   16px between turns
+│    [turn]                                      │
+│    [▫ suggestion rows]                         │   after the newest settled record
+│ 12                                             │
+│              ╭────────────╮                    │   the pill: outside the scroller,
+│              │ ↓ Building │                    │   centred, 12px above the dock
+│              ╰────────────╯                    │
+└────────────────────────────────────────────────┘
+```
+
+- Padding: 12 on the block axis, 16 on the inline axis (12 below a 320px panel).
+- `scroll-padding-block-end` keeps keyboard focus above the pill's band when the browser scrolls an
+  element into view.
+- `scrollbar-gutter: stable`: a scrollbar arriving mid-build never reflows the rows.
+- The thread is focusable (`tabIndex=0`), with the product's ring drawn inside its edge, so it
+  scrolls from the keyboard even when it holds nothing else that takes focus.
+
+## Motion
+
+The 2026-10-11 live telemetry increment displays each turn's optional `telemetry` through
+RunTelemetry below its record. Only allowlisted public lifecycle phases are announced; private
+reasoning is never rendered. Counts are actual provider reports, not context estimates. Missing
+counts remain unknown, cached replies incur no new model charge, and unmeasured historical records
+are unchanged. Growing telemetry follows only a pinned reader.
+
+The scroll follows with the vendored spring; under reduced motion every scroll the hook makes is
+instant. The pill's own motion is JumpToLatest's.
+
+## RTL
+
+Logical properties only. Turns, rows and the pill mirror by construction.

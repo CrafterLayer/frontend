@@ -1,0 +1,40 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TabPanelStories from './TabPanel.stories';
+
+<Meta of={TabPanelStories} />
+
+# Tab Panel
+
+One panel inside a [Tabs](?path=/docs/builder-shadcn-tabs--docs) block. Its label becomes the tab.
+
+<Canvas of={TabPanelStories.Open} />
+
+## Why the panel owns its label
+
+The alternative was an array of `{ label, content }` on the Tabs block — the shape that made a
+button inside a Pricing card impossible. A panel holds **blocks**, so it has to be a node; and a
+node that is a tab needs its own name, so the label lives here.
+
+`value` is the node id, which is what pairs this panel with its trigger. The strip receives that
+same id and this panel's resolved label through the builder's typed slot-child metadata contract, so
+the two agree without inspecting rendered components or the DOM.
+
+## The focus ring is not decoration
+
+Radix moves focus to the panel when a tab is activated. Without a visible ring a keyboard user is
+moved somewhere invisible, which is worse than not moving them at all.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name    | kind | bind    | label (en / ar)         |
+| ------- | ---- | ------- | ----------------------- |
+| `label` | text | `label` | Tab label / اسم التبويب |
+
+The label is drawn by the parent Tabs block as this panel's trigger, so the panel stamps no element
+for it; the panel root stays the block.

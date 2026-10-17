@@ -1,0 +1,248 @@
+.bldr-statusbar {
+  align-items: stretch;
+  background-color: var(--bldr-surface);
+  block-size: var(--bldr-statusbar-height);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: grid;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  gap: var(--bldr-space-md);
+  grid-template-columns:
+    minmax(var(--bldr-space-0), 1fr) auto
+    minmax(var(--bldr-space-0), 1fr);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-tight);
+  min-block-size: var(--bldr-statusbar-height);
+  overflow: visible;
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-statusbar__start {
+  align-items: end;
+  align-self: stretch;
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  justify-self: start;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-statusbar__agent {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-statusbar__agent:empty,
+.bldr-statusbar__agent > :empty {
+  display: none;
+}
+
+.bldr-statusbar__tool {
+  background: none;
+  border: none;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+}
+
+.bldr-statusbar__tool:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-statusbar__tool:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-statusbar__tool-icon {
+  align-items: center;
+  block-size: var(--bldr-space-3xl);
+  display: inline-flex;
+  inline-size: var(--bldr-space-3xl);
+  justify-content: center;
+}
+
+.bldr-statusbar__tool-icon > svg {
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-statusbar__centre {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  justify-content: center;
+  justify-self: center;
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  overflow: auto;
+  padding-block: calc(var(--bldr-focus-ring-width) + var(--bldr-focus-ring-offset));
+  padding-inline: calc(var(--bldr-focus-ring-width) + var(--bldr-focus-ring-offset));
+}
+
+.bldr-statusbar__changes {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin-block: var(--bldr-space-0);
+  margin-inline: var(--bldr-space-0);
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+}
+
+.bldr-statusbar__change-item {
+  flex: none;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-statusbar__change {
+  align-items: center;
+  background-color: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-full);
+  box-sizing: border-box;
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  font: inherit;
+  font-weight: var(--bldr-font-weight-regular);
+  gap: var(--bldr-space-xs);
+  max-inline-size: 100%;
+  min-block-size: var(--bldr-control-height-sm);
+  min-inline-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-statusbar__change--interactive {
+  cursor: pointer;
+}
+
+.bldr-statusbar__change--interactive:hover {
+  background-color: var(--bldr-surface-hover);
+  border-color: var(--bldr-panel-border-strong);
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-statusbar__change[aria-current='true'] {
+  background-color: var(--bldr-surface-active);
+  border-color: var(--bldr-panel-border-strong);
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-statusbar__door {
+  align-items: center;
+  block-size: var(--bldr-space-xl);
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  flex: none;
+  inline-size: var(--bldr-space-xl);
+  justify-content: center;
+}
+
+.bldr-statusbar__door--assistant {
+  color: var(--bldr-accent);
+}
+
+.bldr-statusbar__door-icon {
+  block-size: var(--bldr-space-xl);
+  inline-size: var(--bldr-space-xl);
+}
+
+.bldr-statusbar__change-label {
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-statusbar__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  white-space: nowrap;
+}
+
+.bldr-statusbar__end {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  gap: var(--bldr-space-md);
+  justify-self: end;
+  min-inline-size: var(--bldr-space-0);
+  white-space: nowrap;
+}
+
+.bldr-statusbar__detail {
+  align-items: center;
+  display: inline-flex;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-statusbar__detail + .bldr-statusbar__detail {
+  border-inline-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  padding-inline-start: var(--bldr-space-md);
+}
+
+.bldr-statusbar__zoom,
+.bldr-statusbar__device {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-statusbar__save {
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-statusbar__save--saved {
+  color: var(--bldr-success);
+}
+
+.bldr-statusbar__save--saving {
+  color: var(--bldr-warning);
+}
+
+.bldr-statusbar__save--error {
+  color: var(--bldr-danger);
+}
+
+.bldr-statusbar__save-indicator {
+  background-color: currentColor;
+  block-size: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  flex: none;
+  inline-size: var(--bldr-space-sm);
+}
+
+.bldr-statusbar__save--saving .bldr-statusbar__save-indicator {
+  animation: bldr-statusbar-saving-pulse var(--bldr-duration-move) var(--bldr-easing) infinite
+    alternate;
+}
+
+@keyframes bldr-statusbar-saving-pulse {
+  from {
+    background-color: var(--bldr-warning-border);
+  }
+
+  to {
+    background-color: var(--bldr-warning);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-statusbar__save--saving .bldr-statusbar__save-indicator {
+    animation: none;
+  }
+}

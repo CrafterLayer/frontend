@@ -1,0 +1,48 @@
+{
+  "kind": "local-real-components-fake-controller",
+  "verifiedDate": "2026-10-14",
+  "viewport": {
+    "width": 390,
+    "height": 820
+  },
+  "theme": "dark",
+  "network": "localhost-only; no AI provider calls",
+  "cases": [
+    {
+      "locale": "en",
+      "draft": "/qa-skill-4 /qa-skill-3 /qa-skill-2 /qa-skill-1 /qa-skill-0  Create a mural",
+      "selected": ["user.skill-5", "user.skill-4", "user.skill-3", "user.skill-2", "user.skill-1"],
+      "auto": [
+        "craftkit.pixi-murals",
+        "craftkit.pixi-director",
+        "craftkit.pixi-scroll-murals",
+        "craftkit.pixi-animation",
+        "craftkit.pixi-effects",
+        "craftkit.pixi-v8-core",
+        "craftkit.pixi-v8-graphics"
+      ],
+      "chipCount": 0,
+      "overflow": 0,
+      "nextPromptSelection": [],
+      "pageErrors": []
+    },
+    {
+      "locale": "ar",
+      "draft": "/qa-skill-4 /qa-skill-3 /qa-skill-2 /qa-skill-1 /qa-skill-0  Create a mural",
+      "selected": ["user.skill-5", "user.skill-4", "user.skill-3", "user.skill-2", "user.skill-1"],
+      "auto": [
+        "craftkit.pixi-murals",
+        "craftkit.pixi-director",
+        "craftkit.pixi-scroll-murals",
+        "craftkit.pixi-animation",
+        "craftkit.pixi-effects",
+        "craftkit.pixi-v8-core",
+        "craftkit.pixi-v8-graphics"
+      ],
+      "chipCount": 0,
+      "overflow": 0,
+      "nextPromptSelection": [],
+      "pageErrors": []
+    }
+  ]
+}

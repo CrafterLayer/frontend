@@ -1,0 +1,26 @@
+{
+  "id": "14-testimonials-count",
+  "title": "A request that names a quantity",
+  "category": "quantity",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add three customer testimonials with names and job titles.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "allBlockTypes": ["testimonials"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Are there exactly three testimonials, each with a name and a job title?",
+  "why": "Counts are the cheapest objective content check there is, and collection sizing is a known weak point of every plan generator in this repo."
+}

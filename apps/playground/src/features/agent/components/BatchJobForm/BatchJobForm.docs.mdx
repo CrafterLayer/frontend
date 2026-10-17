@@ -1,0 +1,64 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BatchJobFormStories from './BatchJobForm.stories';
+
+<Meta of={BatchJobFormStories} />
+
+# BatchJobForm
+
+"Run on several pages in the background" (2026-10-12): the form that starts a background job — one
+request, the same on each chosen page, sent as one batch at half the price of a live run.
+
+<Canvas of={BatchJobFormStories.FromDraft} />
+
+## Purpose
+
+The agent's big jobs ("translate every page", "add an FAQ to every service page") need no answer in
+seconds. Sent as a background batch they cost half, and each page lands later through the same live
+door, as its own Undo. This form collects what the batch needs: the request and the pages.
+
+## When to use / not
+
+Inside BackgroundJobsDialog, opened by its "Run on several pages" button, by the composer's
+`/batch <request>`, or by the `/` list's "Run in the background". Not for one page now: that is the
+composer's ordinary Send.
+
+## Props
+
+| prop             | type                                                    | default | notes                                                |
+| ---------------- | ------------------------------------------------------- | ------- | ---------------------------------------------------- |
+| `locale`         | `Locale`                                                | none    | `en` or `ar`                                         |
+| `pages`          | `readonly BatchPageOption[]`                            | none    | the site's pages; the open one starts the checklist  |
+| `initialRequest` | `string`                                                | `''`    | `/batch`'s words, or the composer's draft            |
+| `fromDraft`      | `boolean`                                               | `false` | says "From your message" until the words are edited  |
+| `connected`      | `boolean`                                               | none    | `false`: no assistant server; Submit waits           |
+| `unavailable`    | `string`                                                | none    | the server's own sentence (501, 409); Submit waits   |
+| `submitting`     | `boolean`                                               | `false` | Submit reads "Sending…" and waits                    |
+| `error`          | `string`                                                | none    | a failed send, in the server's or the runner's words |
+| `onSubmit`       | `(request: string, pageIds: readonly string[]) => void` | none    | the trimmed request and the pages, in site order     |
+| `onCancel`       | `() => void`                                            | none    | back to the list                                     |
+
+## States
+
+| story                                   | what it shows                                             |
+| --------------------------------------- | --------------------------------------------------------- |
+| `Default`                               | empty; Submit says the request is missing and focuses it  |
+| `FromDraft`, `Dark`                     | prefilled from the composer                               |
+| `ChoosePages`                           | the checklist, starting on the page open now              |
+| `NoServer`                              | no assistant server: the sentence, Submit `aria-disabled` |
+| `Unavailable`, `UnavailableRightToLeft` | the server cannot batch: its own sentence                 |
+| `Submitting`, `Failed`                  | a send in flight; a send that failed                      |
+| `RightToLeft`, `Narrow`                 | Arabic; a 320px panel                                     |
+
+## Accessibility
+
+- Every field has a visible label; the pages are a `fieldset` with a legend and two radios.
+- A missing request or page is said under its field (`aria-invalid`, `aria-describedby`), and focus
+  goes to the first one.
+- Submit is `aria-disabled`, never `disabled`: it stays focusable and is described by why it waits.
+- The server's sentence is a `status`; a failed send is an `alert`. Both keep their own direction.
+
+## RTL
+
+One column, logical properties only. Arabic copy throughout; the server's sentences arrive in
+English and read left to right inside the Arabic form (`dir="auto"`). Digits stay Latin.

@@ -1,0 +1,41 @@
+import { Meta, Canvas, Story } from '@storybook/addon-docs/blocks';
+import * as Stories from './InsertionPicker.stories';
+
+<Meta of={Stories} />
+
+# InsertionPicker
+
+`InsertionPicker` adds blank containers, managed components, optional sections, or newly generated
+content at one captured `InsertionAnchor`. The shell owns it; use it from the plus controls between
+sections or from an “add inside” affordance.
+
+<Canvas of={Stories.Before} />
+
+## Placement and preview
+
+`anchor` captures page, owner, slot, adjacent identities, mode, and site revision. `anchorLabel`
+makes the placement visible as “before”, “after”, or “inside”. The insertion command must call
+`revalidateInsertionAnchor` immediately before applying. It must never fall back to appending.
+
+## Modes
+
+- **Blank** adds an empty container.
+- **Components** and **Sections** filter the managed choices supplied in `options`.
+- **Generate** submits a natural-language section request at the same captured anchor.
+- `state="generating"` locks the choices and announces progress.
+- `state="stale"` replaces all choices with a clear request to choose a new position.
+
+## Focus and accessibility
+
+The surface is a labelled non-modal dialog with its placement as an accessible description. Focus
+moves to the first mode control on mount. Modes use a labelled tab list, results use native buttons,
+progress uses a polite status, and stale recovery uses an alert. The caller closes the dialog after
+Escape and returns focus to the plus control that opened it.
+
+The component uses logical properties, editor theme tokens, and a viewport-bounded scroll area, so
+it supports RTL, narrow canvases, light/dark themes, long labels, and reduced-motion environments.
+
+<Story of={Stories.After} />
+<Story of={Stories.Inside} />
+<Story of={Stories.Stale} />
+<Story of={Stories.Generating} />

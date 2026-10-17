@@ -1,0 +1,49 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodeViewShowcaseStories from './CodeViewShowcase.stories';
+
+<Meta of={CodeViewShowcaseStories} />
+
+# CodeViewShowcase
+
+Scenario 10 mounts the code-view extension against a real editable EditorCanvas. Select a block,
+open the contributed panel, edit its canonical JSON, and watch the canvas and Law-S transaction
+counter advance together. One Undo code edit press restores the exact prior document while the
+append-only transaction count remains one.
+
+## Pay per use
+
+The component resolves registry.panel('code-view') and calls its lazy loader only from the Open code
+view button. It never imports the panel implementation statically. A normal browser session creates
+the public module-worker client at that same boundary; jsdom tests inject the exported loopback
+client because only a real browser can prove the thread hop.
+
+## What the story proves
+
+In real Chromium, the selected hero projects through the module worker, a two-node text edit lands
+as exactly one transaction, the canvas follows, and one undo restores the original document. The
+story returns document state to its starting value so interaction reruns remain deterministic.
+
+## API
+
+- kernel: the playground BuilderKernel session.
+- workerClient: optional injected transform client for a non-browser host or test.
+- debounceMs: optional panel debounce override; production behavior defaults to the panel value.
+
+## Accessibility and direction
+
+The showcase controls are native buttons and an output named Transactions. The contributed panel
+owns its labelled textarea, stable description, line diagnostics, settled announcements, and
+document-direction behavior. Source remains left-to-right while the canvas follows the document.
+
+## Known limit
+
+The worker injection proves the full protocol and codec path in jsdom but cannot prove thread
+placement. The default browser path and the coordinator-owned Chromium gate prove the real module
+worker.
+
+## Language
+
+Every string comes from `labels` (`CodeViewShowcaseLabels`, `CODE_VIEW_SHOWCASE_LABELS_EN` by
+default; the Arabic editor passes `CODE_VIEW_SHOWCASE_LABELS_AR`). The canvas and the contributed
+code-view panel keep their own packages' wording.

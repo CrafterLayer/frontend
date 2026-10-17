@@ -1,0 +1,49 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FaqStories from './Faq.stories';
+
+<Meta of={FaqStories} />
+
+# FAQ
+
+An accessible FAQ section with professional divided and card treatments. It uses the browser's
+native disclosure behavior rather than recreating keyboard interaction in JavaScript.
+
+## Props
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–100)`
+- `body?: string (1–240)`
+- `items: Array<{ question, answer }>` — up to 16 questions.
+- `layout: 'single' | 'columns'`
+- `variant: 'divided' | 'cards'`
+- `openFirst: boolean` and `showNumbers: boolean`
+- Shared section design controls.
+
+## Accessibility
+
+Each item is a native `details`/`summary` disclosure, so keyboard activation and expanded state are
+provided by the platform. The decorative plus and sequence numbers are hidden from assistive
+technology; the visible `h2` names the section.
+
+## Responsive and RTL behavior
+
+Column layout activates from the container's large breakpoint, not the viewport. All spacing,
+alignment, and borders use logical directions.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name            | kind | bind               | label (en / ar)              |
+| --------------- | ---- | ------------------ | ---------------------------- |
+| `eyebrow`       | text | `eyebrow`          | Eyebrow / الشارة             |
+| `heading`       | text | `heading`          | Heading / العنوان            |
+| `body`          | text | `body`             | Body / الوصف (multiline)     |
+| `items`         | list | `items`            | Questions / الأسئلة          |
+| `item`          | item | `items.*`          | Question / السؤال            |
+| `item.question` | text | `items.*.question` | Question text / نص السؤال    |
+| `item.answer`   | text | `items.*.answer`   | Answer / الإجابة (multiline) |

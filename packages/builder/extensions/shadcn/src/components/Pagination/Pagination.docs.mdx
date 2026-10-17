@@ -1,0 +1,66 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PaginationStories from './Pagination.stories';
+
+<Meta of={PaginationStories} />
+
+# Pagination
+
+A semantic page navigator for archives, search results, storefront collections, and custom
+sequences. It supports a generated sibling range or an explicit list without changing the rendered
+navigation contract.
+
+## Generated mode
+
+Set `currentPage`, `pageCount`, a sibling count from zero to two, and a safe URL template containing
+`{page}`. Optional first/last pages and ellipses keep large collections concise. Previous and next
+destinations are generated unless safe overrides are provided.
+
+## Explicit mode
+
+Provide labelled items with optional safe hrefs, current state, and disabled state. Previous and
+next links are explicit in this mode, making it suitable for named or non-numeric sequences. At most
+one enabled item may be declared current. Legacy collections without a current marker remain valid;
+the first enabled item becomes the effective current page at render time.
+
+## Variants and theming
+
+`full` renders the page range; `compact` renders previous/current-status/next. Small, medium, and
+large controls combine with start, center, or end alignment and transparent, surface, or inverse
+token treatments. Compact explicit mode derives its position and count from the explicit items,
+never from unrelated generated-page fields. Motion and custom utilities remain optional and
+validated.
+
+## Accessibility and RTL
+
+The block is a named `nav` containing a semantic list. Current pages use `aria-current="page"`,
+unavailable destinations use `aria-disabled`, ellipses have assistive text, and previous/next links
+carry relationship metadata. Arrow glyphs flip in RTL while page order follows document direction.
+
+## URL and canvas safety
+
+Only relative queries, paths, fragments, and HTTP(S) destinations are accepted. Executable and
+protocol-relative URLs are rejected. Links preserve their hrefs but prevent navigation on the
+builder canvas.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name            | kind | bind                             | label (en / ar)            |
+| --------------- | ---- | -------------------------------- | -------------------------- |
+| `previousLabel` | text | `previousLabel`                  | Previous label / نص السابق |
+| `nextLabel`     | text | `nextLabel`                      | Next label / نص التالي     |
+| `pageLabel`     | text | `pageLabel`                      | Page word / كلمة الصفحة    |
+| `items`         | list | `items`                          | Pages / الصفحات            |
+| `item`          | item | `items.*`                        | Page / الصفحة              |
+| `item.link`     | link | `items.*.label` + `items.*.href` | Page link / رابط الصفحة    |
+
+In the full layout the page word renders once, hidden, and every generated page link is named by
+`aria-labelledby` over it and its own number; in the compact layout it is the visible word in "Page
+2 / 9". The items are parts in explicit mode only. `navigationLabel` and `ellipsisLabel` are for
+assistive technology only and stay in the Inspector; each gap is announced as an image labelled by
+`ellipsisLabel`.

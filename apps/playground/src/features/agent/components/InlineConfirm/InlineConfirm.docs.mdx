@@ -1,0 +1,89 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineConfirmStories from './InlineConfirm.stories';
+
+<Meta of={InlineConfirmStories} />
+
+# InlineConfirm
+
+An in-place confirm (SPEC §4.15): it replaces the button that opened it, inside the same footer row,
+and never becomes a modal.
+
+<Canvas of={InlineConfirmStories.Open} />
+
+## Purpose
+
+Some actions deserve one more beat: Undo build puts the page back to before a whole request, and
+deleting a conversation cannot be undone. A modal would block the whole panel for a question about
+one record. The confirm stays where the button was, says the consequence in one sentence, and offers
+the answer that changes nothing first.
+
+## When to use / not
+
+Use it for Undo build and for deleting a conversation (SPEC §4.15). Use `tone="danger"` only for
+what cannot be undone.
+
+Do not use it for everyday reversible actions (a row's Undo, Apply): those act at once and offer
+Redo. Do not use it for Restore page, which is a RestoreDialog.
+
+## Props
+
+| prop                   | type                        | default     | notes                                                                   |
+| ---------------------- | --------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `message`              | `string`                    | none        | the consequence (`confirm.undoBuild`, `history.confirm`)                |
+| `confirmLabel`         | `string`                    | none        | `confirm.undo`, `history.confirm.yes`                                   |
+| `cancelLabel`          | `string`                    | none        | `confirm.cancel`, `history.confirm.no`                                  |
+| `tone`                 | `'default' \| 'danger'`     | `'default'` | `danger`: an Alarm outline                                              |
+| `onConfirm`            | `() => void`                | none        | may move focus; see below                                               |
+| `onCancel`             | `() => void`                | none        |                                                                         |
+| `open`, `onOpenChange` | `boolean`, `(open) => void` | none        | controlled, for an owner that opens it itself (Delete on a history row) |
+| `renderOpener`         | `({ open }) => ReactNode`   | none        | the button that opens it                                                |
+| `className`            | `string`                    | none        | appended to `ck-agent-confirm`                                          |
+
+The opener sits in a `display: contents` slot the component owns, so focus can return to it without
+the caller wiring a ref, and the footer lays the opener out as if the slot were not there.
+
+## States
+
+| story                                    | what it shows                                       |
+| ---------------------------------------- | --------------------------------------------------- |
+| `Closed`                                 | the opener, in a record footer                      |
+| `Open`                                   | the consequence, Undo and Cancel; focus on Cancel   |
+| `EscapeReturnsFocus`                     | Esc closes it; focus back on Undo build             |
+| `OpenDark`                               | dark                                                |
+| `OpenRightToLeft`, `OpenRightToLeftDark` | Arabic                                              |
+| `Destructive`                            | delete a conversation: the Alarm outline            |
+| `DestructiveRightToLeftDark`             | the same in Arabic, dark, opened from an IconButton |
+
+## Anatomy
+
+A `group` taking the footer row's full width: the message on its own line (Read, Graphite, pretty
+wrapping), then the confirm (a secondary outline: Rule border on the Sheet, Ink text; or an Alarm
+outline for `danger`) and Cancel (a ghost in Graphite). Both are 32px, 44px on a coarse pointer,
+radius 6. The destructive answer is never an Indigo fill: Indigo is the primary action, and a
+deletion is not one.
+
+## Accessibility
+
+Focus is the whole contract (SPEC §6.3), and each destination is asserted by name in the tests:
+
+- opening moves focus to **Cancel**, the answer that changes nothing;
+- **Esc** or Cancel closes it and returns focus to the **opener**;
+- confirming leaves focus where the action sent it (Undo build → the record's head); only if the
+  action sent it nowhere does focus return to the opener.
+
+It is a `group` named by its message, so a screen reader landing on Cancel hears what is being
+confirmed. It is never `dialog` or `alertdialog`, and never `aria-modal`.
+
+Esc is spent here: it does not bubble to the composer or the panel through React. A Radix popover
+listens for Esc on the document in the capture phase, so an owner inside one (HistoryPopover)
+prevents the popover's `onEscapeKeyDown` while its confirm is open.
+
+## RTL
+
+Logical properties only. The buttons follow the reading direction: in Arabic the confirm is at the
+right and Cancel to its left.
+
+## Motion
+
+It fades in over 120ms, a state change rather than an arrival; nothing under reduced motion.

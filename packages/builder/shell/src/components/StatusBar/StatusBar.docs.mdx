@@ -1,0 +1,126 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as StatusBarStories from './StatusBar.stories';
+
+<Meta of={StatusBarStories} />
+
+# StatusBar
+
+`StatusBar` is the presentational bottom band of the editor. It places actionable caller-supplied
+tools at inline start, recent transaction provenance in the centre, and only the view or persistence
+facts a caller actually supplies at inline end. It owns no state, reads no kernel, and never infers
+a transaction's author.
+
+<Canvas of={StatusBarStories.AllThreeDoors} />
+
+## When to use
+
+Use `StatusBar` in the `BuilderShell` status slot when authors need lightweight editor utilities or
+recent-change provenance. Supply zoom only when the canvas really has a transform and save feedback
+only when a persistence system produced that state. Omit unsupported details. Do not use the bar as
+a history store, save controller, zoom controller, or kernel adapter; the composing host owns those
+concerns.
+
+## Usage
+
+```tsx
+const changes = transactions
+  .slice()
+  .reverse()
+  .map((transaction) => ({
+    id: transaction.id,
+    door:
+      transaction.author === 'user'
+        ? 'canvas'
+        : transaction.author === 'codeview'
+          ? 'code'
+          : 'assistant',
+    label: describeTransaction(transaction),
+  }));
+
+<StatusBar changes={changes} deviceLabel="Desktop · 1440 px" />;
+```
+
+The host maps the kernel's `user`, `codeview`, and `ai` authors to the interface's `canvas`, `code`,
+and `assistant` doors. The component receives only the resulting view model. Changes remain static
+provenance until `onChangeSelect` is supplied; tools render only when both `tools` and
+`onToolSelect` are present.
+
+## API
+
+| Prop             | Type                             | Default           | Purpose                                            |
+| ---------------- | -------------------------------- | ----------------- | -------------------------------------------------- |
+| `tools`          | `readonly StatusBarTool[]`       | `[]`              | Icon-only tools; hidden without `onToolSelect`     |
+| `onToolSelect`   | `(id: string) => void`           | none              | Enables tools and receives the activated tool id   |
+| `changes`        | `readonly RecentChange[]`        | `[]`              | Recent changes, newest first                       |
+| `onChangeSelect` | `(id: string) => void`           | none              | Makes changes actionable and receives their id     |
+| `zoom`           | `number`                         | hidden            | Real canvas zoom ratio; `1` renders as `100%`      |
+| `deviceLabel`    | `string`                         | hidden            | Caller-authored device and viewport description    |
+| `saveState`      | `'saved' \| 'saving' \| 'error'` | hidden            | Visible, politely announced persistence state      |
+| `label`          | `string`                         | `'Editor status'` | Accessible name for the complete status-bar region |
+| `agent`          | `ReactNode`                      | hidden            | A host's live activity line (the agent's status pill), at inline start after the tools |
+| `emptyLabel`     | `string \| null`                 | `'No recent changes'` | What an empty strip says; `null` says nothing, for a host that lists its changes elsewhere |
+
+`StatusBarTool` carries `id`, an accessible `label`, and a decorative `icon`. `RecentChange` carries
+`id`, one of the three doors, and the author's short description of what changed.
+
+## Provenance doors
+
+- Canvas uses an open artboard with a centre mark: an orthogonal square silhouette.
+- Code uses two opposing chevrons: a separated diagonal silhouette.
+- Assistant uses a four-point sparkle and satellite ray: a radial silhouette in the accent colour.
+
+All three are drawn on the same 16-unit grid with a 1.5-unit `currentColor` stroke and render at the
+12px spacing token. Their outer shapes, rather than fine internal detail, keep them distinguishable
+at that size. Canvas and Code stay muted; only Assistant uses the brand accent.
+
+## Variants and state
+
+- `Default` shows static provenance and one caller-supplied viewport fact.
+- `InteractiveToolsAndChanges` supplies real callback spies for both interactive groups.
+- `ReadOnlyProvenance` proves static changes do not enter the real Tab order and an empty tools cell
+  is not exposed as a named group.
+- `AllThreeDoors` demonstrates every provenance source in newest-first order.
+- `Saving` and `SaveError` keep visible state text as well as semantic colour.
+- `NoChanges` displays “No recent changes” instead of leaving a blank strip.
+- `RightToLeft` inherits RTL direction without changing markup or styles.
+- `Arabic` passes `STATUS_BAR_LABELS_AR` (`labels`): the region, doors ("اللوحة: …"), save state,
+  zoom and empty strip are all Arabic, and numbers stay in Latin digits. A change label that already
+  names its door in either language is not prefixed twice. The host picks the set through the
+  editor catalogue (`editorCatalogue(locale).statusBar`).
+
+## Accessibility and keyboard behavior
+
+The status bar is a named region. Tool buttons use their supplied labels as accessible names, while
+their icons are decorative. Without a tool action, no tool control or named group is exposed. Every
+change visibly names both its door and description, such as “Assistant: heading + cta”. Changes are
+static text by default and become native buttons only when `onChangeSelect` exists. The first item
+alone carries `aria-current="true"`, so assistive technology can identify the newest change
+independently of visual styling. Interactive changes retain native button keyboard behavior.
+
+Every icon-only tool is an `lg` `ChromeButton` square, matching the status band's default height
+without overflowing it. Interactive provenance chips keep the dense `sm` size already used by the
+static chip presentation. Focus appearance comes from the theme's shared `.bldr-root :focus-visible`
+rule.
+
+When supplied, save feedback is a polite atomic status with the distinct visible strings “Saved”,
+“Saving”, and “Save failed”. Saved, saving, and failure use the semantic success, warning, and
+danger tokens; colour is never the only signal. The saving dot stops animating when reduced motion
+is requested. With no persistence fact, the live region does not exist.
+
+## RTL, theme, and content constraints
+
+The three symmetric grid groups use only logical sizing, borders, spacing, and alignment. In RTL,
+tools move to the right, details move to the left, and the newest-first list begins at inline start.
+Every visual value comes from a `--bldr-*` token. Numeric content inherits tabular figures, so zoom
+and viewport values do not shift neighboring content as digits change. Long change labels truncate
+visually while their complete accessible names remain available.
+
+## Known limitations
+
+- The caller chooses how many recent changes to provide; an overflowing strip scrolls rather than
+  discarding provenance.
+- `StatusBar` rounds a supplied real zoom ratio to a whole percentage; it cannot determine whether a
+  caller's number represents an actual transform.
+- Caller-supplied tool icons must be decorative, non-interactive content because they render inside
+  native buttons.

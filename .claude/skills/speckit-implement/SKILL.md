@@ -234,6 +234,10 @@ Report final status with summary of completed work.
 
 Apply `.specify/agents/rules/monorepo.md` and, for React or UI work,
 `.specify/agents/rules/react-ui.md` throughout implementation.
+When approved work is delegated or worker output is being integrated, also apply
+`.specify/agents/rules/collaboration.md`. Honor active path leases, do not redispatch an already
+owned task, and treat worker summaries as unverified until the coordinator inspects the real diff
+and reruns the relevant checks.
 
 - Keep writes inside the approved app/package scope. Update the plan before crossing an
   unplanned boundary.

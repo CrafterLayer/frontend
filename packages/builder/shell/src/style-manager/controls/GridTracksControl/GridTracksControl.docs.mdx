@@ -1,0 +1,20 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as GridTracksControlStories from './GridTracksControl.stories';
+
+<Meta of={GridTracksControlStories} />
+
+# GridTracksControl
+
+Grid columns or rows as tracks (style-manager DESIGN.md §E, visual flex/grid).
+
+- A bar preview shows the tracks in proportion.
+- **Count** sets the number of tracks; new tracks are `1fr`.
+- In free mode each track has a size menu (`1fr`, `2fr`, `3fr`, `auto`, `min-content`,
+  `max-content`, `minmax(0,1fr)`, `minmax(200px,1fr)`) and a remove button; **Add track** appends.
+- Equal `1fr` tracks are written as the count token (`grid-cols-3`); anything else as the exact
+  template (`grid-cols-[1fr_2fr_1fr]`). Tokens mode edits the count only.
+- With no track set, the control says so ("Auto · no tracks set") instead of drawing an empty
+  preview box.
+
+Labels: `GRID_TRACKS_CONTROL_LABELS_EN` and `GRID_TRACKS_CONTROL_LABELS_AR`.

@@ -1,0 +1,72 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SwatchPopoverStories from './SwatchPopover.stories';
+
+<Meta of={SwatchPopoverStories} />
+
+# SwatchPopover
+
+One colour of the plan's direction, and the popover that changes it, with a live contrast verdict
+(SPEC §4.11).
+
+<Canvas of={SwatchPopoverStories.Open} />
+
+## Purpose
+
+A page that cannot be read is not a page. The popover measures every candidate colour against the
+colour it is read with, using the engine's own gate (`swatchContrast` asks `validateDesignSystem`),
+and refuses one that fails: it shows it, says why, and does not apply it. The plan keeps its last
+readable colour.
+
+## When to use / not
+
+Use it for the five swatches in DirectionEditor. Do not use it for the read-only DirectionLine.
+
+## Props
+
+| prop       | type                                      | default | notes                                       |
+| ---------- | ----------------------------------------- | ------- | ------------------------------------------- |
+| `locale`   | `'ar' \| 'en'`                            | none    |                                             |
+| `role`     | `SwatchRole`                              | none    | background, surface, text, accent, onAccent |
+| `hex`      | `string`                                  | none    | the colour the plan holds                   |
+| `judge`    | `(hex: string) => SwatchContrast \| null` | none    | `null` means "not measured", never "passes" |
+| `onChange` | `(hex: string) => void`                   | none    | called only with a readable colour          |
+
+## States
+
+| story                                   | what it shows                                        |
+| --------------------------------------- | ---------------------------------------------------- |
+| `Closed`                                | the 20px chip in its 32px target                     |
+| `Open`, `OpenDark`, `OpenRightToLeft`   | the role, picker, hex field and verdict              |
+| `RefusesUnreadable`, `…RightToLeftDark` | an unreadable colour: Amber verdict, refused         |
+| `TextOnAccent`                          | judged against the accent                            |
+| `HeldUnreadable`, `HeldUnreadableDark`  | a held colour that fails: the Amber flag on the chip |
+
+## Anatomy
+
+The swatch: a 20px chip, radius 4, inside a 1px `--bldr-content-outline` ring (the page's colour is
+content, not chrome), in a 32px target (44 coarse). A failing held colour adds a 6px Amber dot at
+the chip's block-start / inline-end corner inside a 2px Sheet ring.
+
+The popover (e2, radius 9, 12px in): the role's name (Heading), then the native colour input drawn
+as a 32px swatch beside a 32px hex field (tabular, left to right), then the verdict in Meta:
+Graphite when readable, Amber when not, and the refusal line under it.
+
+## Accessibility
+
+- The swatch is named by its role and code; a failing held colour is described by its verdict.
+- Opening focuses the hex field, text selected: typing a code is the keyboard's fastest path.
+- The verdict describes the field, so a screen reader hears it as the code changes. The ratio is
+  rounded down, so a pair measured 4.497 never reads "4.5" beside "Not readable".
+- Enter applies a readable colour and closes the popover; focus returns to the swatch. Esc closes it
+  without applying what was typed.
+
+## RTL
+
+The popover opens from the swatch's inline start and follows the panel's direction; the hex code is
+always left to right.
+
+## Motion
+
+Opacity and a 4px rise from the anchor side (`enter` 220ms, `exit` 140ms, SPEC §5 moment 9); opacity
+only under reduced motion.

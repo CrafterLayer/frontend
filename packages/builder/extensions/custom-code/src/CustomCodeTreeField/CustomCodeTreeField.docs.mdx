@@ -1,0 +1,67 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CustomCodeTreeFieldStories from './CustomCodeTreeField.stories';
+
+<Meta of={CustomCodeTreeFieldStories} />
+
+# CustomCodeTreeField
+
+The Inspector control for a composition tree.
+
+<Canvas of={CustomCodeTreeFieldStories.Default} />
+
+## No JSON unless asked (block-parts fix pass, 2026-10-06)
+
+The owner's rule is **never raw JSON in the Inspector**. The field now shows the summary and where to
+edit — click any element on the canvas, or pick it in Layers — and the JSON source mounts only behind
+**Edit source (advanced)** (`aria-expanded`). In an RTL panel both lines speak Arabic; the source
+itself stays `dir="ltr"`.
+
+<Canvas of={CustomCodeTreeFieldStories.Arabic} />
+
+## Why the source is a JSON editor and not a visual one
+
+A visual editor for this tree is a second canvas — selection, drag, drop, insertion points, keyboard
+traversal — and the product already has one of those for the **document**. Building a second, poorer
+one inside a properties panel is a large amount of work whose ceiling is "worse than the canvas you
+already have".
+
+The honest v1 is a text surface over the stored JSON, with the three things that make such a surface
+usable rather than hostile:
+
+1. it never writes an invalid tree — parse first, commit second;
+2. it says **why** when it refuses, at the path that failed;
+3. it summarises what the tree contains, so the panel is informative even to someone who will not
+   read the JSON.
+
+## The summary is the panel's real content
+
+<Canvas of={CustomCodeTreeFieldStories.WithComponentReference} />
+
+It counts elements and **names** the blocks a tree references — "2 elements, and 1 block reference:
+hero." A count alone would tell a reader that something is referenced without telling them what, and
+the name is the part they can act on.
+
+<Canvas of={CustomCodeTreeFieldStories.EmptyRegion} />
+
+## Refusing, and keeping the edit
+
+<Canvas of={CustomCodeTreeFieldStories.InvalidJson} />
+
+Bad JSON is reported with the parser's own message; a well-formed tree that the schema rejects is
+reported with the failing **path**, which is the only part of a validation error a person can act
+on. Either way the text stays exactly as typed — an editor that clears your work along with the
+error message is worse than one that never accepted it.
+
+Commit is on **blur**, not per keystroke: every accepted edit is a dispatched command and therefore
+an undo entry, and one entry per character makes undo useless for exactly the edit that matters.
+
+## The better answer for the common case is one layer up
+
+Clicking an authored element on the canvas focuses it (`kernel.focusElement`), and the shell's
+Inspector replaces the block's rows — this JSON included — with that element's own: `src`/`alt`,
+text, `href`, classes. That arrived without unbuilding this control, because this one remains the
+whole-tree door: structure, reordering, component references, and anything the element rows do not
+cover. Promoting an element into a real document node stays a later milestone.
+
+<Canvas of={CustomCodeTreeFieldStories.Disabled} />

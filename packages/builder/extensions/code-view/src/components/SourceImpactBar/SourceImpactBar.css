@@ -1,0 +1,101 @@
+.bldr-source-impact {
+  align-items: center;
+  background: var(--bldr-panel);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  display: flex;
+  gap: var(--bldr-space-3xl);
+  justify-content: space-between;
+  min-inline-size: 0;
+  padding: var(--bldr-space-lg) var(--bldr-space-xl);
+}
+
+.bldr-source-impact[data-scope='shared'] {
+  border-color: color-mix(in srgb, var(--bldr-selection) 48%, transparent);
+}
+
+.bldr-source-impact[data-stale='true'] {
+  border-color: var(--bldr-warning);
+}
+
+.bldr-source-impact__body {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.bldr-source-impact__body strong {
+  font-size: var(--bldr-font-size-meta);
+}
+
+.bldr-source-impact__body span {
+  font-size: var(--bldr-font-size-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-source-impact__body small {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+}
+
+.bldr-source-impact__actions {
+  display: flex;
+  flex: none;
+  gap: var(--bldr-space-sm);
+}
+
+.bldr-source-impact__actions button {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  padding: var(--bldr-space-sm) var(--bldr-space-lg);
+}
+
+.bldr-source-impact__actions .bldr-source-impact__apply {
+  background: var(--bldr-selection);
+  border-color: var(--bldr-selection);
+  color: var(--bldr-accent-text);
+}
+
+.bldr-source-impact__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.bldr-source-impact__actions button:focus-visible {
+  outline: var(--bldr-border-thick) solid var(--bldr-selection);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-source-impact__announcement {
+  block-size: var(--bldr-border-hairline);
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  inline-size: var(--bldr-border-hairline);
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+@media (max-width: 42rem) {
+  .bldr-source-impact {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bldr-source-impact__actions {
+    flex-wrap: wrap;
+  }
+}
+
+[dir='rtl'] .bldr-source-impact__body,
+[dir='rtl'] .bldr-source-impact__actions {
+  text-align: start;
+}

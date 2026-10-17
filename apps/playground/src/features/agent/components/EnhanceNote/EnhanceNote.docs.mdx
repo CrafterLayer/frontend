@@ -1,0 +1,60 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EnhanceNoteStories from './EnhanceNote.stories';
+
+<Meta of={EnhanceNoteStories} />
+
+# EnhanceNote
+
+What ✨ Improve did, docked on top of the text it rewrote, in QueueHeader's language: a mark and a
+label on the first line with its one action at the inline end, the detail under it.
+
+<Canvas of={EnhanceNoteStories.ChangesOpen} />
+
+## Purpose
+
+Improved: "Request improved", then "Understood: …" (the model's one-line restatement, so the person
+can check it read them right), what changed as a short list behind a disclosure, and Restore my text.
+Failed: an honest line that says the text is unchanged, with the cause when it is known.
+
+## Props
+
+| prop          | type              | default | notes                                               |
+| ------------- | ----------------- | ------- | --------------------------------------------------- |
+| `locale`      | `Locale`          | none    |                                                     |
+| `enhancement` | `EnhancementView` | none    | draws only `enhanced` and `failed`                  |
+| `onRestore`   | `() => void`      | none    | offered while `canRestore`                          |
+| `className`   | `string`          | none    | appended to `ck-agent-enhance-note`                 |
+
+## States
+
+| story                                                  | what it shows                                    |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `Enhanced`, `EnhancedDark`, `EnhancedWide`             | label, Restore, the understood line, the toggle  |
+| `ChangesOpen`                                          | the changes as a short list                      |
+| `WithoutRestore`, `NoChanges`                          | no Restore to offer; no list                     |
+| `Failed`, `FailedTimeout`, `FailedBusy`, `FailedOther`, `FailedDark` | one honest line per cause          |
+| `EnhancedRightToLeft`, `EnhancedRightToLeftDark`, `FailedRightToLeft` | Arabic                            |
+
+## Anatomy
+
+The first line is 32px (the action's hit area): the sparkle in Graphite (Slate when failed) and the
+label in Meta 600 Ink, Restore as a text button at the inline end. Under it, Meta lines in Graphite at
+the record's 2px rhythm, clamped to two lines; the changes toggle, then the list. Nothing is boxed.
+
+## Accessibility
+
+- A group named by its label; a failed note is described by its cause.
+- The disclosure is a button with `aria-expanded` and `aria-controls`; the closed list is `inert`.
+- The restatement sits in `<bdi>` with its own direction.
+- Not a live region: LiveStatus speaks `enhance.ready`.
+
+## RTL
+
+Restore at the left, the list's marks at the right. An English restatement inside the Arabic line
+keeps its own direction.
+
+## Motion
+
+The note fades in over 120ms; the list opens with `grid-template-rows` (SPEC §5 moment 8), 220ms in and
+140ms out. Reduced motion: instant.

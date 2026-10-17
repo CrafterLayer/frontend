@@ -1,0 +1,44 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ProgressStories from './Progress.stories';
+
+<Meta of={ProgressStories} />
+
+# Progress
+
+A production-safe determinate progress indicator adapted from shadcn/ui and bound to CraftKit's role
+tokens. The visible label is also the progressbar's accessible name, while `value`, `max`, and the
+computed percentage are exposed to assistive technology.
+
+<Canvas of={ProgressStories.Accent} />
+
+## Honest range handling
+
+The schema rejects negative values and non-positive maxima. If imported content exceeds its maximum,
+the renderer clamps both the visual fill and `aria-valuenow` to the declared range. This keeps the
+spoken state aligned with the pixels rather than presenting contradictory progress.
+
+<Canvas of={ProgressStories.CompletedSuccess} />
+
+## Token-bound variants and motion
+
+Accent, success, and neutral use semantic role tokens, never fixed palette colors. The fill grows
+from logical inline-start, so RTL needs no duplicate layout. Width changes use a short transition,
+and `motion-reduce:transition-none` removes it for visitors who request reduced motion. A shared
+Builder motion specification can also be attached without changing the progress semantics.
+
+<Canvas of={ProgressStories.ArabicRtl} />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name        | kind | bind    | label (en / ar)     |
+| ----------- | ---- | ------- | ------------------- |
+| `label`     | text | `label` | Label / التسمية     |
+| `value`     | box  | —       | Percentage / النسبة |
+| `track`     | box  | —       | Track / المسار      |
+| `indicator` | box  | —       | Bar / الشريط        |

@@ -1,0 +1,191 @@
+.bldr-richtext-field {
+  border: 1px solid var(--bldr-panel-border, #e2e8f0);
+  border-radius: 0.25rem;
+}
+
+/* The editable surface owns the focus ring for the whole field: it replaces
+   the UA outline it suppresses (WCAG 2.4.7 — §10 review fix H2). */
+.bldr-richtext-field:focus-within {
+  outline: 2px solid var(--bldr-selection, #4f46e5);
+  outline-offset: 1px;
+}
+
+.bldr-richtext-field__toolbar {
+  border-block-end: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border, #e2e8f0);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  padding: var(--bldr-space-xs);
+  position: relative;
+}
+
+.bldr-richtext-field__tool {
+  align-items: center;
+  background: none;
+  border: calc(var(--bldr-space-2xs) / 2) solid transparent;
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text, #334155);
+  cursor: pointer;
+  display: inline-flex;
+  /*
+    The PANEL scale, not the touch target. 44px is WCAG 2.2 AAA's finger size
+    and belongs to the top bar and the floating canvas chrome. Measured here:
+    eight 44x44 buttons wrapped onto two rows and made the toolbar 281x99 inside
+    a 312px column — a formatting bar taller than the text it formats. At 28 the
+    same eight fit one row and still clear the AA floor of 24 with room.
+  */
+  flex: 0 0 var(--bldr-control-sm);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  justify-content: center;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+  padding: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-richtext-field__tool:hover:not(:disabled) {
+  background: var(--bldr-surface-hover);
+}
+
+/* Focus is distinguishable from hover and from pressed (review H2). */
+.bldr-richtext-field__tool:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-richtext-field__tool[aria-pressed='true'] {
+  background: var(--bldr-accent-soft, #dbeafe);
+  border-color: var(--bldr-accent, #2563eb);
+  color: var(--bldr-accent, #2563eb);
+}
+
+.bldr-richtext-field__tool[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--bldr-accent-soft-hover);
+}
+
+.bldr-richtext-field__tool:disabled {
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.bldr-richtext-field__tooltip {
+  background: var(--bldr-panel-text);
+  border: calc(var(--bldr-space-2xs) / 2) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  box-shadow: var(--bldr-shadow-raised);
+  box-sizing: border-box;
+  color: var(--bldr-panel);
+  font-family: var(--bldr-font, system-ui, sans-serif);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-snug);
+  max-inline-size: calc(100% - var(--bldr-space-md));
+  opacity: 0;
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  pointer-events: none;
+  position: absolute;
+  text-overflow: ellipsis;
+  transition:
+    opacity var(--bldr-duration-state) var(--bldr-easing),
+    visibility var(--bldr-duration-state) var(--bldr-easing);
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.bldr-richtext-field__tooltip[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-richtext-field__tool,
+  .bldr-richtext-field__tooltip {
+    transition: none;
+  }
+}
+
+.bldr-richtext-field__content {
+  padding: 0.375rem;
+}
+
+/* The field's own CHROME typography — the panel's scale, for the inspector.
+   It steps aside when the host supplied a prose context (`surfaceClassName`),
+   because in the canvas the surface must read as the PAGE, not as a panel
+   control. Written as `:not()` rather than left to the cascade on purpose:
+   both rules are one class, so source order would have decided it, and the
+   two stylesheets load in whichever order a bundler happens to choose. */
+.bldr-richtext-field__surface:not(.bldr-richtext) {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  min-block-size: 4rem;
+}
+
+/* The Inspector's editor is a panel control, so it uses the CHROME scale —
+   but a heading must still read as a heading: with the H2 button pressed the
+   text stayed 13px like the paragraphs around it (walk 2026-10-08). */
+.bldr-richtext-field__surface:not(.bldr-richtext) :is(h2, h3, h4) {
+  font-weight: var(--bldr-font-weight-semibold, 600);
+  line-height: 1.3;
+  margin-block: var(--bldr-space-sm) var(--bldr-space-2xs);
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) h2 {
+  font-size: var(--bldr-font-size-display, 15px);
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) h3 {
+  font-size: var(--bldr-font-size-title, 14px);
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) h4 {
+  font-size: var(--bldr-font-size-control, 13px);
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) :is(ul, ol) {
+  margin-block: var(--bldr-space-2xs);
+  padding-inline-start: var(--bldr-space-4xl, 20px);
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) ul {
+  list-style-type: disc;
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) ol {
+  list-style-type: decimal;
+}
+
+.bldr-richtext-field__surface:not(.bldr-richtext) a {
+  color: var(--bldr-accent, #5b5bd6);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.bldr-richtext-field__surface {
+  /* Suppressed here, replaced by the field-level :focus-within ring above. */
+  outline: none;
+}
+
+.bldr-richtext-field__notice,
+.bldr-richtext-field__error {
+  font-size: 0.75rem;
+  margin: 0;
+  padding: 0.375rem;
+}
+
+.bldr-richtext-field__notice {
+  color: var(--bldr-panel-muted, #64748b);
+}
+
+.bldr-richtext-field__error {
+  color: var(--bldr-danger, #dc2626);
+}

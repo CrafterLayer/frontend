@@ -1,0 +1,169 @@
+/*
+  FeedbackToaster (Studio Indigo, 2026-10-12).
+
+  A toast is a Panel card, 352px wide (the large list measure; the viewport less a gutter
+  on a phone), bottom-centre above the status bar: the Hairline edge, the large radius and
+  the floating elevation. At its start a 28px tile carries the outcome's glyph in the
+  outcome's colour (Success, Danger, Accent; a ring while it works); then the title in Ink
+  and one sentence of detail in Graphite; a failure ends with Try again in the Accent wash.
+  The close control sits at the inline end, quiet until hovered.
+
+  sonner draws the stacking, the swipe and the enter and exit; this sheet draws the card.
+  Tokens only, logical properties only.
+*/
+
+.pg-toaster {
+  --width: var(--bldr-measure-list-lg);
+
+  font-family: var(--bldr-font);
+}
+
+.pg-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bldr-space-lg);
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding-block: var(--bldr-space-lg);
+  padding-inline: var(--bldr-space-lg) var(--bldr-space-6xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+}
+
+.pg-toast__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--bldr-control-md) - var(--bldr-space-xs));
+  block-size: calc(var(--bldr-control-md) - var(--bldr-space-xs));
+  margin: 0;
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.pg-toast--success .pg-toast__icon {
+  background-color: var(--bldr-success-soft);
+  color: var(--bldr-success);
+}
+
+.pg-toast--error .pg-toast__icon {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.pg-toast__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  padding-block-start: var(--bldr-space-2xs);
+}
+
+.pg-toast__title {
+  font-weight: var(--bldr-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.pg-toast__description {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  text-wrap: pretty;
+}
+
+.pg-toast__action {
+  flex: none;
+  align-self: center;
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-lg);
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.pg-toast__action:hover {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+.pg-toast__close {
+  position: absolute;
+  inset-block-start: var(--bldr-space-sm);
+  inset-inline-end: var(--bldr-space-sm);
+  display: grid;
+  place-items: center;
+  inline-size: var(--bldr-control-sm);
+  block-size: var(--bldr-control-sm);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+}
+
+.pg-toast__close:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.pg-toast__action:focus-visible,
+.pg-toast__close:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-toast__spinner {
+  box-sizing: border-box;
+  inline-size: var(--bldr-space-3xl);
+  block-size: var(--bldr-space-3xl);
+  border: var(--bldr-space-2xs) solid var(--bldr-accent-soft-hover);
+  border-block-start-color: var(--bldr-accent);
+  border-radius: var(--bldr-radius-full);
+  animation: pg-toast-spin var(--bldr-duration-glow) linear infinite;
+}
+
+@keyframes pg-toast-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (pointer: coarse) {
+  .pg-toast__close {
+    inline-size: var(--bldr-hit-target-min);
+    block-size: var(--bldr-hit-target-min);
+    inset-block-start: 0;
+    inset-inline-end: 0;
+  }
+
+  .pg-toast__action {
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-toast__spinner {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .pg-toast {
+    border-color: CanvasText;
+  }
+}

@@ -1,0 +1,147 @@
+/*
+  AddSectionRow (SPEC §4.11, frame §3.7). The row after the plan's list, on the list's own
+  glyph column: the + is centred where the nodes are, below the pencil's last ring, as if
+  the spine could go one step further; the words start 24px in, on the number column.
+
+    ○  8  Contact             [⠿] [⋯]
+    +  Add section                          Indigo words, a text button, the row's height
+    +  [Section name, e.g. Pricing     ]    the field: its text starts where the words did
+*/
+
+.ck-agent-add-section {
+  display: grid;
+  grid-template-columns: var(--bldr-space-3xl) minmax(0, 1fr);
+  column-gap: var(--bldr-space-md);
+  align-items: center;
+  min-inline-size: 0;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+/* ── Closed: a text button, the full row wide ─────────────────────────────── */
+
+.ck-agent-add-section__button {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  block-size: var(--bldr-agent-row-height);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--bldr-font-weight-medium);
+  text-align: start;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* Hover lays the Wash under the words and changes no colour (SPEC §2.1 rule 3). */
+.ck-agent-add-section__button:not([aria-disabled='true']):hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-add-section__button:not([aria-disabled='true']):active {
+  background-color: var(--bldr-surface-active);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/* Rows use an inset ring, so it never collides with the row above (SPEC §6.3). */
+.ck-agent-add-section__button:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+.ck-agent-add-section__button[aria-disabled='true'] {
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+.ck-agent-add-section__glyph {
+  justify-self: center;
+}
+
+.ck-agent-add-section__label {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Open: the field ─────────────────────────────────────────────────────── */
+
+.ck-agent-add-section[data-open] {
+  min-block-size: var(--bldr-agent-row-height);
+}
+
+.ck-agent-add-section[data-open] > .ck-agent-add-section__glyph {
+  color: var(--bldr-panel-muted);
+}
+
+/*
+  The field hangs 8px into the gap before the words' column, so with its 1px border and 7px
+  of padding its text sits exactly where "Add section" began. The same 32px field as the
+  inline rename (SPEC §4.11), in Input type.
+*/
+.ck-agent-add-section__field {
+  box-sizing: border-box;
+  block-size: var(--bldr-control-md);
+  inline-size: calc(100% + var(--bldr-space-md));
+  min-inline-size: 0;
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-md));
+  padding-block: 0;
+  padding-inline: calc(var(--bldr-space-md) - var(--bldr-border-hairline));
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-input);
+  line-height: var(--bldr-line-height-input);
+  unicode-bidi: plaintext;
+}
+
+/* Slate on the Sheet is 4.69:1 (SPEC §2.1 "placeholder"). */
+.ck-agent-add-section__field::placeholder {
+  color: var(--bldr-panel-muted);
+  opacity: 1;
+}
+
+.ck-agent-add-section__field:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-border-hairline));
+}
+
+/* ── At twelve: why it cannot grow, in Meta under the words ──────────────── */
+
+.ck-agent-add-section__reason {
+  grid-column: 2;
+  margin: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-add-section__field {
+    block-size: calc(var(--bldr-hit-target-min) - var(--bldr-space-xs));
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-add-section__button {
+    color: LinkText;
+  }
+
+  .ck-agent-add-section__button[aria-disabled='true'] {
+    color: GrayText;
+  }
+}

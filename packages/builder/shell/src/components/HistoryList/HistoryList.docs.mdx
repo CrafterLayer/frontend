@@ -1,0 +1,35 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as HistoryListStories from './HistoryList.stories';
+
+<Meta of={HistoryListStories} />
+
+# HistoryList
+
+The edit history as a list (style-manager DESIGN.md §E): every undo step with the name it was given
+when it was made ("Padding · Hero heading"), who made it (you, the assistant or the code view) and how
+long ago. The current position is marked with `aria-current="step"`; the steps after it are the redo
+stack and stay listed, struck through, until a new change clears them.
+
+<Canvas of={HistoryListStories.Default} />
+
+## Jumping is undo, not a new edit
+
+Clicking a step calls `kernel.history().jumpTo(n)`, which replays undo or redo until the stack stands
+there. Nothing new is written to the transaction log, so persistence, the vault and collaboration see
+exactly the undo/redo they always saw. "Opened" jumps to before the first step.
+
+<Canvas of={HistoryListStories.JumpBack} />
+
+## Where it lives
+
+It sits beside the vault's restore points in the History rail section. A kernel lens that does not yet
+expose `history()` can pass one through the `history` prop (`createKernelHistoryView` builds it from
+any dispatcher).
+
+<Canvas of={HistoryListStories.Arabic} />
+
+## The Arabic editor
+
+`HISTORY_LIST_LABELS_AR` names every step in Arabic (more page and site commands are named in both
+languages), and relative times keep Latin digits ("قبل 5 دقائق") like every number in the chrome.

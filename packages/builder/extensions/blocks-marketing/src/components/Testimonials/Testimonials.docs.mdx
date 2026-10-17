@@ -1,0 +1,53 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TestimonialsStories from './Testimonials.stories';
+
+<Meta of={TestimonialsStories} />
+
+# Testimonials
+
+Customer quotes with attribution, rendered as semantic figures.
+
+## Props (intent-only)
+
+- `heading: string (1–80) = 'Loved by teams'`
+- `body?: string (1–200)` — supporting copy below the heading.
+- `items (≤6): Array<{ quote (1–240); author (1–60); role? (≤60) }> = []`
+- `columns: 'auto' | '1' | '2' | '3' = 'auto'`
+- `align: 'start' | 'center' | 'end' = 'start'`
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'wide'` (the column every section shares by default)
+
+## Accessibility
+
+A labelled `section`; each quote is a `figure` with a `blockquote` and a `figcaption` naming the
+author.
+
+## Theming & RTL
+
+Tokens + logical properties; the accent bar uses `border-inline-start`, so it sits on the reading
+side in both directions. `auto` preserves the responsive card grid while fixed columns provide an
+explicit layout choice.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name           | kind | bind              | label (en / ar)              |
+| -------------- | ---- | ----------------- | ---------------------------- |
+| `eyebrow`      | text | `eyebrow`         | Eyebrow / الشارة             |
+| `heading`      | text | `heading`         | Heading / العنوان            |
+| `body`         | text | `body`            | Body / الوصف (multiline)     |
+| `items`        | list | `items`           | Quotes / الآراء              |
+| `item`         | item | `items.*`         | Testimonial / الشهادة        |
+| `item.quote`   | text | `items.*.quote`   | Quote / الاقتباس (multiline) |
+| `item.author`  | text | `items.*.author`  | Author / الكاتب              |
+| `item.role`    | text | `items.*.role`    | Author role / منصب الكاتب    |
+| `item.company` | text | `items.*.company` | Company / الشركة             |
+
+Role and company are separate parts on one line; the `·` separator is drawn only between two. The
+avatar letter is decoration derived from the author.

@@ -1,0 +1,63 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as AnnouncementBarStories from './AnnouncementBar.stories';
+
+<Meta of={AnnouncementBarStories} />
+
+# Announcement Bar
+
+A compact, page-level status or campaign band. Use it for a launch, limited offer, maintenance
+notice, or another message that deserves attention without becoming a full hero. Avoid it for
+multi-paragraph content or critical application errors.
+
+<Canvas of={AnnouncementBarStories.Default} />
+<Controls />
+
+## Public props and defaults
+
+- `label = 'New'`, `message`, `linkLabel = 'Explore the release'`, and `href = '#details'` own all
+  visible copy. Links accept fragments, relative paths, and `http`, `https`, `mailto`, or `tel`
+  destinations; script URLs are rejected.
+- `showLabel = true` and `showLink = true` remove optional chrome without changing the message.
+- `emphasis = 'accent'` supports `subtle`, `accent`, and `inverse` treatments.
+- `layout = 'inline'` centers the group; `split` separates the message and link at wider container
+  widths. `density = 'compact'` also supports `regular`.
+- Shared alignment, tone, width, spacing, gutter, typography, colour-role, motion, and logical
+  spacing controls remain available. Shared style controls are optional and inherit when absent.
+
+## Accessibility and behavior
+
+The block renders an `aside` whose accessible name comes from the visible message. Its anchor is
+keyboard reachable and has a visible focus outline. The arrow is decorative and omitted from the
+accessibility tree. There is no auto-dismiss behavior, timer, or live-region announcement.
+
+## Responsive, RTL, and content guidance
+
+The content stacks inside narrow containers and becomes a row at `@sm`. Logical spacing and RTL
+hover movement keep the call to action correct in either direction. Keep the message to one short
+sentence and the link label action-oriented; use a CTA section when more explanation is required.
+
+## Example
+
+```ts
+announcementBarSchema.props.parse({
+  label: 'Just shipped',
+  message: 'CraftKit Studio 2.0 is available now.',
+  linkLabel: 'Read the release notes',
+  href: '/releases/2-0',
+  layout: 'split',
+});
+```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind                 | label (en / ar)   |
+| --------- | ---- | -------------------- | ----------------- |
+| `label`   | text | `label`              | Label / الوسم     |
+| `message` | text | `message`            | Message / الرسالة |
+| `link`    | link | `linkLabel` + `href` | Link / الرابط     |

@@ -1,0 +1,65 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as FactsDisclosureStories from './FactsDisclosure.stories';
+
+<Meta of={FactsDisclosureStories} />
+
+# FactsDisclosure
+
+Sample details to replace (SPEC §4.8 FactsDisclosure, §3.5): what the writers made up as
+examples, which the person must replace before publishing.
+
+<Canvas of={FactsDisclosureStories.Open} />
+
+## Purpose
+
+A page written from a short request contains invented details: a price, a doctor's name, a
+rating. They look real. The disclosure lists each one with the section it sits in, and each row
+selects that section on the canvas, so nothing invented is published by accident.
+
+## When to use / not
+
+Inside BuildRecord, under the spine, when the view carries facts. It renders nothing when there
+are none (and until the engine sends them, SPEC §7.6 E4).
+
+## Props
+
+| prop        | type                       | default | notes                                                |
+| ----------- | -------------------------- | ------- | ---------------------------------------------------- |
+| `locale`    | `Locale`                   | none    |                                                      |
+| `facts`     | `readonly FactView[]`      | none    | `{ sample, section, nodeId }`, in page order         |
+| `onReveal`  | `(nodeId: string) => void` | none    | selects the section a sample sits in                 |
+| `className` | `string`                   | none    | appended to `ck-agent-facts`                         |
+
+## States
+
+`Closed`, `Open`, `OpenDark`, `OpenRightToLeft`, `OpenRightToLeftDark`, and `Empty` (renders
+nothing).
+
+## Anatomy
+
+```text
+▸ Sample details to replace (3)             disclosure: Meta 500, Amber, mirrored chevron
+  These were written as examples. …         intro (Meta, Slate)  
+  “25 JD”                       Services    rows: 32px (44 coarse), sample · section at the end
+```
+
+Amber is the one colour that means "needs your attention" without meaning "failed" (4.86:1 on
+Paper). The toggle hangs into the gutter so its chevron's stroke sits on the record's text edge.
+
+## Accessibility
+
+- The toggle is a `button` with `aria-expanded` and `aria-controls`; focus stays on it.
+- The closed panel is `inert`, so its rows are out of the tab order.
+- Each row is a button named by the catalog's sentence: "“25 JD” in Services" (Arabic:
+  «25 دينارًا» في «الخدمات»).
+
+## RTL
+
+Quotes follow the locale («» in Arabic, “” in English); every page word is `<bdi>` with its own
+`lang`; the chevron mirrors.
+
+## Motion
+
+Opens over `enter` (220ms, decelerating) and closes over `exit` (140ms) by `grid-template-rows`,
+only once the person has used it (§5 moment 8). Instant under reduced motion.

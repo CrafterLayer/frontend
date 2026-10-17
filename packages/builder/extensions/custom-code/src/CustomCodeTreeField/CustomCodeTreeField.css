@@ -1,0 +1,63 @@
+/*
+  Chrome tokens, not page tokens: this control lives in the Inspector, which is
+  the editor's surface — styling it with `--t-*` would make the panel change
+  colour whenever the SITE being edited was re-themed.
+*/
+.bldr-cc-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ck-space-2, 0.5rem);
+}
+
+.bldr-cc-tree__summary {
+  margin: 0;
+  color: var(--ck-fg-muted, #6b7280);
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-cc-tree__source {
+  width: 100%;
+  padding: var(--ck-space-2, 0.5rem);
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: var(--ck-bg, #fff);
+  color: var(--ck-fg, #111827);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--ck-text-sm, 0.8125rem);
+  line-height: 1.5;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.bldr-cc-tree__source[aria-invalid='true'] {
+  border-color: var(--ck-danger, #dc2626);
+}
+
+.bldr-cc-tree__error {
+  margin: 0;
+  color: var(--ck-danger, #dc2626);
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+/* ── block-parts (2026-10-06) ── where to edit, and the advanced source toggle */
+.bldr-cc-tree__hint {
+  margin: 0;
+  color: var(--ck-fg, #111827);
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-cc-tree__toggle {
+  align-self: flex-start;
+  padding: var(--ck-space-1, 0.25rem) var(--ck-space-2, 0.5rem);
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: none;
+  color: var(--ck-fg-muted, #6b7280);
+  cursor: pointer;
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-cc-tree__toggle[aria-expanded='true'] {
+  color: var(--ck-fg, #111827);
+}
+/* ── /block-parts ── */

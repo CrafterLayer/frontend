@@ -1,0 +1,26 @@
+{
+  "id": "16-stats-band",
+  "title": "A numbers band",
+  "category": "section",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add a band of four numbers showing uptime, customers, countries and support response time.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "allBlockTypes": ["stats"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Are there four numbers, each with a label that matches one of the four things asked for?",
+  "why": "Straightforward, and therefore a good regression canary: if this one starts failing, catalog grounding has broken generally."
+}

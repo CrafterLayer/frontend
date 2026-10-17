@@ -1,0 +1,25 @@
+{
+  "id": "07-impossible-3d-game",
+  "title": "Impossible request: a playable 3D game",
+  "category": "refusal",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Turn this page into a playable multiplayer 3D racing game with physics, matchmaking servers and voice chat.",
+  "must": {
+    "outcome": "refusal",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 0,
+    "maxCommands": 0
+  },
+  "budget": {
+    "maxCommands": 0,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Does the answer say plainly that this is outside what a page builder can do?",
+  "why": "A planner that always answers will happily insert a hero titled \"3D Racing Game\". Refusing is the correct behaviour and nothing else in the repo tests for it."
+}

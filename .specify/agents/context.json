@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-25",
+  "updatedAt": "2026-10-14",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "routing-query-foundation-convergence",
-    "applicationScaffoldPresent": false,
+    "phase": "professional-builder-agent-014-empty-canvas-skills-locally-verified-release-open",
+    "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
-    "gitBranch": "main",
-    "gitCommitCount": 1
+    "gitBranch": "ccr-9f53a999-qdbfom",
+    "gitCommitCount": 44
   },
   "technologyBaseline": {
     "react": {
@@ -44,42 +44,124 @@
       "status": "implemented",
       "version": "react-router-8.3.0",
       "pattern": "stable parent tree plus patchRoutesOnNavigation deferred children"
+    },
+    "builderKernel": {
+      "status": "implemented",
+      "packages": ["@craftkit/builder-schema", "@craftkit/builder-core"],
+      "dependencies": "zod-4.4.3, immer-11.1.18, zustand-5.0.15 (vanilla), nanoid-6.0.1, fast-check-4.9.0",
+      "mode": "internal-packages (src exports, no build step)",
+      "boundaryEnforcement": "workspace-tools validate-builder-boundaries (ADR 0003)",
+      "securityModel": "tier-2 declarative JsonValue-only (ADR 0004)",
+      "note": "B3a fixed a latent B0 defect: dispatch now appends log/history BEFORE store.write (uSES snapshots are checked synchronously inside the notification) — 003 contract §15."
+    },
+    "builderView": {
+      "status": "implemented",
+      "packages": [
+        "@craftkit/builder-react",
+        "@craftkit/builder-renderer",
+        "@craftkit/builder",
+        "@craftkit/builder-blocks-marketing",
+        "@craftkit/playground"
+      ],
+      "entrypointLaw": "apps import ONLY @craftkit/builder (BUILDER_FAMILY_ACCESS is CI-fatal); layer-2 siblings never import each other — the renderer takes the kernel by prop",
+      "registrySnapshot": "kernel-intrinsic extensions.version() read via useSyncExternalStore (never listener-derived)",
+      "theming": "CSS custom properties --t-*; blocks use logical properties only"
+    },
+    "builderShell": {
+      "status": "implemented-inspector-devices-preview",
+      "packages": ["@craftkit/builder-shell"],
+      "scope": "B2a read-only canvas + B2b drag editing + B3a editing surface: schema-generated Inspector (zero panel code per block; guarded one-dispatch commits; structural group labeling; per-def lazy field-type cache with containment and R8 focus lock), default field library (draft discipline: external writes always win), DeviceBar + bucketForWidth (768/1024 half-open, drafts commit on blur/Enter only), EditorCanvas frameWidth+breakpoint (frame shell shares origin with overlay), PreviewMode (publish-safe path, zero-tx round trip, modal-surface Escape, view-state dir override).",
+      "performanceLaw": "merge gates count (0 content re-renders, observer-attributed updates); wall-clock budgets belong to uncontended evidence runs only",
+      "chromeTheming": "shell-owned --bldr-* custom properties with inline fallbacks, independent of the document --t-* theme"
+    },
+    "builderRichText": {
+      "status": "implemented",
+      "packages": ["@craftkit/builder-richtext"],
+      "dependencies": "@tiptap/{react,starter-kit,core,pm} 3.30.3 (exact catalog pins)",
+      "containment": "BUILDER_CONTAINED_DEPENDENCY validator rule (all sections + npm aliases + the workspace ROOT manifest) plus a discovery-derived import-specifier graph test",
+      "readPath": "zero-dependency RichText renderer — canvas, preview, and static output never load the engine"
+    },
+    "builderTransforms": {
+      "status": "implemented",
+      "packages": ["@craftkit/builder-transforms"],
+      "dependencies": "none at runtime; fast-check (catalog) as a devDependency for the round-trip proof",
+      "law": "parse(project(d)) reproduces d for arbitrary registry-generated documents; second-print idempotence; a NON-VACUOUS gate kills a parser that returns [] forever. 1,000 cases per law, fixed seeds, merge-blocking.",
+      "domainAlignment": "MAX_JSON_DEPTH = 128 and the reserved-key refusal (__proto__/constructor/prototype, doc/reserved-node-id) exist so everything a document may HOLD can also be WRITTEN through the patch door — otherwise the round-trip law is quietly false. The strict scanner keeps 256 as an unreachable parser margin."
+    },
+    "builderCodeView": {
+      "status": "implemented",
+      "packages": ["@craftkit/builder-code-view"],
+      "dependencies": "none — native <textarea>, no CodeMirror/Monaco; a handwritten typed postMessage protocol, not Comlink (ProjectionDef holds FUNCTIONS, which cannot be structured-cloned)",
+      "offThread": "SC-005 proven twice: STATICALLY the main-thread modules cannot import the codec at all, and DYNAMICALLY a typing burst invokes it zero times in the render realm. Counted, never timed.",
+      "payPerUse": "two entrypoints: the production entry reaches ./worker dynamically or as types only; ./testing carries the loopback and raw client so unopened sessions load no worker plumbing."
+    },
+    "builderAi": {
+      "status": "us8-skills-and-us9-production-readiness-verified",
+      "package": "@craftkit/builder-ai",
+      "executionLaw": "AI proposes registered kernel commands; it never writes a document. Ask and Auto both enter runAiAgent, and application uses one validated, policy-pinned grouped kernel transaction with author=ai.",
+      "skills": "versioned declarative Custom Skills with metadata-only discovery, request-local deterministic activation, immutable fingerprints, bounded structured bodies, and restrictive command-policy intersection; no scripts, URL imports, filesystem, or tool grants",
+      "context": "one canonical structured block/template/document/selection representation; additive fragments retain source/kind/trust; real 54-block landing/empty wires measure 62511/59237 estimated tokens below the 64000 default and reach the provider once",
+      "providerBoundary": "HTTPS by default; explicit dev-only loopback HTTP; redirects, ambient credentials, and referrers refused; JSON/SSE response caps and cleanup; stable typed errors; one repair maximum",
+      "developmentBridge": "authenticated 127.0.0.1-only Claude CLI adapter with origin/body/output/concurrency caps, 429 without a pending queue, tools/customization/session disabled, one model call, socket cleanup, and POSIX process-tree termination",
+      "directDependencies": "p-limit intentionally not added; reconsider only for a trusted bounded fan-out that owns both active and pending limits",
+      "evidence": "specs/workspace/013-ai-full-site-design-agent/verification-agent-readiness.md"
     }
   },
   "specKit": {
     "version": "1.0.1",
     "root": ".specify",
-    "defaultIntegration": "claude",
-    "installedIntegrations": [
-      "claude",
-      "codex",
-      "cursor-agent"
-    ],
-    "extensions": [
-      "agent-context@1.0.0",
-      "workspace@1.2.0",
-      "routing-performance@1.0.0"
-    ],
-    "presets": [
-      "react-monorepo-quality@1.0.2"
-    ],
-    "workflows": [
-      "speckit@1.0.0",
-      "professional-sdd@1.3.0"
-    ],
-    "professionalWorkflowSteps": 21,
+    "defaultIntegration": "codex",
+    "installedIntegrations": ["claude", "codex", "cursor-agent"],
+    "extensions": ["agent-context@1.0.0", "workspace@1.4.1", "routing-performance@1.0.0"],
+    "presets": ["react-monorepo-quality@1.0.3"],
+    "workflows": ["speckit@1.0.0", "professional-sdd@1.5.0"],
+    "professionalWorkflowSteps": 24,
     "reviewerProfile": {
       "integration": "codex",
       "model": "gpt-5.6-terra",
       "fastTriageOverride": "gpt-5.6-luna",
-      "fallback": "fail-closed when Codex or the selected model is unavailable"
+      "fallback": "fail-closed when Codex, the selected model, or fresh non-empty review evidence is unavailable",
+      "runtimeEnforcement": "packaged launcher passes sandbox=read-only, approval-policy=never, and ephemeral session flags directly to Codex"
+    },
+    "deliveryOrchestration": {
+      "coordinator": "initiating integration; Codex by project default",
+      "worker": "native Codex workers for Codex runs; official codex@openai-codex plugin jobs backed by the Codex app server when Claude coordinates",
+      "operation": "speckit.workspace.delegate",
+      "modes": ["auto", "required", "off"],
+      "routingPolicy": {
+        "codexInitiated": "stay in Codex; never invoke Claude unless the current user explicitly requests Claude",
+        "claudeInitiated": "Claude may call Codex through the official plugin for bounded approved work",
+        "purpose": "avoid agent ping-pong and duplicated context while retaining one-way load distribution"
+      },
+      "claudeCodexTransport": {
+        "plugin": "codex@openai-codex",
+        "version": "1.0.6",
+        "transport": "official Codex app server companion",
+        "status": "installed-enabled-and-ready",
+        "verifiedAt": "2026-08-27",
+        "smokeTest": "one fresh background read-only task exposed starting, thread-ready, turn-started, and terminal phases and returned the expected README heading without touching files",
+        "commands": [
+          "/codex:setup",
+          "/codex:rescue",
+          "/codex:review",
+          "/codex:status",
+          "/codex:result",
+          "/codex:cancel"
+        ],
+        "progress": "status and result are on-demand user commands over the same tracked job; they do not promise unsolicited continuous progress",
+        "legacyProjectMcp": "project MCP entries and bridge source removed; a pre-cutover Claude session may retain in-memory tools until its current task finishes and the session closes; any user-scoped generic codex MCP remains out of project scope and is forbidden by workspace routing",
+        "trust": "plugin installation and Codex authentication are user-scoped and uncommitted"
+      },
+      "delegationGate": "run-local delegation.json is initialized pending and engine-validated; required accepts only delegated work with an accepted result",
+      "reviewLane": "fresh ephemeral Codex process with engine-enforced read-only and never-approve flags plus a 29-minute internal deadline below the workflow timeout, never the implementation worker thread"
     },
     "integrationStatus": {
       "state": "warning-intentional-preset-composition",
       "modifiedManagedFiles": 9,
-      "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade"
+      "explanation": "plan, tasks, and implement are intentionally wrapped by the installed preset for each of three integrations; verify the preset registry before forcing an integration upgrade",
+      "extensionSkillSync": "workspace@1.4.1 source and installed copy use the official plugin route; generated Codex, Claude, and Cursor skill regeneration remains deferred because forced recomposition could overwrite unrelated modified skills"
     },
-    "activeFeature": "specs/workspace/002-routing-query-foundation",
+    "activeFeature": "specs/workspace/014-professional-builder-agent",
     "scopeModel": "root governance plus scoped feature directories; member projects only for independent governance or release needs"
   },
   "sourcesOfTruth": {
@@ -98,7 +180,11 @@
     "extensionSource": ".specify/agents/extensions/workspace",
     "routingPerformanceExtensionSource": ".specify/agents/extensions/routing-performance",
     "presetSource": ".specify/agents/presets/react-monorepo-quality",
-    "workflowSource": ".specify/agents/workflows/professional-sdd/workflow.yml"
+    "workflowSource": ".specify/agents/workflows/professional-sdd/workflow.yml",
+    "collaborationRule": ".specify/agents/rules/collaboration.md",
+    "collaborationGuide": "docs/development/agent-collaboration.md",
+    "collaborationAdapter": ".mcp.json",
+    "collaborationAsyncBridge": ".specify/agents/bridges/codex-async"
   },
   "resume": {
     "loadOrder": [
@@ -113,10 +199,21 @@
     ]
   },
   "currentWork": {
-    "status": "requested-scope-complete-with-aggregate-blockers",
-    "scope": "workspace",
-    "activeSpec": "specs/workspace/002-routing-query-foundation/spec.md",
-    "nextAction": "Treat pnpm trust-policy and pre-existing Storybook/UI aggregate failures as a separate stabilization scope unless explicitly authorized."
+    "status": "empty-canvas-and-request-skills-locally-complete-release-open",
+    "scope": "Builder AI edit/page-planning lifetime, scene creation validation, intent and automatic skills; AI server complete call lifetime; existing Playground inline request skills, stable queue/continuation/Retry snapshots, partial records and progress; SP-008..011/T265..270",
+    "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/scene-speed-2026-10-13.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-empty-canvas-skills-2026-10-13.md",
+    "completedTasks": "SP-T1..9 locally complete; T260 accepted local review, and authorized follow-up T261..264 complete. Prior verification artifacts retained. Follow-up: Builder 18 files/186 tests, server 10/154, publishing 6/22, marketing 2/30, independent Builder 3/28; final Chromium 8/8. Five owner/consumer types, scoped lint/format, both production builds, first-load budgets and workspace/boundary/size gates passed. Independent findings for dated legacy models and aliased published documents repaired; final local reviews clean. Current catalog 28 presets/1400 offline runs, 98.08% fewer JSON characters; no live generation measurement. SP-T10..14/T265..270 are locally complete. Final primary: intent/creative 20 files / 2493 tests, engine 13 / 174, UI 7 / 100 then T270 2 / 27; server full 47 / 759. Worker UI 15 / 238 then final T270 2 / 41; independent server 27, intent 48, engine 110, skills 31 plus T270 2. Four owner/consumer types, scoped lint/format, server/Playground builds, full Storybook build and 4 story files / 113 browser tests passed. Request-skills Chromium 2/2: five inline choices, seven automatic creative skills, zero chips/overflow/leaks. Workspace 37, components 259, file sizes 4381, boundaries 5579 files / 37 packages, graph 37 / 185 and final load budgets passed. One medium convergence gap (pending-plan rename metadata) was repaired as T270; final scoped convergence has no remaining gap.",
+    "nextUncompletedTask": "Older feature014 release gates; no remaining T265..270 implementation/local verification task.",
+    "reviewDecision": {
+      "date": "2026-10-13",
+      "userInstruction": "لا، اكتفِ بالمراجعة المحلية",
+      "result": "Local independent review accepted for this increment. After automatic approval review rejected the external CLI action, the user declined it. The enforced external runtime review is waived only for this scope; it was not run and no CLI pass is claimed.",
+      "exceptionPlan": "specs/workspace/014-professional-builder-agent/plan.md"
+    },
+    "verificationLimits": "Earlier artifacts remain historical scoped evidence. Local real-kernel/controller/fake-SDK reproductions verify false empty-canvas completion, non-cooperative deadlines, stalled streams and request-skill identity repairs. Original provider traces, live generation latency/billing and representative bespoke visual quality were not measured. Static scene witnesses do not prove pixels; complete multi-step builds are not promised within an edit deadline. Providers that ignore abort may continue remotely. No external CLI/full professional-sdd runtime, paid generation, dependency install, saved-data migration, commit, push or deployment.",
+    "nextAction": "No further requested implementation/local checks for this bounded increment. Preserve all prior diffs and data; refresh the local UI for a new request. Older release and live-model evaluation gates remain separate and the local-only review preference persists."
   },
   "qualityGates": {
     "governanceConfigured": true,
@@ -127,6 +224,7 @@
       "plan approval",
       "analyze",
       "tasks approval",
+      "approved-task partition and bounded delegation decision",
       "post-implementation review",
       "converge",
       "convergence repair and second review",

@@ -1,0 +1,21 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ColorFieldStories from './ColorField.stories';
+
+<Meta of={ColorFieldStories} />
+
+# ColorField
+
+The style panel's colour row: a compact field that sits in the control column beside every other
+field.
+
+- **Closed**: a swatch over a checkerboard (so alpha reads), then the value's name. That is the
+  token name with its opacity ("Accent · 80%"), a palette name, the hex, "None" (with a slash) or
+  "Mixed". The button's accessible name is `Property: value`.
+- **Open**: a popover holding `StyleColorControl` in `picker="inline"` mode. That gives
+  design-system token chips (swatch + name, two to a row), the site palette (free mode), and an
+  inline react-colorful picker with a hex field (free mode). Tokens mode offers theme tokens only.
+- **Writes**: the control's rules are unchanged. A chip writes once, the picker previews while
+  dragged and commits once on release, and a typed hex commits on Enter or blur — and closing the popover keeps it, whether by a click outside or by Escape, so the result never depends on how it was closed. A typed colour shows left to right (`dir="ltr"`) in an Arabic panel.
+- **Contrast**: when the colour fails WCAG 4.5:1 against `contrastWith`, the closed field shows a
+  warning mark and adds "Low contrast" to its name. The popover offers the one-click fix.

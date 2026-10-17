@@ -1,0 +1,116 @@
+/*
+  UserMessage (SPEC §4.5, §2.1, §2.4). The person's words, the one filled shape in the thread
+  besides the composer: Accent-soft (#EEEEFC / #22224D, Studio Indigo 2026-10-12; it was Tint),
+  set apart from the paper by its colour and its place at the inline end, not by a border. Ink
+  on Accent-soft is above 14:1; the context line is Graphite (SPEC §2.1 rule 2).
+
+  Radius 16 (the card radius plus 4), with the tail corner (block-end, inline-end) at 4:
+  the corner nearest the edge it hangs from, in either direction, because the bubble keeps the
+  panel's direction and only its words take their own.
+*/
+
+.ck-agent-message {
+  display: grid;
+  justify-items: end;
+  row-gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-message :where(p) {
+  margin: 0;
+}
+
+.ck-agent-message__bubble {
+  min-inline-size: 0;
+  max-inline-size: 85%;
+  padding-block: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
+  border-radius: calc(var(--bldr-radius-xl) + var(--bldr-space-xs));
+  border-end-end-radius: var(--bldr-radius-xs);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-message__bubble {
+    max-inline-size: 80%;
+  }
+}
+
+.ck-agent-message__content {
+  display: grid;
+  row-gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+/* ── The blocks it was sent with: Meta, Graphite, not interactive ─────────── */
+
+.ck-agent-message__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs) var(--bldr-space-md);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-message__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+/* The block glyph, at the Meta line's size: 12px, its stroke scaled with it. */
+.ck-agent-message__chip-glyph {
+  inline-size: var(--bldr-space-xl);
+  block-size: var(--bldr-space-xl);
+}
+
+/* A block name ends in an ellipsis at 16 characters, as a composer chip does (SPEC §4.17). */
+.ck-agent-message__chip-label {
+  overflow: hidden;
+  max-inline-size: 16ch;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A block no longer on the page: struck through, and said in words to a screen reader. */
+.ck-agent-message__chip[data-stale] .ck-agent-message__chip-label {
+  text-decoration: line-through;
+}
+
+/* ── The request ──────────────────────────────────────────────────────────── */
+
+.ck-agent-message__text {
+  min-inline-size: 0;
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-read);
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-message__line {
+  display: block;
+  white-space: pre-wrap;
+}
+
+/* ── Not run: stopped before any output ───────────────────────────────────── */
+
+.ck-agent-message[data-not-run] .ck-agent-message__bubble {
+  opacity: 0.6;
+}
+
+.ck-agent-message__caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* High contrast drops the Tint: the bubble keeps its shape as an outline. */
+@media (forced-colors: active) {
+  .ck-agent-message__bubble {
+    border: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

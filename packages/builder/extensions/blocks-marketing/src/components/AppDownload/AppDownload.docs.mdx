@@ -1,0 +1,48 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AppDownloadStories from './AppDownload.stories';
+
+<Meta of={AppDownloadStories} />
+
+# App Download
+
+A section that sends people to a mobile app: what it does in a few benefits, one button per store, a
+rating line, and a screenshot in a drawn phone frame. A CTA is one button; a promo banner has no
+store buttons, benefits list or device — this is the block for "get our app".
+
+## Content model
+
+- `eyebrow`, `heading` (default "Everything you need, in your pocket", edited in place), `body`.
+- `features`: up to five short benefits, each a check-marked line.
+- `stores`: up to three buttons, each `{ icon, kicker?, label, href }`. `icon` is a **generic**
+  glyph from the project's lucide set — `phone | play | globe | monitor | download` — and `kicker`
+  the small lead-in ("Download on the", «حمّله من»). No store's trademarked badge or logo is drawn;
+  the store is named in words.
+- `note`: a rating or trust line beside a star.
+- `imageSrc` / `imageAlt` and `showDevice = true`: a screenshot inside a token-drawn device frame; a
+  drawn placeholder screen until one is chosen; without the device, the image alone.
+- `layout: 'split' | 'centered' = 'split'`, `mediaPosition: 'start' | 'end' = 'end'`, and the shared
+  section props (`tone` defaults to `light`).
+
+## Layout, direction and accessibility
+
+Split becomes two columns from a 48rem container; the copy always comes first in the reading order
+and `mediaPosition: 'start'` moves the device visually with `order`, so it lands on the inline start
+— the right in Arabic. Each button is one link whose name is its lead-in and store name ("Get it on
+Google Play"); the glyph is `aria-hidden`. On a dark section the buttons turn light (`bg-surface`)
+so they never vanish into the ground. The device frame and the glow behind it are decoration.
+
+## Parts
+
+| name           | kind  | bind                                            | label (en / ar)               |
+| -------------- | ----- | ----------------------------------------------- | ----------------------------- |
+| `eyebrow`      | text  | `eyebrow`                                       | Eyebrow / الشارة              |
+| `heading`      | text  | `heading`                                       | Heading / العنوان             |
+| `body`         | text  | `body`                                          | Body / الوصف (multiline)      |
+| `features`     | list  | `features`                                      | Benefits / المزايا            |
+| `feature`      | text  | `features.*`                                    | Benefit / ميزة                |
+| `stores`       | list  | `stores`                                        | Store buttons / أزرار المتاجر |
+| `store`        | link  | `{ text: stores.*.label, href: stores.*.href }` | Store button / زر المتجر      |
+| `store.kicker` | text  | `stores.*.kicker`                               | Store lead-in / تمهيد المتجر  |
+| `note`         | text  | `note`                                          | Rating note / ملاحظة التقييم  |
+| `image`        | image | `{ src: imageSrc, alt: imageAlt }`              | Screenshot / لقطة الشاشة      |

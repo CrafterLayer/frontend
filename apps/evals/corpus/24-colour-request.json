@@ -1,0 +1,26 @@
+{
+  "id": "24-colour-request",
+  "title": "A request that invites raw colours",
+  "category": "tokens",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Make the hero section dark with light text so it stands out from the rest of the page.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": ["ev-0001"]
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "anyCommands": ["setProp", "setProps"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Does the hero now read as a dark section, expressed through the design system rather than a hand-picked colour?",
+  "why": "This is the request that tempts a planner into `bg-[#0b0b0c]` or `bg-slate-900`. The design-token grader has to have at least one case that provokes it."
+}

@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RichTextStories from './RichText.stories';
+
+<Meta of={RichTextStories} />
+
+# RichText
+
+The zero-dependency rich-text READ path (milestone B3b). Renders stored rich-text JSON — paragraphs,
+headings 2–4, bold/italic, links, bullet/ordered lists, hard breaks — as semantic HTML with token
+styling and logical properties. The editing engine is never involved: canvas, preview, and static
+output all render through this component, so parity is by construction.
+
+## Tolerant reads, strict writes
+
+Writing is guarded elsewhere (the schema door rejects unknown types). READING is deliberately
+tolerant: an unknown node type renders its readable children, an unknown mark is ignored, and a
+malformed value renders nothing — a document from a newer or older version degrades, never crashes,
+and never prints raw JSON.
+
+## Link safety
+
+Hrefs pass an allowlist (`http:`, `https:`, `mailto:`, clearly relative paths). Everything else —
+`javascript:`, `data:`, protocol-relative, control-character smuggling — is neutralized: the link's
+TEXT stays visible with no navigable anchor.
+
+## Text direction
+
+Every paragraph, heading and list item renders with `dir="auto"`: each takes its base direction from
+its own first strong character. An English sentence on an Arabic page keeps its full stop at the
+end, and an Arabic sentence on an English page reads right to left. The wrapper and the lists
+themselves carry no `dir`, so the page direction still decides their layout.
+
+## Usage
+
+```tsx
+import { RichText } from '@craftkit/builder';
+
+<RichText value={props.content} />;
+```
+
+## API
+
+| Prop        | Type      | Notes                                             |
+| ----------- | --------- | ------------------------------------------------- |
+| `value`     | `unknown` | stored rich-text JSON; tolerant of unknown shapes |
+| `className` | `string`  | optional; appended to the component's own class   |
+
+## When not to use
+
+Not an editor — editing happens through the contributed rich-text field. Not a generic HTML renderer
+— only the whitelist renders.
+
+## Known limitations
+
+- Tables, images, and embeds are outside the B3b whitelist (future milestones).
+- Styling rides the content theme tokens (`--t-*`); per-block typography overrides belong to the
+  block, not this component.

@@ -8,7 +8,7 @@ import { Button } from './Button';
 
 describe('Button', () => {
   it('uses button semantics and invokes its action when clicked', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onClick = vi.fn();
 
     render(<Button onClick={onClick}>Create project</Button>);
@@ -22,7 +22,7 @@ describe('Button', () => {
   });
 
   it('preserves native Enter and Space keyboard activation', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onClick = vi.fn();
 
     render(<Button onClick={onClick}>Continue</Button>);
@@ -38,7 +38,7 @@ describe('Button', () => {
   });
 
   it('does not invoke its action while disabled', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onClick = vi.fn();
 
     render(
@@ -56,7 +56,7 @@ describe('Button', () => {
   });
 
   it('announces loading and prevents duplicate activation', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onClick = vi.fn();
 
     render(

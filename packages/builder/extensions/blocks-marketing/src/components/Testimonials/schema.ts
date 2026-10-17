@@ -1,0 +1,144 @@
+import { z } from 'zod';
+
+import { defineBlockSchema } from '@craftkit/builder-schema';
+
+import {
+  sectionAlignments,
+  sectionSpacings,
+  sectionTones,
+  sectionWidths,
+} from '../section-options';
+import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
+import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
+import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
+import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
+import { testimonialsExamples } from './examples';
+
+export const testimonialsSchema = defineBlockSchema({
+  type: 'testimonials',
+  description:
+    'Customer quotes with author names and optional roles, presented as cards under a section heading.',
+  surfaces: ['site', 'store'],
+  props: z.object({
+    eyebrow: z.string().min(1).max(60).optional(),
+    heading: z.string().min(1).max(80).default('Loved by teams'),
+    body: z.string().min(1).max(200).optional(),
+    items: z
+      .array(
+        z.object({
+          quote: z.string().min(1).max(240),
+          author: z.string().min(1).max(60),
+          role: z.string().max(60).optional(),
+          company: z.string().max(60).optional(),
+          rating: z.number().int().min(1).max(5).optional(),
+        }),
+      )
+      .max(6)
+      .default([]),
+    columns: z.enum(['auto', '1', '2', '3']).default('auto'),
+    variant: z.enum(['cards', 'spotlight', 'wall']).default('cards'),
+    align: z.enum(sectionAlignments).default('start'),
+    tone: z.enum(sectionTones).default('transparent'),
+    spacing: z.enum(sectionSpacings).default('md'),
+    width: z.enum(sectionWidths).default('wide'),
+    ...sectionColorProps,
+    ...sectionMotionProps,
+    ...sectionCustomProps,
+    ...sectionTypographyProps,
+    ...sectionSpacingProps,
+  }),
+  /*
+    Where each property appears in the inspector, declared by the BLOCK.
+    
+    The inspector never guesses this from a property's name or type — a tab
+    strip that sorts rows by an invented rule is the same lie as a tab that does
+    nothing. The split follows what a person is DOING: writing the page,
+    shaping it, or making a rare structural choice.
+  */
+  propertyGroups: {
+    eyebrow: { tab: 'content', section: 'Text' },
+    heading: { tab: 'content', section: 'Text' },
+    body: { tab: 'content', section: 'Text', kind: 'multiline' },
+    items: { tab: 'content', section: 'Quotes' },
+    columns: { tab: 'design', section: 'Layout' },
+    variant: { tab: 'design', section: 'Layout' },
+    align: { tab: 'design', section: 'Alignment' },
+    tone: { tab: 'design', section: 'Colour' },
+    spacing: { tab: 'design', section: 'Spacing' },
+    width: { tab: 'design', section: 'Width' },
+    ...sectionColorGroups,
+    ...sectionMotionGroups,
+    ...sectionCustomGroups,
+    ...sectionTypographyGroups,
+    ...sectionSpacingGroups,
+  },
+  inlineEditable: 'heading',
+  /*
+    The section's inner elements (block-parts DESIGN §1): the intro text, the
+    quote list, each quote card, and each card's quote, author, role and
+    company.
+  */
+  parts: {
+    eyebrow: {
+      kind: 'text',
+      bind: 'eyebrow',
+      label: { en: 'Eyebrow', ar: 'الشارة' },
+      aliases: ['badge', 'overline', 'kicker', 'شارة', 'العنوان الصغير'],
+    },
+    heading: {
+      kind: 'text',
+      bind: 'heading',
+      label: { en: 'Heading', ar: 'العنوان' },
+      aliases: ['title', 'headline', 'h2', 'عنوان', 'العنوان الرئيسي'],
+    },
+    body: {
+      kind: 'text',
+      bind: 'body',
+      label: { en: 'Body', ar: 'الوصف' },
+      aliases: ['intro', 'paragraph', 'description', 'text', 'وصف', 'الفقرة', 'النص'],
+      multiline: true,
+    },
+    items: {
+      kind: 'list',
+      bind: 'items',
+      label: { en: 'Quotes', ar: 'الآراء' },
+      aliases: ['testimonials', 'reviews', 'list', 'الشهادات', 'التقييمات'],
+    },
+    item: {
+      kind: 'item',
+      bind: 'items.*',
+      list: 'items',
+      label: { en: 'Testimonial', ar: 'الشهادة' },
+      aliases: ['quote card', 'review', 'card', 'رأي', 'بطاقة'],
+    },
+    'item.quote': {
+      kind: 'text',
+      bind: 'items.*.quote',
+      label: { en: 'Quote', ar: 'الاقتباس' },
+      aliases: ['quote', 'testimonial text', 'review text', 'اقتباس', 'النص'],
+      multiline: true,
+    },
+    'item.author': {
+      kind: 'text',
+      bind: 'items.*.author',
+      label: { en: 'Author', ar: 'الكاتب' },
+      aliases: ['name', 'person', 'customer', 'الاسم', 'العميل'],
+    },
+    'item.role': {
+      kind: 'text',
+      bind: 'items.*.role',
+      label: { en: 'Author role', ar: 'منصب الكاتب' },
+      aliases: ['role', 'title', 'job', 'المنصب', 'الوظيفة'],
+    },
+    'item.company': {
+      kind: 'text',
+      bind: 'items.*.company',
+      label: { en: 'Company', ar: 'الشركة' },
+      aliases: ['company', 'organisation', 'organization', 'الشركة', 'المؤسسة'],
+    },
+  },
+  examples: testimonialsExamples,
+});
+
+export type TestimonialsProps = z.output<typeof testimonialsSchema.props>;

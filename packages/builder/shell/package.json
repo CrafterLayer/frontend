@@ -1,0 +1,68 @@
+{
+  "name": "@craftkit/builder-shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@craftkit/builder-code-runtime": "workspace:*",
+    "@craftkit/builder-core": "workspace:*",
+    "@craftkit/builder-renderer": "workspace:*",
+    "@craftkit/builder-schema": "workspace:*",
+    "@dnd-kit/core": "catalog:",
+    "@dnd-kit/sortable": "catalog:",
+    "@dnd-kit/utilities": "catalog:",
+    "@radix-ui/react-context-menu": "catalog:",
+    "@radix-ui/react-direction": "catalog:",
+    "@radix-ui/react-dropdown-menu": "catalog:",
+    "@radix-ui/react-popover": "catalog:",
+    "@radix-ui/react-slider": "catalog:",
+    "@radix-ui/react-tabs": "catalog:",
+    "@radix-ui/react-toolbar": "catalog:",
+    "@radix-ui/react-tooltip": "catalog:",
+    "@uiw/react-color-sketch": "catalog:",
+    "culori": "catalog:",
+    "react-colorful": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@storybook/addon-docs": "catalog:",
+    "@storybook/react-vite": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/culori": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "storybook": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

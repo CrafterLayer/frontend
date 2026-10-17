@@ -1,0 +1,46 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EverydayBehaviorsStories from './EverydayBehaviors.stories';
+
+<Meta of={EverydayBehaviorsStories} />
+
+# Everyday behaviours
+
+Six interactions that business, landing and portfolio pages ask for every day. Each is named by an
+attribute, `data-ck-behavior="<name>"`, and run by one small pack in `behaviors/packs/`. A published
+page ships a pack only when its markup names it. The agent writes the attribute and never the
+script.
+
+| Behaviour     | Markup                                                                                 | What the pack does                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `back-to-top` | `a href="#top"` (or a `button`) with an icon and `aria-label`                          | Hidden (`visibility: hidden`, out of the tab order) until a screen down. Scrolls home and moves focus to the top.        |
+| `typed-words` | `span` holding word `span`s, every one after the first `hidden`                        | Types, holds, erases and types the next word, then stops after two rounds. A screen reader hears the list once.          |
+| `read-more`   | a container: the text first, then `button type="button" hidden`; `data-ck-text` closes | Clamps the text to 4 lines (or `--ck-lines` from the region css) with a fading mask. The button toggles `aria-expanded`. |
+| `scroll-spy`  | `nav` of `a href="#id"` links                                                          | Marks the link of the section in view with `aria-current`. Anchors land below the sticky header and scroll smoothly.     |
+| `filter`      | buttons with `data-ck-filter="all"` or a group; items with `data-ck-filter="a b"`      | Presses one button (`aria-pressed`) and sets `hidden` on every item outside its group.                                   |
+| `dismiss`     | a notice whose last `button` is `hidden`                                               | Shows the close button. A press hides the notice and remembers it in `localStorage`, keyed by the notice's text.         |
+
+<Canvas of={EverydayBehaviorsStories.English} />
+
+## Rules every pack keeps
+
+- **Progressive enhancement.** The content reads without the script. A control that would do nothing
+  without it ships `hidden`.
+- **Accessible.** Native buttons and links, `aria-expanded`, `aria-pressed` and `aria-current`.
+  Focus moves when a control disappears or the page jumps.
+- **Reduced motion.** No fade, no smooth scroll, and no typing: the first word stays.
+- **Right to left.** Nothing is physical. The caret is an inline-end border, and a back-to-top link
+  placed with `end-6` sits at the left of an Arabic page.
+- **Safe to remount.** Each pack is idempotent per element. Its disposer restores every attribute,
+  style and label it changed.
+- **CSP-safe.** No `eval`, no inline handler, no inline style sheet. Styles are set through the
+  CSSOM.
+
+<Canvas of={EverydayBehaviorsStories.Arabic} />
+
+## On the canvas
+
+Nothing moves or hides on the canvas, so every control can be selected and edited. The words after
+the first in a `typed-words` span stay hidden there.
+
+<Canvas of={EverydayBehaviorsStories.Canvas} />

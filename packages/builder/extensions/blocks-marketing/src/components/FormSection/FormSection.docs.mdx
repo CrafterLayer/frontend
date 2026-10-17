@@ -1,0 +1,60 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as FormSectionStories from './FormSection.stories';
+
+<Meta of={FormSectionStories} />
+
+# Form Section
+
+A Builder-native form section for lead capture, applications, bookings, surveys, and custom
+workflows. Authors configure an ordered field collection instead of being locked to one contact-form
+shape.
+
+<Canvas of={FormSectionStories.Split} />
+
+## Behaviour and safety
+
+- Supports text, email, telephone, URL, number, date, textarea, select, and checkbox fields.
+- Every control has a visible label, stable generated id, optional helper text, and native required
+  semantics.
+- Field ids and names must be unique so labels and submitted payloads remain unambiguous.
+- A `select` field must provide at least one option; empty select controls are rejected by the
+  schema.
+- Submission is prevented only inside the Builder canvas. Published forms retain their native `get`
+  or `post` behaviour.
+- Form actions accept only relative, `http`, or `https` URLs.
+- Layout, control density, radius, button treatment, section colour, typography, spacing, motion,
+  and safe custom utilities remain explicit schema controls.
+
+## Variants
+
+`split` pairs editorial copy with the form, `card` creates a raised conversion surface, and
+`minimal` removes the visual container for quiet page compositions.
+
+<Controls />
+<Stories />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`field.label` for every instance, `field.label@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name           | kind | bind                       | label (en / ar)                          |
+| -------------- | ---- | -------------------------- | ---------------------------------------- |
+| `eyebrow`      | text | `eyebrow`                  | Eyebrow / الشارة                         |
+| `heading`      | text | `heading`                  | Heading / العنوان                        |
+| `body`         | text | `body`                     | Body / الوصف (multiline)                 |
+| `fields`       | list | `fields`                   | Form fields / حقول النموذج               |
+| `field`        | item | `fields.*`                 | Field / الحقل                            |
+| `field.label`  | text | `fields.*.label`           | Field label / تسمية الحقل                |
+| `field.helper` | text | `fields.*.helper`          | Field hint / تلميح الحقل                 |
+| `field.option` | text | `fields.*.options.*.label` | Choice / الخيار                          |
+| `submitLabel`  | text | `submitLabel`              | Submit button / زر الإرسال               |
+| `footerNote`   | text | `footerNote`               | Footer note / ملاحظة التذييل (multiline) |
+| `successHint`  | text | `successHint`              | Success hint / رسالة النجاح (multiline)  |
+
+A field's `placeholder` is an input attribute, so it stays an Inspector row; a select shows it
+through the empty option's `label` attribute. `footerNote` renders beside the copy in `split` and
+under the button otherwise; both places are the same part.

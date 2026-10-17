@@ -1,0 +1,58 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AssistantHeaderStories from './AssistantHeader.stories';
+
+<Meta of={AssistantHeaderStories} />
+
+# AssistantHeader
+
+Who you are talking to, what he can see, and which conversation you are in.
+
+<Canvas of={AssistantHeaderStories.Default} />
+
+The tool is called Assistant — that is the accessible name of the region, set by the panel around
+this header — and the person inside it is أبو غضب.
+
+## One name, chosen by locale
+
+<Canvas of={AssistantHeaderStories.English} />
+
+Never both at once: a bilingual header reads as two people. The name carries its own `lang` and
+`dir`, so it is pronounced and laid out correctly whatever the surrounding page is doing.
+
+## The face is decoration; the voice is the content
+
+<Canvas of={AssistantHeaderStories.Working} />
+
+`AgentFace` is `aria-hidden`. Everything a screen reader needs comes from `AgentVoice` beneath it,
+which resolves the snapshot's `line` into a sentence in the reader's own language. A face that
+announced itself would narrate a mood twice and a state never.
+
+## "Sees" is stated, not guessed at
+
+<Canvas of={AssistantHeaderStories.WithSelection} />
+
+Before asking for a change, a person needs to know what the request will be scoped to. Saying "the
+whole page" or naming the selected block is cheaper than any amount of guessing afterwards.
+
+## The conversation picker earns its place
+
+<Canvas of={AssistantHeaderStories.WithConversations} />
+
+It appears only once a second conversation exists. A menu with one option is a label wearing a
+chevron. See [ConversationMenu](?path=/docs/playground-conversationmenu--docs) for how it behaves
+once it is there.
+
+## Refined presentation
+
+The identity and live status share one compact group. New chat is an icon button with an accessible
+name. Document context stays below the identity without a separate filled card.
+
+## The model picker follows the same rule
+
+<Canvas of={AssistantHeaderStories.WithModels} />
+
+It sits on its own line under the context, never in the title row, where it would squeeze the name.
+It appears only when the host offers more than one model (`VITE_AI_PLAN_MODELS`). The slug is the
+value; the label drops the vendor and spells `:free` out. The choice travels to the server as
+`x-craftkit-ai-model`, and the server, not the browser, decides whether it is allowed.

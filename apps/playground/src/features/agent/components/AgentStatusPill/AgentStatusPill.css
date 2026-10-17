@@ -1,0 +1,83 @@
+/*
+  AgentStatusPill (SPEC §4.20): the agent's one line in the editor's status bar while the
+  panel is hidden. 28px tall, radius full, Tint ground (the user bubble's and the chips'
+  surface, so it reads as the agent's, not the editor's), the 20px mini face, the sentence
+  in Meta 500 Ink with an ellipsis at the inline end, and a 32px-hit Stop that overhangs
+  the pill's own 28px on the block axis without moving the bar.
+
+  The sentence is Ink, never Slate: Slate on Tint is forbidden in both themes (SPEC §2.1,
+  4.04:1), and Ink on Tint is 14.84 / 13.49.
+*/
+
+.ck-agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-2xs);
+  box-sizing: border-box;
+  block-size: var(--bldr-control-sm);
+  min-inline-size: 0;
+  max-inline-size: min(100%, calc(var(--bldr-measure-dock) * 2));
+  padding-inline: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-pill__open {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  box-sizing: border-box;
+  min-inline-size: 0;
+  block-size: 100%;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-2xs) var(--bldr-space-md);
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-pill__open:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-pill__face {
+  display: inline-grid;
+  flex: none;
+}
+
+/* The header's 24px face, at the pill's 20px. */
+.ck-agent-pill__face .pg-face[data-size] {
+  --pg-face-size: var(--bldr-space-4xl);
+}
+
+.ck-agent-pill__text {
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-pill__text bdi[dir='ltr'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-agent-pill__stop {
+  flex: none;
+}
+
+@media (forced-colors: active) {
+  .ck-agent-pill {
+    border: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

@@ -1,0 +1,93 @@
+/*
+  AnswerRecord (SPEC §4.10, §2.2 "Prose lines use text-wrap: pretty"). The answer is prose in
+  Read, Ink: the one record body in Ink rather than Graphite, because here the words are the
+  outcome. Each line is its own block with its own direction; a long word or link breaks
+  rather than pushing the panel sideways (WCAG 1.4.10).
+
+  Folded, it shows six lines ending in an ellipsis; "Show more" is a quiet disclosure like
+  "Show all changes": Meta 500 in Graphite, its chevron hung into the gutter on the text edge.
+*/
+
+.ck-agent-answer__prose {
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-answer__line {
+  display: block;
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+.ck-agent-answer__prose[data-folded] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+}
+
+.ck-agent-answer__more {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-lg));
+  padding-block: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-answer__more:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-answer__more:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-answer__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-answer__more[aria-expanded='true'] .ck-agent-answer__chevron {
+  transform: rotate(90deg);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-answer__more {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-answer__chevron {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-answer__more:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

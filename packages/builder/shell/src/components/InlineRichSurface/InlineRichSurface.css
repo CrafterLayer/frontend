@@ -1,0 +1,23 @@
+/* The built-in rich inline surface (009 §15). It edits text where the text
+   lives, so it inherits the block's own typography and flow and adds nothing
+   that would move the content: no background, no border, no padding. The only
+   affordance is the focus ring, and it is drawn OUTSIDE the box so a caret at
+   the first character is never covered. */
+
+.bldr-inline-rich {
+  outline: none;
+}
+
+.bldr-inline-rich:focus-visible,
+.bldr-inline-rich:focus {
+  border-radius: var(--bldr-border-thick);
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-thick);
+}
+
+/* The document's own blocks keep their flow; the surface never re-styles what
+   the block renders, because the whole point is that editing looks like the
+   result. */
+.bldr-inline-rich > * {
+  margin-block: 0;
+}

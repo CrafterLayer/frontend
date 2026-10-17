@@ -1,0 +1,47 @@
+{
+  "name": "@craftkit/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "vite build",
+    "eval": "vite build && promptfoo eval --config promptfooconfig.yaml",
+    "eval:view": "promptfoo view",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:accessibility:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/accessibility/axe.browser.test.ts",
+    "test:frontend:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/professional-builder/frontend.browser.test.ts",
+    "test:agent-chat:browser": "node src/browser/agent-chat.mjs",
+    "test:pixi-creative:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/pixi-creative/creative.browser.test.ts",
+    "test:creative-engines:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/pixi-creative/engines.browser.test.ts",
+    "test:tailwind-plugins:browser": "CRAFTKIT_BROWSER_QA=1 vitest run --config vitest.config.ts src/tailwind-plugins/plugins.browser.test.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/pixi-creative/tsconfig.json && tsc --noEmit -p src/tailwind-plugins/tsconfig.json"
+  },
+  "dependencies": {
+    "@craftkit/builder": "workspace:*"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "catalog:",
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pngjs": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "esbuild": "catalog:",
+    "pixelmatch": "catalog:",
+    "playwright": "catalog:",
+    "pngjs": "catalog:",
+    "promptfoo": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "files": [
+    "dist"
+  ]
+}

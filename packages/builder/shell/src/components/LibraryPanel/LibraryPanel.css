@@ -1,0 +1,343 @@
+.bldr-library {
+  background: var(--bldr-panel);
+  block-size: 100%;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-snug)
+    var(--bldr-font);
+  inline-size: 100%;
+  min-block-size: 0;
+}
+
+.bldr-library:lang(ar) {
+  font-family: var(--bldr-font-arabic);
+}
+
+.bldr-library__tabs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.bldr-library__tablist {
+  flex-shrink: 0;
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  padding-block: var(--bldr-space-sm) var(--bldr-space-0);
+  /* The first tab's WORD sits on the panel gutter, like every other panel's first line. */
+  padding-inline: calc(var(--bldr-panel-padding) - var(--bldr-space-sm));
+}
+
+.bldr-library__tab {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-block-end: var(--bldr-border-thick) solid transparent;
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: inline-flex;
+  /* Longhands: "inherit" is not a family inside the font shorthand, and the invalid
+     declaration was dropped whole, so the tabs never took their size or weight. */
+  font-family: inherit;
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-2xs);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-library__tab:hover {
+  color: var(--bldr-panel-text);
+}
+
+.bldr-library__tab[data-state='active'] {
+  border-block-end-color: var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-library__tab:focus-visible,
+.bldr-library__tile-button:focus-visible,
+.bldr-library__remove:focus-visible,
+.bldr-library__search-input:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-library__count {
+  background: var(--bldr-accent-soft);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  font-size: var(--bldr-font-size-micro);
+  padding-inline: var(--bldr-space-xs);
+}
+
+/*
+  UX pass (2026-10-13): the search row is the SAME control as the Blocks tab's (Palette):
+  the panel gutter, a 32px field with the Large radius, the control type size and a
+  magnifier at its start. It was a 28px bare box 8px from the edge, so moving between
+  the Library's tabs changed the field under the pointer.
+*/
+.bldr-library__search {
+  flex-shrink: 0;
+  padding-block: var(--bldr-space-xl) var(--bldr-space-md);
+  padding-inline: var(--bldr-panel-padding);
+  position: relative;
+}
+
+.bldr-library__search::before {
+  background-color: var(--bldr-panel-muted);
+  block-size: var(--bldr-space-3xl);
+  content: '';
+  inline-size: var(--bldr-space-3xl);
+  inset-block-start: calc(
+    var(--bldr-space-xl) + (var(--bldr-control-height) - var(--bldr-space-3xl)) / 2
+  );
+  inset-inline-start: calc(var(--bldr-panel-padding) + var(--bldr-space-lg));
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.25'/%3E%3Cpath d='m10.25 10.25 3 3'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  pointer-events: none;
+  position: absolute;
+}
+
+.bldr-library__search-input {
+  appearance: none;
+  background: var(--bldr-panel-control);
+  block-size: var(--bldr-control-height);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font-family: inherit;
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-regular);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-snug);
+  padding-inline: calc(var(--bldr-space-lg) + var(--bldr-space-3xl) + var(--bldr-space-sm))
+    var(--bldr-space-lg);
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-library__search-input::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-library__search-input:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.bldr-library__filters {
+  margin-block-start: var(--bldr-space-sm);
+}
+
+.bldr-library__filters select {
+  background: var(--bldr-panel-control);
+  color: var(--bldr-panel-text);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  min-block-size: var(--bldr-control-height);
+  inline-size: 100%;
+  font: inherit;
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-library__hint {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin-block: var(--bldr-space-md) var(--bldr-space-0);
+}
+
+/* "Click to insert…" says how to use tiles; over a tab with none it only adds noise. */
+.bldr-library__tabs:has(> .bldr-library__panel[data-state='active'] > .bldr-library__empty)
+  .bldr-library__hint {
+  display: none;
+}
+
+.bldr-library__panel {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+  padding-block: var(--bldr-space-0) var(--bldr-panel-padding);
+  padding-inline: var(--bldr-panel-padding);
+}
+
+.bldr-library__panel--blocks {
+  padding-inline: var(--bldr-space-0);
+}
+
+/*
+  An empty tab is a quiet card that says what to do next (UX pass, 2026-10-13), the same
+  shape as the Inspector's invitation — not a stray line of grey text under the search.
+*/
+.bldr-library__empty {
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-5xl);
+  padding-inline: var(--bldr-space-4xl);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.bldr-library__grid {
+  display: grid;
+  gap: var(--bldr-space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-library__tile {
+  min-inline-size: 0;
+  position: relative;
+}
+
+.bldr-library__tile-button {
+  align-items: stretch;
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: inherit;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  padding: var(--bldr-space-xs);
+  text-align: start;
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    box-shadow var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-library__tile-button:hover {
+  border-color: var(--bldr-accent);
+  box-shadow: var(--bldr-shadow-raised);
+}
+
+.bldr-library__tile-button:active {
+  cursor: grabbing;
+}
+
+.bldr-library__thumb {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-sm);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  inline-size: 100%;
+}
+
+.bldr-library__glyph {
+  color: var(--bldr-panel-muted);
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) /
+    var(--bldr-line-height-tight) var(--bldr-font-mono);
+}
+
+.bldr-library__frame {
+  border: 0;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  position: absolute;
+  transform-origin: top left;
+}
+
+.bldr-library__tile-name {
+  display: block;
+  font-size: var(--bldr-font-size-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-library__badge {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+}
+
+.bldr-library__remove {
+  background: var(--bldr-surface-raised);
+  block-size: var(--bldr-space-xl);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  inline-size: var(--bldr-space-xl);
+  inset-block-start: var(--bldr-space-2xs);
+  inset-inline-end: var(--bldr-space-2xs);
+  line-height: 1;
+  padding: var(--bldr-space-0);
+  position: absolute;
+}
+
+.bldr-library__tile-caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-micro);
+  line-height: var(--bldr-line-height-snug);
+  overflow-wrap: anywhere;
+}
+
+.bldr-library__remove:hover {
+  color: var(--bldr-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-library__tile-button,
+  .bldr-library__search-input {
+    transition: none;
+  }
+}
+
+/* library-playground additions (2026-10-08): the Templates tab (agent-script DESIGN §B.5). */
+
+/* Five tabs in a narrow panel: the strip scrolls instead of clipping a tab. */
+.bldr-library__tablist {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bldr-library__tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* One card per row in a narrow panel, two or more when the panel is wide. */
+.bldr-library__template-grid {
+  display: grid;
+  gap: var(--bldr-space-md);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--bldr-measure-picker)), 1fr));
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-library__template {
+  display: flex;
+}
+
+.bldr-library__template-group {
+  margin-block-start: var(--bldr-space-xl);
+}
+
+.bldr-library__group-heading {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin-block: var(--bldr-space-0) var(--bldr-space-sm);
+}
+
+/* end library-playground additions */

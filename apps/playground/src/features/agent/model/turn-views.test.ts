@@ -1,0 +1,286 @@
+/**
+ * Stored turns → the thread's views: the readings this module decides once (SPEC §6.5).
+ */
+import { describe, expect, it } from 'vitest';
+
+import { createEditKernel } from '../testing/scripted-engine';
+import { initialBuildProgress, reduceBuildProgress } from './build-progress';
+import type { BuildTurn, EditTurn, Turn } from './turns';
+import {
+  PENDING_REQUEST_ID,
+  turnViewsOf,
+  withPendingRequest,
+  type TurnViewContext,
+} from './turn-views';
+import type { AgentCapabilities } from './view-types';
+
+const CAPABILITIES: AgentCapabilities = {
+  rowUndo: true,
+  undoBuild: false,
+  restore: false,
+  facts: true,
+  failureClasses: true,
+  editablePlan: true,
+  structuredDirection: true,
+  estimate: true,
+  canvasStage: false,
+};
+
+function context(patch: Partial<TurnViewContext> = {}): TurnViewContext {
+  return {
+    capabilities: CAPABILITIES,
+    developer: false,
+    document: createEditKernel().getDocument(),
+    ...patch,
+  };
+}
+
+function builtWith(before: Record<string, string>): BuildTurn {
+  const progress = [
+    {
+      type: 'build.planned',
+      runId: 'run-1',
+      seq: 0,
+      at: 0,
+      direction: 'd',
+      tasks: [
+        { id: 'selected-hero', title: 'Hero' },
+        { id: 'footer', title: 'Footer' },
+      ],
+    },
+    {
+      type: 'build.completed',
+      runId: 'run-1',
+      seq: 1,
+      at: 1,
+      tasks: [
+        {
+          id: 'selected-hero',
+          title: 'Hero',
+          status: 'applied',
+          attempts: 1,
+          landing: {
+            transactionId: 'tx-1',
+            label: 'Assistant: 1/2 — Hero',
+            before,
+            after: { tree: 'H' },
+          },
+        },
+        // Written in full by the skeleton: nothing recorded from before it.
+        {
+          id: 'footer',
+          title: 'Footer',
+          status: 'applied',
+          attempts: 0,
+          landing: {
+            transactionId: 'tx-0',
+            label: 'Assistant: page skeleton',
+            before: {},
+            after: { tree: 'F' },
+          },
+        },
+      ],
+      applied: 2,
+      skipped: 0,
+      elapsedMs: 1,
+      outcome: 'completed',
+    },
+  ] as const;
+  return {
+    id: 'turn-2',
+    kind: 'build',
+    request: 'a page',
+    progress: progress.reduce(reduceBuildProgress, initialBuildProgress('run-1', 0)),
+    status: 'settled',
+    outcomes: {},
+    placeholders: {},
+  };
+}
+
+describe('turnViewsOf', () => {
+  it('keeps Auto salvage counts visible alongside real changes and Undo', () => {
+    const edit: EditTurn = {
+      id: 'partial-auto',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      mode: 'auto',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'Old', after: 'New' }],
+      transactionId: 'tx-partial',
+      elapsedMs: 30,
+      salvaged: { kept: 1, dropped: [{ step: 2, command: 'insertNode', reason: 'Refused' }] },
+    };
+    const [view] = turnViewsOf([edit], context());
+    expect(view?.kind).toBe('edit');
+    if (view?.kind !== 'edit') return;
+    expect(view.view.partial).toEqual({ kept: 1, total: 2 });
+    expect(view.view.changes).toEqual(edit.changes);
+    expect(view.view.undo?.kind).toBe('undo');
+  });
+
+  it('offers row Undo only where there is an earlier version to put back', () => {
+    const [view] = turnViewsOf([builtWith({ tree: '' })], context());
+    expect(view?.kind).toBe('build');
+    if (view?.kind !== 'build') return;
+    expect(view.view.rows.map((row) => row.undo?.kind)).toEqual(['undo', undefined]);
+  });
+
+  it('shows the creative brief on a game or story build only, planned from its request', () => {
+    const plain = turnViewsOf([builtWith({ tree: '' })], context())[0];
+    expect(plain?.kind === 'build' && plain.view.brief).toBe(undefined);
+    const game: BuildTurn = {
+      ...builtWith({ tree: '' }),
+      request: 'A forest platformer game starring a fox named Rumi',
+      creative: true,
+    };
+    const [view] = turnViewsOf([game], context());
+    expect(view?.kind).toBe('build');
+    if (view?.kind !== 'build') return;
+    expect(view.view.brief?.genre).toBe('platformer');
+    expect(view.view.brief?.libs).toEqual(expect.arrayContaining(['tilemap', 'anim', 'fx']));
+  });
+
+  it('folds a build once a newer exchange starts, never for its own end note', () => {
+    const turns: Turn[] = [
+      { id: 'turn-1', kind: 'user', text: 'a page', context: [{ kind: 'page' }] },
+      builtWith({ tree: '' }),
+      { id: 'turn-3', kind: 'end', key: 'siteAsOnePage' },
+    ];
+    const open = turnViewsOf(turns, context())[1];
+    expect(open?.kind === 'build' && open.view.collapsed).toBe(false);
+    const folded = turnViewsOf(
+      [...turns, { id: 'turn-4', kind: 'user', text: 'next', context: [{ kind: 'page' }] }],
+      context(),
+    )[1];
+    expect(folded?.kind === 'build' && folded.view.collapsed).toBe(true);
+  });
+
+  it('strikes a sent chip whose block is gone, and keeps the page scope off the bubble', () => {
+    const [view] = turnViewsOf(
+      [
+        {
+          id: 'turn-1',
+          kind: 'user',
+          text: 'darker',
+          context: [{ kind: 'selection', id: 'gone', label: 'Old hero' }],
+        },
+      ],
+      context(),
+    );
+    expect(view).toEqual({
+      kind: 'user',
+      view: {
+        turnId: 'turn-1',
+        text: 'darker',
+        chips: [{ kind: 'selection', id: 'gone', label: 'Old hero', stale: true }],
+        notRun: false,
+      },
+    });
+  });
+
+  it('reads a proposal with no authority behind it (after a reload) as interrupted', () => {
+    const [view] = turnViewsOf(
+      [{ id: 'turn-2', kind: 'proposal', status: 'ready', changes: [], revived: true }],
+      context(),
+    );
+    expect(view).toEqual({ kind: 'end', view: { turnId: 'turn-2', key: 'interrupted' } });
+  });
+
+  it('offers no Undo on an edit once a later change sits on top, and no build-row reason', () => {
+    // The only reason in the copy, `revert.changedSince`, is a build row's ("this section
+    // changed after it was built"); under a title edit, after a row Undo elsewhere, it lied.
+    const edit: EditTurn = {
+      id: 'turn-2',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'A', after: 'B' }],
+      transactionId: 'tx-9',
+      elapsedMs: 1_000,
+    };
+    const live = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: true, canRedo: false }) }),
+    )[0];
+    expect(live?.kind === 'edit' && live.view.undo).toEqual({
+      kind: 'undo',
+      transactionId: 'tx-9',
+    });
+    const buried = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: false }) }),
+    )[0];
+    expect(buried?.kind).toBe('edit');
+    expect(buried?.kind === 'edit' && buried.view.phase).toBe('done');
+    expect(buried?.kind === 'edit' && 'undo' in buried.view).toBe(false);
+  });
+
+  it('reads a refused outcome on an edit (stored data) as no Undo, never a build-row reason', () => {
+    const edit: EditTurn = {
+      id: 'turn-2',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'A', after: 'B' }],
+      transactionId: 'tx-9',
+      outcome: { kind: 'refused', why: 'changedSince' },
+      elapsedMs: 1_000,
+    };
+    const [view] = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: true, canRedo: false }) }),
+    );
+    expect(view?.kind === 'edit' && view.view.phase).toBe('done');
+    expect(view?.kind === 'edit' && 'undo' in view.view).toBe(false);
+  });
+
+  it('offers no Redo on an undone edit once something else landed', () => {
+    const edit: EditTurn = {
+      id: 'turn-2',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'A', after: 'B' }],
+      transactionId: 'tx-9',
+      outcome: { kind: 'undone', transactionId: 'tx-10' },
+      elapsedMs: 1_000,
+    };
+    const redoable = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: true }) }),
+    )[0];
+    expect(redoable?.kind === 'edit' && redoable.view.undo).toEqual({
+      kind: 'redo',
+      transactionId: 'tx-10',
+    });
+    const gone = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: false }) }),
+    )[0];
+    expect(gone?.kind === 'edit' && gone.view.phase).toBe('undone');
+    expect(gone?.kind === 'edit' && 'undo' in gone.view).toBe(false);
+  });
+});
+
+describe('withPendingRequest', () => {
+  const document = createEditKernel().getDocument();
+
+  it("shows the request the clarify panel asks about as the person's bubble", () => {
+    const shown = withPendingRequest(
+      [],
+      { request: 'صفحة لعيادة أسنان', context: [{ kind: 'page' }] },
+      document,
+    );
+    expect(shown).toEqual([
+      {
+        kind: 'user',
+        view: { turnId: PENDING_REQUEST_ID, text: 'صفحة لعيادة أسنان', chips: [], notRun: false },
+      },
+    ]);
+  });
+
+  it('adds nothing when no request waits', () => {
+    const turns = turnViewsOf([builtWith({ tree: '' })], context());
+    expect(withPendingRequest(turns, null, document)).toBe(turns);
+  });
+});

@@ -1,0 +1,100 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as MiniSpineStories from './MiniSpine.stories';
+
+<Meta of={MiniSpineStories} />
+
+# MiniSpine
+
+The page spine laid on its side (SPEC §4.19): one 4px segment per section, 2px apart, drawn in the
+phone sheet's mini detent above the status line, while the sections land on the canvas above it.
+
+<Canvas of={MiniSpineStories.Parallel} />
+
+## Purpose
+
+On a phone the chat drops away so the page can be watched being built. The status line says the
+count in words ("1 of 8 on the page"); the mini spine shows the same fact at a glance, with the
+spine's own honesty: several writers lit at once, a finished draft still pale while it waits its
+turn, and ink only where a section is actually on the page.
+
+## When to use / not
+
+Use it only inside SheetMiniBar. The docked panel and the phone's full detent draw the vertical
+spine (SpineList), whose rows are named, numbered and actionable.
+
+Never use it as the only statement of progress: it is `aria-hidden`, so the line beside it must say
+the count.
+
+## Props
+
+| prop            | type                      | default | notes                                                              |
+| --------------- | ------------------------- | ------- | ------------------------------------------------------------------ |
+| `rows`          | `readonly SpineRowView[]` | `[]`    | one segment per row, in page order                                 |
+| `indeterminate` | `boolean`                 | `false` | the skeleton pass: one lit track, no count claimed                 |
+| `live`          | `boolean`                 | `false` | a live build: writing segments carry the travelling light          |
+| `animate`       | `boolean`                 | `false` | landing fill and the one completion sweep; keep it stable per life |
+| `className`     | `string`                  | none    | appended to `ck-agent-mini-spine`                                  |
+
+`miniSegmentKind(state)` is the row-state mapping, exported for tests and for SheetMiniBar.
+
+## States
+
+| story                                                                 | what it shows                                               |
+| --------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `Parallel`, `ParallelDark`, `ParallelRightToLeft`, `…RightToLeftDark` | the §3.16 frame: 1 landed, four writers, one draft, 2 wait  |
+| `Skeleton`, `SkeletonDark`                                            | one indeterminate lit track                                 |
+| `Landing`                                                             | four landed, the fifth being written; ink fills on arrival  |
+| `Complete`, `CompleteRightToLeftDark`                                 | the unbroken stroke and its one sweep of light              |
+| `Partial`, `PartialDark`                                              | one failed section: dashed Alarm, never ink                 |
+| `Stopped`                                                             | three landed, the rest never written (pencil)               |
+| `Undone`                                                              | nothing of the build on the page: all pencil                |
+| `TwelveSections`, `ThreeSections`                                     | the page in miniature: segment length follows section count |
+
+## Anatomy
+
+| row state                                    | segment   | drawn as                                          |
+| -------------------------------------------- | --------- | ------------------------------------------------- |
+| `planned`, `waiting`, `notWritten`, `undone` | `pencil`  | 6/3 dashes of Track                               |
+| `writing`, `retrying`                        | `writing` | Halo, with a light travelling along it while live |
+| `drafted`                                    | `drafted` | Halo, still: written, waiting its turn            |
+| `landed`                                     | `ink`     | solid Indigo, filled from the reading start       |
+| `failed`                                     | `failed`  | 6/3 dashes of Alarm                               |
+
+Segments share the row's width (`flex: 1 1 0`), so three sections draw three long strokes and twelve
+draw twelve short ones. Dashes are backgrounds rather than borders: a 4px dashed border draws
+whatever dash the engine picks, and the pencil must look the same in every browser.
+
+The travelling light is Indigo on Halo in light and Indigo deep in dark (the §2.1 pair). The
+completion sweep is Mist over ink in light and the panel's Ink in dark, through `light-dark()`, so
+one rule serves both themes with tokens only.
+
+## Accessibility
+
+`aria-hidden="true"`, no focusable element, no role, no words. The status line in SheetMiniBar
+carries the count ("1 of 8 on the page"), and the panel's one live region announces landings (SPEC
+§6.1). State is never colour alone: under `forced-colors: active` every kind becomes a border style
+in system colours (pencil dashed GrayText, a writer dotted Highlight, a draft dotted CanvasText, ink
+solid Highlight, failed dashed Mark), the spine's own high-contrast table (§4.8).
+
+## RTL
+
+Page order follows the reading direction: in Arabic the first section is the rightmost segment. The
+pencil's dashes start at the reading start, ink fills from the reading start (`transform-origin`
+under `:dir(rtl)`), and the travelling light and the sweep run right to left. Logical properties
+only.
+
+## Motion
+
+Only what SPEC §5 allows:
+
+- **Moment 1, a section lands:** the ink grows across its segment from the reading start, 360ms
+  (`land`), `easing-enter`.
+- **Moment 2, a writer works:** a light travels along each writing segment, 1400ms (`glint`),
+  linear, looping, only while `live`.
+- **Moment 5, the page is whole:** one pass of light across the closed stroke, 720ms (`sweep`),
+  once.
+
+Under `prefers-reduced-motion: reduce` nothing moves: a writer keeps a still Indigo first half on
+its Halo (so it still differs from a draft), a landing is the finished stroke, and there is no
+sweep.

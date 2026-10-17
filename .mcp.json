@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "/Users/abode/.nvm/versions/node/v22.19.0/bin/playwright-mcp",
+      "args": ["--headless"]
+    },
+    "boundedrelay": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/abode/Documents/craftkit-builder/claude-codex-worker/dist/cli.js", "serve"],
+      "env": {
+        "PATH": "/Users/abode/.nvm/versions/node/v24.19.0/bin:/Users/abode/.nvm/versions/node/v22.19.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "CCW_ALLOWED_ROOTS": "/Users/abode/Documents/craftkit-builder/frontend",
+        "CCW_ENABLE_PROPOSALS": "true",
+        "CCW_ALLOWED_MODELS": "gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna",
+        "CCW_DEFAULT_MODEL": "gpt-5.6-sol",
+        "CCW_DEFAULT_REASONING_EFFORT": "high",
+        "CCW_MAX_TASK_CHARS": "100000",
+        "CCW_REQUIRE_TASK_SECTIONS": "GOAL:,ACCEPTANCE CRITERIA:,FILES TO READ FIRST:,OUTPUT CONTRACT:",
+        "CCW_MAX_OUTPUT_BYTES": "10000000",
+        "CCW_DEFAULT_TIMEOUT_MS": "2400000",
+        "CCW_MAX_TIMEOUT_MS": "7200000",
+        "CCW_PROPOSAL_BOOTSTRAP": "[\"pnpm\",\"install\",\"--offline\",\"--frozen-lockfile\",\"--ignore-scripts\"]"
+      }
+    },
+    "craftkit": {
+      "type": "stdio",
+      "command": "/Users/abode/.nvm/versions/node/v24.19.0/bin/node",
+      "args": ["/Users/abode/Documents/craftkit-builder/frontend/apps/mcp-server/dist/main.js"]
+    }
+  }
+}

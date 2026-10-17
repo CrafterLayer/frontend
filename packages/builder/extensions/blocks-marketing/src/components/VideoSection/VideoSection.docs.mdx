@@ -1,0 +1,88 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as VideoSectionStories from './VideoSection.stories';
+
+<Meta of={VideoSectionStories} />
+
+# Video Section
+
+A Builder-native storytelling section for product tours, founder messages, demonstrations, case
+studies, and brand films. It renders the browser's native video element with controls; it never
+injects an iframe or stores executable embed markup.
+
+<Canvas of={VideoSectionStories.Split} />
+<Controls />
+
+## Public props and defaults
+
+- `eyebrow?`, `heading`, and `body?` own the narrative. The visible heading labels the section and
+  becomes the video accessible name unless `videoLabel` is supplied.
+- `src?` accepts a safe http(s), root-relative, or supported video data URL. `poster?` accepts the
+  equivalent safe raster-image forms. Both remain unset by default.
+  Until the poster or the first frame paints, the player shows a soft accent-to-surface token
+  gradient rather than a black box.
+- `caption?` provides visible context below the media.
+- `captionsSrc?`, `captionsLanguage?`, and `captionsLabel?` create a native captions track. When
+  language and label are omitted, the rendered fallbacks are `en` and `Captions` without persisting
+  new defaults into the document.
+- `cta?` is one complete `{ label, href, newTab }` object, preventing half-configured actions.
+- `layout = 'split'` supports a responsive two-column narrative; `centered` constrains both copy and
+  media into a vertical composition. `mediaPosition = 'end'` can move media to either logical side
+  of a wide split layout without changing mobile reading order.
+- `videoFit = 'cover'`, `preload = 'metadata'`, `muted = false`, and `loop = false` control native
+  playback. Autoplay is intentionally unavailable.
+- Shared alignment, tone, spacing, width, gutter, colour, motion, typography, logical spacing, and
+  validated utility-class controls remain optional and token-bound.
+
+## Accessibility, safety, and canvas behavior
+
+Native controls preserve keyboard operation, platform media behavior, and assistive-technology
+support. `playsInline` avoids forced fullscreen on compatible mobile browsers. Authors receive a
+canvas-only reminder when a video has no captions track; silent footage can omit a track when its
+meaning is fully conveyed by nearby text. The block has no autoplay, so reduced-motion and user
+playback preferences remain respected.
+
+Every media and CTA URL is allowlisted at the schema boundary. `javascript:` and arbitrary iframe
+HTML are rejected, as are protocol-relative and slash-backslash URL forms. CTA anchors remain
+semantic but cannot navigate on the builder canvas. Missing video media shows setup guidance only on
+the canvas and disappears from published output.
+
+## Responsive, RTL, and content guidance
+
+Container queries activate the split layout only when the block itself is wide enough. Logical
+ordering and alignment support RTL. A published split section with no media collapses to one copy
+column. Keep the poster representative, compress video for the web, provide captions for speech and
+meaningful audio, and put a transcript near the section when the video contains information not
+covered by the surrounding copy.
+
+## Example
+
+```ts
+videoSectionSchema.props.parse({
+  heading: 'See the workflow in motion',
+  src: '/media/workflow.mp4',
+  poster: '/images/workflow-poster.jpg',
+  captionsSrc: '/media/captions/workflow-en.vtt',
+  cta: { label: 'Explore the workflow', href: '#workflow', newTab: false },
+  layout: 'split',
+});
+```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`caption`, `cta`), and addressable by the agent by name, alias or
+label. Text parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at
+the end.
+
+| name      | kind | bind                                  | label (en / ar)               |
+| --------- | ---- | ------------------------------------- | ----------------------------- |
+| `eyebrow` | text | `eyebrow`                             | Eyebrow / الشارة              |
+| `heading` | text | `heading`                             | Heading / العنوان             |
+| `body`    | text | `body`                                | Body / الوصف (multiline)      |
+| `caption` | text | `caption`                             | Video caption / تعليق الفيديو |
+| `cta`     | link | `{ text: cta.label, href: cta.href }` | Button / الزر                 |
+
+The video address and poster are media rows (`kind: 'image'`, the asset picker), not parts.
+`videoLabel` and `captionsLabel` are read only by assistive technology, so they stay Inspector rows;
+with no `videoLabel`, the video is named by the visible heading through `aria-labelledby`.

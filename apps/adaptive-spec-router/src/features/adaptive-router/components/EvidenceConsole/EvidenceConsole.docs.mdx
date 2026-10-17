@@ -1,0 +1,26 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as EvidenceConsoleStories from './EvidenceConsole.stories';
+
+<Meta of={EvidenceConsoleStories} />
+
+# EvidenceConsole
+
+`EvidenceConsole` turns the single-writer execution rule into a visible dashboard. It contains the
+run timeline, writer-lease state, evidence ledger, and release-gate outcome. A reserved or absent
+lease is visibly distinct from an active lease, so a gated plan never appears to be running.
+
+## Use when
+
+Use it to make an execution process auditable. It is deliberately display-only: the local product
+does not start work, run checks, or modify a repository.
+
+## API
+
+- `run` is a complete illustrative `DemoRun`, including stages, one lease, evidence records, and a
+  release-gate status.
+
+## Accessibility and responsive behavior
+
+Timeline states and evidence outcomes have text labels in addition to colour. The ledger and
+timeline stack below each other on narrow screens, retaining the active writer ownership statement.

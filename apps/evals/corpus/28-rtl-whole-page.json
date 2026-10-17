@@ -1,0 +1,26 @@
+{
+  "id": "28-rtl-whole-page",
+  "title": "An Arabic brief produces an Arabic page throughout",
+  "category": "rtl",
+  "fixture": "empty",
+  "dir": "rtl",
+  "request": "ابنِ صفحة هبوط لمشغل نجارة في عمّان: واجهة قوية، ثلاثة أسباب للثقة، معرض أعمال، ودعوة للتواصل.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 4,
+    "maxCommands": 24,
+    "allBlockTypes": ["hero", "features", "gallery", "cta"]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Is every visible string Arabic, and does the page read right-to-left as a whole rather than in patches?",
+  "why": "The corpus had two RTL cases, both single-section. A whole page is where direction actually breaks: one section in Latin script, or a page whose dir is right while its copy is English, and the result reads as broken to the only person who matters."
+}

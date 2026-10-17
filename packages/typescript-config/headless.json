@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "CraftKit Headless",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ES2024"],
+    "skipLibCheck": true
+  }
+}

@@ -1,0 +1,162 @@
+/* Editor chrome only: a site's palette must not recolour its controls. */
+.bldr-spf {
+  display: grid;
+  gap: var(--ck-space-4, 1rem);
+  min-inline-size: 0;
+  color: var(--ck-fg, #111827);
+  font-size: var(--ck-text-sm, 0.8125rem);
+}
+
+.bldr-spf__group {
+  display: grid;
+  gap: var(--ck-space-3, 0.75rem);
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--ck-space-3, 0.75rem);
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-md, 0.5rem);
+}
+
+.bldr-spf__legend,
+.bldr-spf__label {
+  font-weight: 600;
+}
+
+.bldr-spf__row,
+.bldr-spf__image,
+.bldr-spf__palette,
+.bldr-spf__colour {
+  display: grid;
+  gap: var(--ck-space-2, 0.5rem);
+  min-inline-size: 0;
+}
+
+.bldr-spf__head,
+.bldr-spf__number {
+  display: flex;
+  align-items: center;
+  gap: var(--ck-space-2, 0.5rem);
+  min-inline-size: 0;
+}
+
+.bldr-spf__head {
+  justify-content: space-between;
+}
+
+.bldr-spf__text,
+.bldr-spf__hex,
+.bldr-spf__select,
+.bldr-spf__number-input {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  inline-size: 100%;
+  min-block-size: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: var(--ck-bg, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.bldr-spf__slider {
+  flex: 1;
+  min-inline-size: 0;
+  inline-size: 100%;
+  accent-color: var(--ck-accent, #4f46e5);
+}
+
+.bldr-spf__number-input {
+  inline-size: 80px;
+  flex-shrink: 0;
+}
+
+.bldr-spf__colour {
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+}
+
+.bldr-spf__swatch {
+  box-sizing: border-box;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 2px;
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: var(--ck-bg, #fff);
+}
+
+.bldr-spf__segmented,
+.bldr-spf__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ck-space-2, 0.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bldr-spf__segment,
+.bldr-spf__swatch-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 32px;
+  overflow-wrap: anywhere;
+}
+
+.bldr-spf__segment input {
+  accent-color: var(--ck-accent, #4f46e5);
+}
+
+.bldr-spf__switch,
+.bldr-spf__icon-button,
+.bldr-spf__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-inline-size: 32px;
+  min-block-size: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--ck-border, #d1d5db);
+  border-radius: var(--ck-radius-sm, 0.25rem);
+  background: var(--ck-bg, #fff);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bldr-spf__switch[aria-checked='true'] {
+  border-color: var(--ck-accent, #4f46e5);
+}
+
+.bldr-spf__thumb {
+  max-inline-size: 100%;
+  max-block-size: 96px;
+  object-fit: contain;
+  border-radius: var(--ck-radius-sm, 0.25rem);
+}
+
+.bldr-spf__help,
+.bldr-spf__empty {
+  margin: 0;
+  color: var(--ck-fg-muted, #6b7280);
+  overflow-wrap: anywhere;
+}
+
+.bldr-spf__error {
+  grid-column: 1 / -1;
+  color: var(--ck-danger, #b91c1c);
+  overflow-wrap: anywhere;
+}
+
+.bldr-spf :is(input, select, button):focus-visible {
+  outline: 2px solid var(--ck-accent, #4f46e5);
+  outline-offset: 2px;
+}
+
+.bldr-spf :disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

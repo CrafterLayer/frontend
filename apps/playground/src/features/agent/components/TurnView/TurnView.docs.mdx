@@ -1,0 +1,57 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TurnViewStories from './TurnView.stories';
+
+<Meta of={TurnViewStories} />
+
+# TurnView
+
+A turn, drawn as its record or card (SPEC §7.2 #50): the one place that knows which component
+draws which of the nine v2 turn kinds.
+
+<Canvas of={TurnViewStories.Build} />
+
+## Purpose
+
+AgentThread owns the `<li>` around each turn, keyed by its id; TurnView fills it. A turn that
+changes kind (a plan becoming its build, a proposal its edit) keeps its node, so focus sent to the
+new record's head finds it.
+
+| kind        | component    |
+| ----------- | ------------ |
+| `user`      | UserMessage  |
+| `build`     | BuildRecord  |
+| `edit`      | EditRecord   |
+| `answer`    | AnswerRecord |
+| `page-plan` | PagePlanCard |
+| `step-plan` | StepPlanCard |
+| `proposal`  | ProposalCard |
+| `error`     | ErrorRecord  |
+| `end`       | EndNote      |
+
+## Props
+
+| prop             | type                             | default | notes                                                  |
+| ---------------- | -------------------------------- | ------- | ------------------------------------------------------ |
+| `locale`         | `Locale`                         | none    |                                                        |
+| `turn`           | `TurnView` (view-types)          | none    | one entry of `AgentViewState.turns`                    |
+| `actions`        | `TurnActions`                    | none    | the controller without its state                       |
+| `composer`       | `() => HTMLElement \| null`      | none    | where focus lands after Reuse request                  |
+| `acceptsPlanOp`  | `(turnId, op) => boolean`        | none    | PagePlanCard's `accepts`, once the controller has one  |
+| `layoutPrepared` | `(turnId) => boolean`            | none    | SPEC §7.6 E0c line on an Ask plan                      |
+
+## The record menu
+
+`[⋯]` items run here (`runMenuItem`) and never post text as the person's turn: Reuse request puts
+the request back in the composer and focus with it; Copy summary, answer and error details go to the
+clipboard through the controller; View as code and Technical details go to the host; Restore page
+opens RestoreDialog over the record, returning focus to `[⋯]`, and restores only on its confirm.
+
+## Accessibility
+
+Each component brings its own structure (an `<article>` named by its `h3`, `tabindex="-1"`).
+TurnView adds nothing to the tree but the dialog Restore opens.
+
+## RTL
+
+Inherited from the panel root; nothing here is direction-specific.

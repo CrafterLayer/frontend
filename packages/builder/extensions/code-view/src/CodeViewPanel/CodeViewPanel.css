@@ -1,0 +1,95 @@
+.bldr-code-view {
+  background: var(--bldr-panel, #f8fafc);
+  color: var(--bldr-panel-text, #334155);
+  display: grid;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding: 0.75rem;
+}
+
+.bldr-code-view__head {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.bldr-code-view__title {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.bldr-code-view__status {
+  background: var(--bldr-panel-border, #e2e8f0);
+  border-radius: var(--bldr-radius-full);
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.5rem;
+  text-transform: uppercase;
+}
+
+.bldr-code-view__status[data-status='invalid'],
+.bldr-code-view__status[data-status='conflict'] {
+  color: var(--bldr-danger, #dc2626);
+}
+
+.bldr-code-view__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.bldr-code-view__textarea {
+  background: var(--bldr-panel-control, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #cbd5e1);
+  border-radius: 0.25rem;
+  box-sizing: border-box;
+  color: var(--bldr-panel-text, #0f172a);
+  font:
+    0.75rem/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  inline-size: 100%;
+  min-block-size: var(--bldr-measure-dock);
+  padding: 0.625rem;
+  resize: vertical;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.bldr-code-view__textarea:focus-visible {
+  border-color: var(--bldr-selection, #4f46e5);
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-code-view__textarea[aria-invalid='true'] {
+  border-color: var(--bldr-danger, #dc2626);
+}
+
+.bldr-code-view__description {
+  color: var(--bldr-panel-muted, #64748b);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.bldr-code-view__description--error {
+  color: var(--bldr-danger, #dc2626);
+}
+
+.bldr-code-view__discard {
+  background: var(--bldr-panel-control, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border, #cbd5e1);
+  border-radius: 0.25rem;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  justify-self: start;
+  padding: 0.375rem 0.625rem;
+}
+
+.bldr-code-view__discard:focus-visible {
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
+}

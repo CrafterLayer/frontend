@@ -1,0 +1,1 @@
+export { clinicTemplate } from './template';

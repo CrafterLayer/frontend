@@ -1,0 +1,77 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanSectionListStories from './PlanSectionList.stories';
+
+<Meta of={PlanSectionListStories} />
+
+# PlanSectionList
+
+The plan's sections, on the pencil spine (SPEC §1, §4.11): an `<ol>` of PlanSectionRows, reorderable
+three ways.
+
+<Canvas of={PlanSectionListStories.Editable} />
+
+## Purpose
+
+This is the page in miniature, before it exists. Drawn in pencil, a dashed line through open rings,
+so nothing on it reads as built. When the plan is built, the same list inks in place: its columns
+are the build spine's, so node, number and title do not move.
+
+## When to use / not
+
+Use it inside PagePlanCard. After Build the rows belong to SpineList in the BuildRecord.
+
+## Props
+
+| prop         | type                         | default      | notes                                                          |
+| ------------ | ---------------------------- | ------------ | -------------------------------------------------------------- |
+| `locale`     | `'ar' \| 'en'`               | none         |                                                                |
+| `sections`   | `readonly PlanSectionView[]` | none         | page order                                                     |
+| `editable`   | `boolean`                    | none         | false: the E6 fallback, no controls                            |
+| `duplicates` | `ReadonlySet<string>`        | none         | keys of rows whose name another row shares                     |
+| `accepts`    | `(op: PlanOp) => boolean`    | local limits | an op the engine would refuse shows as unavailable             |
+| `onEdit`     | `(op: PlanOp) => void`       | none         | `rename`, `move`, `remove`                                     |
+| `morph`      | `boolean`                    | `false`      | name rows `ck-plan-row-{key}` for the plan-to-build transition |
+| `id`         | `string`                     | none         |                                                                |
+
+`planRowTransitionName(key)` is exported, so the build record can name its rows the same way.
+
+## States
+
+| story                                              | what it shows                                       |
+| -------------------------------------------------- | --------------------------------------------------- |
+| `Editable`, `EditableDark`, `EditableRightToLeft…` | the pencil, the handles and menus at the inline end |
+| `EditableAt420`, `EditableAt420RightToLeft`        | purposes in their own column                        |
+| `ReadOnly`, `ReadOnlyRightToLeft`                  | nodes, numbers, titles                              |
+| `DuplicateNames`                                   | two titles with the Amber wavy underline            |
+| `ReorderWithKeyboard`                              | Alt+↓ twice; the handle keeps focus                 |
+| `DragToReorder`                                    | a drag of the handle, dropped two rows down         |
+
+## Anatomy
+
+A grid the rows share through subgrid: node 16, number 20, title, then from 400px the purpose, and
+the handle and `[⋯]` last, 8px apart, so titles start 52px in exactly as on the build's spine. The
+pencil is one 2px dashed Track stroke down the glyph column's centre, from the first node's centre
+to the last's; each node is a Rule ring on the card's Sheet, so the line reads as threaded through
+open rings.
+
+## Accessibility
+
+- An `<ol>` named "Sections (n)"; the printed numbers are `aria-hidden`.
+- Reorder three ways (WCAG 2.5.7): drag the handle; Alt+↑ / Alt+↓ on a focused row; ⋯ → Move up /
+  Move down. All three are one `move` op with the section's new index.
+- Focus stays on the moved row's control, the one the move started from, even when a move re-inserts
+  the row's element (which would otherwise drop focus to `body`). After a removal, focus goes to the
+  `[⋯]` of the row that took its place.
+- The list has no live region: the controller announces each move and removal through LiveStatus.
+
+## RTL
+
+Logical properties only. The pencil is at the inline start (the right in Arabic); a drag moves on
+the block axis only, the same in both directions.
+
+## Motion
+
+Rows arrive in page order, 24ms apart, opacity and 4px (SPEC §5 moment 6). During a drag the lifted
+row follows the pointer with no lag, and the rows it passes glide one row over `move` (180ms).
+Reduced motion: no arrival and no glide.

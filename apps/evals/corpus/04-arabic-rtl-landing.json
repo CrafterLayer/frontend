@@ -1,0 +1,27 @@
+{
+  "id": "04-arabic-rtl-landing",
+  "title": "Arabic landing page in an RTL document",
+  "category": "rtl",
+  "fixture": "empty",
+  "dir": "rtl",
+  "request": "أنشئ صفحة هبوط لمنصة حجز مواعيد للعيادات: قسم رئيسي يشرح الفكرة، ثلاث مزايا، آراء عملاء، ودعوة للتسجيل.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 3,
+    "maxCommands": 24,
+    "anyBlockTypes": ["hero"],
+    "allBlockTypes": ["hero", "features", "testimonials"]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Is the copy actually in Arabic and idiomatic — not English content with an Arabic heading bolted on — and does it suit a clinic booking product?",
+  "why": "The document direction is rtl, so this case fails loudly for any planner that only ever writes English or that tries to solve direction with a CSS override instead of the document dir."
+}

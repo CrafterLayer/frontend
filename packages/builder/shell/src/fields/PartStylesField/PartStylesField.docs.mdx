@@ -1,0 +1,31 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PartStylesFieldStories from './PartStylesField.stories';
+
+<Meta of={PartStylesFieldStories} />
+
+# PartStylesField
+
+The Advanced-tab row for a block's `partStyles` record: which parts have a style of their own, what
+that style is, and a Reset for each.
+
+<Canvas of={PartStylesFieldStories.CustomisedParts} />
+
+## Where part styles come from
+
+Part styles are written on the canvas (the element quick bar) and in the part panel's Design tab,
+through `planPartStyle` and `planPartDir` in the style engine's `tokens` mode. This row is where a
+person sees all of them at once and takes one back.
+
+## Behaviour
+
+- **Named by the part's label** from the block's `parts` declaration, in the editor's language
+  ("Heading", «العنوان»). A per-instance key (`item.title@2`) shows its 1-based ordinal ("Item title
+  3").
+- **Shows** the part's classes as chips and its direction override ("Direction LTR").
+- **Reset** removes that part's own style in ONE transaction, so one Undo. The host plans it with
+  `planPartStyleReset`: a direction-only entry goes through `planPartDir(…, null)`; an entry with
+  classes is removed in one `setProp` labelled "Reset style · Hero Heading".
+- It never shows raw JSON.
+
+<Canvas of={PartStylesFieldStories.Arabic} />

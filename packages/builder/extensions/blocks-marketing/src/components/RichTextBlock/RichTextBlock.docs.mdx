@@ -1,0 +1,61 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as RichTextBlockStories from './RichTextBlock.stories';
+
+<Meta of={RichTextBlockStories} />
+
+# RichTextBlock
+
+Free-form prose (milestone B3b): headings 2–4, bold/italic, safe links, and lists — stored as plain
+JSON, validated strictly at the command door, and rendered through the renderer's zero-dependency
+`RichText` component. The block declares ONE rich property (`content: richText()`) and ships ZERO
+panel code: registering `richTextExtension` gives it a full rich editor in the inspector
+automatically.
+
+## Usage
+
+```tsx
+// In a document:
+{ type: 'richText', props: { content: { type: 'doc', content: [...] } } }
+```
+
+## API
+
+| Prop      | Type           | Notes                                          |
+| --------- | -------------- | ---------------------------------------------- |
+| `content` | rich-text JSON | whitelist-validated on write; tolerant on read |
+
+## Layout
+
+The section sits on the same wide column as every other marketing section, so its start edge lines
+up with the blocks above and below it; the prose itself keeps a narrow reading measure
+(`max-w-content-narrow`) inside that column, start-aligned in both directions.
+
+## Accessibility & RTL
+
+Semantic output (`h2..h4`, `ul/ol/li`, `strong/em`, real anchors); hostile link protocols are
+neutralized to plain text; logical properties keep prose correct under RTL (see the RTL story).
+
+## When not to use
+
+Single-line text (a heading prop, a label) belongs to plain string props; structured layouts belong
+to dedicated blocks — this block is for prose.
+
+## Known limitations
+
+- The B3b whitelist excludes tables, images, and embeds (future milestones).
+- Rich responsive overrides are deferred; the content edits the base bucket.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind      | label (en / ar) |
+| --------- | ---- | --------- | --------------- |
+| `content` | rich | `content` | Text / النص     |
+
+The prose part sits inside the section padding: a click on the text focuses the text, a click on the
+padding selects the block.

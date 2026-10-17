@@ -1,0 +1,514 @@
+/*
+  Motion preset cards. Each card's mini shape plays ITS OWN preset (not just
+  its group's) while the card is hovered or focused, looping, and never under
+  reduced motion: a picker full of looping animations is exactly what that
+  preference asks us not to show. The keyframes are a sketch of the preset,
+  not the published CSS (that lives in the renderer's motion presets).
+
+  Sideways presets read the PAGE direction: on an RTL page "from start"
+  comes from the right, so `--motion-preset-sign` flips the inline offsets.
+*/
+.bldr-motion-grid {
+  --motion-preset-sign: 1;
+  --motion-preset-clip-start: 0;
+  --motion-preset-clip-end: 100%;
+  display: grid;
+  gap: var(--bldr-space-xs);
+  /* Two or three readable columns in the panel; never a strip of slivers. */
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--bldr-hit-target-min) * 2.25), 1fr));
+}
+
+.bldr-motion-grid:dir(rtl) {
+  --motion-preset-sign: -1;
+  --motion-preset-clip-start: 100%;
+  --motion-preset-clip-end: 0;
+}
+
+.bldr-motion-grid__card {
+  align-items: stretch;
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+  line-height: var(--bldr-line-height-snug);
+  min-inline-size: 0;
+  padding: var(--bldr-space-xs);
+  text-align: center;
+}
+
+.bldr-motion-grid__card[aria-checked='true'] {
+  border-color: var(--bldr-accent);
+  box-shadow: 0 0 0 var(--bldr-border-hairline) var(--bldr-accent);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-motion-grid__card:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-motion-grid__demo {
+  align-items: center;
+  aspect-ratio: 16 / 10;
+  background: var(--bldr-surface-raised);
+  border-radius: var(--bldr-radius-xs);
+  display: flex;
+  inline-size: 100%;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bldr-motion-grid__demo-shape {
+  background: var(--bldr-accent);
+  block-size: 42%;
+  border-radius: var(--bldr-radius-xs);
+  inline-size: 30%;
+}
+
+.bldr-motion-grid__demo[data-group='none'] .bldr-motion-grid__demo-shape {
+  background: var(--bldr-panel-border-strong);
+}
+
+.bldr-motion-grid__name {
+  /* Whole words only: "Fade from start" wraps between words, never per letter. */
+  hyphens: manual;
+  overflow-wrap: normal;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bldr-motion-grid__card:is(:hover, :focus-visible) .bldr-motion-grid__demo-shape {
+    animation: bldr-m-fade calc(var(--bldr-duration-enter) * 3) var(--bldr-easing-enter) infinite alternate;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade-up'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade-up;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade-down'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade-down;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade-start'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade-start;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade-end'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade-end;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='zoom-in'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-zoom-in;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='zoom-out'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-zoom-out;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='blur-in'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-blur-in;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='flip-up'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-flip-up;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='clip-up'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-clip-up;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='clip-start'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-clip-start;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='rise-mask'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-rise-mask;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='tilt-in'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-tilt-in;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='stagger-up'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-stagger-up;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='stagger-fade'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-stagger-fade;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='stagger-zoom'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-stagger-zoom;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='stagger-grid'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-stagger-grid;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='parallax-slow'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-parallax-slow;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='parallax-fast'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-parallax-fast;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='scale-on-scroll'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-scale-on-scroll;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='fade-on-exit'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-fade-on-exit;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='reading-progress'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-reading-progress;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='sticky-stack'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-sticky-stack;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='pin'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-pin;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='horizontal-scroll'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-horizontal-scroll;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='float'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-float;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='pulse'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-pulse;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='gradient-shift'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-gradient-shift;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='shimmer'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-shimmer;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='spin-slow'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-spin-slow;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='orbit'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-orbit;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='meteors'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-meteors;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='split-chars'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-split-chars;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='split-words'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-split-words;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='split-lines'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-split-lines;
+    animation-direction: normal;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='typewriter'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-typewriter;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='word-rotate'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-word-rotate;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='gradient-text'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-gradient-text;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='highlight-sweep'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-highlight-sweep;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='blur-words'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-blur-words;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='draw-line'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-draw-line;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='lift'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-lift;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='glow'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-glow;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='scale'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-scale;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='tilt'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-tilt;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='magnetic'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-magnetic;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='shine-sweep'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-shine-sweep;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='underline-grow'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-underline-grow;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='image-zoom'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-image-zoom;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='border-beam'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-border-beam;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-preset='icon-nudge'] .bldr-motion-grid__demo-shape {
+    animation-name: bldr-m-icon-nudge;
+  }
+
+  .bldr-motion-grid__card:is(:hover, :focus-visible) [data-group='none'] .bldr-motion-grid__demo-shape {
+    animation: none;
+  }
+}
+
+@keyframes bldr-m-fade {
+  from { opacity: 0; }
+}
+
+@keyframes bldr-m-fade-up {
+  from { opacity: 0; translate: 0 60%; }
+}
+
+@keyframes bldr-m-fade-down {
+  from { opacity: 0; translate: 0 -60%; }
+}
+
+@keyframes bldr-m-fade-start {
+  from { opacity: 0; translate: calc(-60% * var(--motion-preset-sign)) 0; }
+}
+
+@keyframes bldr-m-fade-end {
+  from { opacity: 0; translate: calc(60% * var(--motion-preset-sign)) 0; }
+}
+
+@keyframes bldr-m-zoom-in {
+  from { opacity: 0; scale: 0.3; }
+}
+
+@keyframes bldr-m-zoom-out {
+  from { opacity: 0; scale: 1.8; }
+}
+
+@keyframes bldr-m-blur-in {
+  from { opacity: 0; filter: blur(var(--bldr-effect-blur-md)); }
+}
+
+@keyframes bldr-m-flip-up {
+  from { transform: perspective(var(--bldr-effect-perspective)) rotateX(85deg); }
+}
+
+@keyframes bldr-m-clip-up {
+  from { clip-path: inset(100% 0 0 0); }
+}
+
+@keyframes bldr-m-clip-start {
+  from { clip-path: inset(0 var(--motion-preset-clip-end) 0 var(--motion-preset-clip-start)); }
+}
+
+@keyframes bldr-m-rise-mask {
+  from { translate: 0 160%; }
+}
+
+@keyframes bldr-m-tilt-in {
+  from { opacity: 0; rotate: calc(-20deg * var(--motion-preset-sign)); translate: 0 30%; }
+}
+
+@keyframes bldr-m-stagger-up {
+  0% { translate: 0 60%; opacity: 0; } 40% { translate: 0 0; opacity: 1; }
+}
+
+@keyframes bldr-m-stagger-fade {
+  0%, 20% { opacity: 0; } 60% { opacity: 1; }
+}
+
+@keyframes bldr-m-stagger-zoom {
+  0% { scale: 0; } 50% { scale: 1; }
+}
+
+@keyframes bldr-m-stagger-grid {
+  0% { clip-path: inset(0 50% 50% 0); } 50% { clip-path: inset(0 0 50% 0); } 100% { clip-path: inset(0); }
+}
+
+@keyframes bldr-m-parallax-slow {
+  from { translate: 0 25%; } to { translate: 0 -25%; }
+}
+
+@keyframes bldr-m-parallax-fast {
+  from { translate: 0 70%; } to { translate: 0 -70%; }
+}
+
+@keyframes bldr-m-scale-on-scroll {
+  from { scale: 0.5; }
+}
+
+@keyframes bldr-m-fade-on-exit {
+  to { opacity: 0; translate: 0 -50%; }
+}
+
+@keyframes bldr-m-reading-progress {
+  from { scale: 0 1; }
+}
+
+@keyframes bldr-m-sticky-stack {
+  0% { translate: 0 120%; } 50%, 100% { translate: 0 0; }
+}
+
+@keyframes bldr-m-pin {
+  0%, 30% { translate: 0 60%; } 60%, 100% { translate: 0 0; }
+}
+
+@keyframes bldr-m-horizontal-scroll {
+  from { translate: calc(80% * var(--motion-preset-sign)) 0; } to { translate: calc(-80% * var(--motion-preset-sign)) 0; }
+}
+
+@keyframes bldr-m-float {
+  to { translate: 0 -25%; }
+}
+
+@keyframes bldr-m-pulse {
+  to { scale: 1.3; opacity: 0.7; }
+}
+
+@keyframes bldr-m-gradient-shift {
+  to { filter: hue-rotate(160deg); }
+}
+
+@keyframes bldr-m-shimmer {
+  to { opacity: 0.35; }
+}
+
+@keyframes bldr-m-spin-slow {
+  to { rotate: 1turn; }
+}
+
+@keyframes bldr-m-orbit {
+  from { rotate: 0turn; transform-origin: 160% 50%; } to { rotate: 1turn; transform-origin: 160% 50%; }
+}
+
+@keyframes bldr-m-meteors {
+  from { translate: calc(80% * var(--motion-preset-sign)) -80%; opacity: 0; } 30% { opacity: 1; } to { translate: calc(-80% * var(--motion-preset-sign)) 80%; opacity: 0; }
+}
+
+@keyframes bldr-m-split-chars {
+  from { clip-path: inset(0 0 100% 0); }
+}
+
+@keyframes bldr-m-split-words {
+  0% { clip-path: inset(0 66% 0 0); } 50% { clip-path: inset(0 33% 0 0); } 100% { clip-path: inset(0); }
+}
+
+@keyframes bldr-m-split-lines {
+  0% { clip-path: inset(0 0 66% 0); } 50% { clip-path: inset(0 0 33% 0); } 100% { clip-path: inset(0); }
+}
+
+@keyframes bldr-m-typewriter {
+  from { clip-path: inset(0 var(--motion-preset-clip-end) 0 var(--motion-preset-clip-start)); }
+}
+
+@keyframes bldr-m-word-rotate {
+  from { transform: perspective(var(--bldr-effect-perspective)) rotateX(-90deg); }
+}
+
+@keyframes bldr-m-gradient-text {
+  to { filter: hue-rotate(200deg); }
+}
+
+@keyframes bldr-m-highlight-sweep {
+  from { box-shadow: inset 0 -0.2em 0 var(--bldr-panel-border-strong); }
+}
+
+@keyframes bldr-m-blur-words {
+  from { filter: blur(var(--bldr-effect-blur-sm)); opacity: 0.4; }
+}
+
+@keyframes bldr-m-draw-line {
+  from { scale: 0 0.2; }
+}
+
+@keyframes bldr-m-lift {
+  to { translate: 0 -25%; box-shadow: var(--bldr-shadow-floating); }
+}
+
+@keyframes bldr-m-glow {
+  to { box-shadow: 0 0 0 var(--bldr-space-2xs) var(--bldr-focus-ring); }
+}
+
+@keyframes bldr-m-scale {
+  to { scale: 1.3; }
+}
+
+@keyframes bldr-m-tilt {
+  to { transform: perspective(var(--bldr-effect-perspective)) rotateY(calc(25deg * var(--motion-preset-sign))); }
+}
+
+@keyframes bldr-m-magnetic {
+  to { translate: calc(20% * var(--motion-preset-sign)) -20%; }
+}
+
+@keyframes bldr-m-shine-sweep {
+  to { filter: brightness(1.6); }
+}
+
+@keyframes bldr-m-underline-grow {
+  from { scale: 1 1; } to { scale: 1 0.15; translate: 0 150%; }
+}
+
+@keyframes bldr-m-image-zoom {
+  to { scale: 1.6; }
+}
+
+@keyframes bldr-m-border-beam {
+  to { outline: var(--bldr-border-hairline) solid var(--bldr-focus-ring); outline-offset: var(--bldr-space-2xs); }
+}
+
+@keyframes bldr-m-icon-nudge {
+  to { translate: calc(30% * var(--motion-preset-sign)) 0; }
+}

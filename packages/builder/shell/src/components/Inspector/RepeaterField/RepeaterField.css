@@ -1,0 +1,177 @@
+/*
+  The repeater: a list of cards, each a disclosure row with its actions, and
+  an Add button. Field skins for the rows inside a card come from
+  ../InspectorRow.css, which RepeaterField imports alongside this sheet.
+  Tokens only; logical properties only; every glyph carries its own stroke.
+*/
+
+.bldr-repeater {
+  display: grid;
+  gap: var(--bldr-space-md);
+  inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-repeater__list {
+  display: grid;
+  gap: var(--bldr-space-md);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  min-inline-size: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+/* A card on the control ground. It does NOT clip: the disclosure's and the
+   actions' focus rings draw whole, and their backgrounds stay transparent so
+   nothing paints square over the rounded border. */
+.bldr-repeater__item {
+  background-color: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-repeater__item-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(var(--bldr-space-0), 1fr) auto;
+  min-inline-size: var(--bldr-space-0);
+}
+
+.bldr-repeater__disclosure {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  border: var(--bldr-space-0);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  line-height: var(--bldr-line-height-snug);
+  min-block-size: var(--bldr-control-height-sm);
+  min-inline-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  text-align: start;
+  transition: color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-repeater__disclosure svg,
+.bldr-repeater__action svg,
+.bldr-repeater__add svg {
+  block-size: var(--bldr-space-3xl);
+  flex: none;
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-repeater__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-repeater__actions {
+  display: flex;
+}
+
+.bldr-repeater__action {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  block-size: var(--bldr-control-sm);
+  border: var(--bldr-space-0);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 var(--bldr-control-sm);
+  inline-size: var(--bldr-control-sm);
+  justify-content: center;
+  padding: var(--bldr-space-0);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-repeater__disclosure:hover {
+  color: var(--bldr-accent);
+}
+
+.bldr-repeater__action:hover:not(:disabled) {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-accent);
+}
+
+.bldr-repeater__action--remove:hover:not(:disabled) {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.bldr-repeater__action:disabled,
+.bldr-repeater__add:disabled {
+  color: var(--bldr-panel-muted);
+  cursor: default;
+}
+
+.bldr-repeater__fields {
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  display: grid;
+  padding-block: var(--bldr-space-sm);
+  padding-inline: var(--bldr-space-md);
+  row-gap: var(--bldr-space-sm);
+}
+
+.bldr-repeater__fields[hidden] {
+  display: none;
+}
+
+/* Add: a dashed, transparent invitation the height of a text input. */
+.bldr-repeater__add {
+  align-items: center;
+  appearance: none;
+  background-color: transparent;
+  border: var(--bldr-border-hairline) dashed var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  inline-size: 100%;
+  justify-content: center;
+  line-height: var(--bldr-line-height-snug);
+  min-block-size: var(--bldr-control-height);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  transition:
+    border-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-repeater__add:hover:not(:disabled) {
+  border-color: var(--bldr-accent-ring);
+  color: var(--bldr-accent);
+}
+
+.bldr-repeater__empty,
+.bldr-repeater__reason {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-repeater__disclosure,
+  .bldr-repeater__action,
+  .bldr-repeater__add {
+    transition: none;
+  }
+}

@@ -1,0 +1,96 @@
+/*
+  PlanSectionList (SPEC §4.11, frame §3.7, §2.3 glyph column).
+
+  The columns every row shares, through subgrid, are SpineList's: the 16px glyph column the
+  spine runs down, the 20px number column, then the title, 8px apart, so titles start 52px
+  in. The handle and [⋯] take the last column, at the inline END, so when the plan inks into
+  the build nothing a person reads moves (SPEC §5 moment 4). From 400px the section's
+  purpose takes a column of its own after the titles, so purposes line up down the list.
+
+    ┊                                          the pencil: dashed Track, 2px, down the
+    ○  1  Header       Logo, 4 links …  [⠿] [⋯] glyph column's centre (7px to 9px), from the
+    ┊                                          first node's centre to the last's
+    ○  2  Hero         Promise + book … [⠿] [⋯]
+*/
+
+.ck-agent-plan-list {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns:
+    [node] var(--bldr-space-3xl)
+    [number] var(--bldr-space-4xl)
+    [title] minmax(0, 1fr)
+    [actions] auto;
+  column-gap: var(--bldr-space-md);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-plan-list {
+    grid-template-columns:
+      [node] var(--bldr-space-3xl)
+      [number] var(--bldr-space-4xl)
+      [title] minmax(0, max-content)
+      [purpose] minmax(0, 1fr)
+      [actions] auto;
+  }
+}
+
+/*
+  The pencil (SPEC §1: "a dashed line runs down the start edge of its numbered section
+  list, and every node is an open ring"). One stroke, first node to last: the nodes sit on
+  it inside their Sheet ring, so it reads as a line threaded through open rings. Decorative:
+  each row's state is its ring and its name.
+*/
+.ck-agent-plan-list::before {
+  position: absolute;
+  z-index: 0;
+  inset-block: calc(var(--bldr-agent-row-height) / 2);
+  inset-inline-start: calc(var(--bldr-space-md) - var(--bldr-border-thick) / 2);
+  border-inline-start: var(--bldr-border-thick) dashed var(--bldr-progress-track);
+  content: '';
+  pointer-events: none;
+}
+
+/* A single row has no stretch to draw. */
+.ck-agent-plan-list:has(> :only-child)::before {
+  display: none;
+}
+
+/* While a row is lifted, the others make way under it without catching the pointer. */
+.ck-agent-plan-list[data-dragging] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.ck-agent-plan-list[data-dragging] > :not([data-lifted]) {
+  pointer-events: none;
+}
+
+/*
+  The rows the lifted one passes glide one row over `move` (180ms), and only during the drag:
+  on the drop the list reorders in the same frame the shifts clear, so a row that made way is
+  already where it glided to, and nothing animates back.
+*/
+.ck-agent-plan-list[data-dragging] > .ck-agent-plan-row:not([data-lifted]) {
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    translate var(--bldr-duration-move) var(--bldr-easing);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-plan-list[data-dragging] > .ck-agent-plan-row:not([data-lifted]) {
+    transition: none;
+  }
+}
+
+/* High contrast keeps the pencil a pencil: a dashed system line, distinct from ink. */
+@media (forced-colors: active) {
+  .ck-agent-plan-list::before {
+    border-inline-start-color: GrayText;
+  }
+}

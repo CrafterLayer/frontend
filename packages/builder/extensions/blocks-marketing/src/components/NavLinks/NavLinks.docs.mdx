@@ -1,0 +1,72 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as NavLinksStories from './NavLinks.stories';
+
+<Meta of={NavLinksStories} />
+
+# NavLinks
+
+An inline navigation list for freely composed page slots. Use it in a header, a footer column, or
+beside other blocks when a compact group of destinations is needed. Use a richer content block when
+the items need descriptions, icons, actions, or nested navigation.
+
+## Props (intent-only)
+
+- `links: Array<{ label: string (1–24); href: string (1–200) }> = []` — at most 10 links.
+- `direction: 'row' | 'column' = 'row'`
+- `style: 'plain' | 'underline' | 'pill' = 'plain'`
+- `gap: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `wrap: 'nowrap' | 'wrap' = 'wrap'`
+- `background?: 'surface' | 'surfaceInverse' | 'accent'`
+- `textColor?: 'text' | 'textInverse' | 'textMuted' | 'accentText'`
+- Shared typography is optional and has no defaults: `fontFamily`, `fontSize`, `fontWeight`,
+  `lineHeight`, `letterSpacing`, `textAlign`, and `textCase`. Unset values inherit; set values use
+  the page theme's named scale.
+- Logical padding and margin step properties are optional and have no defaults. Unset values leave
+  the block's own spacing intact.
+
+## Variants and empty state
+
+`plain` removes decoration, `underline` keeps every destination visibly underlined, and `pill` adds
+a tokenized border and control padding. Direction, gap, wrapping, and the shared typography choices
+are independent. An empty block shows a short setup hint only on the builder canvas; published
+output renders nothing.
+
+## Accessibility
+
+Non-empty output is a named `nav` landmark containing a semantic list of real anchors. Links follow
+native keyboard and browser behavior, and the theme accent provides their focus-visible outline.
+Empty output never creates a navigation landmark. Link labels should be distinct and meaningful out
+of context; avoid repeated labels such as “Learn more.”
+
+## Theming, responsive behavior, and RTL
+
+Color roles resolve through the page theme, while spacing, borders, radii, tracking, and pill
+padding use page measurement tokens. Row order follows the document's reading direction, logical CSS
+keeps padding direction-safe, and wrapping is enabled by default for constrained containers.
+
+## Composition example
+
+Use a `row` with `plain` or `underline` styling in a page header. Use a `column` with a smaller gap
+inside a footer column. The block stays independent of either container, so the same content can be
+moved elsewhere without changing its schema.
+
+## Known limitations
+
+Each item supports one visible label and one destination. Nested menus, icons, descriptions,
+per-link targets, and custom landmark labels are intentionally outside this compact block.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name        | kind | bind                             | label (en / ar)           |
+| ----------- | ---- | -------------------------------- | ------------------------- |
+| `links`     | list | `links`                          | Links / الروابط           |
+| `item`      | item | `links.*`                        | Menu entry / عنصر القائمة |
+| `item.link` | link | `links.*.label` + `links.*.href` | Link / الرابط             |
+
+Each link part edits its label in place and its destination in the Link popover.

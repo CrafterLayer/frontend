@@ -1,0 +1,108 @@
+import type { JsonValue } from '@craftkit/builder-schema';
+
+export const productGridExamples: { prompt: string; node: JsonValue }[] = [
+  {
+    prompt: 'a premium ecommerce product grid with a featured bestseller',
+    node: {
+      type: 'productGrid',
+      props: {
+        eyebrow: 'The studio collection',
+        heading: 'Everyday objects, considered properly',
+        body: 'Quiet materials, useful proportions, and the details that make daily rituals feel better.',
+        actionLabel: 'Shop product',
+        showRatings: true,
+        ratingPrefix: 'Rated',
+        ratingSuffix: 'out of 5',
+        reviewCountLabel: 'reviews',
+        variant: 'featured',
+        columns: '3',
+        imageRatio: 'square',
+        align: 'start',
+        tone: 'transparent',
+        spacing: 'lg',
+        width: 'wide',
+        products: [
+          {
+            name: 'Arc task lamp',
+            description:
+              'Warm, focused light with a weighted base and three considered brightness levels.',
+            price: '$189',
+            imageSrc:
+              'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1600&q=80',
+            imageAlt: 'Matte black Arc task lamp on an oak writing desk',
+            badge: 'Bestseller',
+            href: '/products/arc-task-lamp',
+            rating: 4.9,
+            reviewCount: 128,
+            featured: true,
+          },
+          {
+            name: 'Fold catchall tray',
+            description:
+              'Vegetable-tanned leather shaped for keys, cards, and the small things worth keeping close.',
+            price: '$64',
+            originalPrice: '$79',
+            badge: 'Limited',
+            href: '/products/fold-tray',
+            rating: 4.7,
+            reviewCount: 74,
+          },
+          {
+            name: 'Still carafe',
+            description:
+              'Hand-finished glass with a balanced pour and a silhouette that belongs on the table.',
+            price: '$92',
+            href: '/products/still-carafe',
+            rating: 4.8,
+            reviewCount: 49,
+          },
+        ],
+      },
+    },
+  },
+  {
+    prompt: 'شبكة منتجات عربية احترافية للمتجر',
+    node: {
+      type: 'productGrid',
+      props: {
+        eyebrow: 'مختارات المتجر',
+        heading: 'تفاصيل جميلة للاستخدام كل يوم',
+        body: 'مواد متينة، تصميم هادئ، ووظيفة واضحة في كل قطعة.',
+        actionLabel: 'عرض المنتج',
+        showRatings: true,
+        ratingPrefix: 'التقييم',
+        ratingSuffix: 'من 5',
+        reviewCountLabel: 'مراجعة',
+        variant: 'grid',
+        columns: '3',
+        imageRatio: 'portrait',
+        align: 'start',
+        tone: 'light',
+        spacing: 'lg',
+        width: 'wide',
+        products: [
+          {
+            name: 'مصباح آرك المكتبي',
+            description: 'إضاءة دافئة ومركزة مع ثلاث درجات سطوع.',
+            price: '١٨٩ د.أ',
+            badge: 'الأكثر طلبًا',
+            href: '/ar/products/arc-lamp',
+            rating: 4.9,
+            ratingLabel: 'تقييم ٤٫٩ من ٥، بناءً على ١٢٨ مراجعة',
+            reviewCount: 128,
+          },
+          {
+            name: 'صينية فولد الجلدية',
+            description: 'مكان مرتب للمفاتيح والبطاقات والتفاصيل الصغيرة.',
+            price: '٦٤ د.أ',
+            originalPrice: '٧٩ د.أ',
+            href: '/ar/products/fold-tray',
+            rating: 4.7,
+            ratingLabel: 'تقييم ٤٫٧ من ٥، بناءً على ٧٤ مراجعة',
+            reviewCount: 74,
+          },
+        ],
+      },
+    },
+  },
+];

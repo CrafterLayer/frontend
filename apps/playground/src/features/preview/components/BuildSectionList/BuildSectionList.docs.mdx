@@ -1,0 +1,56 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuildSectionListStories from './BuildSectionList.stories';
+
+<Meta of={BuildSectionListStories} />
+
+# BuildSectionList
+
+The sections of a build in flight: what is done, what is running, what waits.
+The provider's status frames are kept in a bounded live stream above the rows, with the newest
+message called out separately so the current work remains visible while older narration stays
+available for context.
+
+<Canvas of={BuildSectionListStories.Default} />
+
+## A build is ordinary runs, repeated
+
+A running row carries the same clock a single call would have shown, one level in. That is
+deliberate: a split build should read as the thing it is made of, not as an opaque bar with a
+percentage nobody can check.
+
+## More than one row runs at once
+
+The fill loop writes with a pool and lands in page order, so several sections are genuinely in
+flight while the page fills top to bottom. Each running row names its own clock, because "the build
+is working" without saying at what is not information.
+
+<Canvas of={BuildSectionListStories.ConcurrentWave} />
+
+They share one clock — the WAVE's, started by the first section of the wave. A per-row clock would
+visibly restart every time another writer picked up work, and "how long has this been going" is a
+question about the wave rather than about one writer's turn.
+
+That sharing had a bug worth remembering: the clock used to be cleared on every completed section,
+so the first section to finish blanked the live clock under the two still working and the card sat
+silent while the build carried on.
+
+## When nothing is running
+
+Nothing ticks. A settled build shows its rows and no clock at all.
+
+<Canvas of={BuildSectionListStories.Settled} />
+
+## Skipped is a state, not a failure
+
+A section the model would not write is marked and the build carries on to the next one. The report
+that follows says why, and offers to retry just those.
+
+<Canvas of={BuildSectionListStories.WithSkipped} />
+
+## Language
+
+Section titles are the model's own words in the request's language, so each keeps `dir="auto"` — an
+Arabic title reads correctly inside an otherwise English card.
+
+<Canvas of={BuildSectionListStories.Arabic} />

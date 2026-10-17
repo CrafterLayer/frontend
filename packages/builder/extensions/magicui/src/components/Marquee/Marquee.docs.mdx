@@ -1,0 +1,54 @@
+import { Meta, Canvas, Controls, Stories } from '@storybook/addon-docs/blocks';
+
+import * as MarqueeStories from './Marquee.stories';
+
+<Meta of={MarqueeStories} />
+
+# Marquee
+
+An original Builder-native marquee inspired by Magic UI's motion language. It supports partner
+logos, customer quotes, compact announcements, and linked cards without adding a runtime animation
+dependency.
+
+<Canvas of={MarqueeStories.Logos} />
+
+## Accessibility
+
+The second visual copy required for a seamless loop is hidden from assistive technology and removed
+from the keyboard order. A visible button always pauses and resumes every row, including when
+`pauseOnHover` is false. When `prefers-reduced-motion: reduce` is active, animation stops, the
+duplicate disappears, and the primary list becomes horizontally scrollable.
+
+## Customization
+
+Authors control the item collection, semantic region and pause/resume labels, presentation, speed,
+direction, one or two rows, hover pause, edge fade, tone, radius, motion, and safe custom utilities.
+Destination URLs may use web, mail, or telephone schemes; image URLs use the narrower root-relative,
+HTTP, or HTTPS policy.
+
+<Controls />
+<Stories />
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`item.title` for every instance, `item.title@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name               | kind  | bind                                               | label (en / ar)                   |
+| ------------------ | ----- | -------------------------------------------------- | --------------------------------- |
+| `pauseLabel`       | text  | `pauseLabel`                                       | Pause button / زر الإيقاف         |
+| `resumeLabel`      | text  | `resumeLabel`                                      | Resume button / زر الاستئناف      |
+| `items`            | list  | `items`                                            | Items / العناصر                   |
+| `item`             | item  | `items.*`                                          | Item / العنصر                     |
+| `item.image`       | image | `{ src: items.*.imageUrl, alt: items.*.imageAlt }` | Item image / صورة العنصر          |
+| `item.title`       | text  | `items.*.title`                                    | Item title / عنوان العنصر         |
+| `item.description` | text  | `items.*.description`                              | Item text / نص العنصر (multiline) |
+| `item.meta`        | text  | `items.*.meta`                                     | Item detail / تفصيل العنصر        |
+| `item.link`        | link  | `{ text: items.*.title, href: items.*.href }`      | Item link / رابط العنصر           |
+
+Every seamless copy carries the parts, so clicking any copy selects the same part and `partStyles`
+styles all copies alike; only the first, readable copy hosts an inline editor. The pause button
+keeps both labels rendered and hides the inactive one, so each is reachable on the canvas. `label`
+names the region for assistive technology only, so it stays an Inspector row.

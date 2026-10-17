@@ -1,0 +1,138 @@
+/*
+  FontPairMenu (SPEC §4.11). The trigger is a ghost menu trigger like the composer's mode
+  and model triggers (SPEC §4.17: ghost 32, Meta 500 + ▾): the pair is a setting of the
+  plan, not a headline, so it stays quieter than the mood line above it. The menu itself is
+  RecordMenu's surface (`.ck-agent-menu`, e2) with radio items of two lines.
+*/
+
+.ck-agent-font-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-font-menu__trigger:hover,
+.ck-agent-font-menu__trigger[aria-expanded='true'] {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-font-menu__trigger:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* Narrow: the heading face alone; from 400px the specimen and both faces (SPEC §3.14). */
+.ck-agent-font-menu__specimen,
+.ck-agent-font-menu__face[data-face='body'] {
+  display: none;
+}
+
+.ck-agent-font-menu__specimen {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-font-menu__faces {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-agent-font-menu__chevron {
+  color: var(--bldr-panel-muted);
+}
+
+@container agent (min-width: 400px) {
+  .ck-agent-font-menu__specimen {
+    display: inline;
+    margin-inline-end: var(--bldr-space-2xs);
+  }
+
+  .ck-agent-font-menu__face[data-face='body'] {
+    display: inline;
+  }
+}
+
+@media (pointer: coarse) {
+  .ck-agent-font-menu__trigger {
+    block-size: var(--bldr-hit-target-min);
+  }
+}
+
+/* ── The menu: radio items, heading face over body face ─────────────────────── */
+
+.ck-agent-menu.ck-agent-font-menu {
+  min-inline-size: 240px;
+}
+
+/* Two classes: RecordMenu's item rule is one, whichever stylesheet the bundle emits first. */
+.ck-agent-menu__item.ck-agent-font-menu__item {
+  gap: var(--bldr-space-md);
+  align-items: flex-start;
+}
+
+/* The check's column is always there, so every name starts on one edge. */
+.ck-agent-font-menu__check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  block-size: var(--bldr-line-height-read);
+  inline-size: var(--bldr-space-3xl);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-font-menu__names {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-font-menu__name[data-face='heading'] {
+  color: var(--bldr-panel-text);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+/* Graphite, never Slate: the checked item sits on Mist (SPEC §2.1 rule 2). */
+.ck-agent-font-menu__name[data-face='body'] {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* Checked: Mist under Indigo deep, the active option (SPEC §2.1 "5.99"). */
+.ck-agent-font-menu__item[data-state='checked'] {
+  background-color: var(--bldr-accent-soft);
+}
+
+.ck-agent-font-menu__item[data-state='checked'] .ck-agent-font-menu__name[data-face='heading'] {
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-font-menu__item[data-state='checked'][data-highlighted] {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-font-menu__item[data-state='checked'] {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

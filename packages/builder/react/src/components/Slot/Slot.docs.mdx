@@ -1,0 +1,30 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SlotStories from './Slot.stories';
+
+<Meta of={SlotStories} />
+
+# Slot
+
+Reads one named slot of a document node and hands its ORDERED child ids to a render-prop. Document
+order is the only order — the component adds nothing else.
+
+## Usage
+
+```tsx
+<Slot node={node} name="actions">
+  {(ids) => ids.map((id) => <NodeView key={id} id={id} …/>)}
+</Slot>
+```
+
+## API
+
+- `node: Node` — the parent document node.
+- `name: SlotName` — a slot the node's schema declares.
+- `children: (childIds: readonly NodeId[]) => ReactNode` — render-prop; receives a frozen empty list
+  for empty/undeclared slots (empty slots are never stored, so this is the display-side mirror of
+  that kernel law).
+
+## Accessibility / RTL / Theming
+
+Renders exactly what the render-prop returns — semantics belong to the caller.

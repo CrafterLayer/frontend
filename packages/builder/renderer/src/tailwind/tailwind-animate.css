@@ -1,0 +1,24 @@
+/*
+  GENERATED FILE — do not edit by hand.
+
+  Produced by packages/builder/renderer/src/tailwind/plugin-bridge.ts and held equal to its
+  generator by plugin-bridge.test.ts. Edit the generator.
+
+  tw-animate-css (animate-in, fade-in, zoom-in-95, slide-in-from-*): the entrance vocabulary
+  every page carries, its slide distances in the site's spacing step, and no entrance at all
+  under reduced motion. Import it after the token bridge.
+*/
+
+@import 'tw-animate-css';
+
+/* tw-animate multiplies var(--spacing), which the token bridge never emits (it is inline). */
+:where([class*='slide-in-from-'], [class*='slide-out-to-']) {
+  --spacing: --theme(--spacing);
+}
+
+/* Reduced motion: no entrance or exit at all, whatever variant asked for one. */
+@media (prefers-reduced-motion: reduce) {
+  :where([class*='animate-in'], [class*='animate-out']) {
+    animation: none;
+  }
+}

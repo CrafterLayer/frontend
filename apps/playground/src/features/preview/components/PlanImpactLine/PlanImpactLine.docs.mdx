@@ -1,0 +1,48 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanImpactLineStories from './PlanImpactLine.stories';
+
+<Meta of={PlanImpactLineStories} />
+
+# PlanImpactLine
+
+The size of the decision, before the decision. Two facts a person needs before pressing Apply, and
+neither of them is in the step list beneath it.
+
+<Canvas of={PlanImpactLineStories.Default} />
+
+## What would change
+
+Diffed from the plan's own rehearsal — `previewAiPlan` runs it on a scratch kernel through the real
+door — against the live document. That is the only honest source, because it accounts for what the
+commands actually DID rather than what they were named.
+
+The difference is not theoretical. A `setProp` to the value a block already has is a valid command
+that produces an identical document: the step list reads like work and the page does not move. A
+person should be told that before spending an undo step to find out.
+
+<Canvas of={PlanImpactLineStories.ChangesNothing} />
+
+Counts, not ids. An id is the right thing to jump to and the wrong thing to read; the ids are
+already on screen in the preview.
+
+<Canvas of={PlanImpactLineStories.Mixed} />
+
+## A change no node diff can see
+
+`dir` and `surface` are not nodes, so nothing in a node diff would ever mention them — and flipping
+a page to RTL rearranges everything a person can see. It is named rather than counted, because "1
+changed" would be true and useless.
+
+<Canvas of={PlanImpactLineStories.DirectionFlip} />
+
+## No token estimate
+
+The line used to add the request's token estimate. It is gone (2026-09-28): the owner saw
+"تقدير: ~11.3k توكن" on a one-word title change, because the number measured the whole context this
+panel would send — and the engine now applies a change like that without calling a model at all.
+Cost is telemetry (SPEC §7.4); `costTokens` is still accepted so callers compile, and never shown.
+
+## When it knows neither
+
+It renders nothing. A line that says "we could not tell" takes space to say nothing.

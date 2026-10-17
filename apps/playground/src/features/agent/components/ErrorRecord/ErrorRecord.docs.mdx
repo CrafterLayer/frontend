@@ -1,0 +1,81 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ErrorRecordStories from './ErrorRecord.stories';
+
+<Meta of={ErrorRecordStories} />
+
+# ErrorRecord
+
+A run that failed as a whole (SPEC §4.14, §3.11): a title by failure class, one cause sentence,
+and one sentence, always, about what the page holds now.
+
+<Canvas of={ErrorRecordStories.Unreachable} />
+
+## Purpose
+
+A failure says what went wrong in words (never colour alone), what the page holds now, and the
+one way forward. Technical detail (codes, run ids, validator text, provider names) is never
+rendered: it goes to the clipboard through "Copy error details", and to Technical details behind
+the developer flag.
+
+## When to use / not
+
+Every `error` turn. A build that failed before any section landed is a BuildRecord in phase
+`failed`, which draws the same body (`ErrorBody`, exported here). One failed section in a build
+is a failed SpineRow, not an ErrorRecord.
+
+## Props
+
+| prop             | type                                  | default | notes                                          |
+| ---------------- | ------------------------------------- | ------- | ---------------------------------------------- |
+| `locale`         | `Locale`                              | none    |                                                |
+| `view`           | `ErrorView`                           | none    | `failure`, `pageState`, `retryable`, `menu`; `details` is never rendered |
+| `actions`        | `ErrorRecordActions`                  | none    | the controller's `tryAgain` and `removeEmpty`  |
+| `onMenuSelect`   | `(item: RecordMenuItem) => void`      | none    | Copy error details, Reuse request              |
+| `menuFocusAfter` | `RecordMenuProps['focusAfterSelect']` | none    |                                                |
+| `menuTriggerRef` | `Ref<HTMLButtonElement>`              | none    |                                                |
+| `headingRef`     | `Ref<HTMLHeadingElement>`             | none    |                                                |
+| `className`      | `string`                              | none    | appended to `ck-agent-record ck-agent-error`   |
+
+`ErrorBody` takes `{ locale, body: Pick<ErrorBodyView, 'failure' | 'pageState'> }`.
+
+## States
+
+One story per class, each with its Arabic twin: `Unreachable` (also dark, and
+`UnreachableWithTime`, §3.11 as drawn), `Timeout`, `Busy`,
+`Declined` (no Try again: different wording may work), `Invalid`, `TooLarge`, `Offline`,
+`Unknown` (no cause line). Page states: `KeptWhatLanded` ("What landed before the error stays on
+the page (3)."), `SkeletonLeft` (Remove the empty layout), `PageStateUnknown` (a v1 record that
+never kept what landed first). Behaviour: `TryAgain`, `CopyErrorDetails`. All classes stacked:
+`EveryClassAt320`, `EveryClassAt420RightToLeft`, `EveryClassRightToLeftDark`. Every play checks
+that no run id, command name, skill id, token count or timing reaches the screen.
+
+## Anatomy
+
+```text
+[✕] Couldn't reach the model              0:31
+    The AI server didn't answer.            cause: Read, Graphite, wrapping
+    The page wasn't changed.                page state: always one sentence
+    [ Try again ]  Remove the empty layout   [⋯]   primary when retryable; text when a skeleton was left
+```
+
+The Alarm is the glyph's alone, never the sentence's. The head's figure is the run's final time,
+as on every settled record, and none under a second. `ErrorView` has no field for it yet, so the
+record reads an `elapsedMs` structurally and shows it once the producer sends one
+(`UnreachableWithTime`); until then the head has no figure.
+
+## Accessibility
+
+- An `<article>` named by its title ("Couldn't reach the model"); the glyph is `aria-hidden`.
+- Try again is an action, not a message: it calls `tryAgain` (a successor run) and never posts a
+  sentence as the person's turn. Focus then goes to this record's head (SPEC §6.3), as it does
+  after Remove the empty layout.
+
+## RTL
+
+Logical properties only. On a phone (coarse pointer, under 600px) Try again takes the footer's
+full width, the easiest thing to reach with a thumb.
+
+## Motion
+
+None.

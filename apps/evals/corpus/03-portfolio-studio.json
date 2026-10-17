@@ -1,0 +1,27 @@
+{
+  "id": "03-portfolio-studio",
+  "title": "Portfolio for a design studio",
+  "category": "portfolio",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "I run a two-person design studio. Make me a portfolio page: who we are, six selected projects with images, the services we sell, and a contact form.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 4,
+    "maxCommands": 24,
+    "anyBlockTypes": ["portfolioGrid", "gallery", "grid"],
+    "allBlockTypes": ["portfolioGrid", "contact"]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Does the page present work first and talk about the studio second, the way a portfolio does, with six projects actually present?",
+  "why": "A portfolio names a count (\"six\") and a medium (images). It catches planners that ignore quantities and planners that reach for a text block when a media grid was asked for."
+}

@@ -1,0 +1,15 @@
+export {
+  detachBlockToCustomCode,
+  detachFidelity,
+  getBlockMarkupRenderer,
+  humanBlockName,
+  planBlockDetach,
+  regionTreeFromMarkup,
+  setBlockMarkupRenderer,
+  type BlockMarkupRenderer,
+  type DetachFidelity,
+  type DetachOptions,
+  type DetachPlan,
+  type DetachResult,
+  type DroppedAttribute,
+} from './detach-block';

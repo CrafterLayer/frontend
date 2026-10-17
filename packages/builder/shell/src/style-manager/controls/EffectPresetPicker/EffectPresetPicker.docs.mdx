@@ -1,0 +1,18 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as EffectPresetPickerStories from './EffectPresetPicker.stories';
+
+<Meta of={EffectPresetPickerStories} />
+
+# EffectPresetPicker
+
+The effects library of style-manager DESIGN.md §C.1. Each effect is a closed `ck-fx-*` hook class
+whose CSS the renderer ships (glass, mesh, noise, grid, dots, retro grid, spotlight, gradient border,
+aurora, gradient text, ring glow).
+
+Several effects can be worn at once, so every card is a **toggle button** (`aria-pressed`). A click
+reports the whole new list through `onChange`; the panel writes it as one `effects` intent (base
+bucket, default state only — hook classes take no variants).
+
+Previews only suggest the effect's shape with chrome tokens. Labels: `EFFECT_PRESET_PICKER_LABELS_EN`
+and `EFFECT_PRESET_PICKER_LABELS_AR`.

@@ -1,0 +1,22 @@
+/* The preset's Tailwind door.
+   Same reasoning as chrome.css: applications reach the builder family ONLY
+   through @craftkit/builder (ADR 0003), and a stylesheet is no exception. This
+   forwards to the package that owns the token bridge.
+
+   Import this AFTER `@import 'tailwindcss'` in the application's CSS entry.
+   Tailwind v4 reads `@theme` as configuration, so the block has to arrive once
+   Tailwind itself is loaded; putting it first leaves the namespaces undefined
+   and every token utility silently missing.
+
+   The animate layer comes second, after the token bridge whose spacing step it
+   moves by: tw-animate-css (animate-in, fade-in, slide-in-from-*) and the guard
+   that stops every entrance under reduced motion — the same text the in-page
+   compiler and the export load (renderer plugin-bridge.ts).
+
+   The content layer (typography's prose, the forms plugin's form-*) is NOT
+   behind this door: the in-page compiler and the export generate it per page,
+   because a static build would ship ~20 KB of prose CSS on every editor load
+   whether a page used it or not (the word is common in this codebase's
+   comments, and the source scan cannot tell a comment from a class). */
+@import '@craftkit/builder-renderer/tailwind.css';
+@import '@craftkit/builder-renderer/tailwind-animate.css';

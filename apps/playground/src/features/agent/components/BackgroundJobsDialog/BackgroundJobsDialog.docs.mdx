@@ -1,0 +1,77 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BackgroundJobsDialogStories from './BackgroundJobsDialog.stories';
+
+<Meta of={BackgroundJobsDialogStories} />
+
+# BackgroundJobsDialog
+
+"Background jobs" (2026-10-12): the agent's big requests — the same request on several pages — run
+as background batches through the assistant server at half the price of a live run, and land later,
+one Undo per page.
+
+<Canvas of={BackgroundJobsDialogStories.List} />
+
+## Purpose and placement
+
+Its own modal, opened from the agent header's Background jobs button (the stacked-pages glyph, with
+a dot while answers wait or a batch answers), not a tab of "Skills & memory": that window is what
+the Agent _knows_ (skills, memory, checkpoints); jobs are work in flight, with a lifecycle (sent,
+answering, ready, applied) and a primary action of their own. The window is "Skills & memory"'s
+single-column sibling: the same scrim, surface, radius, bar and Close, so the two read as one
+family.
+
+## When to use / not
+
+AgentPanel mounts it when the host gives the panel `jobs` (`LiveAgentPanel`'s `backgroundJobs`). The
+composer reaches its form two ways: `/batch <request>` sent, and "Run in the background" picked from
+the `/` list (the words before the slash). Without a host, nothing is drawn.
+
+## Props
+
+| prop             | type                             | default   | notes                                                     |
+| ---------------- | -------------------------------- | --------- | --------------------------------------------------------- |
+| `locale`         | `Locale`                         | none      | `en` or `ar`                                              |
+| `jobs`           | `BackgroundJobsView`             | none      | `useBackgroundJobs`, or a hand-built view in stories      |
+| `open`           | `boolean`                        | none      | with `onOpenChange`                                       |
+| `view`           | `'list' \| 'new'`                | none      | with `onViewChange`                                       |
+| `onStart`        | `() => void`                     | none      | "Run on several pages": the host opens the form           |
+| `request`        | `string`                         | `''`      | the form's first words                                    |
+| `fromDraft`      | `boolean`                        | `false`   | they came from the composer's draft                       |
+| `opening`        | `number`                         | `0`       | changes per opening of the form, so it starts afresh      |
+| `visible`        | `boolean`                        | `true`    | the panel is shown: the list asks about batches only then |
+| `returnFocusRef` | `RefObject<HTMLElement \| null>` | none      | the header's button                                       |
+| `id`             | `string`                         | generated | for the button's `aria-controls`                          |
+
+## Behaviour
+
+- **Polling** is the list's: while the window is open, on the list, the panel shown and a batch
+  still answering, every batch in progress is asked about at once and then every 30 s — never while
+  the tab is hidden (`jobs.watch`). Refresh asks now.
+- **Start**: the form (BatchJobForm). A send that succeeds returns to the list, whose status line
+  says the job is at its top. When the server cannot batch (501, or 409 for the model picked) the
+  form shows its own sentence and Submit waits.
+- **Apply** lands every answer through the live door; the row's results then say what became of each
+  page. **Retry live** closes the window, shows the page and sends the job's request there as the
+  panel's own run.
+
+## States
+
+`List`, `ListDark`, `ListRightToLeft`, `ListDarkRightToLeft`, `StartFromList`, `Form`, `FormDark`,
+`FormRightToLeft`, `Unavailable`, `UnavailableRightToLeft`, `Offline`, `Empty`, `Loading`,
+`BusyAndNotice`, `Phone`.
+
+## Accessibility
+
+- A Radix Dialog: focus is trapped while open; Esc closes it and focus returns to the header's
+  button. Inside a Remove confirm, Esc closes only the confirm.
+- Named by its title (`Dialog.Title`), "Background jobs" or the form's heading.
+- One `status` line for "Sent…"; each job's failed call is an `alert` under it.
+- Every control has the panel's focus ring; waiting actions are `aria-disabled`, never `disabled`.
+
+## RTL, theme, size
+
+It mounts inside the panel's scope, so it keeps the panel's theme, language and direction while
+`position: fixed` centres it over the editor. Logical properties only. min(600px, the screen
+less 32) wide; under 640px of screen, the whole width less 16 on each side. Digits stay Latin in
+Arabic.

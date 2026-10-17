@@ -1,0 +1,55 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as DeviceBarStories from './DeviceBar.stories';
+
+<Meta of={DeviceBarStories} />
+
+# DeviceBar
+
+Device switching for the editing surface (milestone B3a). Three presets — Desktop 1280, Tablet 834,
+Mobile 390 — plus a free-form width input. EVERY width, preset or custom, maps to the editing bucket
+through the one exported threshold authority (`bucketForWidth`: below 768 edits mobile, below 1024
+edits tablet, everything else edits base — half-open ranges, so 768 IS tablet and 1024 IS base).
+
+## View state, composed by the host
+
+The device state `{ width, bucket }` never touches the document or the kernel — the composing
+surface owns it and hands the pieces out: `width` to the canvas (`frameWidth`), `bucket` to the
+inspector (which then reads/writes that bucket's responsive overrides).
+
+## Usage
+
+```tsx
+import { DeviceBar, EditorCanvas, Inspector } from '@craftkit/builder';
+
+const [device, setDevice] = useState({ width: 1280, bucket: 'base' });
+<DeviceBar value={device} onChange={setDevice} />
+<EditorCanvas kernel={kernel} theme={theme} editable frameWidth={device.width} />
+<Inspector kernel={kernel} bucket={device.bucket} />;
+```
+
+## API
+
+| Prop       | Type                          | Notes                                    |
+| ---------- | ----------------------------- | ---------------------------------------- |
+| `value`    | `{ width, bucket }`           | required; view state owned by the caller |
+| `onChange` | `(next: DeviceState) => void` | required; fires per preset/width change  |
+
+## Accessibility & RTL
+
+A labeled group: presets expose `aria-pressed`, the width input is a labeled spinbutton, and every
+settled switch announces "NNNpx — editing X" once through the named polite region ("Device
+messages"). A partially typed width is a DRAFT — it commits on blur or Enter only, so neither the
+frame nor the editing bucket ever flaps through transient values. Logical properties keep the layout
+correct under RTL (see the RTL story).
+
+## When not to use
+
+Not a viewport simulator — it drives the EDITING bucket and frame width only; true media-query
+behavior belongs to the published page.
+
+## Known limitations
+
+- Widths below 1 are ignored (the canvas guards the same floor).
+- On a viewport narrower than the chosen width, the frame caps at 100% while the bucket follows the
+  CHOSEN width — the editing bucket is intent, not measurement.

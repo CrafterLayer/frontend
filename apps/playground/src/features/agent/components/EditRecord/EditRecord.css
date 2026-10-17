@@ -1,0 +1,34 @@
+/*
+  EditRecord (SPEC §4.9, §3.6, §3.8). The record's geometry is RunRecord's; what is its own:
+  - a line that says what happened instead of change lines ("It already matched what you
+    asked for.", "The page wasn't changed."): Read, Graphite, wrapping as prose does;
+  - the caption under an Undo that cannot run ("Undo isn't available after a reload…"):
+    Meta, Slate, which that Undo's `aria-describedby` points at;
+  - Page history under it, a text button in the caption's size, rising 4px into the gap.
+*/
+
+.ck-agent-edit__line {
+  color: var(--bldr-panel-text-soft);
+  text-wrap: pretty;
+}
+
+.ck-agent-edit__caption {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-edit__history.ck-agent-button[data-ck-tone][data-bldr-chrome-button][data-variant][data-size] {
+  justify-self: start;
+  margin-block-start: calc(-1 * var(--bldr-space-xs));
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* The phone sheet (SPEC §3.17): Undo takes the footer's width, Show on page keeps its words. */
+@media (pointer: coarse) and (width < 600px) {
+  .ck-agent-edit .ck-agent-record__actions .ck-agent-button[data-ck-tone='secondary'] {
+    flex: 1 1 auto;
+  }
+}

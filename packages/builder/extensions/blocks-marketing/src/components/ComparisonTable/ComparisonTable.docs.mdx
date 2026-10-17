@@ -1,0 +1,73 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ComparisonTableStories from './ComparisonTable.stories';
+
+<Meta of={ComparisonTableStories} />
+
+# Comparison Table
+
+A semantic comparison section for pricing tiers, product editions, service packages, or competing
+options. It keeps the dense information of a table while giving featured plans, pricing, badges, and
+actions an intentional visual hierarchy.
+
+## Content model
+
+- Up to four `plans`, with optional description, price, period, badge, action, and featured state.
+- Up to sixteen `rows`; each row has a feature label and up to four display values.
+- Missing values use the editable `emptyValue`, so imperfect drafts remain structurally valid.
+- `variant: 'boxed' | 'minimal' | 'contrast' = 'boxed'`
+- `showActions: boolean = true` removes calls to action without changing plan data.
+- `scrollLabel` localizes the accessible name of the horizontal scroll region.
+- `includedLabel = 'Included'` and `excludedLabel = 'Not included'` are the words a screen reader
+  hears for a lone ✓ or ✗ (and for the empty-cell dash); the glyph stays for the eye.
+
+## Accessibility and responsive behavior
+
+The visible heading labels the section and names the table through `aria-labelledby`, so the table
+has a stable name without a second copy of the heading's text. Plan names are column headers and
+feature names are row headers, so every value has both associations in assistive technology. On
+narrow builder columns the table remains intact inside a keyboard-focusable, labelled horizontal
+scroll region. Action URLs reject unsafe schemes, and all visual styling resolves through theme
+roles and spacing tokens.
+
+**Below a 640px container** (the `Mobile` story) the table gives way to stacked plan cards: each
+card shows the plan name, its badge and price, then every row as `label: value`, then its action.
+The switch is a container query in `section-layout.css` (`.mkt-compare__table` /
+`.mkt-compare__cards`), so it also holds in a narrow column of a wide page. The inactive layout is
+`display: none` — out of the accessibility tree — so the comparison is read once; nothing is hidden
+with `aria-hidden`. The cards show committed text only: while a value is edited in place, its
+editor lives in the table. The `contrast` variant's table and cards are slabs that stay dark in a
+dark theme.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`plan.price` for every instance, `plan.price@2` for the third), and
+addressable by the agent by name, alias or label. Text parts carry `dir="auto"`, so an English line
+on an Arabic page keeps its full stop at the end.
+
+| name               | kind | bind                                                      | label (en / ar)                           |
+| ------------------ | ---- | --------------------------------------------------------- | ----------------------------------------- |
+| `eyebrow`          | text | `eyebrow`                                                 | Eyebrow / الشارة                          |
+| `heading`          | text | `heading`                                                 | Heading / العنوان                         |
+| `body`             | text | `body`                                                    | Body / الوصف (multiline)                  |
+| `featureLabel`     | text | `featureLabel`                                            | Feature column label / عنوان عمود الميزات |
+| `plans`            | list | `plans`                                                   | Plans / الخطط                             |
+| `plan`             | item | `plans.*`                                                 | Plan / الخطة                              |
+| `plan.badge`       | text | `plans.*.badge`                                           | Plan badge / شارة الخطة                   |
+| `plan.name`        | text | `plans.*.name`                                            | Plan name / اسم الخطة                     |
+| `plan.description` | text | `plans.*.description`                                     | Plan description / وصف الخطة              |
+| `plan.price`       | text | `plans.*.price`                                           | Plan price / سعر الخطة                    |
+| `plan.period`      | text | `plans.*.period`                                          | Billing period / فترة الدفع               |
+| `plan.action`      | link | `{ text: plans.*.actionLabel, href: plans.*.actionHref }` | Plan button / زر الخطة                    |
+| `rows`             | list | `rows`                                                    | Rows / الصفوف                             |
+| `row`              | item | `rows.*`                                                  | Row / الصف                                |
+| `row.feature`      | text | `rows.*.feature`                                          | Feature name / اسم الميزة                 |
+| `row.value`        | text | `rows.*.values.*`                                         | Cell value / قيمة الخلية                  |
+| `emptyValue`       | text | `emptyValue`                                              | Empty cell text / نص الخلية الفارغة       |
+| `note`             | text | `note`                                                    | Footnote / الحاشية (multiline)            |
+
+A cell value is addressed by row and plan (`row.value@2.1` is the third row's second plan).
+`emptyValue` is one part shown in every empty cell; while it is edited in place, the first empty
+cell hosts the editor. Each plan button is named by its label followed by the plan name through
+`aria-labelledby`. `scrollLabel` is read only by assistive technology, so it stays an Inspector row.

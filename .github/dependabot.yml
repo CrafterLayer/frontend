@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "06:00"
+      time: '06:00'
       timezone: Asia/Hebron
     open-pull-requests-limit: 10
     versioning-strategy: increase
@@ -15,20 +15,20 @@ updates:
         patterns:
           - react
           - react-dom
-          - "@types/react*"
+          - '@types/react*'
       storybook:
         patterns:
           - storybook
-          - "@storybook/*"
+          - '@storybook/*'
       vitest:
         patterns:
           - vitest
-          - "@vitest/*"
+          - '@vitest/*'
       linting:
         patterns:
           - eslint
-          - "@eslint/*"
-          - "eslint-*"
+          - '@eslint/*'
+          - 'eslint-*'
           - typescript-eslint
       workspace-toolchain:
         patterns:
@@ -36,17 +36,17 @@ updates:
           - turbo
           - typescript
           - vite
-          - "@vitejs/*"
+          - '@vitejs/*'
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-      time: "06:30"
+      time: '06:30'
       timezone: Asia/Hebron
     open-pull-requests-limit: 5
     groups:
       actions:
         patterns:
-          - "*"
+          - '*'

@@ -1,0 +1,36 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LinkFieldStories from './LinkField.stories';
+
+<Meta of={LinkFieldStories} />
+
+# LinkField
+
+A link as a person thinks of it: the words on the page, and where they go.
+
+<Canvas of={LinkFieldStories.LabelAndAddress} />
+
+## When it is chosen
+
+By declaration, never by a property name:
+
+- a block **link part** binds `{ text: 'link.label', href: 'link.href' }`, so the object row `link`
+  becomes this field (also inside repeater items, for example `items.*.action`);
+- a property the block declares `kind: 'link'`. On a plain string (an `href` property) it runs in
+  **href-only** mode.
+
+## Behaviour
+
+- **Validated address.** The address goes through the renderer's `safeHref`, the same allowlist the
+  published page uses. A refused address shows a sentence and writes nothing.
+- **Page picker.** When the host provides the site's pages (`FieldServicesProvider` `pages`), a
+  picker sets the address to a page path.
+- **One commit per edit.** Each input drafts locally and commits once on blur or Enter, so a whole
+  edited label is one Undo.
+- **Other keys.** An object with more keys (`newTab`) renders them as ordinary sub-rows below.
+- **Bidi.** The label is `dir="auto"`. The address is always `dir="ltr"`, because a URL reads
+  left-to-right on an Arabic page too.
+
+<Canvas of={LinkFieldStories.WithPagePicker} />
+
+<Canvas of={LinkFieldStories.Arabic} />

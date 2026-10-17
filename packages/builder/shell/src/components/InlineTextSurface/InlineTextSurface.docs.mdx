@@ -1,0 +1,87 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineTextSurfaceStories from './InlineTextSurface.stories';
+
+<Meta of={InlineTextSurfaceStories} />
+
+# InlineTextSurface
+
+Plain-text editing where the text lives (milestone B3c). The canvas swaps a block's declared
+`inlineEditable` property for this surface on exactly one node, so the editor types into the
+rendered result — same typography, same position, no dialog.
+
+**Adapted from Puck's `InlineTextField`** (MIT). The verbatim upstream file, the pinned commit, and
+a line-by-line account of what changed live in `vendor/VENDOR.md`.
+
+## The three behaviors worth copying
+
+1. **Caret safety** — the DOM is written only when the incoming value differs from what is shown.
+   Rewriting the editable for your own echo resets the caret mid-typing; the test
+   `an echo of its own value never rewrites the DOM` is the guard.
+2. **Safari drag-focus guard** — `contentEditable` is live only while hovered or focused, because
+   Safari focuses contenteditables during a drag
+   ([webkit 112854](https://bugs.webkit.org/show_bug.cgi?id=112854)) and every node on this canvas
+   carries drag machinery.
+3. **Nullish coercion** — `replaceChildren` stringifies non-Node arguments, so an unguarded `null`
+   would render the literal text "null".
+
+## Native listeners, not React handlers
+
+This surface is portaled into the preview **iframe**, and React delegates synthetic events at the
+host root — an `input` fired inside the frame would never reach an `onInput` prop. Every listener is
+attached to the element itself. (The same law as B2b's "keydown does not cross documents".)
+
+## Commit law (one gesture, one Undo)
+
+Typing is **buffered** in the surface. `onCommit(next, reason)` is called once per finished edit —
+on **Enter** (`reason: 'enter'`) or on **blur** (`reason: 'blur'`) — and never per keystroke. The
+canvas turns that call into ONE labelled transaction through the kernel door (for a block part:
+`partInlineCommit`, label `Edit text · Hero heading`), so one edit is one Undo.
+
+- An unchanged text commits nothing.
+- **Escape cancels**: the draft is discarded, the stored text shows again, and the blur caused by
+  the focus hand-off commits nothing.
+- A draft whose session ends before a blur reaches it (another block was selected first) is
+  committed once on unmount instead of being lost.
+- While a draft is unsaved, incoming values (an Undo/Redo replay, a collaborator) do **not**
+  overwrite the typing; once it is committed or cancelled, document truth shows through again.
+
+| key         | single-line | multiline       |
+| ----------- | ----------- | --------------- |
+| Enter       | commit      | commit          |
+| Shift+Enter | inert       | inserts `\n`    |
+| Escape      | cancel      | cancel          |
+
+## Usage
+
+```tsx
+<InlineTextSurface value={value} label={propKey} singleLine onCommit={commit} onExit={end} />
+```
+
+## API
+
+| Prop         | Type             | Notes                                       |
+| ------------ | ---------------- | ------------------------------------------- |
+| `value`      | `unknown`        | document truth; non-strings render as empty |
+| `onCommit`   | `(next, reason) => void` | once per edit, on Enter or blur       |
+| `onExit`     | `() => void`     | Escape, after the draft is discarded        |
+| `singleLine` | `boolean`        | refuses newlines; Shift+Enter is inert      |
+| `label`      | `string`         | accessible name — the property being edited |
+
+## Accessibility & RTL
+
+A named `textbox` that takes focus when the session opens; Escape cancels and exits; every key
+stops at the surface, so arrow keys move the caret and never reach the canvas traversal behind it.
+The surface carries `dir="auto"`: Arabic and English each follow their own content's direction, so an
+English line on an RTL page keeps its full stop at the end.
+
+## When not to use
+
+Rich text belongs to the contributed rich editor (B3b), not here. Property editing away from the
+canvas belongs to the Inspector.
+
+## Known limitations
+
+- Plain text only: one property, no formatting (that is what the rich surface is for).
+- Multi-line editing follows the block part's `multiline` declaration (`singleLine = !multiline`);
+  the legacy `inlineEditable` path opens single-line.

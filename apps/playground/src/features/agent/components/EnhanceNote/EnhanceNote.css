@@ -1,0 +1,200 @@
+/*
+  EnhanceNote: what ✨ Improve did, docked on top of the draft it rewrote. QueueHeader's
+  language: a mark and a Meta 600 label in Ink on the first line with the one action at the
+  inline end, Meta lines in Graphite under it, nothing boxed (the composer is the border).
+
+  The first line is 32px, the action's hit area; the lines under it follow at the record's
+  2px rhythm (SPEC §2.3 "between lines 2").
+*/
+
+.ck-agent-enhance-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label restore'
+    'caption caption'
+    'toggle toggle'
+    'changes changes';
+  align-items: center;
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-2xs);
+  padding-block-end: var(--bldr-space-xs);
+  font-family: var(--bldr-font);
+  animation: ck-agent-enhance-note-in var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-enhance-note__label {
+  display: flex;
+  grid-area: label;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-enhance-note__label .ck-agent-sparkle {
+  flex: none;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-enhance-note[data-status='failed'] .ck-agent-enhance-note__label .ck-agent-sparkle {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-enhance-note__caption {
+  display: -webkit-box;
+  grid-area: caption;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/*
+  The two text controls share one look: no fill (it would bleed into the composer's 7px
+  padding), a 32px hit area (44 coarse), and colour for their meaning. Restore is an
+  action, so it is Indigo (5.37:1 on the Sheet); the disclosure only shows more, so it is
+  Graphite. Hover deepens and underlines; it never turns something Indigo (rule 3).
+*/
+.ck-agent-enhance-note__restore[data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-enhance-note__toggle[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding-inline: var(--bldr-space-0);
+  border-color: transparent;
+  background-color: transparent;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-enhance-note__restore[data-bldr-chrome-button][data-variant][data-size] {
+  grid-area: restore;
+  color: var(--bldr-accent);
+}
+
+.ck-agent-enhance-note__restore[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-enhance-note__restore[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-accent-strong);
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ck-agent-enhance-note__toggle[data-bldr-chrome-button][data-variant][data-size] {
+  grid-area: toggle;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-enhance-note__toggle[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-enhance-note__toggle[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+}
+
+/* ▸ turns to ▾; the mirror under RTL is the icon's own `scale`, so the two compose. */
+.ck-agent-enhance-note__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-enhance-note__toggle[aria-expanded='true'] .ck-agent-enhance-note__chevron {
+  transform: rotate(90deg);
+}
+
+/* SPEC §5 moment 8: the list opens 0fr → 1fr over `enter`, closes over `exit`. */
+.ck-agent-enhance-note__changes {
+  display: grid;
+  grid-area: changes;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+.ck-agent-enhance-note__changes[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s;
+}
+
+/* Items start under the disclosure's word: the chevron's 16px and its 4px gap. */
+.ck-agent-enhance-note__list {
+  display: grid;
+  row-gap: var(--bldr-space-2xs);
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  padding-inline-start: var(--bldr-space-4xl);
+  overflow: hidden;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  list-style: none;
+}
+
+.ck-agent-enhance-note__list > li {
+  position: relative;
+  text-wrap: pretty;
+}
+
+/*
+  A 4px Slate dot, a list marker: never a middle dot joining facts (SPEC §4.0). It sits on
+  the chevron's centre line (8px into the list's 20px indent), so the markers hang under
+  the ▸ that opened them.
+*/
+.ck-agent-enhance-note__list > li::before {
+  position: absolute;
+  inset-block-start: calc((var(--bldr-line-height-meta) - var(--bldr-space-xs)) / 2);
+  inset-inline-start: calc(-1 * var(--bldr-space-2xl));
+  inline-size: var(--bldr-space-xs);
+  block-size: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-muted);
+  content: '';
+}
+
+@keyframes ck-agent-enhance-note-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .ck-agent-enhance-note {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-enhance-note {
+    animation: none;
+  }
+
+  .ck-agent-enhance-note__changes,
+  .ck-agent-enhance-note__changes[data-open],
+  .ck-agent-enhance-note__chevron {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-enhance-note__list > li::before {
+    background-color: CanvasText;
+  }
+}

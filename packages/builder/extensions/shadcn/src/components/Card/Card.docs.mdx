@@ -1,0 +1,47 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CardStories from './Card.stories';
+
+<Meta of={CardStories} />
+
+# Card
+
+A surface that groups related content. Adapted from shadcn/ui.
+
+<Canvas of={CardStories.WithHeaderAndFooter} />
+
+## What "adapted from shadcn/ui" means here
+
+shadcn/ui is not a dependency — it is a set of components you copy into your own tree and own
+outright, which is the same convention this workspace already follows for Aceternity and Magic UI.
+There is nothing to install.
+
+Upstream's Card is `rounded-xl border bg-card text-card-foreground shadow`. Three of those four
+resolve through **shadcn's own theme contract** — `--card`, `--card-foreground`, `--border` — which
+is a second design system living beside this one. A page half in `--card` and half in `--t-surface`
+is two products in one document. They are re-pointed at roles this site can actually move.
+
+The shape, the spacing rhythm, and the header/body/footer split are kept.
+
+## The regions are slots, not props
+
+A card whose body is a string can hold a sentence. The reason a card exists is to hold a heading, a
+paragraph, an image, **and a button** — so all three regions take blocks.
+
+This is the same defect the Pricing section had before it was split into a container and a card: a
+shape that could express a list of strings and nothing else, so the one thing every real pricing
+card needs was impossible to author.
+
+## Why the body grows
+
+`flex-1` on the body region is what keeps a row of cards lining their footers up. Without it, a card
+with two lines of text sits short and the row reads as broken.
+
+<Canvas of={CardStories.Inverse} />
+
+| Prop                 | Meaning                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| `tone`               | Ground **and** ink together — a card that sets one and inherits the other is how dark-on-dark happens. |
+| `padding` · `radius` | Named steps of the site's own scale.                                                                   |
+| `bordered`           | A hairline in the accent role.                                                                         |
+| `elevation`          | `soft` / `strong` are the two shadow **tokens** this theme defines.                                    |

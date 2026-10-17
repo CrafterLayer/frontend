@@ -1,0 +1,132 @@
+/*
+  MentionMenu (SPEC §4.17, §3.2): e2, floating above the composer on the Sheet with the
+  floating shadow and a hairline (SPEC §2.5), radius 9 like every menu (SPEC §2.4). Rows
+  are the panel's rows, 32px (44 on a coarse pointer), at most six in view (four on a
+  coarse pointer, where the keyboard takes half the screen), the rest scrolling.
+
+  The active option is the "active option" of SPEC §2.1: Mist under Ink with a 2px Indigo
+  bar at its inline start. The keyboard puts it there; the pointer only moves it, and a
+  hover never paints Indigo of its own (rule 3).
+*/
+
+.ck-agent-mention {
+  box-sizing: border-box;
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  animation: ck-agent-mention-in var(--bldr-duration-enter) var(--bldr-easing-enter);
+}
+
+.ck-agent-mention__list {
+  max-block-size: calc(6 * var(--bldr-agent-row-height));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.ck-agent-mention__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-agent-row-height);
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  cursor: default;
+  user-select: none;
+}
+
+.ck-agent-mention__option[aria-selected='true'] {
+  background-color: var(--bldr-accent-soft);
+}
+
+/* The Indigo bar, drawn at the inline start so it follows the reading direction. */
+.ck-agent-mention__option[aria-selected='true']::before {
+  position: absolute;
+  inset-block: var(--bldr-space-sm);
+  inset-inline-start: 0;
+  inline-size: var(--bldr-border-thick);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent);
+  content: '';
+}
+
+.ck-agent-mention__glyph {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-mention__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "3 of 8": Figure, Slate on the Sheet; Graphite on Mist, where Slate is forbidden. */
+.ck-agent-mention__position {
+  flex: none;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-figure);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-figure);
+}
+
+.ck-agent-mention__option[aria-selected='true'] .ck-agent-mention__position {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-mention__empty {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--bldr-agent-row-height);
+  margin: 0;
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-mention__list {
+    max-block-size: calc(4 * var(--bldr-agent-row-height));
+  }
+}
+
+/* SPEC §5 moment 9: opacity and a 4px rise from the anchor, which is below it. */
+@keyframes ck-agent-mention-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-xs);
+  }
+}
+
+@keyframes ck-agent-mention-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-mention {
+    animation: ck-agent-mention-fade-in var(--bldr-duration-state) linear;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-mention__option[aria-selected='true'] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+
+  .ck-agent-mention__option[aria-selected='true']::before {
+    background-color: Highlight;
+  }
+}

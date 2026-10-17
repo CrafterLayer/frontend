@@ -1,0 +1,17 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './AgentDockHeader.stories';
+
+<Meta of={Stories} />
+
+# AgentDockHeader
+
+The 44px Agent header keeps identity, live status, new conversation, and conversation history in one
+row. Page, element, mode, and model context belong below it so the title does not grow vertically.
+
+<Canvas of={Stories.Compact} />
+<Controls />
+
+The history trigger appears after a second conversation. It uses the existing keyboard-complete menu
+and returns focus on dismissal. The status is a polite live region. At narrow widths status copy is
+visually hidden while remaining announced. The component follows editor theme tokens and logical
+properties for RTL.

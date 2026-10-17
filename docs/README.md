@@ -28,6 +28,7 @@ same change.
 ## Start Here
 
 - [Set up and operate the workspace](development/workspace.md).
+- [Operate Claude and Codex as one bounded Spec Kit team](development/agent-collaboration.md).
 - [Understand the pnpm/Turbo architecture](architecture/monorepo.md).
 - [Read the testing and Storybook quality contract](testing/strategy.md).
 - [Review the workspace tooling decision](architecture/decisions/0001-select-pnpm-turborepo.md).

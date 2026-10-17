@@ -1,0 +1,9 @@
+{
+  "name": "simplex-noise",
+  "version": "4.0.3",
+  "license": "MIT",
+  "upstream": "https://github.com/jwagner/simplex-noise.js",
+  "installedFrom": "pnpm catalog (pnpm-workspace.yaml, pixi-studio:engine-libs additions)",
+  "npmIntegrity": "sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==",
+  "note": "Installed, not copied: this folder keeps the tarball's LICENSE beside the other kit notices. Bundled into ck-lib-kit.js by scripts/build-studio-engines.mjs, whose metafile audit reads the installed package's LICENSE again."
+}

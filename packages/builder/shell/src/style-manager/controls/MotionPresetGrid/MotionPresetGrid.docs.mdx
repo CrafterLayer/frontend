@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as MotionPresetGridStories from './MotionPresetGrid.stories';
+
+<Meta of={MotionPresetGridStories} />
+
+# MotionPresetGrid
+
+The preset cards of the Interactions tab (style-manager DESIGN.md §B.4).
+
+- `kind="motion"` lists the `data-ck-motion` presets the chosen `trigger` can play, using the
+  compatibility table of §B.2 (`presetsForTrigger`): scroll-linked presets only on view or while
+  scrolling, text presets on view, load or click, and so on.
+- `kind="hover"` lists the `data-ck-hover` presets.
+- The first card is **None**; choosing it reports `null`, which removes the attribute.
+
+It is a radio group with one tab stop. Each card's mini preview plays its group's motion on hover or
+focus, and never under `prefers-reduced-motion`. Labels: `MOTION_PRESET_GRID_LABELS_EN` and
+`MOTION_PRESET_GRID_LABELS_AR` (every preset is named in both languages).

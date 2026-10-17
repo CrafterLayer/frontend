@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuilderProviderStories from './BuilderProvider.stories';
+
+<Meta of={BuilderProviderStories} />
+
+# BuilderProvider
+
+The context boundary between an application and one builder kernel instance. Everything beneath it
+may use the builder hooks; nothing above it can.
+
+## Usage
+
+```tsx
+const kernel = createBuilder({ extensions: [defaultBlocks, blocksMarketing] });
+
+<BuilderProvider kernel={kernel}>
+  <DocumentView kernel={kernel} />
+</BuilderProvider>;
+```
+
+Applications normally reach this through the `@craftkit/builder` preset's `<Builder/>` composition
+rather than wiring it by hand.
+
+## API
+
+- `kernel: BuilderKernel` — created by the application (one per builder surface).
+- `children: ReactNode`.
+
+## Guarantees
+
+- Hooks throw a clear error when used outside the provider (wiring bug, not state).
+- The provider adds no rendering, styling, or state of its own — the kernel remains the single
+  source of truth and its sealed-store law is untouched.
+
+## Accessibility / RTL / Theming
+
+Not applicable — renders children unchanged; visual concerns live in the renderer's `CanvasFrame`
+and the blocks.

@@ -1,0 +1,43 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TabsStories from './Tabs.stories';
+
+<Meta of={TabsStories} />
+
+# Tabs
+
+A row of tabs over swappable panels. Built on Radix, adapted from shadcn/ui.
+
+<Canvas of={TabsStories.Default} />
+
+## The panels are blocks, and they own their labels
+
+The obvious shape is `tabs: [{ label, content }]` on one block. That is the shape that made a button
+inside a Pricing card impossible: content squeezed into a prop can be a string and nothing else.
+
+So a panel is a **node**. It holds any blocks, and because a tab needs a name, the label lives on
+the panel rather than on the strip.
+
+The strip reads each panel's `{ id, type, props }` through the builder's optional typed
+`slotChildren` metadata contract. `DocumentView` and `StaticDocument` resolve that contract through
+the same function, so the labels are identical in the canvas, preview, and published output. Tabs
+never inspects rendered React children, `NodeView`, `StaticNode`, or DOM attributes.
+
+## Why a child that is not a panel is ignored
+
+An empty slot on the canvas renders a drop placeholder, but placeholders are not document children
+and never enter `slotChildren`. Both the `tabPanel` type and a string label are required; anything
+else is skipped, while the visual placeholder still renders so the slot can be dropped into.
+
+## What Radix is doing that is worth the dependency
+
+Roving tabindex, arrow keys with Home/End, the `aria-controls` / `aria-labelledby` pairing between
+every trigger and its panel, and focus moving to the panel on activation.
+
+Styling follows `data-[state=active]` rather than a class toggled in JavaScript, so the active tab
+is correct on the first paint — there is no frame where every tab looks selected.
+
+Selection is controlled by the block. If the selected panel is removed in the Builder, the first
+remaining panel becomes active immediately instead of leaving the strip with no visible content.
+
+<Canvas of={TabsStories.KeyboardContract} />

@@ -1,0 +1,91 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as IconRailStories from './IconRail.stories';
+
+<Meta of={IconRailStories} />
+
+# IconRail
+
+`IconRail` is the builder shell's primary navigation. It owns the editor's one dark surface and
+keeps the main sections at inline-start, utility sections pinned to the block-end, and caller-owned
+account content below those utilities.
+
+## Usage
+
+```tsx
+import { IconRail } from '@craftkit/builder-shell';
+
+<IconRail
+  items={[
+    { id: 'pages', label: 'Pages', icon: <PagesIcon /> },
+    { id: 'blocks', label: 'Blocks', icon: <BlocksIcon /> },
+  ]}
+  secondary={[{ id: 'settings', label: 'Settings', icon: <SettingsIcon /> }]}
+  activeId="pages"
+  onSelect={(id) => {
+    openSection(id);
+  }}
+  account={<AccountAvatar />}
+/>;
+```
+
+The caller owns selection state and supplies 16- or 18-pixel inline SVG icons. Labels are always
+shown in top-layer tooltips on hover or keyboard focus. Escape dismisses a tooltip.
+
+## API
+
+| Prop        | Type                   | Default            | Notes                                       |
+| ----------- | ---------------------- | ------------------ | ------------------------------------------- |
+| `items`     | `readonly RailItem[]`  | required           | Primary items in visual and DOM order       |
+| `secondary` | `readonly RailItem[]`  | `[]`               | Utility items pinned above the account      |
+| `activeId`  | `string`               | none               | Matching item receives `aria-current`       |
+| `onSelect`  | `(id: string) => void` | none               | Fires from native button activation         |
+| `account`   | `ReactNode`            | none               | Caller-owned account content at block-end   |
+| `label`     | `string`               | `Builder sections` | Accessible name for the navigation landmark |
+| `captions`  | `boolean`              | `false`            | Draw each name under its icon (68px rail)   |
+
+With `captions` (Studio Indigo, 2026-10-12) every item shows its name under its glyph in Micro 500,
+one line, and the hover label is not rendered: one name on screen, never two. The rail itself is the
+product's one dark surface (`--bldr-rail`, Rail text, an Accent-tinted selected tile with an Accent
+bar at its inline-start edge) in both modes.
+
+`RailItem` contains a stable `id`, a visible `label`, and a caller-supplied `icon`.
+
+## Variants
+
+The default rail contains only the primary group.
+
+<Canvas of={IconRailStories.Default} />
+
+The active section uses a soft accent surface with an inline-start indicator and carries
+`aria-current="page"`.
+
+<Canvas of={IconRailStories.WithActiveItem} />
+
+Secondary actions stay at the block-end, with the account tile below them.
+
+<Canvas of={IconRailStories.WithSecondaryGroup} />
+
+## Accessibility
+
+The navigation landmark contains real lists of native `button` elements. Each icon wrapper is hidden
+from assistive technology and each button carries its label as its accessible name. Native Tab,
+Enter, and Space behavior is preserved; the component adds no roving focus or custom keyboard
+handler. Focus appearance comes from the builder theme's shared `.bldr-root :focus-visible` rule.
+The active destination alone exposes `aria-current="page"`. Every navigation item is a quiet
+`ChromeButton` with a stable tile height of `--bldr-hit-target-min`. The primary list scrolls when
+the available height is short. Focus uses the theme focus-ring color on the panel-colored rail.
+
+## RTL and theming
+
+All geometry uses logical properties, so the rail mirrors to inline-end when inherited direction is
+RTL without a second stylesheet.
+
+<Canvas of={IconRailStories.RightToLeft} />
+
+Every colour, radius, type size, spacing, rail width, hit target, and transition comes from the
+`@craftkit/builder-theme` contract. Hover, active, and pressed states change colour only; no item
+changes size or scales.
+
+The compact rail uses icon-only buttons; its width is the hit target plus inline padding. Tooltips
+use the browser popover top layer to avoid clipping in a scrollable navigation list.

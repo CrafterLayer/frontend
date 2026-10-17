@@ -1,0 +1,7 @@
+/* The preset's stylesheet door.
+   Applications may reach the builder family ONLY through @craftkit/builder
+   (ADR 0003), and that rule holds for stylesheets as much as for modules — so
+   a host that wants the tokens without importing the whole preset imports
+   `@craftkit/builder/css`, and this file forwards to the package that owns
+   them. One indirection, and the boundary stays true. */
+@import '@craftkit/builder-theme/css';

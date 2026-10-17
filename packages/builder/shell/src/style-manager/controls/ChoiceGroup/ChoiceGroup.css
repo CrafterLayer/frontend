@@ -1,0 +1,76 @@
+.bldr-choice-group {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  padding: var(--bldr-space-2xs);
+}
+
+.bldr-choice-group__option {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  justify-content: center;
+  min-block-size: var(--bldr-control-sm);
+  min-inline-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-sm);
+  white-space: nowrap;
+}
+
+.bldr-choice-group__option svg {
+  block-size: var(--bldr-space-xl);
+  inline-size: var(--bldr-space-xl);
+}
+
+.bldr-choice-group__option:hover:not(:disabled) {
+  background: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-choice-group__option[aria-checked='true'] {
+  background: var(--bldr-surface-raised);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-choice-group__option:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(var(--bldr-border-hairline) * -1);
+}
+
+.bldr-choice-group__option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-choice-group[data-mixed] {
+  border-style: dashed;
+}
+
+/*
+  An all-icon group is a segmented control: square 24px cells on one line,
+  sized by their glyphs rather than stretched across the row.
+*/
+.bldr-choice-group[data-icons] {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  max-inline-size: 100%;
+}
+
+.bldr-choice-group[data-icons] .bldr-choice-group__option {
+  block-size: calc(var(--bldr-control-sm) - var(--bldr-space-xs));
+  flex: 0 0 auto;
+  min-block-size: 0;
+  min-inline-size: calc(var(--bldr-control-sm) - var(--bldr-space-xs));
+  padding: 0;
+}

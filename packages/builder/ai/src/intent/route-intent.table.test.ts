@@ -1,0 +1,1415 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  routeIntent,
+  type IntentDocumentSummary,
+  type IntentKind,
+  type IntentTarget,
+} from './route-intent';
+
+/*
+  THE ROUTING TABLE — the audit's phrasings, row for row.
+
+  agent-audit §2 P0-1 and P1-5 ran every one of these through the old router
+  (`activatesBuildArchetype`: keyword substrings over the skill registry,
+  `routing.mjs`, 2026-09-28). The report's summary says "7 of 12 edits
+  misrouted, 12 of 17 page asks missed"; the raw `measurements.txt` of the same
+  run is harsher — 8 of the 12 edits went into a full-page build and 14 of the
+  17 page asks took the single-call path. Whichever count is quoted, the target
+  here is zero of either, and each row is its own test so a regression names
+  the phrasing it broke.
+*/
+
+const EMPTY: IntentDocumentSummary = { nodeCount: 0, placeholderOnly: false, sectionLabels: [] };
+
+/** The playground's default workspace, as the router sees it: 17 sections, 27 nodes. */
+const LANDING: IntentDocumentSummary = {
+  nodeCount: 27,
+  placeholderOnly: false,
+  sectionLabels: [
+    'announcement bar',
+    'aurora',
+    'carousel',
+    'logo cloud',
+    'marquee',
+    'about',
+    'rich story',
+    'showcase',
+    'bento',
+    'stats',
+    'features',
+    'pricing',
+    'quotes',
+    'faq',
+    'form',
+    'spotlight promo',
+    'newsletter',
+  ],
+};
+
+/** An Arabic page with content, whose sections are named in Arabic (wave-2 verifier's probe page). */
+const CONTENT_AR: IntentDocumentSummary = {
+  nodeCount: 12,
+  placeholderOnly: false,
+  sectionLabels: ['الرئيسية', 'الأسعار', 'الخدمات', 'تواصل معنا'],
+};
+
+/** A skeleton nobody filled — the page a Stop or a failed build leaves behind. */
+const PLACEHOLDERS: IntentDocumentSummary = {
+  nodeCount: 4,
+  placeholderOnly: true,
+  sectionLabels: ['Hero', 'Menu', 'Reviews', 'Contact'],
+};
+
+type BuildKind = Extract<IntentKind, 'build-page' | 'build-site'>;
+type StayKind = Exclude<IntentKind, BuildKind>;
+
+/** §2 P1-5 — whole-page asks. Every one must take a build. */
+const PAGE_ASKS: readonly (readonly [string, BuildKind])[] = [
+  ['سوي لي موقع لمطعم شاورما في عمان', 'build-page'],
+  ['بدي موقع لشركة محاماة', 'build-page'],
+  ['اعمل صفحه هبوط لتطبيق توصيل', 'build-page'],
+  ['اعمل صفحة هبوط لتطبيق توصيل', 'build-page'],
+  ['صمم لي صفحة لمقهى مختص', 'build-page'],
+  ['موقع الكتروني لعيادة أسنان', 'build-page'],
+  ['متجر إلكتروني للعطور', 'build-page'],
+  ['ويبسايت لشركتي', 'build-page'],
+  ['Build a website for my bakery', 'build-page'],
+  ['Create a landing page for a SaaS analytics tool', 'build-page'],
+  ['make me a one-page site for a yoga studio', 'build-page'],
+  // Named SECTIONS of one page, not pages: no "page" word, no count.
+  ['a site for my dental clinic with services, team, pricing and contact', 'build-page'],
+  ['Design a startup homepage', 'build-page'],
+  ['Build a 4-page website: home, about, services, contact', 'build-site'],
+  ['اعمل موقع من 4 صفحات: الرئيسية، من نحن، الخدمات، تواصل', 'build-site'],
+  ['I need a web page for my restaurant', 'build-page'],
+  ['landing for my app', 'build-page'],
+];
+
+/** §2 P0-1 — edits on an existing page. None may take a build. */
+const EDIT_ASKS: readonly (readonly [string, StayKind])[] = [
+  ['change the wedding date to June 12', 'edit'],
+  ['make the landing page darker', 'edit'],
+  ['update the homepage hero title to Hello', 'edit'],
+  ['fix spacing in the portfolio section', 'edit'],
+  ['add a dua under the hero', 'edit'],
+  ['غيّر تاريخ الزفاف إلى ١٢ يونيو', 'edit'],
+  ['add an invite friends button', 'edit'],
+  ['translate the about me section to Arabic', 'edit'],
+  ['change the resume download link', 'edit'],
+  ['اجعل الصفحة الرئيسية أغمق', 'edit'],
+  ['أضف قسم أسعار', 'add-section'],
+  ['add a pricing section', 'add-section'],
+];
+
+const isBuild = (kind: IntentKind): boolean => kind === 'build-page' || kind === 'build-site';
+
+describe('the audit routing table — whole-page asks (P1-5)', () => {
+  it.each(PAGE_ASKS)('builds “%s” on an empty page, owning the page', (request, kind) => {
+    const route = routeIntent({ request, document: EMPTY });
+    expect(route.kind).toBe(kind);
+    expect(route.target).toBe('replace');
+  });
+
+  it.each(PAGE_ASKS)(
+    'builds “%s” on a page with content as a NEW page, never under it (P1-15)',
+    (request, kind) => {
+      const route = routeIntent({ request, document: LANDING });
+      expect(route.kind).toBe(kind);
+      expect(route.target).toBe('new-page');
+    },
+  );
+
+  it.each(PAGE_ASKS)('builds “%s” when the page is not known at all', (request, kind) => {
+    expect(routeIntent({ request }).kind).toBe(kind);
+  });
+
+  it('misses none of the 17', () => {
+    const missed = PAGE_ASKS.filter(
+      ([request]) => !isBuild(routeIntent({ request, document: LANDING }).kind),
+    );
+    expect(missed).toEqual([]);
+  });
+});
+
+describe('the audit routing table — edits (P0-1)', () => {
+  it.each(EDIT_ASKS)('routes “%s” on a page with content to %s', (request, kind) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect(route.kind).toBe(kind);
+  });
+
+  it.each(EDIT_ASKS)('never builds “%s”, even on an empty page', (request) => {
+    expect(isBuild(routeIntent({ request, document: EMPTY }).kind)).toBe(false);
+  });
+
+  it('sends none of the 12 into a build', () => {
+    const misrouted = EDIT_ASKS.filter(([request]) => isBuild(routeIntent({ request }).kind));
+    expect(misrouted).toEqual([]);
+  });
+});
+
+interface Row {
+  readonly request: string;
+  readonly document?: IntentDocumentSummary;
+  readonly selection?: readonly string[];
+  readonly kind: IntentKind;
+  readonly target?: IntentTarget;
+}
+
+/** The cases the router was specified with, in both languages. */
+const SPECIFIED: readonly Row[] = [
+  // Several NAMED pages are a site.
+  {
+    request: 'موقع فيه صفحة من نحن وخدمات',
+    document: EMPTY,
+    kind: 'build-site',
+    target: 'replace',
+  },
+  { request: 'website with about and services pages', document: EMPTY, kind: 'build-site' },
+  {
+    request: 'a website with an about page and a services page',
+    document: LANDING,
+    kind: 'build-site',
+    target: 'new-page',
+  },
+  { request: 'اعمل موقع من ثلاث صفحات لمخبز', document: EMPTY, kind: 'build-site' },
+  { request: 'three-page site for my clinic', document: EMPTY, kind: 'build-site' },
+  { request: 'بدي موقع فيه صفحتين: الرئيسية وتواصل معنا', document: EMPTY, kind: 'build-site' },
+  { request: 'اعمل موقع من ٤ صفحات لشركة', document: EMPTY, kind: 'build-site' },
+  { request: 'add about and services pages', document: LANDING, kind: 'build-site' },
+  // …unless the request pins ONE page, whatever it lists.
+  {
+    request: 'a one-page site with about, services and contact pages',
+    document: EMPTY,
+    kind: 'build-page',
+  },
+  { request: 'موقع صفحة واحدة فيه من نحن وخدمات وتواصل', document: EMPTY, kind: 'build-page' },
+
+  // Questions are answered, not built.
+  { request: 'how do I add a pricing section?', document: LANDING, kind: 'question' },
+  { request: 'how does the build work', document: EMPTY, kind: 'question' },
+  { request: 'why is the hero so dark', document: LANDING, kind: 'question' },
+  { request: 'what is a landing page?', document: EMPTY, kind: 'question' },
+  { request: 'is the page responsive?', document: LANDING, kind: 'question' },
+  { request: 'كيف أغير لون الخلفية؟', document: LANDING, kind: 'question' },
+  { request: 'ليش الصفحة بطيئة', document: LANDING, kind: 'question' },
+  { request: 'هل الصفحة متجاوبة؟', document: LANDING, kind: 'question' },
+  { request: 'شو يعني صفحة هبوط؟', document: EMPTY, kind: 'question' },
+  { request: 'the hero looks off?', document: LANDING, kind: 'question' },
+  { request: 'مرحبا', document: EMPTY, kind: 'question' },
+  { request: 'hi', document: EMPTY, kind: 'question' },
+
+  // A polite request with a question mark is still a request.
+  { request: 'can you build me a website for my gym?', document: EMPTY, kind: 'build-page' },
+  { request: 'ممكن تسويلي موقع لصالون؟', document: EMPTY, kind: 'build-page' },
+  { request: 'could you make the hero darker?', document: LANDING, kind: 'edit' },
+  { request: 'هل يمكنك إضافة قسم للأسعار؟', document: LANDING, kind: 'add-section' },
+  { request: 'please add a testimonials section', document: LANDING, kind: 'add-section' },
+  { request: 'يا أبو غضب سوي لي موقع لمطبعة', document: EMPTY, kind: 'build-page' },
+
+  // An explicit start-over replaces the page it is on.
+  {
+    request: 'start over with a landing page for my bakery',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  {
+    request: 'rebuild the page from scratch',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  {
+    request: 'ابدأ من الصفر وصمم صفحة لمخبز',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  {
+    request: 'أعد تصميم الصفحة بالكامل',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  // …but starting a SECTION over is an edit of that section.
+  { request: 'rewrite the hero from scratch', document: LANDING, kind: 'edit' },
+  { request: 'rebuild the pricing section', document: LANDING, kind: 'edit' },
+  { request: 'اكتب العنوان من جديد', document: LANDING, kind: 'edit' },
+
+  // An explicit new page is a new page.
+  {
+    request: 'add a new page for our services',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'new-page',
+  },
+  {
+    request: 'أضف صفحة جديدة للخدمات',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'new-page',
+  },
+  { request: 'add a button to the new page', document: LANDING, kind: 'edit' },
+
+  // Adding a SECTION is one section, not a page.
+  { request: 'design a hero section for a landing page', document: LANDING, kind: 'add-section' },
+  { request: 'ضيف سكشن للاسعار', document: LANDING, kind: 'add-section', target: 'append' },
+  { request: 'I want a gallery section', document: LANDING, kind: 'add-section' },
+  { request: 'add a hero', document: EMPTY, kind: 'add-section', target: 'append' },
+  { request: 'create a button on the landing page', document: LANDING, kind: 'edit' },
+  { request: 'I want the hero darker', document: LANDING, kind: 'edit' },
+
+  // An empty page takes any substantive request as the page to build.
+  { request: 'مطعم شاورما في عمان', document: EMPTY, kind: 'build-page', target: 'replace' },
+  { request: 'a bakery in Amman', document: EMPTY, kind: 'build-page', target: 'replace' },
+  { request: 'دعوة زفاف لسارة وعمر', document: EMPTY, kind: 'build-page' },
+  { request: 'build my portfolio', document: EMPTY, kind: 'build-page' },
+  // …so does a skeleton nobody filled.
+  {
+    request: 'make me a landing page for my cafe',
+    document: PLACEHOLDERS,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  { request: 'مطعم شاورما في عمان', document: PLACEHOLDERS, kind: 'build-page' },
+  // A page with content takes the same words as an edit.
+  { request: 'مطعم شاورما في عمان', document: LANDING, kind: 'edit' },
+  { request: 'a bakery in Amman', document: LANDING, kind: 'edit' },
+  { request: 'build my portfolio', document: LANDING, kind: 'edit' },
+  // The retry the Built card sends (AssistantPanel.runs.ts `retrySkippedRequest`).
+  {
+    request:
+      'Write the sections that were skipped: “Pricing”, “FAQ”. Keep the direction the rest of the page already follows, and change nothing else.',
+    document: PLACEHOLDERS,
+    kind: 'edit',
+  },
+
+  // Pointing at a block is editing it, unless the words explicitly ask for a page.
+  { request: 'landing for my app', document: LANDING, selection: ['hero'], kind: 'edit' },
+  {
+    request: 'a pricing table with three tiers',
+    document: PLACEHOLDERS,
+    selection: ['placeholder-2'],
+    kind: 'edit',
+  },
+  {
+    request: 'Build a website for my bakery',
+    document: LANDING,
+    selection: ['hero'],
+    kind: 'build-page',
+    target: 'new-page',
+  },
+
+  // Normalisation: one route whatever the spelling.
+  { request: 'مـوقـع لمطـعـم', document: EMPTY, kind: 'build-page' },
+  { request: 'مَوْقِعٌ لِمَطْعَمٍ', document: EMPTY, kind: 'build-page' },
+  { request: 'BUILD A WEBSITE FOR MY BAKERY', document: LANDING, kind: 'build-page' },
+  { request: 'إنشاء متجر إلكتروني', document: LANDING, kind: 'build-page' },
+  { request: 'انشاء متجر الكتروني', document: LANDING, kind: 'build-page' },
+];
+
+describe('the routing table — specified cases', () => {
+  it.each(SPECIFIED)('routes “$request” to $kind', (row) => {
+    const route = routeIntent({
+      request: row.request,
+      ...(row.document === undefined ? {} : { document: row.document }),
+      ...(row.selection === undefined ? {} : { selection: row.selection }),
+    });
+    expect(route.kind).toBe(row.kind);
+    if (row.target !== undefined) expect(route.target).toBe(row.target);
+  });
+});
+
+/*
+  PAST THE AUDIT'S TABLE — misroutes found by probing the router with ~90 more
+  phrasings once every row above passed (2026-09-28). The first group is the
+  P0-1 failure again in new words: an edit that MENTIONS pages, routed into a
+  build that would scaffold over the page being edited. Each row failed before
+  the fix beside it; the reason each one failed is in its group's comment.
+*/
+const FOUND_PAST_THE_TABLE: readonly Row[] = [
+  /*
+    Pages named in an EDIT are the site's existing pages, not a site to make.
+    Before: build-site — the plural read as indefinite across "the about and
+    services pages" (the determiner sits before the list, not the last noun),
+    and "my website" counted as a site to build.
+  */
+  { request: 'fix the about and services pages on my website', document: LANDING, kind: 'edit' },
+  { request: 'fix the about and services pages on my website', document: EMPTY, kind: 'edit' },
+  {
+    request: "the website's about page and services page need fixing",
+    document: LANDING,
+    kind: 'edit',
+  },
+  {
+    request: 'translate the about and contact pages on the site to Arabic',
+    document: LANDING,
+    kind: 'edit',
+  },
+  // A count in an edit counts the person's own pages. Before: build-site.
+  { request: 'translate my 3-page website to Arabic', document: LANDING, kind: 'edit' },
+  /*
+    "A new page" inside a prepositional phrase is where something POINTS, not
+    what is asked for. Before: build-page at 0.85 — "new" + a page noun
+    anywhere in the sentence was read as a new-page ask.
+  */
+  { request: 'add a link to a new page', document: LANDING, kind: 'edit' },
+  { request: 'add a button that links to a new page', document: LANDING, kind: 'edit' },
+  { request: 'move the pricing to a new page', document: LANDING, kind: 'edit' },
+  { request: 'show new pages in the nav', document: LANDING, kind: 'edit' },
+  { request: 'أضف رابط لصفحة جديدة', document: LANDING, kind: 'edit' },
+  { request: 'اضف زر يروح الى صفحة جديدة', document: LANDING, kind: 'edit' },
+  // …while the object of the verb, or the opening of the request, still is one.
+  { request: 'my clinic wants a new site', document: LANDING, kind: 'build-page' },
+  { request: 'new page for our team', document: LANDING, kind: 'build-page', target: 'new-page' },
+  { request: 'ابي صفحة ثانية للمنيو', document: LANDING, kind: 'build-page', target: 'new-page' },
+
+  /*
+    A page NAMED "about" is still a page. Before: edit — "about" is also a
+    preposition, so it ended the phrase before "page" was reached, and the
+    landing workspace's own "about" section claimed the request.
+  */
+  { request: 'add an about page', document: LANDING, kind: 'build-page', target: 'new-page' },
+  { request: 'add an about page', document: EMPTY, kind: 'build-page', target: 'replace' },
+  { request: 'create an about us page', document: LANDING, kind: 'build-page' },
+  // The preposition still ends a phrase that is not a page's name.
+  { request: 'add a section about the page', document: LANDING, kind: 'add-section' },
+
+  /*
+    "Needs" and "wants" ask for something as surely as "need" and "want".
+    Before: edit — the third person was no verb at all.
+  */
+  {
+    request: 'My bakery needs a website',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'new-page',
+  },
+  { request: 'the website needs a contact form', document: LANDING, kind: 'edit' },
+  { request: 'the page needs a pricing section', document: LANDING, kind: 'add-section' },
+
+  /*
+    A new page on a page with nothing to keep takes its place. Before: target
+    new-page — leaving the empty page behind, beside the one just built.
+  */
+  {
+    request: "I'd like a new website for my clinic",
+    document: EMPTY,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  {
+    request: "I'd like a new website for my clinic",
+    document: LANDING,
+    kind: 'build-page',
+    target: 'new-page',
+  },
+  { request: 'صفحة جديدة للعروض', document: PLACEHOLDERS, kind: 'build-page', target: 'replace' },
+
+  /*
+    "Home" among a site's named parts is a page — no page has a home SECTION.
+    Before: build-page. Without "home" the names stay one page's sections (the
+    audit's dental-clinic row, above).
+  */
+  { request: 'website with home, about and contact', document: EMPTY, kind: 'build-site' },
+  {
+    request: 'موقع لشركتي فيه الرئيسية ومن نحن والخدمات واتصل بنا',
+    document: EMPTY,
+    kind: 'build-site',
+  },
+  { request: 'the website home and about sections need work', document: LANDING, kind: 'edit' },
+
+  /*
+    Clearing the page to build another is a start-over. Before: new-page,
+    leaving the content the person had just asked to delete.
+  */
+  {
+    request: 'delete everything and build a website for my bakery',
+    document: LANDING,
+    kind: 'build-page',
+    target: 'replace',
+  },
+  // Clearing alone builds nothing: there is no brief.
+  { request: 'delete everything', document: LANDING, kind: 'edit' },
+];
+
+/*
+  An empty page takes a BRIEF as the page to build — not every word typed on
+  it. Before, each of these built a whole page on an empty canvas, or replaced
+  the skeleton a stopped build left behind, with the words as its brief.
+*/
+const NOT_A_BRIEF: readonly (readonly [string, StayKind])[] = [
+  // Steering the run or its history.
+  ['undo', 'edit'],
+  ['تراجع', 'edit'],
+  ['continue', 'edit'],
+  ['كمل', 'edit'],
+  ['stop', 'edit'],
+  ['retry', 'edit'],
+  ['try again', 'edit'],
+  // Changing what is (or is not yet) there: the object is what exists.
+  ['get rid of the footer', 'edit'],
+  ['make it pop', 'edit'],
+  ['خليها احلى', 'edit'],
+  ['duplicate this page', 'edit'],
+  // Asking for an answer in words.
+  ['summarize the page', 'question'],
+  ['لخص الصفحة', 'question'],
+  ['ممكن تشرح لي الصفحة؟', 'question'],
+];
+
+describe('the routing table — found past the audit’s table', () => {
+  it.each(FOUND_PAST_THE_TABLE)('routes “$request” to $kind', (row) => {
+    const route = routeIntent({
+      request: row.request,
+      ...(row.document === undefined ? {} : { document: row.document }),
+      ...(row.selection === undefined ? {} : { selection: row.selection }),
+    });
+    expect(route.kind).toBe(row.kind);
+    if (row.target !== undefined) expect(route.target).toBe(row.target);
+  });
+
+  it.each(NOT_A_BRIEF)('does not take “%s” as a brief on an empty page (%s)', (request, kind) => {
+    for (const document of [EMPTY, PLACEHOLDERS]) {
+      expect(routeIntent({ request, document }).kind).toBe(kind);
+    }
+  });
+
+  it('still takes a bare subject, or “build it”, as the brief', () => {
+    for (const request of ['build it', 'a bakery in Amman', 'مطعم شاورما في عمان']) {
+      expect(routeIntent({ request, document: EMPTY }).kind).toBe('build-page');
+    }
+  });
+});
+
+/*
+  THE WAVE-1 VERIFIER'S REGRESSIONS (2026-09-28), then adversarial phrasings
+  of the same four classes written past them. Every row below routed wrong
+  before the fix beside its group; the first rows of each group are the
+  verifier's own words.
+*/
+
+/*
+  A start-over aimed at a PART of the page. Before: build-page/replace@0.85 on
+  every canvas — any page noun in the sentence made the start-over the
+  page's, even one that only said WHERE the section is ("the hero section OF
+  THE HOMEPAGE"), so a host honouring the target would have wiped the page to
+  redo one section.
+*/
+const PART_START_OVER: readonly string[] = [
+  'أعد تصميم قسم الأسعار في الصفحة',
+  'start over on the hero of this page',
+  'redesign the hero section of the homepage',
+  'rewrite the hero on the landing page from scratch',
+  // Past the verifier's rows.
+  'redesign the pricing section on the landing page',
+  'أعد تصميم الهيرو في الصفحة الرئيسية',
+  'اعد كتابة الفوتر في الموقع من الصفر',
+  'rebuild the footer of my website from scratch',
+  'start fresh on the testimonials section of this page',
+  'ابدأ من جديد في قسم الأسعار',
+  'redesign the homepage hero from scratch',
+  'scrap the gallery on the about page',
+  /*
+    The object is a PRONOUN pointing back at a part named in an earlier
+    clause. Before (wave-2 verifier, 2026-09-28): build-page/replace@0.85 —
+    the start-over's own clause named nothing, so it fell back to the page.
+  */
+  'the hero looks bad, redesign it from scratch',
+  'take the pricing section and redesign it',
+  'tear down the hero and rebuild it',
+  'the footer is ugly. start over on it',
+  'الهيدر سيء، أعد تصميمه من الصفر',
+  // Past the verifier's rows.
+  'I hate the footer — rebuild it from scratch',
+  'the testimonials section feels flat; redo it from scratch',
+  'the hero and the footer look dated, redo them from scratch',
+  'look at the navbar and start over on it',
+  'الفوتر مش حلو، أعد بناءه',
+  'قسم الأسعار قديم، صممه من جديد',
+  'الهيرو، أعد تصميمه بالكامل',
+  'the pricing cards are cluttered. start fresh on them',
+  /*
+    An Arabic section named by a DEFINITE construct ("قسم الأسعار", the
+    section of the prices) and restarted. Before: add-section/append@0.85,
+    even on a page that has a الأسعار section — while the English "design the
+    pricing section from scratch" routed edit.
+  */
+  'صمم قسم الأسعار من الصفر',
+  'صمم قسم الخدمات من جديد',
+  'design the pricing section from scratch',
+];
+
+/*
+  Pages named as where LINKS go, inside something added. Before: build-site
+  @0.8 — "plural pages + an add verb + two page names" read "a nav with links
+  to home, about and contact pages" as three pages to make.
+*/
+const LINK_TARGETS: readonly string[] = [
+  'add a nav with links to home, about and contact pages',
+  'add a footer with links to about and contact pages',
+  'أضف قائمة فيها روابط لصفحات من نحن والخدمات',
+  // Past the verifier's rows.
+  'create a footer with links to home, about and contact pages',
+  'add a navbar linking to the about and services pages',
+  'add buttons that go to the pricing and contact pages',
+  'أضف شريط تنقل فيه روابط لصفحات الخدمات وتواصل معنا',
+  'اضف روابط لصفحات من نحن والخدمات في الفوتر',
+  'add a footer with links to all 4 pages',
+  'put links to the about and contact pages in the header',
+  // A page break is a break, not a page (wave-1 verifier's minor row).
+  'add a page break',
+  /*
+    A SITE noun among the link targets ("blog", "shop"). Before (wave-2
+    verifier): build-site@0.8 — any indefinite site noun anywhere counted as a
+    site being asked for, which skipped the guard for a part's link list.
+  */
+  'add a nav with links to home, blog and contact',
+  'add a navbar with home, about and blog pages',
+  'add a nav with links to the home, pricing and blog pages',
+  // Past the verifier's rows.
+  'add a footer with links to the shop, blog and contact pages',
+  'add a menu linking to home, store and about',
+  'أضف قائمة فيها روابط للرئيسية والمدونة والمتجر',
+  'put a navbar at the top with home, blog, shop and contact',
+];
+
+/*
+  A start-over with NO brief. Still the page's start-over — but the words say
+  nothing about what replaces it, so the route is below the confirm line
+  (0.6) and a host asks before wiping a page with content. Before: 0.85, the
+  same as "start over with a landing page for my bakery".
+*/
+const BARE_START_OVER: readonly string[] = [
+  'start over',
+  'من الصفر',
+  'redesign the page',
+  // Past the verifier's rows.
+  'rebuild the whole website from scratch',
+  'امسح كل شي وابدأ من جديد',
+  'أعد تصميم الموقع بالكامل',
+  'start again please',
+  'scrap it and start fresh',
+  'rebuild the page from scratch',
+  'أعد تصميم الصفحة بالكامل',
+  // Naming what to drop or keep is still no subject for the page that replaces it.
+  'delete the hero and start over',
+  'احذف الهيرو وابدأ من جديد',
+  'start over, but keep the hero',
+  /*
+    Courtesy, fillers, vocatives, and clauses that only JUDGE the page. Before
+    (wave-2 verifier): 0.85 — every word the no-subject sets did not list,
+    anywhere in the request, counted as a brief ("let's", "ok", "لو سمحت",
+    "I don't like it", "الصفحة سيئة").
+  */
+  "let's start over",
+  'ok start over',
+  'okay, redesign the page',
+  'hmm, start from scratch',
+  "I don't like it, start over",
+  "start over please, I don't like it",
+  'أعد بناء الصفحة لو سمحت',
+  'أعد بناء الصفحة من فضلك',
+  'ابدأ من الصفر يا أبو غضب',
+  'ما عجبني، ابدأ من الصفر',
+  'الصفحة سيئة، أعد تصميمها بالكامل',
+  'حلو بس ابدأ من جديد',
+  // Past the verifier's rows.
+  'I think we should just start over',
+  'honestly, scrap it and start again',
+  'I really hate this design, start over',
+  'the page is ugly, redesign it',
+  'this looks terrible. start over.',
+  'طيب، أعد تصميم الصفحة',
+  'يلا ابدأ من جديد',
+  'مش عاجبني التصميم، ابدأ من الصفر لو سمحت',
+  'لازم تبدأ من الصفر',
+  'خلينا نبدأ من جديد',
+  // A page TYPE alone says as little as "start over with a portfolio" does.
+  'rebuild it as a resume',
+  /*
+    A comment after the start-over (router-3, 2026-09-28). Before (wave-2
+    verifier): edit@0.8 — the object was read past the comma — and "make it
+    BETTER" briefed at 0.85.
+  */
+  'start over, the footer can stay',
+  'ابدأ من جديد، الألوان كلها غلط',
+  'start over. the hero was ugly',
+  'start over, and make it better',
+  'start over, we need something different',
+  'عيد تصميم الصفحة',
+];
+
+/* The same start-over WITH a brief keeps its confidence. */
+const BRIEFED_START_OVER: readonly string[] = [
+  'start over with a landing page for my bakery',
+  'ابدأ من الصفر وصمم صفحة لمخبز',
+  'start over with a landing page for my dental clinic',
+  'أعد تصميم الصفحة لمطعم مشاوي في عمان',
+  'redesign the page for a law firm',
+  'from scratch: a portfolio for a wedding photographer',
+  // "From scratch" restarts what came BEFORE it; "with a hero" is not its object.
+  'build a landing page for my gym from scratch with a hero and pricing',
+  // A judgment beside a real brief does not hide the brief.
+  "I don't like it, start over with a landing page for my florist",
+  'ما عجبني، ابدأ من الصفر وصمم صفحة لمخبز',
+  'start over. make a page for my barber shop',
+  'the page is ugly — rebuild it for a yoga studio',
+  /*
+    The brief as the clause after the start-over, with no verb (router-3,
+    2026-09-28). Before (wave-2 verifier): the bare 0.5 — only a clause with
+    a verb or a "for" counted — and "this time" read as the time element.
+  */
+  'start over, this time for a bakery',
+  'start over: bakery in Amman',
+  'ابدأ من الصفر: مطعم مشاوي في عمان',
+  'redesign the page: modern law firm, navy and gold',
+  "rebuild the page — we're a dental clinic now",
+  'start over, we sell handmade soap',
+  'ابدأ من جديد، احنا صرنا مطعم',
+  'أعد تصميم الموقع، صرنا شركة عقارات',
+  // Past the verifier's rows.
+  "start over, I'm a wedding photographer",
+  'start over: my bakery in Irbid',
+  'يلا عيد تصميم الصفحة لمطعم مشاوي',
+];
+
+/*
+  On a page with nothing to keep, a change aimed at something that EXISTS is
+  not a brief. Before: build-page — "make" and "needs" were read as asking
+  for something new whatever their object was.
+*/
+const DEFINITE_CHANGES_ON_EMPTY: readonly string[] = [
+  'make the title Hello',
+  'اجعل لون الخلفية بلون القهوة',
+  'the restaurant menu needs new prices',
+  'make the hero text say Welcome',
+  // MSA verbal nouns of change (wave-2 verifier's must-fix, 2026-09-28).
+  'هل يمكن تعديل رقم هاتف العيادة؟',
+  'أريد تعديل سعر القهوة في المنيو',
+  'الرجاء حذف قسم المنيو من صفحة المطعم',
+  'أرجو تغيير صور الشقة',
+];
+
+/*
+  An Arabic page named by a DEFINITE construct ("صفحة العيادة", the clinic's
+  page) is the page that exists when a make verb or a comparative changes it.
+  Before (wave-2 verifier): build-page/new-page@0.75 on a page with content,
+  even with a block selected, and 0.9 replace on an empty page; the English
+  "make the clinic page darker" routed edit.
+*/
+const DEFINITE_ARABIC_PAGES: readonly string[] = [
+  'خلي صفحة العيادة أغمق',
+  'اجعل صفحة المطعم أبسط',
+  'خلي صفحة الهبوط أفتح',
+  // Past the verifier's rows.
+  'اجعل صفحة الخدمات أوضح',
+  'خلي موقع الشركة أفخم',
+  'اجعل قسم الأسعار أغمق',
+];
+
+/* …while the construct still NAMES a page or section to make, as Arabic speakers ask for one. */
+const ARABIC_NAMING_CONSTRUCTS: readonly (readonly [string, IntentKind])[] = [
+  ['اعمل صفحة الهبوط لتطبيق توصيل', 'build-page'],
+  ['أضف صفحة الخدمات', 'build-page'],
+  ['صمم قسم الأسعار', 'add-section'],
+  ['سوي صفحة المطعم', 'build-page'],
+  // "إلكتروني" folds to a word that opens with ال, and carries no article.
+  ['اعمل موقع الكتروني لعيادة أسنان', 'build-page'],
+  ['صمم موقع إلكتروني أبسط لمطعمي', 'build-page'],
+  /*
+    "دعوة لاتخاذ إجراء" is the Arabic of "call to action" — a section, not
+    the invitation page "دعوة" alone names. Before: build-page@0.75.
+  */
+  ['صمم دعوة لاتخاذ إجراء', 'add-section'],
+  ['أضف دعوة لاتخاذ إجراء في آخر الصفحة', 'add-section'],
+];
+
+/*
+  SUGGESTIONS phrased as questions ask for the change they suggest. Before
+  (wave-2 verifier's route-probe, 2026-09-28): question@0.9 — the opener
+  ("how", "what", "why", "is", "ليش") was an interrogative, so the panel
+  answered in words where the one-call run had made the edit.
+*/
+const SUGGESTIONS: readonly (readonly [string, IntentKind])[] = [
+  ['how about making the button blue?', 'edit'],
+  ['what if the hero said Welcome home?', 'edit'],
+  ['why not add a pricing section?', 'add-section'],
+  ['what about a darker background?', 'edit'],
+  ['is it possible to change the font to Inter?', 'edit'],
+  ["why don't you add a testimonials section?", 'add-section'],
+  ['ليش لا تغير لون الزر؟', 'edit'],
+  ['ليش ما تضيف قسم آراء العملاء؟', 'add-section'],
+  // Past the probe's rows.
+  ['شو رأيك تضيف قسم أسعار؟', 'add-section'],
+  ['ما رأيك لو نغير الخط؟', 'edit'],
+  ['would it be possible to make the header smaller?', 'edit'],
+  /*
+    The gerund, the past and "there was" of a suggestion. Before (v1-panel
+    verifier's suggest-probe2, 2026-09-28): question@0.9, and the Arabic past
+    after "لو" question@0.75 — the panel answered in words and changed
+    nothing, while "how about we add…" and "ما رأيك لو تضيف…" routed.
+  */
+  ['how about adding a testimonials section?', 'add-section'],
+  ['what about changing the font?', 'edit'],
+  ['what if we changed the hero to dark?', 'edit'],
+  ['what if there was a contact form?', 'edit'],
+  ['ما رأيك لو أضفت قسم أسعار؟', 'add-section'],
+  ['ما رأيك لو غيرت الخط؟', 'edit'],
+  // Past the probe's rows (router-3).
+  ['what about using a serif font?', 'edit'],
+  ['what if we made the hero darker?', 'edit'],
+  ['how about we add a testimonials section?', 'add-section'],
+  ['what if you added a FAQ section?', 'add-section'],
+  ['how about swapping the hero image?', 'edit'],
+  ['شو رأيك لو حطيت صورة بالهيرو؟', 'edit'],
+  ['ما رأيك لو خليت الخلفية أغمق؟', 'edit'],
+  ['ما رأيك لو غيرنا الخط؟', 'edit'],
+  ['ما رأيك لو فيه قسم أسعار؟', 'add-section'],
+];
+
+/* …while a question that suggests nothing is still a question. */
+const STILL_QUESTIONS: readonly string[] = [
+  'why not?',
+  'what about the footer?',
+  'ليش ما اشتغل؟',
+  'what if it breaks on mobile?',
+  'is it possible?',
+  // A plural noun is not a verb's third person: "updates" asks about updates.
+  'what about updates?',
+  'what about the prices?',
+  'ما رأيك في التصميم؟',
+];
+
+/*
+  THE SAFETY RULE (router-3, 2026-09-28): a request shaped as a question never
+  writes with confidence. Below, the first rows are the wave-2 verifier's —
+  each routed a WRITE (edit@0.8, build-page@0.75/0.9, build-site@0.9) where
+  wave 1 had answered it at 0.9.
+*/
+
+/*
+  What WOULD HAPPEN: the person is the subject of the idea, or a later clause
+  asks about the outcome. Answered in words on every canvas.
+*/
+const HYPOTHETICALS: readonly string[] = [
+  'what if I delete the hero?',
+  'what if I remove the footer, will the page break?',
+  'what if we change the font — would it load slower?',
+  'what if I want to add a page later?',
+  // Past the verifier's rows.
+  'what if I add a video to the hero?',
+  'how about I add a map?',
+  'what if I change the colors, will it still look good?',
+  'what if we removed the pricing section, would anyone notice?',
+  'if I delete the hero, will the page break?',
+  'what happens if I delete the footer?',
+  'ماذا لو حذفت الهيرو؟',
+  'لو حذفت الفوتر، هل ستتعطل الصفحة؟',
+  'إذا شلت الهيرو، شو بيصير؟',
+  'ما رأيك لو أنا غيرت الخط؟',
+  'ما رأيك لو أضفت قسم أسعار، هل سيكون أفضل؟',
+  /*
+    A CONDITION whose subject is the person. Before (router-3 probe,
+    2026-09-28): read past "if"/"suppose" as the instruction, edit@0.8-0.85.
+  */
+  'if I delete the hero?',
+  'suppose I remove the pricing section?',
+  'imagine I add a video to the hero',
+  'لو أنا حذفت الفوتر؟',
+];
+
+/*
+  What CAN be done ("is it possible to…", "هل يمكن + verbal noun"): the
+  request it names, below the confirm line (0.6), so the host asks first.
+*/
+const CAPABILITY_QUESTIONS: readonly (readonly [string, IntentKind])[] = [
+  ['is it possible to change the font to Inter?', 'edit'],
+  ['would it be possible to make the header smaller?', 'edit'],
+  ['is there a way to change the font?', 'edit'],
+  ['is it possible to add a pricing section?', 'add-section'],
+  ['هل يمكن تغيير الخط؟', 'edit'],
+  ['هل يمكن تعديل رقم هاتف العيادة؟', 'edit'],
+  ['هل بالإمكان إضافة قسم للأسعار؟', 'add-section'],
+  /*
+    "هل ممكن" + a first-person verb is "can I…?" — folded, the first person's
+    أ is the imperative's ا, so it is asked below the confirm line. Before
+    (router-3 probe, 2026-09-28): edit@0.8, as courtesy.
+  */
+  ['هل ممكن أحذف الفوتر؟', 'edit'],
+  ['هل ممكن أضيف قسم أسعار؟', 'add-section'],
+];
+
+/* A question of any shape that would BUILD a page or a site is answered first. */
+const QUESTIONS_THAT_WOULD_BUILD: readonly string[] = [
+  'is it possible to add pages?',
+  'is it possible to make a multi-page site?',
+  'is there a way to add pages?',
+  'why not start over?',
+  'what about making a site for my clinic?',
+  'هل يمكن إضافة صفحات؟',
+  'هل من الممكن عمل موقع متعدد الصفحات؟',
+];
+
+/* …while courtesy addressed to the assistant, or a condition, still asks with confidence. */
+const POLITE_REQUESTS: readonly (readonly [string, IntentDocumentSummary, IntentKind])[] = [
+  ['can you build me a website for my gym?', EMPTY, 'build-page'],
+  ['هل يمكنك إضافة قسم للأسعار؟', LANDING, 'add-section'],
+  ['ممكن تسويلي موقع لصالون؟', EMPTY, 'build-page'],
+  // Bare "ممكن" is the Levantine "could you", even before a verbal noun.
+  ['ممكن عمل موقع لمطعمي؟', EMPTY, 'build-page'],
+  ['هل ممكن تضيف قسم أسعار؟', LANDING, 'add-section'],
+  ['if possible, make the hero darker', LANDING, 'edit'],
+  ['اذا بتقدر، ضيف قسم أسعار', LANDING, 'add-section'],
+  // A verb carrying "for me" is asked OF the assistant, whatever its prefix.
+  ['هل ممكن اعمل لي موقع لمطعمي؟', EMPTY, 'build-page'],
+  ['هل ممكن تحذف الفوتر؟', LANDING, 'edit'],
+  ['if you can, add a pricing section', LANDING, 'add-section'],
+];
+
+/*
+  "عيد" is Eid, the noun, after a noun it completes or before a "ب"-carried
+  design word. Before (wave-2 verifier): build-page/replace@0.85 over a page
+  with content — a confident start-over from an Eid card request.
+*/
+const EID_THE_NOUN: readonly string[] = [
+  'صمم لي بطاقة عيد بتصميم ذهبي',
+  'بطاقة عيد تصميم بسيط',
+  'اعمل بطاقة عيد تصميمها أنيق',
+  'صفحة عيد تصميم عصري لعملائنا',
+  // Past the verifier's rows.
+  'صمم بطاقة عيد تصميمها ذهبي',
+  'تهنئة عيد تصميم أنيق',
+  // MSA's verbal noun after a noun is that noun's complement: redesign SERVICES.
+  'صفحة لشركة تقدم خدمات إعادة تصميم المواقع',
+];
+
+/* …while the verb, where a verb stands, still restarts what it names. */
+const EID_THE_VERB: readonly (readonly [string, IntentKind, IntentTarget | undefined])[] = [
+  ['عيد تصميم الصفحة', 'build-page', 'replace'],
+  ['عيد تصميم الهيرو', 'edit', undefined],
+  ['وعيد تصميم الفوتر', 'edit', undefined],
+  ['يلا عيد تصميم الصفحة لمطعم مشاوي', 'build-page', 'replace'],
+  ['ممكن تعيد تصميم الصفحة؟', 'build-page', 'replace'],
+];
+
+/*
+  A start-over, then a COMMENT: the object of "start over" never sits past a
+  break, and "this time" is when, not the page's time element. Before (wave-2
+  verifier): edit@0.8-0.85 on a page with content, edit@0.5 on an empty one.
+*/
+const START_OVER_THEN_COMMENT: readonly string[] = [
+  'start over, the footer can stay',
+  'start over. the hero was ugly',
+  'ابدأ من جديد، الألوان كلها غلط',
+  'ابدأ من الصفر، النص مش واضح',
+  'start over, the pricing can stay',
+  // Past the verifier's rows.
+  "start over. I don't like it",
+  "start over, it's ugly",
+  'ابدأ من الصفر، مش عاجبني',
+];
+
+/*
+  MSA verbal nouns of change where a request's verb stands: first, after
+  courtesy, or after a want, a make or a must. Before (wave-2 verifier): no
+  verb at all, so on an empty page — the resolver's page today — each was the
+  brief for a whole page.
+*/
+const VERBAL_NOUN_CHANGES: readonly string[] = [
+  'تغيير عنوان قسم التعليم والشهادات إلى مرحبا',
+  'هل يمكن تعديل رقم هاتف العيادة؟',
+  'أريد تعديل سعر القهوة في المنيو',
+  'الرجاء حذف قسم المنيو من صفحة المطعم',
+  'أرجو تغيير صور الشقة',
+  // Past the verifier's rows.
+  'بدي تغيير الخط',
+  'سوي تعديل بسيط على الهيرو',
+  'تصغير الصور في قسم المعرض',
+  'يرجى حذف قسم الأسعار',
+  'لازم تغيير لون الخلفية',
+];
+
+/* A verbal noun that names a TRADE, first and with nothing of the page after it, is a brief. */
+const VERBAL_NOUN_TRADES: readonly string[] = ['نقل عفش في عمان', 'شركة نقل أثاث في عمان'];
+
+/*
+  One new SECTION named with no verb, on a page with nothing to keep. Before
+  (wave-2 router owner's not-done list): build-page/replace@0.6 — the nav was
+  the brief for a whole page.
+*/
+const SECTION_PHRASES: readonly string[] = [
+  'a nav with links to home, blog and contact',
+  'قسم أسعار بثلاث باقات',
+  'a footer with social links',
+  'بانر وداع سامر ووسيم مع خلفية سفر',
+  'another hero with a video background',
+  'شريط تنقل فيه روابط للرئيسية والمدونة',
+];
+
+/*
+  …but a page ask whose first noun is a part stays the brief: an element
+  heads pages ("an Eid card"), a section that is also a page's name may be the
+  page ("a menu for my restaurant"), and several listed parts describe one.
+*/
+const BRIEFS_OPENING_WITH_A_PART: readonly string[] = [
+  'a menu for my restaurant',
+  'a gallery of my wedding photos',
+  'a hero with a big photo, then a menu, then a contact section',
+  'an eid al fitr card for our clients',
+  'a pricing table with three tiers',
+  'هيرو فيه صورة كبيرة وقسم منيو وتواصل',
+];
+
+describe('the routing table — the wave-1 verifier’s regressions and past them', () => {
+  it.each(SUGGESTIONS)('reads the suggestion “%s” as the request it is (%s)', (request, kind) => {
+    for (const document of [LANDING, EMPTY, undefined]) {
+      const route = routeIntent({ request, ...(document === undefined ? {} : { document }) });
+      expect({ request, kind: route.kind }).toEqual({ request, kind });
+      // An idea to weigh, never an instruction's confidence (router-3, 2026-09-28).
+      expect(route.confidence).toBeLessThan(0.8);
+    }
+  });
+
+  it.each(STILL_QUESTIONS)('still answers “%s” in words', (request) => {
+    expect(routeIntent({ request, document: LANDING }).kind).toBe('question');
+  });
+
+  it('says it read a suggestion, and what it read past it, for the logs', () => {
+    const route = routeIntent({ request: 'why not add a pricing section?', document: LANDING });
+    expect(route.kind).toBe('add-section');
+    expect(route.reason).toMatch(/^a suggestion \(“why not”\), asks for a new section/u);
+    expect(routeIntent({ request: 'ليش ما تضيف قسم آراء العملاء؟' }).reason).toMatch(
+      /^a suggestion \(“ليش ما”\)/u,
+    );
+  });
+
+  it.each(PART_START_OVER)('edits the part “%s” names, on any page, never a build', (request) => {
+    for (const document of [LANDING, CONTENT_AR, EMPTY, undefined]) {
+      const route = routeIntent({ request, ...(document === undefined ? {} : { document }) });
+      expect({ request, kind: route.kind }).toEqual({ request, kind: 'edit' });
+    }
+    const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
+    expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'edit' });
+  });
+
+  it.each(DEFINITE_ARABIC_PAGES)('edits the page or part “%s” names, never a build', (request) => {
+    for (const document of [LANDING, CONTENT_AR, EMPTY, PLACEHOLDERS, undefined]) {
+      const route = routeIntent({ request, ...(document === undefined ? {} : { document }) });
+      expect({ request, kind: route.kind }).toEqual({ request, kind: 'edit' });
+    }
+    const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
+    expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'edit' });
+  });
+
+  it.each(ARABIC_NAMING_CONSTRUCTS)('still reads “%s” as %s', (request, kind) => {
+    for (const document of [LANDING, EMPTY]) {
+      expect({ request, kind: routeIntent({ request, document }).kind }).toEqual({ request, kind });
+    }
+  });
+
+  it.each(LINK_TARGETS)('never reads the link targets in “%s” as pages to make', (request) => {
+    for (const document of [LANDING, CONTENT_AR, EMPTY, undefined]) {
+      const route = routeIntent({ request, ...(document === undefined ? {} : { document }) });
+      expect({ request, build: isBuild(route.kind) }).toEqual({ request, build: false });
+    }
+  });
+
+  it.each(BARE_START_OVER)(
+    'replaces the page on “%s”, but below the confirm line (<0.6)',
+    (request) => {
+      const route = routeIntent({ request, document: LANDING });
+      expect(route).toMatchObject({ kind: 'build-page', target: 'replace' });
+      expect(route.confidence).toBeLessThan(0.6);
+    },
+  );
+
+  it.each(BRIEFED_START_OVER)('replaces the page on “%s” with confidence', (request) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect(route).toMatchObject({ kind: 'build-page', target: 'replace' });
+    expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it('lets a pointed block own a start-over that names no page', () => {
+    for (const request of ['redesign it from scratch', 'أعد تصميمه من الصفر']) {
+      expect(routeIntent({ request, document: LANDING, selection: ['hero'] }).kind).toBe('edit');
+    }
+    // …and not one that names the page.
+    expect(
+      routeIntent({
+        request: 'rebuild the page from scratch',
+        document: LANDING,
+        selection: ['hero'],
+      }),
+    ).toMatchObject({ kind: 'build-page', target: 'replace' });
+  });
+
+  it.each(DEFINITE_CHANGES_ON_EMPTY)(
+    'does not take “%s” as a brief on an empty page',
+    (request) => {
+      for (const document of [EMPTY, PLACEHOLDERS]) {
+        expect({ request, kind: routeIntent({ request, document }).kind }).toEqual({
+          request,
+          kind: 'edit',
+        });
+      }
+    },
+  );
+
+  it('still reads a make or a need whose object is a page as the page ask', () => {
+    for (const request of ['make me a landing page for my cafe', 'My bakery needs a website']) {
+      expect(isBuild(routeIntent({ request, document: EMPTY }).kind)).toBe(true);
+    }
+  });
+
+  it('still counts pages that ARE what is added', () => {
+    for (const request of [
+      'add about and services pages',
+      'add 3 pages: about, services and contact',
+      'add an about page and a services page to the site',
+      'أضف صفحات من نحن والخدمات',
+    ]) {
+      expect({ request, kind: routeIntent({ request, document: LANDING }).kind }).toEqual({
+        request,
+        kind: 'build-site',
+      });
+    }
+  });
+});
+
+/** Every canvas the router distinguishes, with the page left unknown too. */
+const EVERY_CANVAS: readonly (IntentDocumentSummary | undefined)[] = [
+  LANDING,
+  CONTENT_AR,
+  EMPTY,
+  PLACEHOLDERS,
+  undefined,
+];
+
+const routeOn = (request: string, document: IntentDocumentSummary | undefined) =>
+  routeIntent({ request, ...(document === undefined ? {} : { document }) });
+
+describe('the routing table — router-3: questions never write with confidence', () => {
+  it.each(HYPOTHETICALS)(
+    'answers “%s” in words, on every canvas and over a selection',
+    (request) => {
+      for (const document of EVERY_CANVAS) {
+        expect({ request, kind: routeOn(request, document).kind }).toEqual({
+          request,
+          kind: 'question',
+        });
+      }
+      const pointed = routeIntent({ request, document: LANDING, selection: ['hero'] });
+      expect({ request, kind: pointed.kind }).toEqual({ request, kind: 'question' });
+    },
+  );
+
+  it.each(CAPABILITY_QUESTIONS)(
+    'routes the capability question “%s” as %s, below the confirm line',
+    (request, kind) => {
+      for (const document of EVERY_CANVAS) {
+        const route = routeOn(request, document);
+        expect({ request, kind: route.kind }).toEqual({ request, kind });
+        expect(route.confidence).toBeLessThan(0.6);
+      }
+    },
+  );
+
+  it.each(QUESTIONS_THAT_WOULD_BUILD)('never builds from “%s”', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({
+        request,
+        kind: 'question',
+      });
+    }
+  });
+
+  it.each(POLITE_REQUESTS)(
+    'still acts on the polite request “%s” with confidence',
+    (request, document, kind) => {
+      const route = routeIntent({ request, document });
+      expect({ request, kind: route.kind }).toEqual({ request, kind });
+      expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+    },
+  );
+
+  it('says which frame it read, for the logs', () => {
+    expect(routeIntent({ request: 'what if I delete the hero?' }).reason).toMatch(
+      /^asks about the person’s own action/u,
+    );
+    expect(
+      routeIntent({ request: 'what if I remove the footer, will the page break?' }).reason,
+    ).toMatch(/^asks what would happen .*“will”/u);
+    expect(routeIntent({ request: 'is it possible to change the font to Inter?' }).reason).toMatch(
+      /^asks whether it can be done \(“is it possible to”\)/u,
+    );
+    expect(routeIntent({ request: 'هل يمكن إضافة صفحات؟' }).reason).toMatch(
+      /a page is never built from a question$/u,
+    );
+  });
+});
+
+describe('the routing table — router-3: the Levantine “عيد”', () => {
+  it.each(EID_THE_NOUN)('reads “%s” as Eid, never a start-over', (request) => {
+    for (const document of EVERY_CANVAS) {
+      const route = routeOn(request, document);
+      expect({ request, startsOver: route.reason.startsWith('asks to start over') }).toEqual({
+        request,
+        startsOver: false,
+      });
+    }
+    for (const document of [LANDING, CONTENT_AR]) {
+      expect({ request, target: routeOn(request, document).target }).not.toEqual({
+        request,
+        target: 'replace',
+      });
+    }
+  });
+
+  it.each(EID_THE_VERB)('still reads the verb in “%s” (%s)', (request, kind, target) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect({ request, kind: route.kind }).toEqual({ request, kind });
+    if (target !== undefined) expect(route.target).toBe(target);
+  });
+});
+
+describe('the routing table — router-3: a start-over and what follows it', () => {
+  it.each(START_OVER_THEN_COMMENT)(
+    'restarts the PAGE on “%s”, below the confirm line, whatever the canvas',
+    (request) => {
+      for (const document of [LANDING, CONTENT_AR, EMPTY, undefined]) {
+        const route = routeOn(request, document);
+        expect({ request, kind: route.kind, target: route.target }).toEqual({
+          request,
+          kind: 'build-page',
+          target: 'replace',
+        });
+        expect(route.confidence).toBeLessThan(0.6);
+      }
+    },
+  );
+});
+
+describe('the routing table — router-3: MSA verbal nouns and verbless sections', () => {
+  it.each(VERBAL_NOUN_CHANGES)('reads “%s” as a change on every canvas', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({ request, kind: 'edit' });
+    }
+  });
+
+  it.each(VERBAL_NOUN_TRADES)(
+    'still takes the trade “%s” as a brief on an empty page',
+    (request) => {
+      expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+        kind: 'build-page',
+        target: 'replace',
+      });
+    },
+  );
+
+  it.each(SECTION_PHRASES)('adds the one section “%s” names on an empty page', (request) => {
+    for (const document of [EMPTY, PLACEHOLDERS]) {
+      expect(routeIntent({ request, document })).toMatchObject({
+        kind: 'add-section',
+        target: 'append',
+      });
+    }
+    // A pointed block still owns a verbless phrase.
+    expect(routeIntent({ request, document: LANDING, selection: ['hero'] }).kind).toBe('edit');
+  });
+
+  it.each(BRIEFS_OPENING_WITH_A_PART)(
+    'keeps “%s” the brief for a page on an empty page',
+    (request) => {
+      expect(routeIntent({ request, document: EMPTY })).toMatchObject({
+        kind: 'build-page',
+        target: 'replace',
+      });
+    },
+  );
+
+  it('lets the page’s own section own a phrase that names it', () => {
+    expect(
+      routeIntent({ request: 'a pricing section with three tiers', document: LANDING }).kind,
+    ).toBe('edit');
+  });
+});
+
+/*
+  A verb whose object is ANOTHER verb — "I want TO REMOVE a page", "بدي حذف
+  قسم الأسئلة" — asks for what the governed verb says. Before (router-3 probe,
+  2026-09-28): the want's object was read as a page or a section to make —
+  build-page/replace@0.9 on an empty page, new-page@0.75 beside content, and
+  add-section@0.85 — for a deletion.
+*/
+const WANTED_CHANGES: readonly string[] = [
+  'I want to remove a page',
+  'I need to delete a section',
+  'we need to remove a section',
+  "I'd like to remove a page",
+  'the menu needs to change',
+  'بدي حذف قسم الأسئلة',
+  'بدي حذف صفحة من نحن',
+  'أريد إزالة صفحة الخدمات',
+  'أريد حذف قسم الأسعار',
+  'بدي تغيير قسم الهيرو',
+];
+
+/* …while a governed verb that makes or adds still asks for what it names. */
+const WANTED_MAKES: readonly (readonly [string, IntentKind])[] = [
+  ['I want to build a website for my bakery', 'build-page'],
+  ['I want to add a pricing section', 'add-section'],
+  ['أريد إضافة قسم أسعار', 'add-section'],
+  ['بدي إضافة صفحة جديدة', 'build-page'],
+  ['بدي اعمل موقع لمطعمي', 'build-page'],
+  ['help me build a website', 'build-page'],
+];
+
+describe('the routing table — router-3: a verb that governs another verb', () => {
+  it.each(WANTED_CHANGES)('reads “%s” as the change it wants, on every canvas', (request) => {
+    for (const document of EVERY_CANVAS) {
+      expect({ request, kind: routeOn(request, document).kind }).toEqual({ request, kind: 'edit' });
+    }
+  });
+
+  it.each(WANTED_MAKES)('still reads “%s” as %s', (request, kind) => {
+    for (const document of [EMPTY, LANDING]) {
+      expect({ request, kind: routeIntent({ request, document }).kind }).toEqual({ request, kind });
+    }
+  });
+});
+
+/*
+  LINKING pages changes what exists — the nav, a button, the page's links —
+  and never builds one. The owner's own request, «هل يمكنك تربط ال صفحه هاي
+  داخل عليها» ("can you link this page inside it"), routed build-page/replace
+  @0.8 on an empty page and new-page@0.6 beside content: «تربط» was no verb the
+  router knew, so «صفحه» read as the name of a page to make (final test,
+  2026-09-29).
+*/
+const LINKING_REQUESTS: readonly string[] = [
+  'هل يمكنك تربط ال صفحه هاي داخل عليها',
+  'اربط الصفحة هاي بالقائمة',
+  'ممكن تربط صفحة من نحن بالقائمة',
+  'اربطها بصفحة الخدمات',
+  'ربط صفحة التواصل بالفوتر',
+  'هل يمكن ربط الصفحة بالقائمة؟',
+  'link this page to the home page',
+  'can you link the about page in the nav',
+  'connect this page to the nav',
+  'please connect the contact page to the footer',
+];
+
+/* …while "link" the NOUN, inside a page ask, is still a part of the page asked for. */
+const LINK_THE_NOUN: readonly (readonly [string, IntentKind])[] = [
+  ['a landing page with a link to my shop', 'build-page'],
+  ['build a website with links to my socials', 'build-page'],
+  // First, but followed by a preposition: the noun, and a link-in-bio page's name.
+  ['link in bio page for my shop', 'build-page'],
+];
+
+/*
+  A question of ABILITY put to the assistant — "can you…", «هل يمكنك…», «هل
+  بتقدر…», «ممكن…» — says what it asks in the verb that follows. When that
+  verb is none the router knows, a page named later in the words is a guess
+  at what is asked, and minutes of building never follow a guess: it stays
+  below the confirm line, so the host checks first. Before (final test,
+  2026-09-29): build-page/replace@0.8 on an empty page, with no check.
+*/
+const ABILITY_WITH_AN_UNKNOWN_VERB: readonly string[] = [
+  'هل يمكنك تشبك ال صفحه هاي داخل عليها',
+  'هل بتقدر تشبك صفحة من نحن بالقائمة',
+  'ممكن تشبك صفحة الخدمات بالفوتر',
+  'can you hook this page into the nav',
+  'could you knock together a landing page for my gym',
+];
+
+/* …while one that opens with what it asks for, or with a verb the router knows, still builds. */
+const ABILITY_THAT_STILL_BUILDS: readonly string[] = [
+  'ممكن موقع لمطعمي؟',
+  'can you build me a website for my gym?',
+  'هل تقدر تسوي لي موقع لمطعمي',
+  'can you please design a landing page for my bakery',
+  'can you do a landing page for my gym',
+  'هل يمكنك تصميم موقع لعيادتي',
+  'هل تقدر تعطيني موقع لمطعمي',
+];
+
+describe('the routing table — final test: linking pages, and a verb the router does not know', () => {
+  it.each(LINKING_REQUESTS)('reads “%s” as an edit on every canvas, never a build', (request) => {
+    for (const document of EVERY_CANVAS) {
+      const route = routeOn(request, document);
+      expect({ request, document, kind: route.kind }).toEqual({ request, document, kind: 'edit' });
+    }
+  });
+
+  it('asks before acting on the owner’s linking request over an empty page', () => {
+    const route = routeIntent({
+      request: 'هل يمكنك تربط ال صفحه هاي داخل عليها',
+      document: EMPTY,
+    });
+    expect(route.kind).toBe('edit');
+    expect(route.confidence).toBeLessThan(0.6);
+  });
+
+  it.each(LINK_THE_NOUN)('still reads “%s” as %s on an empty page', (request, kind) => {
+    expect({ request, kind: routeIntent({ request, document: EMPTY }).kind }).toEqual({
+      request,
+      kind,
+    });
+  });
+
+  it.each(ABILITY_WITH_AN_UNKNOWN_VERB)(
+    'never builds from “%s” above the confirm line, on any canvas',
+    (request) => {
+      for (const document of EVERY_CANVAS) {
+        const route = routeOn(request, document);
+        if (isBuild(route.kind)) {
+          expect({ request, document, confidence: route.confidence }).toEqual({
+            request,
+            document,
+            confidence: 0.5,
+          });
+        }
+      }
+    },
+  );
+
+  it('says it could not read the verb, for the logs', () => {
+    expect(
+      routeIntent({ request: 'هل يمكنك تشبك ال صفحه هاي داخل عليها', document: EMPTY }).reason,
+    ).toMatch(/^asks whether it can \(“هل يمكنك”\) “تشبك”, a verb it does not know/u);
+  });
+
+  /*
+    Over a landing page, once «تربط» was known, the same sentence routed
+    edit@0.8 — a whole-page edit started with no check (final test,
+    2026-09-30). A change asked of the assistant that aims at no part of the
+    page sits below the confirm line; one that names its part does not.
+  */
+  it.each([
+    'هل يمكنك تربط ال صفحه هاي داخل عليها',
+    'هل تقدر تخليها احلى',
+    'can you link this page inside it',
+  ])('asks before a whole-page edit asked as “%s” over a landing page', (request) => {
+    const route = routeIntent({ request, document: LANDING });
+    expect(route.kind).toBe('edit');
+    expect(route.confidence).toBeLessThan(0.6);
+  });
+
+  it.each(['could you make the pricing darker?', 'هل تقدر تحذف الفوتر', 'can you change the font'])(
+    'keeps “%s”, which names its part, above the confirm line',
+    (request) => {
+      const route = routeIntent({ request, document: LANDING });
+      expect(route.kind).toBe('edit');
+      expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+    },
+  );
+
+  it.each(ABILITY_THAT_STILL_BUILDS)('still builds “%s” with confidence', (request) => {
+    const route = routeIntent({ request, document: EMPTY });
+    expect({ request, kind: route.kind }).toEqual({ request, kind: 'build-page' });
+    expect(route.confidence).toBeGreaterThanOrEqual(0.8);
+  });
+});

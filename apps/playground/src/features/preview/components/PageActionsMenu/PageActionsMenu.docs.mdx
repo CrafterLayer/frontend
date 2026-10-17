@@ -1,0 +1,37 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './PageActionsMenu.stories';
+
+<Meta of={Stories} />
+
+# PageActionsMenu
+
+The page list and sitemap use this menu to expose the same deterministic page commands. Its heading
+names the page and current route, so opening two menus never hides which page will change.
+
+<Canvas of={Stories.Normal} />
+<Canvas of={Stories.Linked} />
+<Controls />
+
+## Commands and destructive impact
+
+`onAction` receives the selected page identity with open, rename, route, duplicate, reorder,
+make-home, settings, or clear. Delete has a separate typed request. A linked page states how many
+internal links will be unlinked in the same transaction. The last page cannot be deleted and points
+the creator to Clear page. A home page needs a replacement identity before delete is enabled, and
+the confirmation names the page that becomes home.
+
+## Keyboard and accessibility
+
+The summary has a page-specific accessible name. Arrow keys, Home, and End move through enabled menu
+items. Escape closes the menu and returns focus to its summary. The delete confirmation is an alert
+dialog, destructive impact is written in text, and disabled deletion is associated with its reason.
+
+Logical properties position the menu correctly in RTL. At narrow widths it opens from the inline
+start and stays within the viewport. Labels may truncate visually while their accessible names stay
+complete. Editor theme tokens provide light and dark colors and visible focus.
+
+## Language
+
+Every string comes from `labels` (`PageActionsMenuLabels`, `PAGE_ACTIONS_MENU_LABELS_EN` by default;
+the Arabic editor passes `PAGE_ACTIONS_MENU_LABELS_AR`). Action labels are verbal nouns («حذف
+الصفحة»), and the unlink count agrees in number («سيُزال رابطان داخليان»).

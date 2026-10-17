@@ -1,0 +1,106 @@
+/* Content skin ONLY: the floating host (.bldr-floating, overlay.css) owns
+   position, transform, visibility, and pointer-events — nothing geometric may
+   live here. Logical properties throughout; there is no measured-geometry
+   exception to take because this element never positions itself.
+
+   Same floating-surface language as the text bubble: white card, hairline
+   border, layered shadow, quiet evenly-sized actions. The bar sits a step
+   SMALLER than the bubble — it is ambient chrome that follows every selection,
+   so it must read as furniture, not as a dialog. */
+.bldr-block-actions {
+  align-items: center;
+  background: var(--bldr-surface, #ffffff);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border, rgb(15 23 42 / 10%));
+  /*
+    Tokens, not literals and not `rem`. Two defects lived in this rule. The
+    shadow was a hard-coded light-theme value, so on the dark editor this
+    surface floated with no elevation at all — the theme publishes
+    `--bldr-shadow-floating` precisely so both grounds get the right weight.
+    And every size was in `rem`, which resolves against the ROOT font size of a
+    document this component does not control: a host at 14px root shrank these
+    hit targets to 24.5px without anyone touching the editor.
+  */
+  border-radius: var(--bldr-radius-lg);
+  box-shadow: var(--bldr-shadow-floating);
+  display: flex;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-xs);
+}
+
+/* Structural pointer movement starts here and nowhere else. The grip is
+   pointer-only because the adjacent earlier/later actions and Alt+Arrow keep
+   the same operation fully keyboard accessible. */
+.bldr-block-actions__drag-handle {
+  align-items: center;
+  align-self: stretch;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: grab;
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.bldr-block-actions__drag-handle:hover {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+  color: var(--bldr-panel-text, #334155);
+}
+
+.bldr-block-actions__drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ICON-ONLY, and square because of it.
+   Five worded actions made this bar as wide as the block it floats over, which
+   is the opposite of ambient furniture — it covered the page it was meant to
+   act on. The name is still in the DOM as visually-hidden text (that is the
+   accessible name), and `title` gives the pointer a hint, so nothing is lost
+   but the width. `inline-size` matches the `lg` ChromeButton height exactly, so
+   the target stays square at either density. */
+.bldr-block-actions__action {
+  background: none;
+  border: 0;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text, #334155);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  inline-size: var(--bldr-control-lg);
+  line-height: var(--bldr-line-height-tight);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-0);
+}
+
+/* Delete reads as the destructive one BEFORE it is pressed, not after. Hover
+   only: a bar that is permanently half red makes the safe actions look unsafe.
+   Keyed on the action ID, never on the label — the label is prose that
+   translates, and a selector that reads English would silently stop matching.
+
+   Carries the bar's own class as well, purely for WEIGHT: `ChromeButton` styles
+   its quiet hover with four compound parts, and a rule that merely ties with it
+   is decided by whichever stylesheet the bundler happens to emit last. Measured
+   at the tie: this rule lost, and Delete hovered exactly like Duplicate. */
+.bldr-block-actions .bldr-block-actions__action[data-action='delete']:enabled:hover {
+  background: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.bldr-block-actions__action:enabled:hover {
+  background: var(--bldr-surface-hover, rgb(15 23 42 / 6%));
+}
+
+.bldr-block-actions__action:enabled:active {
+  background: var(--bldr-surface-active, rgb(15 23 42 / 10%));
+}
+
+.bldr-block-actions__action:focus-visible {
+  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
+  outline-offset: var(--bldr-border-hairline);
+}
+
+.bldr-block-actions__action:disabled {
+  color: var(--bldr-panel-muted, #64748b);
+  cursor: default;
+  opacity: 0.45;
+}

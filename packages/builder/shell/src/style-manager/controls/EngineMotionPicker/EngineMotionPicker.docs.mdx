@@ -1,0 +1,35 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as EngineMotionPickerStories from './EngineMotionPicker.stories';
+
+<Meta of={EngineMotionPickerStories} />
+
+# EngineMotionPicker
+
+The engine's motion for one element (gsap-pixi fix, 2026-10-08). The timeline engine is an MIT library, so the
+product calls it **Cinematic motion** («حركة سينمائية») and the scene engine **Animated background**
+(«خلفية متحركة») — never a vendor name.
+
+- **Cinematic motion**: cards for None and each recipe, with the schema's bilingual name and one-line description
+  (`CUSTOM_CODE_TIMELINE_RECIPE_INFO`). `recipes` narrows the list to what fits the element — `engineRecipesFor`
+  gives text fade-in, slide-in and split reveal; media fade-in, slide-in, scrub scale and parallax depth; a button a
+  plain entrance; a container or section every recipe but the velocity marquee (unless it is a marquee). The stored
+  recipe is always shown. `recipes={[]}` hides the group.
+- **Plays** (once a recipe is chosen): as the recipe plays, with scroll (`scrub: true`) or once (`scrub: false`).
+- **Animated background** (with `scenes`): None and the palette-only scenes (`HOSTED_SCENES`: particles, mesh
+  gradient), then density and colours once one is chosen. The engine draws them BEHIND the element's own content.
+
+The cards are toggle buttons (`aria-pressed`, one pressed at a time) in a group with ONE tab stop: arrow keys move
+focus (mirrored for RTL, Home/End), Enter or Space chooses, so walking the list writes nothing. Names wrap between
+words only.
+
+Purely presentational: `value` in, `onChange(next, label)` out with the WHOLE next value. The caller turns it into one
+transaction with the helpers in `engine-motion.ts`:
+
+| Surface | Helper | Stored as |
+| --- | --- | --- |
+| customCode element | `engineMotionAttributePatch(attributes, next)` | `data-ck-timeline/scrub/scene/density/palette` (a recipe removes `data-ck-motion`) |
+| registered block part | `engineMotionPartPatch(next)` → the part bar model | `partStyles[key].timeline/scrub` |
+| registered section | `specWithEngineMotion(spec, next)` | the `motion` prop (a new recipe drops `reveal`) |
+
+Labels: `ENGINE_MOTION_PICKER_LABELS_EN` and `ENGINE_MOTION_PICKER_LABELS_AR`.

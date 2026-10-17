@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodeWorkspaceStories from './code-workspace.stories';
+
+<Meta of={CodeWorkspaceStories} />
+
+# CodeWorkspace
+
+`CodeWorkspace` composes the lazy source editor, runtime diagnostics, managed-catalog completion,
+source selection navigation, diff review, and shared-impact approval for a code-backed page.
+
+## Ownership
+
+The subscribed `CodeWorkspacePort` is supplied by the Playground composition root. Its snapshot
+contains only the active file, file index, current selection mapping, and review state. Every edit,
+save, and approval returns an exact project revision and expected file hash through the port; the
+component does not clone a `CodeProject` or write around SiteKernel. The host keeps invalid drafts
+in its persistence layer and turns a successful save into one normal code transaction.
+
+## Selection and diagnostics
+
+Canvas selection arrives as the same revision-bound `SourceHandle` used by the overlay. The runtime
+adapter supplies its runtime `SourceElement` start and end span. Navigation proceeds only when
+project, module, and source revision still match the active file. Compiler diagnostics are passed
+unchanged to `CodeEditor`, which marks and reveals their exact locations.
+
+## Diff and shared impact
+
+An instance diff can be approved directly. A shared diff is approved through `SourceImpactBar`,
+which forwards the current `SharedImpactApproval`. When impact becomes stale the Apply action is
+disabled; Refresh asks the host to recompile and recalculate affected page and instance identities.
+
+## Accessibility and layout
+
+File navigation uses a labelled native select. Save and source reveal are native buttons, status is
+announced politely, and editor diagnostics retain keyboard navigation. Logical layout follows LTR or
+RTL shell direction while code remains LTR. At tablet and phone widths the toolbar becomes one
+column without hiding draft state or review actions.
+
+## Language
+
+Every string comes from `labels` (`CodeWorkspaceLabels`, `CODE_WORKSPACE_LABELS_EN` by default; the
+Arabic editor passes `CODE_WORKSPACE_LABELS_AR`). The editor and impact bar inside it belong to the
+code-view extension and keep that package's own wording.

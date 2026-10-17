@@ -1,0 +1,70 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AccordionStories from './Accordion.stories';
+
+<Meta of={AccordionStories} />
+
+# Accordion
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-primitives`, the curated primitive catalog. A list of collapsible
+sections: FAQs, product specifications, or any long content a reader should be able to skim before
+expanding.
+
+## Why this is vendored rather than written
+
+An accordion is three lines of state and about forty of accessibility, and the forty are the part
+everyone gets wrong: roving focus, arrow keys, Home and End, the `aria-expanded`/`aria-controls`
+pairing, disclosure semantics. Radix has already made those judgments and had them reviewed by more
+people than this project ever will.
+
+What this block owns is the **boundary** — which children are legal, what the document may store,
+and the rule that every stored value is a named intent rather than a literal.
+
+## Props
+
+| Prop          | Type                     | Default    | Notes                                                     |
+| ------------- | ------------------------ | ---------- | --------------------------------------------------------- |
+| `mode`        | `'single' \| 'multiple'` | `'single'` | Whether opening one closes the last                       |
+| `collapsible` | `boolean`                | `true`     | In single mode, whether a reader may close everything     |
+| `defaultOpen` | `'none' \| 'first'`      | `'none'`   | Which item starts open                                    |
+| `motion`      | `MotionSpec`             | —          | Entrance and scroll behaviour, from the closed vocabulary |
+
+## Two design decisions worth knowing
+
+**`defaultOpen` lives on the container, not on the item.** In Radix the open state belongs to the
+root — an item cannot open itself. Putting the property on the item would have read better in the
+inspector and been a lie in the DOM.
+
+**It is a named intent, not an index.** An index is a literal that silently points at the wrong
+section the moment someone reorders the items.
+
+## Slots
+
+`default` accepts `accordionItem` and nothing else. Radix assigns keyboard semantics across the
+items, and a stray block dropped between two of them breaks that traversal without breaking anything
+a test would notice. Arbitrary content goes **inside** an item, where the accordion has no opinion
+about it.
+
+## Accessibility
+
+Every trigger is a real `<button>` — focusable, activated by Enter and Space, announcing its state
+through `aria-expanded`. Arrow keys move between items, Home and End jump to the ends. All of it
+comes from Radix; the tests here are what prove the wrapper did not quietly break it.
+
+The chevron is `aria-hidden`. The trigger already announces its state, and a decoration a screen
+reader also reads is the same information twice.
+
+## Responsive, RTL, and theme
+
+Every measurement resolves from a `--t-*` page token, so re-pointing one theme value restyles every
+accordion on every page ever authored. Logical properties throughout, so an RTL document mirrors
+without a second stylesheet.
+
+## Known limitations
+
+- **Nesting is refused.** An accordion inside an accordion produces two competing roving-focus
+  regions, and arrow keys then belong to whichever mounted first.
+- **`defaultOpen` names the first item only.** Opening a specific later item would need an index,
+  and an index is exactly the literal this vocabulary exists to avoid.

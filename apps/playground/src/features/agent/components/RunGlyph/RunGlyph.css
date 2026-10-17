@@ -1,0 +1,228 @@
+/*
+  RunGlyph (SPEC §4.7). All colour is here; all geometry is in the markup.
+
+  The ground is the node's 2px Paper ring. On Paper it is invisible, and it is what makes a
+  spine segment appear to run into the node rather than through it. A decision card is a
+  Sheet, so it re-points `--ck-agent-ground` to `--bldr-surface` and the ring matches the
+  card. The ring and the ground share the fill, so a node is never see-through.
+
+  "On-danger" (the cross on the failed disc) is #FFFFFF in light and #0E1116 in dark, the
+  exact values of `--bldr-accent-text`, which the theme contract already carries; the
+  cross reads it rather than adding a token with the same two values.
+*/
+
+.ck-agent-glyph {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.ck-agent-glyph__ground,
+.ck-agent-glyph__badge-ground {
+  fill: var(--ck-agent-ground, var(--bldr-panel));
+}
+
+/* Waiting and absent: a Rule ring, 3.28:1 on Paper, above the 3:1 a graphic needs. */
+.ck-agent-glyph__ring {
+  fill: var(--ck-agent-ground, var(--bldr-panel));
+  stroke: var(--bldr-panel-border-strong);
+  transition: stroke var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* Working: the ring is the Halo track the Indigo arc turns on. */
+.ck-agent-glyph[data-state='working'] .ck-agent-glyph__ring {
+  stroke: var(--bldr-accent-ring);
+}
+
+/* Drafted: an Indigo outline, "written, not yet ink" (SPEC §2.1 rule 3). */
+.ck-agent-glyph[data-state='drafted'] .ck-agent-glyph__ring,
+.ck-agent-glyph[data-state='landed'] .ck-agent-glyph__ring,
+.ck-agent-glyph[data-state='partial'] .ck-agent-glyph__ring {
+  stroke: var(--bldr-accent);
+}
+
+.ck-agent-glyph[data-state='failed'] .ck-agent-glyph__ring {
+  stroke: var(--bldr-danger);
+}
+
+.ck-agent-glyph__arc {
+  fill: none;
+  stroke: var(--bldr-accent);
+}
+
+/*
+  900ms, linear, clockwise in both directions (SPEC §4.7, §6.6). The theme has no token for
+  a spinner's period; the Stopping spinner (AgentIcon) turns at the same speed.
+*/
+.ck-agent-glyph__spin {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+  animation: ck-agent-glyph-spin 900ms linear infinite;
+}
+
+.ck-agent-glyph__core {
+  fill: var(--bldr-accent);
+}
+
+.ck-agent-glyph__disc {
+  fill: var(--bldr-accent);
+}
+
+.ck-agent-glyph[data-state='failed'] .ck-agent-glyph__disc {
+  fill: var(--bldr-danger);
+}
+
+.ck-agent-glyph__mark {
+  fill: none;
+  stroke: var(--bldr-accent-text);
+}
+
+.ck-agent-glyph__badge-dot {
+  fill: var(--bldr-danger);
+}
+
+.ck-agent-glyph__diamond {
+  fill: var(--ck-agent-ground, var(--bldr-panel));
+  stroke: var(--bldr-accent);
+}
+
+.ck-agent-glyph__lines {
+  fill: none;
+  stroke: var(--bldr-panel-muted);
+}
+
+/* What sits at the reading end follows it: the partial dot, the note's ragged lines. */
+.ck-agent-glyph [data-mirror]:dir(rtl) {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+  scale: -1 1;
+}
+
+@keyframes ck-agent-glyph-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* ── Arrival (SPEC §5 moments 1 and 3), only for a live build (`animate`) ─────── */
+
+/* A section lands: the disc inks in over the ring that was already there. */
+.ck-agent-glyph[data-animate] .ck-agent-glyph__disc {
+  animation: ck-agent-glyph-ink var(--bldr-duration-land) var(--bldr-easing-enter) both;
+}
+
+/* ...and the check settles from 0.6, about the node's centre. */
+.ck-agent-glyph[data-animate] .ck-agent-glyph__mark {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+  animation: ck-agent-glyph-settle var(--bldr-duration-land) var(--bldr-easing-enter) both;
+}
+
+/* A draft finishes: the core appears in 120ms, a state change rather than an arrival. */
+.ck-agent-glyph[data-animate] .ck-agent-glyph__core,
+.ck-agent-glyph[data-animate] .ck-agent-glyph__badge {
+  animation: ck-agent-glyph-ink var(--bldr-duration-state) var(--bldr-easing) both;
+}
+
+@keyframes ck-agent-glyph-ink {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ck-agent-glyph-settle {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+/*
+  Reduced motion: the arc holds still (a static quarter still reads as "in progress"), and
+  a landing is a 120ms colour fade with no scale (SPEC §5 moment 1).
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-glyph__spin {
+    animation: none;
+  }
+
+  .ck-agent-glyph[data-animate] .ck-agent-glyph__disc,
+  .ck-agent-glyph[data-animate] .ck-agent-glyph__mark {
+    animation: ck-agent-glyph-ink var(--bldr-duration-state) linear both;
+  }
+}
+
+/*
+  High contrast. The system palette replaces ours, so each state is restated in system
+  colours with the same selectors (same specificity, later in the sheet). The shapes carry
+  the states; the colours below only keep them legible:
+  waiting and absent GrayText rings (solid against dashed); working drops its track so the
+  Highlight arc alone reads as a spinner, never as a waiting ring; drafted a CanvasText ring
+  and core; landed a Highlight disc; failed a Mark disc; partial's dot Mark on a Canvas ring.
+*/
+@media (forced-colors: active) {
+  .ck-agent-glyph {
+    forced-color-adjust: none;
+  }
+
+  .ck-agent-glyph__ground,
+  .ck-agent-glyph__badge-ground {
+    fill: Canvas;
+  }
+
+  .ck-agent-glyph__ring {
+    fill: Canvas;
+    stroke: GrayText;
+  }
+
+  .ck-agent-glyph[data-state='working'] .ck-agent-glyph__ring {
+    stroke: Canvas;
+  }
+
+  .ck-agent-glyph[data-state='drafted'] .ck-agent-glyph__ring,
+  .ck-agent-glyph[data-state='landed'] .ck-agent-glyph__ring,
+  .ck-agent-glyph[data-state='partial'] .ck-agent-glyph__ring {
+    stroke: CanvasText;
+  }
+
+  .ck-agent-glyph[data-state='failed'] .ck-agent-glyph__ring {
+    stroke: Mark;
+  }
+
+  .ck-agent-glyph__arc {
+    stroke: Highlight;
+  }
+
+  .ck-agent-glyph__core {
+    fill: CanvasText;
+  }
+
+  .ck-agent-glyph__disc {
+    fill: Highlight;
+  }
+
+  .ck-agent-glyph[data-state='failed'] .ck-agent-glyph__disc {
+    fill: Mark;
+  }
+
+  .ck-agent-glyph__mark {
+    stroke: HighlightText;
+  }
+
+  .ck-agent-glyph[data-state='failed'] .ck-agent-glyph__mark {
+    stroke: MarkText;
+  }
+
+  .ck-agent-glyph__badge-dot {
+    fill: Mark;
+  }
+
+  .ck-agent-glyph__diamond {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .ck-agent-glyph__lines {
+    stroke: CanvasText;
+  }
+}

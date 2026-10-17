@@ -10,6 +10,19 @@ features, applications, packages, delivery workflows, or long-term maintenance.
 - [`0002-select-routing-query-foundations.md`](0002-select-routing-query-foundations.md) —
   caller-owned TanStack Query clients, React Router v8 deferred-route helpers, and measured package
   budgets.
+- [`0003-builder-dependency-law.md`](0003-builder-dependency-law.md) — the builder layer law (schema
+  ← core ← engines ← shell ← extensions ← preset) enforced by the workspace validators instead of
+  experimental Turbo tags.
+- [`0004-builder-tier2-declarative-model.md`](0004-builder-tier2-declarative-model.md) — tier-2
+  builder content is JsonValue-typed declarative data compiled by Tier-1; executable content is
+  structurally unrepresentable and rejected in depth.
+- [`0005-adaptive-spec-router-local-demo.md`](0005-adaptive-spec-router-local-demo.md) — Adaptive
+  Spec Router is a private Vite React local product trial with deterministic in-memory data and no
+  provider, credential, repository, or deployment integration.
+- [`0006-builder-site-model-and-design-tokens.md`](0006-builder-site-model-and-design-tokens.md) — a
+  site is ONE kernel with pages as lenses (so a whole generation is one undo and a failure writes
+  nothing), `DesignSystem` moves to layer 0, and an image prop holds an asset id or a labelled
+  absence but never an address.
 
 ## Naming
 

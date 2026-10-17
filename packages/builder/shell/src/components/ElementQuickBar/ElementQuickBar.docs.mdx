@@ -1,0 +1,101 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ElementQuickBarStories from './ElementQuickBar.stories';
+
+<Meta of={ElementQuickBarStories} />
+
+# ElementQuickBar
+
+The quick controls beside a focused element on the canvas (style-manager DESIGN.md §A.6). Every
+element inside a custom-code region is a widget: click it and its colour, size, spacing, alignment
+and direction are one click away, without opening the side panel.
+
+## Groups per element kind
+
+| Kind            | Tags                                                       | Groups                                                                |
+| --------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| Text            | h1–h6, p, span, li, blockquote, label, …                   | size, weight, colour, align, line height, direction                   |
+| Container       | div, section, header, footer, nav, article, ul, form, …    | background, padding (mini box model), gap, flex direction, align/justify, radius, border, shadow |
+| Image / video   | img, video, picture, iframe, audio                         | replace (host asset manager), fit, radius, aspect, alt                |
+| Link / button   | a, button                                                  | link editor (href, new tab), colour, style preset, hover preset       |
+| Icon            | icon nodes                                                 | icon name, size, colour                                               |
+
+Each group opens a compact popover with the P6 style-manager controls (`StyleColorControl`,
+`BoxModelControl`, `CornerRadiusControl`, `ChoiceGroup`, `ScaleNumberControl`,
+`MotionPresetGrid`). The bar ends with **More** (the matching side-panel sector, via
+`onMore(sector)`) and **Edit with AI** (`onEditWithAi`).
+
+The second row carries the element actions from `resolveElementActions`: select parent,
+duplicate, delete, move earlier/later, wrap, unwrap, copy/paste style, save as template, animate,
+hide on this device, deselect. With an element focused these act on the **element** (tree
+commands), never on the region around it.
+
+## Writes
+
+Every control commits through `createElementBarModel`: the P1 engine turns the edit into classes
+(`applyStyleIntents`, free mode), and every target is written by `patchTreeNode` (or `setTreeNode`
+for icon fields) in ONE `dispatchGroup` labelled `"<Property> · <element name>"` — one Undo, for one
+element or a whole multi-selection. Direction and the hover preset are attributes (`dir`,
+`data-ck-hover`), never classes.
+
+## Keyboard
+
+- One WAI-ARIA toolbar (Radix): a single tab stop for both rows, roving arrows that follow the
+  editor's `dir` (ArrowLeft is forward in RTL), Home/End.
+- `Alt+F10` on the canvas enters the bar (`focusRequest`).
+- Escape closes an open popover first; with none open it returns focus to the element
+  (`onReturnFocus`) — it never means "leave the element".
+
+## Overflow
+
+Groups that do not fit the canvas fold, from the end, into a "More controls" menu.
+`visibleGroupCount` (measure-groups.ts) is a pure function over measured widths; an unmeasured bar
+keeps every group.
+
+## Labels
+
+User-facing strings come from `labels` (`ELEMENT_QUICK_BAR_LABELS_EN` / `_AR`); catalogue
+property and option names come from the §A.4 catalogue in the same language.
+
+{/* ── block-parts (2026-10-06) ── */}
+
+## Parts of registered blocks (block-parts DESIGN §2.14)
+
+The same bar serves a registered block's **part** — the hero's heading, its button, a feature
+card. `createPartBarModel(kernel, target, options)` implements `ElementBarModel`, so every group,
+popover and control is reused; only the door differs:
+
+- **Kind.** text and rich → text, link → link, image → media, list / item / box → container.
+  `quickGroupsForPart(kind, styleSections)` drops the groups that write free attributes
+  (direction, hover preset, the attribute link editor) or named-style markers, and narrows
+  to the part's declared `styleSections`.
+- **Animation (gsap-pixi, 2026-10-08).** Text, container, media and link parts keep the `motion`
+  group, but the model says `motionScope: 'part'`, so the popover shows **Cinematic motion only**
+  (`EngineMotionPicker`, the recipes that fit the kind). `setAttributes` takes exactly
+  `data-ck-timeline` / `data-ck-scrub` and stores them in the part's own `partStyles` entry at the
+  bar's scope — ONE `setProp`, labelled `Cinematic motion · Hero heading`. A CSS preset or hover
+  effect is refused (`PART_NO_CSS_MOTION`). A customCode element's popover shows the CSS presets
+  THEN Cinematic motion, plus Animated background cards on a `div` or sectioning container.
+- **Style writes.** `apply()` runs `planPartStyle` (the style engine in **tokens** mode, the law a
+  block's `className` keeps) into the block's `partStyles` prop at the bar's bucket, state and
+  scope (`all`, or `this` for one instance of a repeated part) — ONE `dispatchGroup`, one Undo. A
+  palette colour is refused with the engine's sentence.
+- **Values.** `alt` (image) and `href` (link) are bound props written through `planPartValue`;
+  any other attribute, and `setIcon`, are refused with a sentence (`PART_NO_ATTRIBUTES`,
+  `PART_NO_ICON`).
+- **Action row.** `resolvePartActions` / `performPartAction` (part-actions.ts): Edit text, Link
+  (`PartLinkPopover`: text + address, `safeHref`, an optional page list — one transaction through
+  `planPartLinkValue`), Add item after, Duplicate, Move up / down, Remove (from the item or any part
+  inside it, the focus following the item), This item only (scope), Direction auto / LTR / RTL
+  (`planPartDir`) and Select the whole block. Replace image and Alt text are the media groups.
+  More (`onMore` → the part's Design tab) and Edit with AI stay at the end of the bar.
+
+Props added to `ElementQuickBar`: `groups`, `partActions`, `onPartAction`, `partLink`. The part
+words live in `labels.parts` (`PART_QUICK_BAR_LABELS_EN` / `PART_QUICK_BAR_LABELS_AR`).
+
+## Narrow frames
+
+The rows wrap, and the bar is never wider than the canvas overlay (`100cqi` of `.bldr-overlay`,
+less the placement padding). At the Mobile device (390px) the actions fold onto another line
+instead of running past the frame's clip. The `MobileFrame` and `ArabicMobileFrame` stories check
+that every button stays inside a 300px frame.

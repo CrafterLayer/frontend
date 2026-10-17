@@ -51,6 +51,12 @@ export async function discoverComponentFolders(repositoryRoot) {
       path.join(member.absolutePath, 'src', 'components'),
       componentFolders,
     );
+    // Extension packages keep their components directly under `src/` (the
+    // richtext and code-view convention since B3b). Leaving that root
+    // unscanned meant NONE of their components were governed — a gap found by
+    // 011 T031's negative check, where deleting a docs file changed nothing.
+    // The capitalized-name pattern keeps codec/worker/testing folders out.
+    await collectDirectComponents(path.join(member.absolutePath, 'src'), componentFolders);
   }
 
   for (const member of workspace.members.filter((candidate) => candidate.kind === 'app')) {

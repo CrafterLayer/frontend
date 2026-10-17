@@ -119,3 +119,30 @@ async function writeCompleteComponent(fixture, componentPath, componentName) {
     await fixture.writeText(`${componentPath}/${artifact}`, `${artifact}\n`);
   }
 }
+
+test('governs extension-style components living directly under src (011 T031)', async (t) => {
+  // The gap this pins: discovery once scanned only `src/components`, so the
+  // richtext and code-view extensions — whose components live directly under
+  // `src/` — were never governed at all. Deleting a docs file changed nothing,
+  // which a boundary negative exposed. Lowercase folders (codec, worker,
+  // testing) stay out via the capitalized-name pattern.
+  const fixture = await createRepositoryFixture(t);
+  await fixture.writeJson('packages/code-view/package.json', packageManifest('@fixture/code-view'));
+  await writeCompleteComponent(fixture, 'packages/code-view/src/CodeViewPanel', 'CodeViewPanel');
+  await fixture.writeText('packages/code-view/src/worker/client.ts', 'export {};\n');
+  await fixture.writeText(
+    'packages/code-view/src/CodeViewErrors/CodeViewErrors.tsx',
+    'export function CodeViewErrors() { return null; }\n',
+  );
+
+  const result = await validateComponents(fixture.repositoryRoot);
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.components.map((component) => component.path),
+    ['packages/code-view/src/CodeViewErrors', 'packages/code-view/src/CodeViewPanel'],
+  );
+  const incomplete = result.diagnostics.filter((diagnostic) =>
+    diagnostic.ownerPath.includes('CodeViewErrors'),
+  );
+  assert.ok(incomplete.length > 0, 'the direct-src component must be governed');
+});

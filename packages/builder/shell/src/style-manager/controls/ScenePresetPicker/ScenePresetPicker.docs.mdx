@@ -1,0 +1,24 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ScenePresetPickerStories from './ScenePresetPicker.stories';
+
+<Meta of={ScenePresetPickerStories} />
+
+# ScenePresetPicker
+
+The settings of a `div[data-ck-scene]` layer (media-motion DESIGN §D.2), shown in the Inspector's Advanced group
+when that layer is selected:
+
+- **Scene**: particles, mesh gradient, parallax layers, mural («جدارية») or ripple. They are cards in a radio group
+  (one tab stop, arrow keys mirrored for RTL, Home/End), with the schema's bilingual names and one-line
+  descriptions (`CUSTOM_CODE_SCENE_INFO`).
+- **Density**: `data-ck-density`, low, medium or high.
+- **Colours**: `data-ck-palette`, theme, accent or mono. The engine reads the colours from the theme tokens when it
+  mounts, so the tree never carries a colour.
+
+Parallax layers, mural and ripple draw from the layer's own `img` children (they are also the fallback with no
+script or under reduced motion). When the layer holds none, those cards are `aria-disabled` and say why.
+
+Every change calls `onCommit(patch, label)` once with closed values only, and the caller writes it as ONE labelled
+transaction. The swatches never animate. Labels: `SCENE_PRESET_PICKER_LABELS_EN` and
+`SCENE_PRESET_PICKER_LABELS_AR`.

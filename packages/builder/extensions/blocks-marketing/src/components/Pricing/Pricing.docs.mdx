@@ -1,0 +1,50 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PricingStories from './Pricing.stories';
+
+<Meta of={PricingStories} />
+
+# Pricing
+
+Plans side by side from document data; one plan may be highlighted as recommended.
+
+## Props (intent-only)
+
+- `eyebrow?: string (1–40)` — the small line above the heading; unset shows nothing (it used to be
+  a hard-coded English "Plans").
+- `heading: string (1–80) = 'Pricing'`
+- `body?: string (1–200)` — supporting copy below the heading.
+- `plans (≤4): Array<{ name (1–40); price (1–20); period: 'month' | 'year'; features: string[] (≤8, each ≤80); highlighted?: boolean }> = []`
+- `columns: 'auto' | '2' | '3' | '4' = 'auto'`
+- `align: 'start' | 'center' | 'end' = 'start'` — aligns the header box itself, not only its text, so a
+  centred heading sits in the middle of the column.
+- `tone: 'transparent' | 'light' | 'dark' = 'transparent'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'md'`
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'wide'` (the column every section shares by default)
+
+## Accessibility
+
+A labelled `section`; plans are a semantic list; each plan has an `h3` and its features are a nested
+list. Highlighting is conveyed by the accent border AND by document order/reading — never color
+alone carrying meaning beyond emphasis.
+
+## Theming & RTL
+
+Tokens + logical properties; `padding-inline-start` keeps feature bullets on the correct side in
+RTL. `auto` preserves the responsive plan grid; fixed columns let an author choose a deliberate
+layout.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind      | label (en / ar)             |
+| --------- | ---- | --------- | --------------------------- |
+| `heading` | text | `heading` | Heading / العنوان           |
+| `body`    | text | `body`    | Intro / المقدمة (multiline) |
+| `plans`   | box  | —         | Plan row / صف الخطط         |
+
+Each plan card is a `pricingPlan` node with its own parts.

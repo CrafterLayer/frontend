@@ -1,0 +1,41 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SiteLibraryStyleStories from './SiteLibraryStyle.stories';
+
+<Meta of={SiteLibraryStyleStories} />
+
+# SiteLibraryStyle
+
+Publishes the site design library (style-manager DESIGN.md §2) to the canvas as one
+`<style data-ck-library>`: palette colours as `--ck-c-<id>` custom properties, `@import` lines for
+Google and Bunny fonts, and `@font-face` rules for uploaded woff2 files.
+
+## Usage
+
+```tsx
+<SiteDesignContext.Provider value={{ library: site.library }}>
+  <SiteLibraryStyle />
+  <DocumentView kernel={kernel} />
+</SiteDesignContext.Provider>
+```
+
+## API
+
+- `library?: SiteLibrary` — the library to publish. Without it, the one `SiteDesignContext` provides
+  is used.
+
+## Behavior
+
+- The CSS comes from `buildLibraryCss`, which the static export uses too, so the canvas and the
+  published site load the same variables and fonts.
+- Font `@import`s come first (CSS ignores an import after any other rule), and only for
+  `fonts.googleapis.com` and `fonts.bunny.net`, the two hosts the CSS door admits.
+- Uploaded faces use `font-display: swap`, so text shows at once in a fallback face.
+- An entry that fails its schema (a palette value that is not one colour, an upload that is not a
+  woff2 data URL) is left out and the rest still render.
+- Renders nothing when the library contributes no CSS.
+
+## Accessibility
+
+No visible output. Uploaded and hosted faces swap in without hiding text, and the variables only
+carry colours the person chose; contrast stays the job of the design-system panel.

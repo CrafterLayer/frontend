@@ -12,3 +12,4 @@ playwright-report/
 storybook-static/
 test-results/
 pnpm-lock.yaml
+vendor/

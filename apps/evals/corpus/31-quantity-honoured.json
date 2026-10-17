@@ -1,0 +1,26 @@
+{
+  "id": "31-quantity-honoured",
+  "title": "Ten means ten",
+  "category": "quantity",
+  "fixture": "empty",
+  "dir": "ltr",
+  "request": "Add a frequently asked questions section with exactly eight questions about shipping, returns, and warranty.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 6,
+    "anyBlockTypes": ["faq"]
+  },
+  "budget": {
+    "maxCommands": 24,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 180000
+  },
+  "rubric": "Are there eight questions, on the three subjects asked for?",
+  "why": "A count in the request is the easiest promise to check and one of the easiest to quietly drop. The corpus had one quantity case; this one puts the number inside a single block's content rather than across blocks, which is where it is usually lost."
+}

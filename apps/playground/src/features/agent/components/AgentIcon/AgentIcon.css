@@ -1,0 +1,46 @@
+/*
+  The agent panel's glyphs (SPEC §4.21). Colour is the parent's: every shape is drawn in
+  currentColor, so a ghost button's Graphite, its hover Ink and a primary button's
+  On-accent all reach the glyph without a rule here.
+*/
+
+.ck-agent-icon {
+  display: block;
+  flex: none;
+}
+
+/*
+  Directional glyphs follow the reading direction. `:dir(rtl)` on the glyph itself, not an
+  ancestor selector: a Latin island (`dir="ltr"`) inside the Arabic panel keeps its arrow
+  pointing right.
+
+  The individual `scale` property, not `transform: scaleX(-1)`: `transform` stays free for
+  the component that owns the glyph. An open disclosure rotates its chevron with
+  `transform: rotate(90deg)`, and CSS applies `transform` before `scale`, so the chevron
+  turns down first and the mirror leaves it pointing down, in both directions.
+*/
+.ck-agent-icon[data-mirror]:dir(rtl) {
+  scale: -1 1;
+}
+
+/*
+  Stopping (SPEC §4.17). Always clockwise, in both directions (SPEC §6.6). 900ms is the
+  RunGlyph arc's period (SPEC §4.7), so every spinner in the panel turns at one speed;
+  the theme has no duration token for a loop this short.
+*/
+.ck-agent-icon[data-icon='spinner'] {
+  animation: ck-agent-icon-spin 900ms linear infinite;
+}
+
+@keyframes ck-agent-icon-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* A still three-quarter ring still reads as "in progress" (SPEC §5: loops never start). */
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-icon[data-icon='spinner'] {
+    animation: none;
+  }
+}

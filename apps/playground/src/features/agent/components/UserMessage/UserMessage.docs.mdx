@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as UserMessageStories from './UserMessage.stories';
+
+<Meta of={UserMessageStories} />
+
+# UserMessage
+
+The person's own request (SPEC §4.5): a Tint bubble at the inline end.
+
+<Canvas of={UserMessageStories.WithContext} />
+
+## Purpose
+
+The one filled shape in the thread besides the composer. It is set apart from the paper by its place
+at the inline end and its Tint, not by a border, so the records below it, which are history, stay
+unboxed.
+
+## When to use / not
+
+Every `user` turn. No actions live on the bubble: retry, reuse and restore sit on the record below
+it, where the outcome is.
+
+## Props
+
+| prop        | type              | default | notes                                           |
+| ----------- | ----------------- | ------- | ----------------------------------------------- |
+| `locale`    | `Locale`          | none    | the panel's; the words keep their own direction |
+| `view`      | `UserMessageView` | none    | `text`, `chips` sent with it, `notRun`          |
+| `className` | `string`          | none    | appended to `ck-agent-message`                  |
+
+## States
+
+`Sent` (a whole-page request: the default scope is not repeated), `SentAt420` (80% wide from 400px),
+`WithContext` (the selection and a mention as its first line), `MixedScripts` (a leading Latin word
+does not fool the direction), `NotRun` (stopped before any output: 60% opacity and "Not run"),
+`StaleContext` (a block no longer on the page, struck through), `LongLink` (an unbroken link wraps;
+nothing scrolls sideways), each with Arabic and dark twins.
+
+## Anatomy
+
+```text
+            ┌───────────────────────────┐
+            │ ▭ Hero   ▭ Services       │   context: Meta, Graphite, not interactive
+            │ Make the hero dark and    │   the request: Read, Ink
+            │ add a WhatsApp button     │
+            └──────────────────────────╮┘   radius 16, the tail corner (block-end, inline-end) 4
+                                   Not run   caption when not run (Meta, Slate)
+```
+
+- At most 85% of the thread (80% from 400px); padding 8 × 12; Tint fill (`--bldr-surface-tint`). Ink
+  on Tint is 14.84:1; the context line is Graphite, since Slate on Tint falls under 4.5:1 (SPEC §2.1
+  rule 2).
+- Block names end in an ellipsis at 16 characters, as a composer chip does.
+- Request text explicitly uses the regular reading weight; operation headings remain semibold, so
+  busy threads distinguish the person's words from the Agent's action titles.
+
+## Accessibility
+
+- An `<article>` named "Your request" (`message.aria`), since it has no heading of its own.
+- The words carry `dir` from the majority of their letters (`resolveDir`, never `dir="auto"`) and
+  `lang` from their script, so a screen reader switches voice; each line orders itself.
+- A stale block is struck through and says "No longer on the page" in words.
+- Under `forced-colors` the Tint drops away, so the bubble keeps its shape as a 1px outline.
+
+## RTL
+
+The bubble keeps the panel's direction, so its tail corner is always the one toward the edge it
+hangs from (the left in Arabic); only the words inside take their own direction.
+
+## Motion
+
+None.

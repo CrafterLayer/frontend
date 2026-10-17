@@ -1,0 +1,23 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BoxModelControlStories from './BoxModelControl.stories';
+
+<Meta of={BoxModelControlStories} />
+
+# BoxModelControl
+
+The visual box model of the Spacing sector (style-manager DESIGN.md §A.4): margin and padding as
+nested rings (and, reused, inset and border widths as single rings).
+
+- **Sides are logical**: block-start, block-end, inline-start, inline-end. The rings are laid out in
+  the **page's** direction, so on an Arabic page inline-start is on the right.
+- **Each side is a button** named like "Padding inline-start, 16px".
+  - **Drag** to scrub: the value previews through `onPreview` (canvas only) and is committed **once**
+    on pointerup through `onCommit`. Pixel scrubs snap to the scale.
+  - **Press** (click, Enter, Space) to open an exact editor (`ScaleNumberControl`).
+  - **Shift** applies to all four sides, **Alt** to the opposite pair (block or inline).
+- The value's origin colours the number: set here (accent), inherited (dotted underline).
+
+`onCommit(ring, side, value)` receives the ring id (`margin`, `padding`), the side group (`all`,
+`block`, `inline` or one side) and the value (`null` resets). Labels: `BOX_MODEL_CONTROL_LABELS_EN`
+and `BOX_MODEL_CONTROL_LABELS_AR`.

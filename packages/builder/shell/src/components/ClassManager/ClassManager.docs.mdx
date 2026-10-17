@@ -1,0 +1,28 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ClassManagerStories from './ClassManager.stories';
+
+<Meta of={ClassManagerStories} />
+
+# ClassManager
+
+Named styles (Webflow-style classes) for every element (style-manager DESIGN.md §G, D6).
+
+A style is a bundle of utilities stored once in the site library. An element carries it as the
+marker `ck-s-<id>`, and the renderer expands markers at render time
+(`ckTwMerge(...styleUtilities, ownUtilities)`), so editing a style once moves every element that
+uses it, on the canvas and in the export.
+
+Every action is **one labelled transaction** through the `site` door (the site kernel):
+
+| Action | Steps |
+| --- | --- |
+| Create from element | `setNamedStyle` + `patchTreeNode` replacing the element's style classes with its marker |
+| Apply to selected / to all similar | one `patchTreeNode` per element (similar = same tag and class set, `similarSiblings`) |
+| Rename / raw classes | `setNamedStyle` |
+| Edit style | the host's StylePanel via `renderStyleEditor(namedStyleSource(site, id))` |
+| Combo order / remove from element | `patchTreeNode` (later markers win a conflict) |
+| Delete | `removeNamedStyle`; refused by the door while in use; "Detach and delete" sends `detach: true`, which inlines the style into every user in the same transaction |
+
+Usage counts come from `namedStyleUsageCounts`. A registered block is told to "Convert to editable"
+first: named styles live on composed elements. Labels: `CLASS_MANAGER_LABELS_EN` / `_AR`.

@@ -1,0 +1,23 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as FixturePickerStories from './FixturePicker.stories';
+
+<Meta of={FixturePickerStories} />
+
+# FixturePicker
+
+Controlled select choosing the playground's fixture document (marketing landing, empty page, B3c
+inline editing, or B4 code view). Switching fixtures recreates the kernel — documents are data,
+kernels are sessions.
+
+## API
+
+- `value: 'landing' | 'empty' | 'inline' | 'code-view' | 'code-page'`
+- `onChange(next)`
+- `showCodePage?: boolean` — offers the authored TSX page.
+- `labels?: FixturePickerLabels` — the field's name and each fixture's; English by default
+  (`FIXTURE_PICKER_LABELS_EN`).
+
+## Accessibility
+
+A native labelled `select`.

@@ -1,0 +1,156 @@
+# Tasks: Builder B3c Inline Editing & Floating Toolbars
+
+**Input**: Design documents from `specs/workspace/009-builder-b3c-inline-editing/`
+**Prerequisites**: B3b delivered and green; prior-art research complete (research.md R0–R3). Tests
+are MANDATORY; every new UI component ships the full component contract. NO COMMITS — authorization
+remains withheld; the final task produces a proposal only.
+
+## Phase 1: Vendor intake (the first vendored code in this repository)
+
+- [x] T001 Create `vendor/` with `VENDOR.md` (what, upstream repo + pinned commit, license, why
+      vendored rather than depended, what we changed) and `THIRD_PARTY_LICENSES.md` (MIT texts for
+      Puck and TipTap); add a `check:workspace`-side assertion that every file under `vendor/`
+      carries a provenance header and appears in VENDOR.md
+- [x] T002 Vendor Puck `packages/core/components/InlineTextField/index.tsx` (MIT, pinned commit)
+      into `vendor/puck/inline-text-field.tsx` with a provenance header, unmodified; the ADAPTATION
+      lives separately in the shell component (T008)
+
+## Phase 2: Foundational (blocking all stories)
+
+- [x] T003 [P] `positionFloating` (contract §2) in shell/src/overlay/floating-position.ts +
+      table-driven suite: prefer-above, FLIP at the frame top edge, inline clamping, RTL mirroring,
+      zero-size and oversized-toolbar degenerate cases (SC-004)
+- [x] T004 [P] `toHost` beside `toFrame` in EditorCanvas (contract §7 c1) + a test asserting the
+      pair round-trips a point (the ONE meeting place; future zoom lives here)
+- [x] T005 [P] `inlineEditable` declaration (contract §1) in defineBlockSchema + registration- time
+      validation (unknown key, wrong kind) + schema tests
+
+## Phase 3: User Story 1 — Edit text where it lives (P1) 🎯 MVP
+
+- [x] T006 [US1] Inline session (contract §3) in shell/src/overlay/inline-session.ts: enter
+      (double-click / Enter), exit (Escape / other selection / node vanished), zero dispatch on
+      entry and exit + unit tests
+- [x] T007 [US1] Renderer seam: swap the declared prop's output for the editing surface on exactly
+      ONE node, so only that node's subtree re-renders (FR-009) + render-scope test
+- [x] T008 [US1] `InlineTextSurface` shell component adapted from the vendored Puck file (contract
+      §4 t1) — FULL component contract; the per-keystroke store write becomes our
+      one-commit-per-change door call; value-sync guard and hover/focus gating preserved
+- [x] T009 [US1] US1 acceptance: AC1–AC6 (enter by both gestures, one tx per commit + live canvas,
+      Escape keeps selection, click-away commits and re-selects, undo shows through, non-editable
+      blocks ignore the gesture)
+
+**Checkpoint**: text edits where it lives, under the same transaction law.
+
+## Phase 4: User Story 2 — The formatting bubble (P2)
+
+- [x] T010 [US2] Selection-rect channel in the richtext extension: `selectionUpdate` →
+      `posToDOMRect` → layer-local anchor, with the VENDORED BubbleMenu `shouldShow` logic
+      (attributed; `@tiptap/core` only, no new package)
+- [x] T011 [US2] `TextBubble` shell component (contract §5) — FULL contract; pointer-down
+      cancellation + the canvas layer-origin click guard (risks 2 and 9)
+- [x] T012 [US2] US2 acceptance: AC1–AC5 (appears on non-empty selection, one tx per action with the
+      selection preserved, disappears on collapse/exit/out-of-view, stays anchored across frame
+      scroll and resize, absent for plain-text surfaces)
+
+## Phase 5: User Story 3 — Block action bar (P3)
+
+- [x] T013 [US3] `BlockActionBar` as a `'selection'` canvas tool (contract §6) — FULL contract;
+      duplicate / delete / move earlier / move later / edit text
+- [x] T014 [US3] US3 acceptance: AC1–AC5 (anchored to the outline, one tx + expected resulting
+      selection per action, invalid actions absent-or-disabled, hidden during a drag,
+      keyboard-operable)
+
+## Phase 6: User Story 4 — The laws survive (P4)
+
+- [x] T015 [US4] Zero-render and containment proofs on the 1,000-node stress document:
+      hover/select/scroll/toolbar positioning ⇒ 0 content renders; an inline commit ⇒ exactly one
+      node's subtree; the engine loader ⇒ 0 invocations without rich inline editing
+- [x] T016 [US4] RTL acceptance across all three surfaces + the Chromium browser-truth stories
+      (enter-edit, bubble format, exit) inside the real frame (SC-006)
+
+## Phase 7: Integration, polish & delivery gates
+
+- [x] T017 Preset surface additions + surface.test entries
+- [x] T018 Playground scenario 9: select → edit inline → bubble-format → action-bar duplicate → undo
+      lockstep, with the Law-S counter
+- [x] T019 [P] Docs coherence: shell/renderer README notes; VENDOR.md cross-links from the adapted
+      components
+- [x] T020 Evidence run per quickstart: narrow → gates + boundary negatives → storybook
+      catalog-presence → full `pnpm verify`; record here
+- [x] T021 Final diff review (two independent read-only reviewers); fix accepted findings with
+      regression tests; re-run affected checks
+- [x] T022 /speckit-converge (multi-agent audit + adversarial verification, with a MUTATION check on
+      at least one recorded fix — the B3b lesson); implement appended gaps. MUST ALSO decide the
+      editor-local-undo semantics (contract §14 convergence item)
+- [x] T023 /speckit-workspace-handoff (HANDOFF/context/MEMORY refresh)
+- [x] T024 /speckit-workspace-commit proposal ONLY — commit authorization remains withheld
+
+## Dependencies
+
+```text
+T001 → T002 → (T003 ∥ T004 ∥ T005) →
+US1: T006 → T007 → T008 → T009 → US2: T010 → T011 → T012 →
+US3: T013 → T014 → US4: T015 → T016 →
+T017 → T018; T019 [P]; T020 → T021 → T022 → T023 → T024
+```
+
+## Implementation strategy
+
+MVP = Phases 1–3 (editing where the content lives). The bubble and the action bar are what make it
+feel like a builder; the laws phase is what keeps it one. Prior art is adopted, not re-derived:
+research R1 fixes exactly what is vendored, reused, and written fresh.
+
+## Phase 8: Field-report fixes (raised by the user while B3c was in flight)
+
+- [x] T025 Polish law: one chrome at a time — the selection outline and its name chip stand down
+      while a block's text is open for editing (contract §13); jsdom + Chromium proofs
+- [x] T026 The block action bar moves to BELOW-CENTRE (`prefer: 'below'`), off the outline's name
+      chip; `prefer` added to positionFloating with its own table tests
+- [x] T027 Shared floating-surface skin for the bubble and the bar (white card, hairline border,
+      layered shadow, evenly-sized quiet actions) — structural only, the design milestone re-skins
+- [x] T028 Stale-echo protocol in the rich editor's reconcile (contract §14) — a REAL browser race
+      the Chromium gate caught and jsdom's act() had hidden; two mutation-verified regressions
+- [x] T029 `InlineRichSurface`: the BUILT-IN engine-free rich surface (contract §15) — real per-word
+      bold/italic, stored not painted — with the pure cores `inline/mark-range.ts` and
+      `inline/dom-range.ts`, full component contract, and the Chromium headline proof
+- [x] T030 Adversarial verification of the two cores (2 build agents + 3 lenses each), then a
+      fix-and-independently-re-confirm pass: 21 confirmed defects fixed, every fix carrying a
+      mutation-checked regression test (contract §17); offset model made unambiguous (§16)
+
+## Phase 9: Independent review round (T021) — two fresh reviewers, sixteen defects
+
+- [x] T031 Reviewer 1 (correctness + stated laws): 10 findings, 6 confirmed by the coordinator
+      before any fix — stale bubble anchor, double surface on rich entry, discarded click position,
+      contributed editor leaking canvas gestures, missing fifth action (contract §6 a1), silent door
+      rejection (contract §18)
+- [x] T032 Fixes for reviewer 1, delegated across three path-disjoint workers, every fix carrying a
+      mutation-checked regression test; the cross-package `formattingMenuElement` contract was the
+      coordinator's call, not a worker's
+- [x] T033 Reviewer 2 (a11y / RTL / performance laws / boundaries): 6 findings — Escape stranding
+      focus, a fully-disabled toolbar with no tab stop, swallowed repeat announcements, geometry
+      measured outside the coalesced channel, and two laws implemented but never gated by counting
+- [x] T034 Renderer coverage gate restored: the seam rewrite dropped `NodeView.tsx` to 39% and only
+      `test:coverage` caught it — back to 100% statements with behaviour tests, no threshold change
+- [x] T035 Keyboard reach into the formatting bubble (contract §19): a REAL Tab key in Chromium
+      proved focus lands on `<body>` — the headline feature is unusable by keyboard. IN PROGRESS
+- [x] T036 Geometry is measured ONCE, inside the frame-coalesced channel: both surfaces report
+      selection presence/actions plus a deferred `{ measure }` source; burst-counting guards cover
+      the built-in and TipTap paths, and both were mutation-checked by restoring the eager read
+
+### Evidence recorded for T020 (2026-08-27, coordinator-run)
+
+| Gate                                                                             | Result                                                     |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| package suites (schema/core/renderer/shell/richtext/marketing/preset/playground) | 110 · 91 · 78 · 569 · 59 · 25 · 50 · 20 = **1,002 passed** |
+| Storybook Chromium, whole suite                                                  | **140 passed** (44 files)                                  |
+| `pnpm lint` (workspace)                                                          | 17/17 tasks                                                |
+| `pnpm typecheck` (workspace)                                                     | 16/16 tasks                                                |
+| `pnpm check:workspace` / `check:components`                                      | 19 members · 39 components                                 |
+| branch coverage, every B3c package                                               | 88.29% – 100% (threshold 85%)                              |
+
+`pnpm verify` fails on ONE task only: `@craftkit/adaptive-spec-router#test:coverage`, an app that is
+untracked, outside this milestone, and not ours. Four of its 31 tests fail under PARALLEL load (App
+"composes the local Adaptive Spec Router product root" 7.7s; AdaptiveSpecRouter "updates the writer
+route from local task signals" 5.9s; ScenarioComposer "submits a valid local scenario…" 5.2s and
+"keeps an invalid brief…" 6.2s) and all 31 pass when the package runs alone — heavy tests with tight
+timeouts contending for CPU, not a defect in B3c. Left for the owner to decide.

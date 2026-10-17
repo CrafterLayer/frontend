@@ -1,0 +1,1 @@
+export { hotelTemplate } from './template';

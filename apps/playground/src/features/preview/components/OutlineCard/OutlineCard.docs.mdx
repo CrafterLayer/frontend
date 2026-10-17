@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as OutlineCardStories from './OutlineCard.stories';
+
+<Meta of={OutlineCardStories} />
+
+# OutlineCard
+
+A plan, read as a plan. It is what Plan mode answers with, and it is the one assistant card that
+carries no proposal at all.
+
+<Canvas of={OutlineCardStories.Default} />
+
+## Why it has no Apply
+
+Not because a condition hides one. An outline turn has no proposal in it, so there is nothing for
+Apply or Preview to act on — the difference between hiding a door and not building one.
+
+That distinction was earned. A Plan-mode answer used to be an ordinary proposal card with Apply
+hidden and Preview left in place, and the preview dialog's own Apply had no mode check: "no Apply"
+was two clicks from an apply.
+
+## The four parts are lines
+
+`GOAL`, `OUTLINE`, `ALTERNATIVES`, `RISK` arrive as lines, and the card preserves them. Re-flowing
+them into a paragraph would destroy the only structure the answer has.
+
+`pre-wrap` preserves the model's newlines and would also preserve a single unbroken 400-character
+token, which on a 360px panel pushes the whole conversation sideways — so the card wraps anywhere.
+
+<Canvas of={OutlineCardStories.UnbrokenToken} />
+
+## What it says when the model ignores the instruction
+
+Plan mode shows the model no command vocabulary at all, and drops any command it proposes anyway.
+The card counts them and says so, rather than swallowing the fact: a model that keeps proposing
+edits when asked to plan is worth seeing, and a person wondering why nothing happened deserves the
+real answer.
+
+<Canvas of={OutlineCardStories.DroppedCommands} />
+
+## Language
+
+`lang` comes from the ANSWER, not the panel. The model replies in the requester's language, which is
+not always the panel's locale, and announcing Arabic in an English voice is what that attribute
+exists to prevent. The dropped-commands note is the panel's own English sentence and says so.
+
+The follow-up is deliberately not drawn here: it goes to the suggestion rail above the composer,
+where the next thing a person says is being decided and where it will not scroll away.
+
+## A planned page
+
+<Canvas of={OutlineCardStories.PlannedPage} />
+
+Plan mode used to be excluded from the split build path entirely, so the one request the build
+exists for — "build me a page" — was the request Plan could say least about. Now it enters the path
+and stops at the skeleton: `runAiBuild({ apply: 'never' })` proposes the scaffold instead of
+applying it, reads the section list from the plan it proposed, and fills nothing.
+
+The list is ordered because the **order is the plan**. A person reading it is checking that the page
+reads the way they meant; a bulleted set would drop the one fact the list is carrying. The titles
+have no ids, because no node exists yet — the type says so, and nothing here offers to jump to one.
+
+It costs exactly one model call. Rehearsing every section on a scratch kernel would cost what
+building the page costs, to produce a result that must then be applied against a document that may
+have moved — and a person who only wanted to see the plan would have paid for the page.
+
+**Build this** starts a new run. Not this one continued: this run was told not to write and its
+closure will never write, so building means asking again with the same words — exactly what a person
+switching mode by hand would do. The mode control moves with it, visibly, to Ask rather than Auto:
+the person asked to plan, so the section list still gets its one approval before anything is filled.
+
+<Canvas of={OutlineCardStories.PlannedPageBusy} />

@@ -1,0 +1,20 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as StackControlStories from './StackControl.stories';
+
+<Meta of={StackControlStories} />
+
+# StackControl
+
+Layered values as a sortable stack: box and text shadows, background gradients and transitions
+(style-manager DESIGN.md §A.4).
+
+- Each layer is a `StackLayerRow`: a drag handle (`@dnd-kit/sortable`, pointer **and** keyboard:
+  Space to lift, arrows to move, Space to drop), the layer's CSS edited in place (committed on Enter
+  or blur), move up/down buttons and remove.
+- **Add layer** appends `newLayer`.
+- **Presets** (theme tokens such as `soft`, `strong`, `elevated`) replace the stack through
+  `onPreset`; with `editable={false}` (tokens mode) only presets are offered.
+
+`onCommit(layers)` receives the whole new list in CSS order; the panel joins it into one arbitrary
+value. Labels: `STACK_CONTROL_LABELS_EN` and `STACK_CONTROL_LABELS_AR`.

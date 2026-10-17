@@ -1,0 +1,91 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PageHeaderStories from './PageHeader.stories';
+
+<Meta of={PageHeaderStories} />
+
+# PageHeader
+
+`PageHeader` is a page-level slot container. It arranges three replaceable regions and owns no
+brand, navigation, action, or other authored content itself. Use it at the top of a page when the
+content must remain freely composable; use a regular stack when banner semantics are not wanted.
+
+## Usage
+
+The slot arrays contain ids of separate child blocks in the document. Those child blocks own the
+content and behavior; the header owns only presentation and placement.
+
+```json
+{
+  "id": "site-header",
+  "type": "pageHeader",
+  "props": {
+    "layout": "split",
+    "background": "surfaceInverse",
+    "textColor": "textInverse",
+    "sticky": true,
+    "translucent": true
+  },
+  "slots": {
+    "start": ["header-brand"],
+    "center": ["primary-navigation"],
+    "end": ["signup-action"]
+  }
+}
+```
+
+## Slots
+
+Slots render in document reading order: `start`, `center`, then `end`.
+
+| Slot     | Allowed block types                       | Purpose                                      |
+| -------- | ----------------------------------------- | -------------------------------------------- |
+| `start`  | `richText`, `cta`, `navLinks`, or `stack` | Leading region in the current writing mode.  |
+| `center` | `richText`, `cta`, `navLinks`, or `stack` | Middle region arranged by the chosen layout. |
+| `end`    | `richText`, `cta`, `navLinks`, or `stack` | Trailing region in the current writing mode. |
+
+An empty slot shows a region-specific drop hint only on the editing canvas. Preview and published
+rendering receive no hint markup.
+
+## Presentation API
+
+| Prop          | Type and default                                     | Purpose                                                             |
+| ------------- | ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `layout`      | `split \| centered \| stacked \| navStart` = `split` | Arranges the three slot wrappers.                                   |
+| `density`     | `compact \| regular \| tall` = `regular`             | Selects the token-backed minimum bar height.                        |
+| `border`      | `none \| bottom` = `none`                            | Adds the theme's logical block-end border.                          |
+| `shadow`      | `none \| soft \| strong` = `none`                    | Selects a theme-owned elevation step.                               |
+| `align`       | `start \| center \| end` = `start`                   | Sets logical alignment on the inner content bar.                    |
+| `tone`        | `transparent \| light \| dark` = `transparent`       | Supplies the section tone when explicit colour roles are absent.    |
+| `spacing`     | `none \| sm \| md \| lg` = `sm`                      | Selects token-backed outer block spacing.                           |
+| `width`       | `narrow \| standard \| wide \| full` = `wide`        | Limits the inner bar to a theme-owned content width.                |
+| `background`  | `surface \| surfaceInverse \| accent` (optional)     | Overrides the tone with a page background role.                     |
+| `textColor`   | page text role (optional)                            | Overrides the tone with a page foreground role.                     |
+| `sticky`      | `boolean` = `false`                                  | Pins the header at the logical block start of its scroll container. |
+| `translucent` | `boolean` = `false`                                  | Adds the translucent treatment while `sticky` is also enabled.      |
+
+The legacy name `navStart` identifies an arrangement only; the center slot may hold any allowed
+block. `split` pushes the center away from start, `navStart` keeps center beside start and pushes
+end outward, `centered` centers the slot sequence, and `stacked` gives every slot its own row.
+
+## Variants
+
+- **Default** demonstrates three independently supplied slot children.
+- **InverseColour** resolves page colour roles through the active theme.
+- **Sticky** combines sticky positioning with the conditional translucent treatment.
+- **EmptyCanvas** shows the three region-specific authoring hints.
+
+## Accessibility
+
+The native `<header>` supplies banner-landmark semantics. `PageHeader` deliberately adds no
+accessible name because it has no fixed label source; each child block retains its own semantics
+inside its slot. The container adds no controls or keyboard interaction of its own. Canvas drop
+hints are status text for authors and never reach preview or published output.
+
+## RTL, responsive, and theme behavior
+
+The slot order remains `start`, `center`, `end` while logical margins and block insets mirror their
+visual placement for Arabic and other right-to-left documents. The bar wraps when space is limited,
+and the stacked layout gives every slot a full row. Page styles consume only page-owned `--t-*`
+tokens. Leaving `background` or `textColor` unset writes no inline style, so the selected tone and
+page theme remain authoritative.

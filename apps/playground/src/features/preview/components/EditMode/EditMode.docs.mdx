@@ -1,0 +1,32 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as EditModeStories from './EditMode.stories';
+
+<Meta of={EditModeStories} />
+
+# EditMode
+
+Switches the playground between the plain live preview (`<Builder/>`) and the B2a read-only editor
+canvas (`<EditorCanvas/>` — hover/selection chrome, keyboard traversal, canvas tools). Pure local UI
+state: toggling never touches the document or the kernel, so undo history and selection survive the
+switch.
+
+## Usage
+
+```tsx
+const [editMode, setEditMode] = useState(false);
+<EditMode value={editMode} onChange={setEditMode} />;
+```
+
+## API
+
+| Prop       | Type                      | Notes                         |
+| ---------- | ------------------------- | ----------------------------- |
+| `value`    | `boolean`                 | current mode                  |
+| `onChange` | `(next: boolean) => void` | called with the toggled value |
+
+## Accessibility
+
+A native labelled checkbox — keyboard and screen-reader behavior come from the platform.
+
+<Canvas of={EditModeStories.Toggles} />

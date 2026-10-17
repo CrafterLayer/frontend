@@ -1,0 +1,38 @@
+{
+  "name": "@craftkit/mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build && node dist/main.js",
+    "start": "node dist/main.js",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@craftkit/builder": "workspace:*",
+    "@jitl/quickjs-wasmfile-release-sync": "catalog:",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "quickjs-emscripten-core": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "files": [
+    "dist"
+  ]
+}

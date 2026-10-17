@@ -1,0 +1,99 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LayersTreeStories from './LayersTree.stories';
+
+<Meta of={LayersTreeStories} />
+
+# LayersTree
+
+The document's structure as a navigable tree (milestone B2b). Rows derive from the SAME ordering
+model the canvas traverses — slots in schema declaration order, children in array order — so tree
+order and canvas order can never disagree. Selection is the kernel's own state in both directions:
+clicking a row selects on the canvas, and a selection made anywhere else highlights the row and
+expands its ancestors to reveal it.
+
+Each row uses a short name derived from the block type (`hero` → `Hero`, `cta` → `CTA`) because
+`BlockSchema` does not yet expose a human-facing name. That fallback is isolated in
+`displayNameForBlockType`, so a future schema name replaces one call instead of another round of UI
+guesswork. The stable node id is shown as quieter secondary text: unlike arbitrary props, it is
+always present and lets authors distinguish same-type siblings immediately. The model-facing schema
+description remains available as the row's native `title` tooltip.
+
+Expand/collapse is pure view state — it never touches the document, history, or transaction log.
+Document changes (undo included) re-derive the rows without reload; a removed selected node's
+highlight clears because the kernel itself prunes dangling selection ids.
+
+## Usage
+
+```tsx
+import { LayersTree } from '@craftkit/builder';
+
+<LayersTree kernel={kernel} />;
+```
+
+## API
+
+| Prop     | Type            | Notes                                                   |
+| -------- | --------------- | ------------------------------------------------------- |
+| `kernel` | `BuilderKernel` | required; by prop (the shell never reads React context) |
+| `selection` | `ElementSelection` | optional multi-selection store; Shift/Mod-click toggles members |
+| `clipboard` | `ElementClipboard` | optional; share it with the keyboard map so copy/paste agree |
+| `bucket` | `StyleBucket` | the style panel's bucket; the eye hides there (default `base`) |
+| `labels` / `actionLabels` / `words` | label sets | English defaults; Arabic sets are exported |
+| `onSaveTemplate` | `(request) => void` | shows "Save as template" (element or whole section) |
+| `onMakeSymbol` | `(regionId) => void` | shows "Make a symbol" on custom-code region rows |
+
+## Accessibility
+
+A labelled ARIA tree (`tree`/`treeitem`, `aria-expanded`, `aria-selected`, `aria-level`) with roving
+tabindex: Up/Down walk VISIBLE rows, Right/Left expand-or-step-in and collapse-or-step-out (mirrored
+under RTL content), Enter/Space select. Focus follows the active row only while it is already inside
+the tree — the component never steals focus on mount or reveal. The visible name and node id both
+remain in the treeitem's accessible name; the tooltip does not replace them with prose.
+
+Rows are always one line. Both the primary name and the quieter id stay non-wrapping and truncate
+with an ellipsis when the panel is narrower than their combined content.
+
+<Canvas of={LayersTreeStories.Default} />
+
+## Element trees (style-manager DESIGN.md §E)
+
+Below every custom-code region the tree continues into the region's ELEMENTS: a tag glyph, the
+element's Layers name (its `label`, or a derived word such as Heading), and a short text preview.
+Selection syncs both ways with `focusElement` and the multi-selection store.
+
+- **Drag to reorder or nest** with the grip (dnd-kit): the pointer's horizontal travel, or the
+  start/end arrows during a keyboard drag, changes the level. A drop is ONE labelled transaction —
+  `moveTreeNode` for an element (across regions too), `moveNode` for a block — and so one Undo.
+  Pick up with Space or Enter, move with the arrows, drop with Space or Enter, cancel with Escape;
+  every step is announced.
+- **Rename** with a double-click or F2: Enter commits to `label` (≤ 60), Escape abandons.
+- **Hide** with the eye: it writes `hidden` at the CURRENT bucket through the style engine, so hiding
+  on mobile writes `max-md:hidden` only; the badge says which bucket the eye is acting on.
+- **Lock** writes `locked` (editor metadata; the canvas lets clicks pass through).
+- **Delete** with Delete/Backspace on a focused row; the context menu adds copy, cut, paste, copy and
+  paste style, duplicate, wrap, unwrap, rename, save as template and make a symbol.
+
+<Canvas of={LayersTreeStories.ElementTrees} />
+
+<Canvas of={LayersTreeStories.ArabicElementTrees} />
+
+## The Arabic editor
+
+With `labels={LAYERS_TREE_LABELS_AR}` and `words={ELEMENT_NAME_WORDS_AR}` every row, menu and
+announcement is Arabic, and a block row is named from the Arabic block-name catalogue. The tree is
+chrome, so its arrow keys (and a keyboard or pointer re-parent) follow the direction it is DRAWN in:
+the nearest `dir` above it. An Arabic editor mirrors them over an English page; a host that sets no
+`dir` falls back to the page's direction.
+
+{/* ── block-parts (2026-10-06) ── */}
+
+## Parts of registered blocks
+
+A block whose schema declares `parts` expands into one `LayersPartRow` per part instance (from
+`partInstances`), nested by bind: a list holds its items, an item holds its sub-parts. Part rows
+carry the localized part label and a `<bdi>` text preview, are never draggable, select through
+`kernel.focusPart`, and highlight while the kernel's part focus names them. Item rows duplicate, move
+and remove through `planPartListOp`, each one labelled transaction. See the LayersPartRow docs.
+
+{/* ── /block-parts ── */}

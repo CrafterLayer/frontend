@@ -1,0 +1,71 @@
+/* The current picture, its summary, and the library actions. Chrome tokens only. */
+.bldr-asset-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.bldr-asset-field__current {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.bldr-asset-field__thumb {
+  background-color: var(--bldr-surface-sunken);
+  block-size: var(--bldr-control-lg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  flex: none;
+  inline-size: var(--bldr-control-lg);
+  object-fit: cover;
+}
+
+.bldr-asset-field__summary {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.bldr-asset-field__id {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-asset-field__label {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-asset-field__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-asset-field__button {
+  background-color: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-asset-field__button:hover:not(:disabled) {
+  background-color: var(--bldr-surface-hover);
+}
+
+.bldr-asset-field__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

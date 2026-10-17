@@ -1,0 +1,31 @@
+/*
+  EmptyState (SPEC §3.1, §4.16): the face at 48px, 12px, then the greeting in Lead type
+  (16/24 Latin, 18/30 Arabic through `:lang(ar)`, weight 500, Ink), start-aligned, never
+  centred. The thread anchors it to the bottom and leaves 16px under it for the rows.
+
+  No box and no fill: like everything that is not a decision, it is drawn on the paper.
+  `text-wrap: pretty` keeps a lone word off the greeting's last line (SPEC §2.2 prose).
+*/
+
+.ck-agent-empty {
+  display: grid;
+  justify-items: start;
+  row-gap: var(--bldr-space-xl);
+  min-inline-size: 0;
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+}
+
+.ck-agent-empty__face {
+  display: inline-grid;
+}
+
+.ck-agent-empty__greeting {
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-lead);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-lead);
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}

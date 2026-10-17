@@ -1,0 +1,231 @@
+import { expect, fn, userEvent, within } from 'storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import '../../../../app/App.css';
+import type { BuildProgress, BuildTask } from '../AssistantPanel/AssistantPanel.build';
+import type { BuiltTurn } from '../AssistantPanel/AssistantPanel.turns';
+import { BuildReportCard } from './BuildReportCard';
+import { BuildCardSeamContext } from './build-card-seam';
+
+const task = (
+  position: number,
+  title: string,
+  status: BuildTask['status'],
+  reason?: string,
+): BuildTask => ({
+  id: `t${String(position)}`,
+  position,
+  title,
+  status,
+  attempts: 1,
+  ...(reason === undefined ? {} : { reason }),
+});
+
+function report(rows: readonly BuildTask[], overrides: Partial<BuiltTurn> = {}): BuiltTurn {
+  const progress: BuildProgress = {
+    runId: 'story',
+    phase: 'completed',
+    direction: 'A calm clinic page.',
+    tasks: rows,
+    startedAt: 0,
+    applied: rows.filter((row) => row.status === 'applied').length,
+    skipped: rows.filter((row) => row.status === 'skipped').length,
+    run: null,
+  };
+  return {
+    id: 'story',
+    from: 'assistant',
+    kind: 'built',
+    progress,
+    undoable: true,
+    request: 'build a clinic page',
+    ...overrides,
+  };
+}
+
+/** A revived report: readable history, and no request left to re-send. */
+function revivedWithoutRequest(): BuiltTurn {
+  const withRequest = report([task(1, 'Hero', 'applied'), task(2, 'Pricing', 'skipped')]);
+  const revived: Record<string, unknown> = { ...withRequest };
+  delete revived['request'];
+  return revived as unknown as BuiltTurn;
+}
+
+const ALL_APPLIED = report([
+  task(1, 'Hero', 'applied'),
+  task(2, 'Services', 'applied'),
+  task(3, 'Team', 'applied'),
+  task(4, 'Contact', 'applied'),
+]);
+
+const meta = {
+  title: 'Playground/BuildReportCard',
+  component: BuildReportCard,
+  parameters: { layout: 'centered' },
+  args: {
+    report: ALL_APPLIED,
+    turnId: 'story',
+    busy: false,
+    canUndo: true,
+    onUndoTask: fn(),
+    onRetrySkipped: fn(),
+  },
+  argTypes: { report: { control: false } },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}>
+        <Story />
+      </div>
+    ),
+  ],
+} satisfies Meta<typeof BuildReportCard>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Everything landed. Each section can still be undone on its own. */
+export const AllApplied: Story = {};
+
+/** A section the model would not write, with the door's own reason. */
+export const WithSkipped: Story = {
+  args: {
+    report: report([
+      task(1, 'Hero', 'applied'),
+      task(2, 'Pricing', 'skipped', 'The model would not invent prices.'),
+      task(3, 'Contact', 'applied'),
+    ]),
+  },
+};
+
+/** Plan mode: no Undo anywhere — this button loops `kernel.undo()`. */
+export const PlanningOnly: Story = { args: { canUndo: false } };
+
+/** Stopped short: the build completed its bookkeeping, not its work. */
+export const Stopped: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'waiting'), task(3, 'Contact', 'waiting')],
+      { stopped: true },
+    ),
+  },
+};
+
+/** Revived after a reload: readable history, and no retry it could not send. */
+export const RevivedWithoutRequest: Story = {
+  args: {
+    /*
+      Built WITHOUT a request rather than with an undefined one:
+      `exactOptionalPropertyTypes` treats "absent" and "present and undefined"
+      as different things, and a revived report means the first.
+    */
+    report: revivedWithoutRequest(),
+  },
+};
+
+/** Arabic titles keep their own direction. */
+export const Arabic: Story = {
+  args: {
+    report: report([
+      task(1, 'الافتتاحية', 'applied'),
+      task(2, 'الأسعار', 'skipped', 'لم يوافق النموذج على اختراع أسعار.'),
+      task(3, 'تواصل', 'applied'),
+    ]),
+  },
+  decorators: [
+    (Story) => (
+      <div
+        dir="rtl"
+        style={{ inlineSize: '22.5rem', background: 'var(--bldr-panel)', padding: '1rem' }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+/** Putting a section back was refused: the person changed it since, and another is gone. */
+export const RevertRefused: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'applied'), task(3, 'Contact', 'applied')],
+      {
+        revertRefused: [
+          { position: 1, code: 'changed-since' },
+          { position: 3, code: 'region-missing' },
+        ],
+      },
+    ),
+  },
+};
+
+/**
+ * A page-plan build: the skeleton wrote the footer IN FULL (0 attempts), so it
+ * reads "Done" with no Undo — there is no earlier version of it to put back.
+ */
+export const WrittenWithLayout: Story = {
+  args: {
+    report: report([
+      task(1, 'Hero', 'applied'),
+      task(2, 'Menu', 'applied'),
+      { ...task(3, 'Footer', 'applied'), attempts: 0 },
+    ]),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole('button', { name: 'Undo Footer' })).toBeNull();
+    await expect(canvas.getByRole('button', { name: 'Undo Menu' })).toBeEnabled();
+  },
+};
+
+const removeUnfilled = fn();
+
+/** Stopped with two sections never written: one change removes both. */
+export const StoppedWithEmptySections: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'waiting'), task(3, 'Contact', 'waiting')],
+      { stopped: true, unfilled: 2 },
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => [], onRemoveUnfilled: removeUnfilled }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole('button', { name: 'Remove the 2 empty sections' }),
+    );
+    await expect(removeUnfilled).toHaveBeenCalledWith('story');
+  },
+};
+
+/** The page refused the removal: nothing was removed, it says so, and the offer stands. */
+export const RemovalRefused: Story = {
+  args: {
+    report: report(
+      [task(1, 'Hero', 'applied'), task(2, 'Services', 'waiting'), task(3, 'Contact', 'waiting')],
+      { stopped: true, unfilled: 2, unfilledRemovalRefused: true },
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <BuildCardSeamContext.Provider
+        value={{ locale: 'en', noticesOf: () => [], onRemoveUnfilled: fn() }}
+      >
+        <Story />
+      </BuildCardSeamContext.Provider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('status')).toHaveTextContent(
+      'The page refused the removal; nothing was removed.',
+    );
+    await expect(canvas.getByRole('button', { name: 'Remove the 2 empty sections' })).toBeEnabled();
+  },
+};

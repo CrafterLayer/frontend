@@ -1,0 +1,99 @@
+/*
+  BatchOutcomeList (2026-10-12): one line of Meta summary, then a row per page: the run glyph
+  (the Indigo disc for a page that landed, the Alarm disc for one that failed, a dashed ring
+  for one that was declined, never sent or removed), the title in Ink with its outcome in
+  Graphite, the reason under them, and Retry live at the inline end.
+*/
+
+.ck-agent-outcomes {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.ck-agent-outcomes__summary {
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-outcomes__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-outcome {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--bldr-space-sm);
+  padding-block: var(--bldr-space-sm);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+}
+
+.ck-agent-outcome:first-child {
+  border-block-start: 0;
+}
+
+.ck-agent-outcome__glyph {
+  margin-block-start: var(--bldr-space-2xs);
+}
+
+.ck-agent-outcome__text {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+}
+
+.ck-agent-outcome__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+}
+
+.ck-agent-outcome__page {
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-outcome__status {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-outcome[data-status='rejected'] .ck-agent-outcome__status,
+.ck-agent-outcome[data-status='invalid'] .ck-agent-outcome__status,
+.ck-agent-outcome[data-status='error'] .ck-agent-outcome__status {
+  color: var(--bldr-danger);
+}
+
+.ck-agent-outcome__detail {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.ck-agent-outcome__retry {
+  align-self: center;
+}
+
+.ck-agent-outcome__sent {
+  align-self: center;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}

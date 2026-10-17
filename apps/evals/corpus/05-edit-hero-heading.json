@@ -1,0 +1,27 @@
+{
+  "id": "05-edit-hero-heading",
+  "title": "Edit the heading of an existing hero",
+  "category": "edit",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Change the hero headline to \"Ship the page, not the ticket\" and make the subtext shorter.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": ["ev-0001"]
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 6,
+    "anyCommands": ["setProp", "setProps"],
+    "forbiddenBlockTypes": ["hero"]
+  },
+  "budget": {
+    "maxCommands": 6,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Does it edit the hero that is already there rather than adding a second one?",
+  "why": "The most common real request and the one a plan generator most often gets wrong: it inserts a NEW hero instead of setting props on the existing node. `requiredTargetNodeIds` makes that failure mechanical."
+}

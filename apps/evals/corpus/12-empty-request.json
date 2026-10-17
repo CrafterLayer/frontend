@@ -1,0 +1,25 @@
+{
+  "id": "12-empty-request",
+  "title": "Blank request",
+  "category": "refusal",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "   ",
+  "must": {
+    "outcome": "refusal",
+    "forbiddenCommands": [],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 0,
+    "maxCommands": 0
+  },
+  "budget": {
+    "maxCommands": 0,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 60000
+  },
+  "rubric": "Nothing to grade — the correct answer is to decline.",
+  "why": "A blank ask must produce a refusal, not a random section and not an unhandled exception. This is the smallest guard against \"always answer\" behaviour."
+}

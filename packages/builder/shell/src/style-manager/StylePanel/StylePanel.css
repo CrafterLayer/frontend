@@ -1,0 +1,63 @@
+/*
+  The style panel (style-manager panel design): a sticky header (where the
+  edit lands + the property filter) over dense, aligned sectors. Built for
+  280–360px; every row shares one label column so controls line up down the
+  page. Under 264px the label column narrows rather than the controls.
+*/
+.bldr-style-panel {
+  --style-label-column: 40%;
+
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+@container (inline-size < 264px) {
+  .bldr-style-panel .bldr-style-property {
+    --style-label-column: 38%;
+  }
+}
+
+/* Narrow panels: if six glyphs plus the small square "…" menu do not fit, the menu folds after them (it stays one control wide, never a full row). */
+@container (inline-size < 300px) {
+  .bldr-style-panel .bldr-segmented-choice {
+    flex-wrap: wrap;
+  }
+}
+
+@container (inline-size > 340px) {
+  .bldr-style-panel .bldr-style-property {
+    --style-label-column: 36%;
+  }
+}
+
+.bldr-style-panel__header {
+  background: var(--bldr-panel);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  inset-block-start: 0;
+  padding-block: var(--bldr-space-xs) var(--bldr-space-md);
+  position: sticky;
+  z-index: 2;
+}
+
+.bldr-style-panel__refusal {
+  background: var(--bldr-danger-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0 0 var(--bldr-space-md);
+  overflow-wrap: anywhere;
+  padding: var(--bldr-space-xs) var(--bldr-space-sm);
+}
+
+.bldr-style-panel__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  padding: var(--bldr-space-xl) var(--bldr-space-xs);
+  text-align: center;
+}

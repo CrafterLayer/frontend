@@ -1,0 +1,33 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PlanReviewAuditStories from './PlanReviewAudit.stories';
+
+<Meta of={PlanReviewAuditStories} />
+
+# PlanReviewAudit
+
+`PlanReviewAudit` shows whether the two required review records still match a frozen plan revision.
+It deliberately renders stale reviews as evidence, not as a usable approval, and exposes every typed
+finding with its requirement, severity, and next action.
+
+## Use when
+
+Use it wherever an implementation must be gated on independently current plan feedback. Do not use a
+single aggregated verdict when reviewer identity and revision freshness matter.
+
+## API
+
+- `plan` is the frozen revision under review.
+- `audit` is the deterministic freshness result for its records.
+- `onMaterialRevision()` receives an explicit user request to demonstrate invalidation.
+
+## Accessibility
+
+The current state has a text status and a status region that gives the next required action.
+Findings use native disclosure controls, so they are keyboard-operable. The revision control is a
+labelled native button and disables after invalidation.
+
+## Limitation
+
+The material revision control changes local illustrative data only. It does not alter a real plan or
+start reviewer sessions.

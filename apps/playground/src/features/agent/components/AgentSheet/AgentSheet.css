@@ -1,0 +1,235 @@
+/*
+  AgentSheet (SPEC §4.19, §3.16): the panel below a 600px viewport. Two faces, both fixed
+  to the viewport: the full chat under the editor's top bar, and the mini row over the
+  canvas. Both are Paper with 12px top corners (the panel's primary-container radius) and
+  the overlay shadow (e3), lifted off whatever is under them.
+
+  The phone's own density. In the sheet every target is 44px and 8px from the next, and
+  typed text is 16px so iOS never zooms on focus (SPEC §3.16, §6.4), whatever the pointer:
+  a narrow desktop window reaches the sheet too, at 400% zoom. The §2.7 layout tokens are
+  re-pointed here to their coarse values, the header to its 56px, and the panel's
+  primitives (IconButton, InlineConfirm, the record footer) are sized to match. Components
+  with their own `@media (pointer: coarse)` rules follow on a real phone either way.
+
+  Safe areas: the bottom inset keeps the dock and the mini row clear of the home
+  indicator, the side insets (landscape) keep them clear of the notch, in logical terms.
+  `--ck-agent-safe-area-block-end` lets a story stand in for a device's inset.
+*/
+
+.ck-agent-sheet {
+  --bldr-agent-header-height: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
+  --bldr-agent-row-height: var(--bldr-hit-target-min);
+  --bldr-agent-runbar-height: calc(var(--bldr-hit-target-min) + var(--bldr-space-md));
+  --bldr-font-size-input: 16px;
+  --bldr-line-height-input: 24px;
+  /*
+    The composer family's targets (Send, Stop, Improve, the chip ×, the toolbar's menus)
+    read these two from their ancestors and set them only under a coarse pointer; the
+    sheet sets them for its whole subtree: 44px targets, 8px between them.
+  */
+  --ck-agent-target: var(--bldr-hit-target-min);
+  --ck-agent-toolbar-gap: var(--bldr-space-md);
+
+  --ck-agent-sheet-top: var(--bldr-topbar-height);
+  --ck-agent-sheet-safe-block-end: var(
+    --ck-agent-safe-area-block-end,
+    env(safe-area-inset-bottom, 0px)
+  );
+  --ck-agent-sheet-safe-inline-start: env(safe-area-inset-left, 0px);
+  --ck-agent-sheet-safe-inline-end: env(safe-area-inset-right, 0px);
+}
+
+/* The insets are physical; the sheet's edges are logical. In Arabic, the start is right. */
+.ck-agent-sheet:dir(rtl) {
+  --ck-agent-sheet-safe-inline-start: env(safe-area-inset-right, 0px);
+  --ck-agent-sheet-safe-inline-end: env(safe-area-inset-left, 0px);
+}
+
+/*
+  `:lang(ar)` restates the input size on every Arabic element (chrome.css), so the phone
+  size is restated at the same reach, one class stronger; a Latin island keeps its own.
+*/
+.ck-agent-sheet:lang(ar),
+.ck-agent-sheet :lang(ar) {
+  --bldr-font-size-input: 16px;
+  --bldr-line-height-input: 26px;
+}
+
+.ck-agent-sheet :lang(ar) [lang]:not(:lang(ar)) {
+  --bldr-font-size-input: 16px;
+  --bldr-line-height-input: 24px;
+}
+
+/* The panel's primitives at the phone's 44px (IconButton and InlineConfirm are 32 on a mouse). */
+.ck-agent-sheet .ck-agent-icon-button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+  inline-size: var(--bldr-hit-target-min);
+}
+
+.ck-agent-sheet .ck-agent-confirm__button[data-bldr-chrome-button][data-variant][data-size] {
+  block-size: var(--bldr-hit-target-min);
+}
+
+.ck-agent-sheet .ck-agent-record__footer {
+  min-block-size: var(--bldr-hit-target-min);
+}
+
+/* ── The full face ────────────────────────────────────────────────────────── */
+
+.ck-agent-sheet__full {
+  position: fixed;
+  z-index: 30;
+  inset-block: var(--ck-agent-sheet-top) var(--ck-agent-sheet-keyboard, 0px);
+  inset-inline: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* The home indicator's inset, until the keyboard covers it. */
+  padding-block-end: max(
+    0px,
+    calc(var(--ck-agent-sheet-safe-block-end) - var(--ck-agent-sheet-keyboard, 0px))
+  );
+  padding-inline: var(--ck-agent-sheet-safe-inline-start) var(--ck-agent-sheet-safe-inline-end);
+  overflow: clip;
+  overscroll-behavior: contain;
+  border-start-start-radius: var(--bldr-radius-xl);
+  border-start-end-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-overlay);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  container: agent / inline-size;
+  translate: 0 0;
+  transition:
+    translate var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear 0s;
+}
+
+/* A focus destination, not a control: the dialog is announced, and Tab goes on. */
+.ck-agent-sheet__full:focus {
+  outline: none;
+}
+
+.ck-agent-sheet__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.ck-agent-sheet__content > :only-child {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+/* The two edges focus wraps at: invisible, and out of the way of every pointer. */
+.ck-agent-sheet__guard {
+  position: fixed;
+  inline-size: var(--bldr-border-hairline);
+  block-size: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+  Dropped to mini, or closed: the chat slides down past its own shadow, then stops being
+  drawn. `visibility` switches at the end of the slide, so the slide is seen and the chat
+  is not left painted under the canvas.
+*/
+.ck-agent-sheet:not([data-detent='full']) .ck-agent-sheet__full {
+  translate: 0 calc(100% + var(--bldr-space-6xl));
+  visibility: hidden;
+  transition:
+    translate var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear var(--bldr-duration-enter);
+}
+
+/* Closing leaves faster than a detent change, and accelerates away (SPEC §2.6). */
+.ck-agent-sheet[data-detent='closed'] .ck-agent-sheet__full {
+  transition:
+    translate var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+/* Mounted straight at full: it rises from the bottom edge. */
+@starting-style {
+  .ck-agent-sheet[data-detent='full'] .ck-agent-sheet__full {
+    translate: 0 calc(100% + var(--bldr-space-6xl));
+  }
+}
+
+/*
+  A press on the editor's top bar above the full sheet: the sheet is modal, so the bar
+  does not take it, and the press says "show me the page", so the sheet drops to mini.
+*/
+.ck-agent-sheet__scrim {
+  position: fixed;
+  z-index: 30;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: var(--ck-agent-sheet-top);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── The mini face ────────────────────────────────────────────────────────── */
+
+.ck-agent-sheet__mini {
+  position: fixed;
+  z-index: 29;
+  inset-block-end: 0;
+  inset-inline: 0;
+  box-sizing: border-box;
+  /* 8px under the row, or the home indicator's inset where it is taller. */
+  padding-block-end: max(var(--bldr-space-md), var(--ck-agent-sheet-safe-block-end));
+  padding-inline: var(--ck-agent-sheet-safe-inline-start) var(--ck-agent-sheet-safe-inline-end);
+  border-start-start-radius: var(--bldr-radius-xl);
+  border-start-end-radius: var(--bldr-radius-xl);
+  background-color: var(--bldr-panel);
+  box-shadow: var(--bldr-shadow-overlay);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  translate: 0 calc(100% + var(--bldr-space-6xl));
+  visibility: hidden;
+  transition:
+    translate var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+.ck-agent-sheet__mini:focus {
+  outline: none;
+}
+
+.ck-agent-sheet[data-detent='mini'] .ck-agent-sheet__mini {
+  translate: 0 0;
+  visibility: visible;
+  transition:
+    translate var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear 0s;
+}
+
+/* Dropped from full: the row is already in place, uncovered by the chat sliding away. */
+.ck-agent-sheet[data-detent='mini'][data-from='full'] .ck-agent-sheet__mini {
+  transition: none;
+}
+
+/* Rising to full: the row stays in place under the rising chat, then stops being drawn. */
+.ck-agent-sheet[data-detent='full'][data-from='mini'] .ck-agent-sheet__mini {
+  translate: 0 0;
+  transition: visibility 0s linear var(--bldr-duration-enter);
+}
+
+/* Reduced motion: every move is instant (SPEC §4.19). */
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-sheet[data-detent][data-from] .ck-agent-sheet__full,
+  .ck-agent-sheet[data-detent][data-from] .ck-agent-sheet__mini {
+    transition: none;
+  }
+}
+
+/* High contrast drops the shadow; a face keeps an edge where it meets the page. */
+@media (forced-colors: active) {
+  .ck-agent-sheet__full,
+  .ck-agent-sheet__mini {
+    border-block-start: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

@@ -1,0 +1,71 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as StatsStories from './Stats.stories';
+
+<Meta of={StatsStories} />
+
+# Stats
+
+A proof section for outcomes that can be stated as concise values: growth, speed, reach, uptime,
+capacity, or another defensible metric. Do not use it for unsupported vanity numbers or for dense
+tabular comparisons.
+
+<Canvas of={StatsStories.Default} />
+<Controls />
+
+## Public props and defaults
+
+- `eyebrow`, `heading`, and `body` provide a complete default introduction. Omitting a value uses
+  the professional default copy.
+- `items` accepts up to eight `{ value, label, detail? }` entries and defaults to four complete
+  metrics. Values are strings so localized numerals, units, multipliers, and words remain valid.
+- `variant = 'cards'` also supports `minimal` and `contrast`.
+- `columns = 'auto'` also supports two, three, or four requested columns.
+- `headerLayout = 'split'` places supporting copy opposite the title in wide containers; `stacked`
+  keeps one reading column.
+- Shared section alignment, tone, spacing, width, gutter, colour roles, motion, typography, and
+  logical spacing remain optional and token-bound.
+
+## Accessibility
+
+The visible `h2` labels the section. Metrics use a description list with each label represented by
+`dt` and its value and optional detail represented by `dd`, preserving the relationship for screen
+readers. The visual order emphasizes values while source order begins with each label.
+
+## Responsive, RTL, and content guidance
+
+The header and metrics collapse through container queries, so the block adapts to the space it is
+given rather than only the viewport. Borders and spacing use logical directions. Prefer two to four
+high-confidence figures, explain the measurement in `detail`, and keep methodology nearby when a
+claim requires qualification.
+
+## Example
+
+```ts
+statsSchema.props.parse({
+  heading: 'Results after one quarter',
+  variant: 'minimal',
+  items: [
+    { value: '31%', label: 'Shorter time to market', detail: 'Median improvement' },
+    { value: '94', label: 'Average quality score' },
+  ],
+});
+```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name          | kind | bind             | label (en / ar)              |
+| ------------- | ---- | ---------------- | ---------------------------- |
+| `eyebrow`     | text | `eyebrow`        | Eyebrow / الشارة             |
+| `heading`     | text | `heading`        | Heading / العنوان            |
+| `body`        | text | `body`           | Body / الوصف (multiline)     |
+| `items`       | list | `items`          | Metrics / المؤشرات           |
+| `item`        | item | `items.*`        | Metric / المؤشر              |
+| `item.value`  | text | `items.*.value`  | Metric value / قيمة المؤشر   |
+| `item.label`  | text | `items.*.label`  | Metric label / اسم المؤشر    |
+| `item.detail` | text | `items.*.detail` | Metric detail / تفصيل المؤشر |

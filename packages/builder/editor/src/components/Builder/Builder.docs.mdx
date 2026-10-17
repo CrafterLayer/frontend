@@ -1,0 +1,35 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuilderStories from './Builder.stories';
+
+<Meta of={BuilderStories} />
+
+# Builder
+
+THE application entrypoint: provider + isolation frame + live document view in one component.
+Applications import this (and the exported hooks/manifests) from `@craftkit/builder` — the workspace
+boundary law forbids anything deeper.
+
+## Usage
+
+```tsx
+import { Builder, blocksMarketing, createBuilder, defaultBlocks } from '@craftkit/builder';
+
+const kernel = createBuilder({ extensions: [defaultBlocks, blocksMarketing] });
+
+<Builder kernel={kernel} />;
+```
+
+## API
+
+- `kernel: BuilderKernel` — one per surface.
+- `theme?: Theme` — token assignment for the frame (default: light starter theme).
+- `breakpoint?: 'desktop' | 'tablet' | 'mobile'`.
+- `onBlockRender?` — instrumentation passthrough for render-count tests.
+
+## Behavior
+
+- The frame's direction FOLLOWS THE DOCUMENT live: `dispatch('setDocMeta', { dir })` flips it
+  immediately, undoably, without touching the host page's direction.
+- Everything the kernel guarantees (single door, undo/redo, scoped re-renders, runtime extension
+  registration) is observable through this one mount.

@@ -1,0 +1,84 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as HeroStories from './Hero.stories';
+
+<Meta of={HeroStories} />
+
+# Hero
+
+The opening section of a page: one large heading, optional supporting body, and up to two
+call-to-action buttons in its `actions` slot.
+
+## Document usage
+
+```json
+{
+  "type": "hero",
+  "props": {
+    "eyebrow": "مجموعة خاصة",
+    "tone": "dark",
+    "align": "end",
+    "spacing": "lg",
+    "width": "wide",
+    "layoutDirection": "row",
+    "layoutJustify": "end",
+    "layoutAlign": "center",
+    "layoutGap": "md",
+    "layoutWrap": "wrap",
+    "heading": "عود يليق بذوقك"
+  },
+  "slots": { "actions": ["cta-1"] }
+}
+```
+
+## Props (intent-only)
+
+- `eyebrow?: string (1–60)` — short overline above the heading.
+- `heading: string (1–80) = 'Your headline'`
+- `body?: string (≤200)`
+- `align: 'start' | 'center' | 'end' = 'center'` — logical alignment (RTL-safe).
+- `tone: 'transparent' | 'light' | 'dark' = 'light'`
+- `spacing: 'none' | 'sm' | 'md' | 'lg' = 'lg'` — vertical section spacing.
+- `width: 'narrow' | 'standard' | 'wide' | 'full' = 'wide'` (the column every section shares by default) — inner content width; the tone remains
+  full-bleed.
+- `layoutDirection?: 'row' | 'column'` — main-axis direction for child blocks in `actions`.
+- `layoutJustify?: 'start' | 'center' | 'end'` — child alignment along the main axis.
+- `layoutAlign?: 'start' | 'center' | 'end'` — child alignment along the cross axis.
+- `layoutGap?: 'none' | 'sm' | 'md' | 'lg'` — token-backed space between child blocks.
+- `layoutWrap?: 'nowrap' | 'wrap'` — whether child blocks may continue on another flex line.
+
+All layout properties are optional so existing documents keep their exact rendering: an omitted
+layout remains a row with no wrapping, the legacy 12px action gap, stretch cross-axis behavior, and
+main-axis alignment derived from `align`. Supplying a layout property overrides only that concern.
+
+## Slots
+
+- `actions` — allows `cta`, max 2.
+
+## Accessibility
+
+A labelled `section` landmark whose name is the heading; the heading is a real `h1`.
+
+## Theming & RTL
+
+Logical properties and flex start/end semantics make `row` mirror from the writing direction; no
+physical left/right rule is used. Explicit layout gaps resolve only through
+`--bldr-space-0|sm|md|lg`; documents never carry a pixel literal. The defaults retain the original
+light, centered, 64-unit-spaced, full-width Hero and its legacy action geometry.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text parts
+carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name        | kind | bind        | label (en / ar)            |
+| ----------- | ---- | ----------- | -------------------------- |
+| `eyebrow`   | text | `eyebrow`   | Eyebrow / الشارة           |
+| `heading`   | text | `heading`   | Heading / العنوان          |
+| `body`      | text | `body`      | Body / الوصف (multiline)   |
+| `trustLine` | text | `trustLine` | Trust line / سطر الثقة     |
+| `copy`      | box  | —           | Text column / عمود النص    |
+| `media`     | box  | —           | Media frame / إطار الوسائط |
+
+The `actions` buttons are slot children; they carry their own parts in their own blocks.

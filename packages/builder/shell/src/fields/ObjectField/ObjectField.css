@@ -1,0 +1,14 @@
+/*
+  Grouped sub-rows for an object property: an inset column with a start-side
+  rule, so the nesting reads at a glance in both directions (logical
+  properties only). Chrome tokens only.
+*/
+.bldr-object-field {
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-inline-start: var(--bldr-space-md);
+}

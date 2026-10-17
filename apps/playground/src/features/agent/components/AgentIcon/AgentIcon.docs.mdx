@@ -1,0 +1,107 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AgentIconStories from './AgentIcon.stories';
+
+<Meta of={AgentIconStories} />
+
+# AgentIcon
+
+The agent panel's glyphs (SPEC §4.21): one component over a module-level map of static JSX, drawn on
+a 16px grid with a 1.5px stroke, round caps and joins, in `currentColor`. It replaces
+`AssistantPanel.icons.tsx`.
+
+<Canvas of={AgentIconStories.Light} />
+
+## Purpose
+
+v1 wrote its glyphs through `dangerouslySetInnerHTML` with a fresh `{ __html }` object on every
+render. React compares that object by identity, so it rewrote the glyph's innerHTML each time. The
+composer re-renders as its textarea blurs, and pressing Send runs exactly that sequence: pointerdown
+moves focus, the textarea blurs, the composer re-renders, then pointerup. The path under the pointer
+had been replaced, the browser had no common target for the press, and the first click on Send was
+lost (visual audit P0-1).
+
+Here every glyph is a React element created once, at module load. A re-render compares `d` with `d`,
+finds nothing changed, and leaves the node alone: a glyph is the same DOM node for the life of its
+button. `IconButton`'s tests and its `FirstClickAfterBlur` story prove the press survives.
+
+## When to use / not
+
+Use it for every glyph in the agent panel, always inside a control or line that carries the words.
+It never speaks for itself.
+
+Do not use it for status nodes. The waiting ring, the landed disc and the rest are `RunGlyph`, which
+has its own geometry and colours. Do not pass markup as a string, and do not add a glyph outside
+`icon-paths.tsx`.
+
+## Props
+
+| prop        | type            | default | notes                       |
+| ----------- | --------------- | ------- | --------------------------- |
+| `name`      | `AgentIconName` | none    | a key of `ICONS`            |
+| `className` | `string`        | none    | appended to `ck-agent-icon` |
+
+`AGENT_ICON_NAMES` lists every name, and `ICONS[name].mirror` says whether it flips under RTL.
+
+## The set
+
+| group           | glyphs                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| header          | `history` (Conversations ◷), `plus` (New conversation), `close`, `more` (⋯)                                                              |
+| history actions | `undo`, `redo`, `retry`                                                                                                                  |
+| composer        | `send` ↑, `queue` ↵, `check`, `stop` ■ (filled: an outlined square reads as a checkbox at 16px), `spinner`, `mention` @, `chevronDown` ▾ |
+| records, cards  | `disclosure` ▸, `arrowEnd` →, `arrowDown` ↓, `preview` ◫, `pencil` ✎, `grip` ⠿, `block` ▭, `page`                                        |
+| history, phone  | `search`, `trash`, `back`, `showPage` ⤓, `backToChat` ⤒                                                                                  |
+
+Undo is a hooked arrow, not the ↺ circle the ASCII frames approximate: a circle with an arrowhead is
+the Conversations clock without its hands, and two glyphs a few pixels apart in the header must not
+differ by two strokes.
+
+## States
+
+| story                 | what it shows                                                               |
+| --------------------- | --------------------------------------------------------------------------- |
+| `Single`              | one glyph, as a component uses it                                           |
+| `Light`, `Dark`       | every glyph at 1:1 and 3:1; the play checks each stays in the live area     |
+| `RightToLeft`         | Arabic: the directional glyphs (marked ⇄) point the other way               |
+| `RightToLeftDark`     | the same, dark                                                              |
+| `LatinIslandInArabic` | a `dir="ltr"` island inside the Arabic panel keeps its arrow pointing right |
+
+## Anatomy
+
+An `<svg>` 16×16, `viewBox="0 0 16 16"`, `fill="none"`, `stroke="currentColor"`,
+`stroke-width="1.5"`, round caps and joins, `aria-hidden="true"`, `focusable="false"`, with
+`data-icon={name}` and, for a directional glyph, `data-mirror`. Shapes stay in the live area 2 to
+14, so a stroke never touches the box. Filled marks (the ⋯ dots, the drag handle, Stop) set their
+own `fill`, still `currentColor`.
+
+## Accessibility
+
+Always `aria-hidden`. The button's `aria-label` or the line's words carry the meaning. Colour comes
+from the parent, so a glyph follows its control's state (Graphite at rest, Ink on hover, On-accent
+on a primary button) and high-contrast mode recolours it with the text.
+
+## RTL
+
+SPEC §4.21's two lists, enforced by a test:
+
+- **Mirrored** (`data-mirror`): the disclosure chevron, the before → after arrow, undo, redo, back,
+  queue ↵, the sheet's ⤓ and ⤒.
+- **Never mirrored**: send ↑, stop ■, the clock, the spinner (always clockwise), the drag handle.
+
+The flip is `[data-mirror]:dir(rtl) { scale: -1 1 }`, on the glyph itself, so a Latin island inside
+Arabic keeps its arrows. It uses the individual `scale` property, not `transform: scaleX(-1)`, so
+`transform` stays free for the owner: an open disclosure rotates its chevron with
+`transform: rotate(90deg)`, CSS applies `transform` before `scale`, and the chevron points down in
+both directions.
+
+## Motion
+
+Only the spinner moves: clockwise, 900ms linear (the RunGlyph arc's period, so every spinner in the
+panel turns at one speed). Under `prefers-reduced-motion: reduce` it holds still; a static
+three-quarter ring still reads as "in progress".
+
+## Licence
+
+Paths are redrawn for this grid from [Lucide](https://lucide.dev) (ISC License); the notice is in
+`icon-paths.tsx`.

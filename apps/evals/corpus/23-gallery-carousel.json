@@ -1,0 +1,26 @@
+{
+  "id": "23-gallery-carousel",
+  "title": "Media section with a specific presentation",
+  "category": "section",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Add a slideshow of three product shots with captions, near the top of the page.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "anyBlockTypes": ["carousel", "gallery"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Three slides, each with a caption, in a component that actually slides?",
+  "why": "\"Slideshow\" is the word a person uses; \"carousel\" is the word the catalog uses. The gap between them is the thing being measured."
+}

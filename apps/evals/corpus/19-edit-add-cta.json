@@ -1,0 +1,26 @@
+{
+  "id": "19-edit-add-cta",
+  "title": "Add a call to action to an existing page",
+  "category": "edit",
+  "fixture": "starter",
+  "dir": "ltr",
+  "request": "Put a sign-up call to action at the very bottom of the page.",
+  "must": {
+    "outcome": "plan",
+    "forbiddenCommands": ["applyPatches"],
+    "forbiddenText": [],
+    "requiredTargetNodeIds": []
+  },
+  "should": {
+    "minCommands": 1,
+    "maxCommands": 4,
+    "anyBlockTypes": ["cta", "promoBanner", "newsletter"]
+  },
+  "budget": {
+    "maxCommands": 4,
+    "maxContextTokens": 120000,
+    "maxElapsedMs": 120000
+  },
+  "rubric": "Is the call to action at the end of the page rather than in the middle?",
+  "why": "Position matters and is expressible: the plan must append to the root slot rather than insert at an arbitrary index."
+}

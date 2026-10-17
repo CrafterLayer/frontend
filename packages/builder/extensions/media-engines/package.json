@@ -1,0 +1,69 @@
+{
+  "name": "@craftkit/builder-media-engines",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./entry": "./src/entry.ts",
+    "./policy": "./src/policy.ts",
+    "./palette": "./src/palette.ts",
+    "./carousel": "./src/carousel.ts"
+  },
+  "scripts": {
+    "build:scene": "node ../../../../scripts/build-scene-engine.mjs scene",
+    "build:pixi": "node ../../../../scripts/build-scene-engine.mjs pixi",
+    "build:studio": "node ../../../../scripts/build-studio-engines.mjs all",
+    "build:sound": "node ../../../../scripts/build-sound-engine.mjs",
+    "build:carousel": "node ../../../../scripts/build-carousel-engine.mjs",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@craftkit/builder-schema": "workspace:*",
+    "@dicebear/core": "catalog:",
+    "@dicebear/open-peeps": "catalog:",
+    "@pixi/sound": "catalog:",
+    "@pixi/tilemap": "catalog:",
+    "@pixi/ui": "catalog:",
+    "culori": "catalog:",
+    "d3-contour": "catalog:",
+    "d3-shape": "catalog:",
+    "embla-carousel": "catalog:",
+    "gifuct-js": "catalog:",
+    "inkjs": "catalog:",
+    "lindenmayer": "catalog:",
+    "matter-js": "catalog:",
+    "perfect-freehand": "catalog:",
+    "pixi-filters": "catalog:",
+    "pixi-viewport": "catalog:",
+    "pixi.js": "catalog:",
+    "polybooljs": "catalog:",
+    "rot-js": "catalog:",
+    "roughjs": "catalog:",
+    "simplex-noise": "catalog:",
+    "simplify-js": "catalog:",
+    "yuka": "catalog:",
+    "zzfx": "catalog:"
+  },
+  "devDependencies": {
+    "@craftkit/eslint-config": "workspace:*",
+    "@craftkit/test-config": "workspace:*",
+    "@craftkit/typescript-config": "workspace:*",
+    "@types/culori": "catalog:",
+    "@types/node": "catalog:",
+    "@types/yuka": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "esbuild": "catalog:",
+    "jsdom": "catalog:",
+    "kenney-hexagon-pack": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

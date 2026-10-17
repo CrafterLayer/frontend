@@ -1,0 +1,30 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SymbolsPanelStories from './SymbolsPanel.stories';
+
+<Meta of={SymbolsPanelStories} />
+
+# SymbolsPanel
+
+Reusable components ("symbols") with per-instance overrides (style-manager DESIGN.md §G).
+
+| Action | Steps (one labelled transaction) |
+| --- | --- |
+| Make into symbol (a `customCode` region is selected) | `setSymbol` + `insertNode customCodeSymbol` at the region's place + `removeNode` region |
+| Edit master (outline of the master's text and classes) | `setSymbol` — every instance updates |
+| Reset override / Reset all | `setProp overrides` on the instance |
+| Push overrides to master | `setSymbol` (master with this instance's overrides) + `setProp overrides []` |
+| Detach instance | `insertNode customCode` (master + overrides) + `removeNode` instance |
+| Delete | `removeSymbol`; refused while instances exist; "Detach instances and delete" sends `detach: true` |
+
+An override is `{ path, text?, className?, attributes? }` inside the master. Overrides survive a
+master edit; one whose path no longer resolves is skipped. The instance card lists every override
+with an **Overridden** badge and its own reset, and the master outline marks the values the
+selected instance overrides.
+
+`withSymbolOverride(overrides, path, patch)` is exported for the element panel: when the focused
+element lives inside an instance, its writes become a `setProp overrides` instead of a tree edit.
+`onEditMaster(symbolId)` lets a host open a focused canvas mode as well.
+
+The page root's slot must admit `customCodeSymbol` for "Make into symbol" to insert the instance.
+Labels: `SYMBOLS_PANEL_LABELS_EN` / `_AR`.

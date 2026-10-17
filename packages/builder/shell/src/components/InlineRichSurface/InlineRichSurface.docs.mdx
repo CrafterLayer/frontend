@@ -1,0 +1,89 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as InlineRichSurfaceStories from './InlineRichSurface.stories';
+
+<Meta of={InlineRichSurfaceStories} />
+
+# InlineRichSurface
+
+Rich inline editing **with no editing engine** (milestone B3c, contract §15). Select a word on the
+canvas, press **Bold**, and exactly that word is marked — in the stored document, not in CSS.
+
+## Why it exists
+
+The shell is layer 3 and may never import an editing engine. Until this surface, "rich" inline
+editing required the contributed TipTap extension — and a builder whose headline feature only works
+when an optional package is installed is not a builder. This is the built-in path: every block that
+declares `inlineEditable` on a rich-text property is editable out of the box.
+
+A contributed editor still **outranks** it. Register one through the `inlineEditors` contribution
+point and the canvas uses that instead, for headings, lists, links, and engine-level undo.
+
+## How it works
+
+| Concern             | Where it lives                                                                   |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Rendering           | the renderer's `RichText` — the SAME read path the published page uses           |
+| Selection semantics | `inline/dom-range.ts` (`offsetsOfSelection`, `applyOffsets`)                     |
+| Selection geometry  | deferred source; `rangeGeometry` runs only in the coalesced anchor-channel flush |
+| Document edits      | `inline/mark-range.ts` (`toggleMark`, `replaceRange`) — pure, no DOM             |
+| Chrome              | the canvas: this surface only REPORTS its selection and its actions              |
+
+The offset space is the document's text with ONE separator position between adjacent blocks
+(`plainTextOf` renders those as `\n`). The separator is what makes the mapping unambiguous: without
+it, the end of one paragraph and the start of the next are the same number, and typing at a
+paragraph's start lands in the previous one — a defect adversarial verification caught before this
+surface shipped (contract §16).
+
+## Controlled contenteditable
+
+Every input is intercepted (`beforeinput`, native listener) and applied to a **local draft
+document**; the browser's own mutation is refused. React stays the single authority over the DOM,
+so what is on screen is always a real document. After each edit the caret is restored by offset in a
+layout effect, so typing feels continuous.
+
+## Commit law (one gesture, one Undo)
+
+The draft is handed to the host **once** — `onCommit(doc)` on **Enter**, on **blur**, or when the
+session ends under an unsaved draft — never per keystroke, so one edit is one transaction and one
+Undo.
+
+- A Bold/Italic action is a discrete gesture: it commits immediately, together with any typing
+  before it.
+- Tab toward the formatting chrome is a hand-off inside the edit, not its end: that blur commits
+  nothing.
+- **Escape cancels**: the draft is discarded and the stored document shows again.
+- While a draft is unsaved, incoming values (an Undo/Redo replay, a collaborator) do not overwrite
+  it; a clean draft yields to the next stored value.
+- Shift+Enter is inert: this surface models no paragraphs.
+
+Listeners are native, not React props: this surface is portaled into the preview **iframe**, and
+React's synthetic events do not cross that boundary.
+
+Selection interactions report only presence, document offsets, available actions, and pressed state.
+The canvas keeps the deferred measurement source in its plain-TypeScript anchor channel; neither
+this surface nor React state reads or retains per-frame rectangles. Rapid drag or Shift-arrow
+updates therefore coalesce into one geometry read on the next scheduled flush.
+
+## Accessibility & RTL
+
+A named multiline `textbox` that takes focus when the session opens. While it owns focus it reports
+Bold and Italic even at a collapsed caret, DISABLED there (a caret has no characters to mark), so the
+canvas keeps its formatting bar docked beside the surface; the anchor is reported only for a
+non-empty selection. With a non-empty selection,
+ordinary forward Tab asks the canvas to focus its first enabled formatting action; it cancels the
+key only when that move succeeds. The surface bookmarks the exact document offsets, keeps them live
+while host chrome owns focus, and reapplies them when Shift+Tab or Escape returns. Escape inside the
+surface cancels the draft and exits. Arrow keys, Home/End, and selection chords move the caret and never reach the
+canvas traversal behind it. `dir="auto"`, so mixed Arabic/English prose follows its own content.
+
+## Known limitations
+
+- **Bold and italic only.** Headings, lists, and links are the contributed engine's job.
+- **Native formatting inputs are refused.** Browser `format*` input types cannot bypass document
+  truth; use the Bold/Italic bubble actions, or the contributed engine for richer formatting.
+- **No composition (IME) support.** Composition inputs are refused rather than allowed to corrupt
+  the document; use the contributed editor where IME matters.
+- **No editor-local history.** `historyUndo`/`historyRedo` inputs are refused; undo is the kernel's,
+  at document level — one transaction per finished edit.
+- Pasting inserts **plain text** on purpose; pasting formatting belongs to the engine.

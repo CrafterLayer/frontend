@@ -1,0 +1,9 @@
+{
+  "extends": "@craftkit/typescript-config/headless.json",
+  "compilerOptions": {
+    // Headless layer 2: the codec must not see Node/DOM/test globals (same law as core).
+    "types": []
+  },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["coverage"]
+}

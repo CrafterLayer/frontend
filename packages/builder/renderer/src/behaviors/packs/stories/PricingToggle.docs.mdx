@@ -1,0 +1,41 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PricingToggleStories from './PricingToggle.stories';
+
+<Meta of={PricingToggleStories} />
+
+# Pricing toggle
+
+`data-ck-behavior="toggle-group"` on a container whose descendants carry `data-ck-option="a"` (monthly)
+or `data-ck-option="b"` (yearly). The markup itself ships the `b` options with `hidden`, so a page without
+the script shows the monthly prices and nothing else.
+
+<Canvas of={PricingToggleStories.English} />
+
+## The switch
+
+The `toggle-group` pack (`behaviors/packs/toggle-group.ts`) adopts as its switch the first `button` in
+the container that is not inside an option. A Buy button inside a price card is never taken. If the
+container has no such button, the pack prepends one. The switch gets:
+
+- `role="switch"` and `aria-checked`;
+- the label «شهري / سنوي» or "Monthly / Yearly", but only when the button has no text of its own.
+
+Pressing it flips `hidden` between the `a` and `b` options. The disposer restores every attribute it set,
+`hidden` included, and removes a switch it inserted.
+
+## Direction
+
+The track and knob are the switch's `::before` and `::after` (`[data-ck-switch]` in
+`WIDGETS_PACK_CSS`), and both are placed with `inset-inline-start` only. When the switch is checked, only
+the knob's `inset-inline-start` changes. On an Arabic page the knob therefore starts at the right and
+travels left without a separate RTL rule. The knob slides only under
+`prefers-reduced-motion: no-preference`.
+
+<Canvas of={PricingToggleStories.Arabic} />
+
+## On the canvas
+
+The `a` options show and the switch is inert, so a click selects the element.
+
+<Canvas of={PricingToggleStories.Canvas} />

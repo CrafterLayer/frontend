@@ -1,0 +1,95 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ComposerToolbarStories from './ComposerToolbar.stories';
+
+<Meta of={ComposerToolbarStories} />
+
+# ComposerToolbar
+
+The composer's bottom row (SPEC §4.17): Mode ▾ and Model ▾ at the inline start; ✨ Improve, `[@]`
+and the Send slot at the inline end.
+
+<Canvas of={ComposerToolbarStories.Ready} />
+
+## Purpose
+
+Read in the order a request is made: how it may touch the page, who writes it, then the tools for
+the words, then Send, the last thing the hand reaches. A control with nothing to offer is absent,
+never dead: one model means no ModelMenu, no rewriting means no ✨.
+
+## Props
+
+| prop              | type                            | default | notes                                         |
+| ----------------- | ------------------------------- | ------- | --------------------------------------------- |
+| `locale`          | `Locale`                        | none    |                                               |
+| `mode`            | `AssistantMode`                 | none    |                                               |
+| `model`           | `ModelSelectionView \| null`    | none    | `null`: no model menu                         |
+| `send`            | `SendState`                     | none    | also tells ✨ whether the draft is empty      |
+| `enhancement`     | `EnhancementView`               | none    |                                               |
+| `running`         | `boolean`                       | none    | Mode says it applies next time; ✨ waits      |
+| `workers`         | `1 \| 3 \| 6`                   | absent  | independent section-writing concurrency       |
+| `onWorkersChange` | `(count: 1 \| 3 \| 6) => void`  | absent  | pool selection; locked while running          |
+| `onModeChange`    | `(mode: AssistantMode) => void` | none    |                                               |
+| `onModelChange`   | `(id: string) => void`          | none    | receives the raw id, which is never shown     |
+| `onMention`       | `() => void`                    | none    | the Composer types the `@` and opens the list |
+| `onEnhance`       | `() => void`                    | none    |                                               |
+| `onSend`          | `() => void`                    | none    |                                               |
+| `className`       | `string`                        | none    | appended to `ck-agent-toolbar`                |
+
+Free code (`freeCode`, `onFreeCodeChange`) is a labelled switch with the choices, not an icon
+(Studio Indigo redesign, 2026-10-12): `</>` Free code and a 26 × 16 track whose knob sits at the
+inline end when on, in the Accent wash. It is a toggle button (`aria-pressed`) described by what on
+and off mean (`freeCode.on` / `freeCode.off`); under a 560px panel the words are visually hidden,
+and stay its accessible name and its tooltip.
+
+Compact composer (2026-10-12, the person's request): every choice is a 28px chip (44 on a coarse
+pointer) with a glyph — Mode ⚡, Model, Effort, Workers, Free code — on ONE row with ✨, `@` and
+Send. As the panel narrows the words go first, widest first (Free code under 560px, Model and Effort
+under 460px with every ▾, Mode under 380px); the glyphs, the accessible names and the tooltips keep
+the whole. The row wraps only as a last resort, so nothing is ever clipped.
+
+The folder also holds the pieces ModeMenu, ModelMenu, EffortMenu and WorkerMenu share: `ChoiceMenu`
+(a ghost trigger, with an optional `icon` glyph, over a Radix DropdownMenu radio group of two-line
+items) and `ComposerTooltip` (IconButton's tooltip for labelled triggers: Stop, Send, ✨ and the
+menu triggers).
+
+## States
+
+| story                                        | what it shows                                   |
+| -------------------------------------------- | ----------------------------------------------- |
+| `Ready`, `ReadyDark`, `ReadyRightToLeft`     | the order, in both directions                   |
+| `Empty`                                      | ✨ and Send wait, still focusable and explained |
+| `Running`, `Queued`, `QueuedRightToLeftDark` | Queue as next; the Queued pill                  |
+| `Enhancing`, `ImproveUnavailable`            | ✨ at work; ✨ absent                           |
+| `NoModelChoice`                              | one model: no menu                              |
+| `Mention`                                    | `[@]` calls back                                |
+| `Narrow` (288)                               | glyph-only chips on one row with the actions    |
+| `CoarsePointer`, `CoarsePointerRightToLeft`  | 44px items 8px apart, previewed                 |
+
+## Anatomy
+
+32px items with 4px between them, 4px under the text; 44px items 8px apart under a coarse pointer
+(SPEC §2.3, §6.4). The target size and gap are inherited custom properties (`--ck-agent-target`,
+`--ck-agent-toolbar-gap`), set by the stylesheets only under `(pointer: coarse)`, so the phone sheet
+or a story can preview them from an ancestor.
+
+The choices never wrap (their words hide instead); the whole row wraps only when even the glyphs do
+not fit, so no control is pushed outside the panel. Provider labels use a shorter visual measure
+below 360px. Accessible button names retain the full label, and menus remain portalled above the
+composer rather than clipped inside a scroll box.
+
+## Accessibility
+
+- Every control is in the tab order, in reading order; the worker pool uses a labelled native
+  select.
+- The mode trigger is never disabled: a mode chosen while running applies to the next request.
+- The pool offers one, three, or six workers for independent build sections, not multiple writers on
+  one edit. It is disabled throughout a live run and while improving the draft.
+
+## RTL
+
+The choices at the right, the actions at the left, by `justify-content` and logical margins.
+
+## Motion
+
+None of its own; its menus open with SPEC §5 moment 9.

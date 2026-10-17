@@ -1,0 +1,73 @@
+/*
+  StopButton (SPEC §4.17): 32px (44 on a coarse pointer), radius 6, a 1px Rule border on
+  the Sheet, an Ink ■ and the word at every width. Hover lays the Wash; never Indigo (SPEC
+  §2.1 rule 3: Stop is not the primary action, and hover never uses Indigo).
+
+  The inline padding is SPEC's 8 + 8, redistributed 6 + 10: the ■ is a 7px square in a
+  16px glyph box, so 4.5px of whitespace already sits on each side of it. Six before the
+  box puts the square 10.5px from the edge, ten after the word balances it, and the word
+  starts 6.5px after the square instead of 12.5.
+
+  Drawn over ChromeButton. Every rule starts from four simple selectors, (0,4,0), so each
+  state out-ranks ChromeButton's matching one whatever order the bundler emits them in.
+*/
+
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size] {
+  gap: var(--bldr-space-2xs);
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-lg);
+  border-color: var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
+  background-color: var(--bldr-surface-active);
+  color: var(--bldr-panel-text);
+  transition-duration: var(--bldr-duration-press);
+}
+
+/*
+  Stopping: the press was heard. The spinner turns, the word steps back to Graphite, and
+  the button no longer answers hover or press; the cursor says the work is winding down.
+*/
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'],
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:hover,
+.ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true']:enabled:active {
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text-soft);
+  cursor: progress;
+}
+
+.ck-agent-stop__label {
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-stop {
+    --ck-agent-target: var(--bldr-hit-target-min);
+  }
+}
+
+/* High contrast keeps the outline a button outline. */
+@media (forced-colors: active) {
+  .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size] {
+    border-color: ButtonText;
+  }
+
+  .ck-agent-stop[data-bldr-chrome-button][data-variant][data-size][aria-disabled='true'] {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}

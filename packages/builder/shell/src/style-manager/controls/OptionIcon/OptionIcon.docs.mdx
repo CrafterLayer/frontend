@@ -1,0 +1,19 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as OptionIconStories from './OptionIcon.stories';
+
+<Meta of={OptionIconStories} />
+
+# OptionIcon
+
+The glyphs of the style panel's segmented controls: display, flex direction, wrap, justify, align,
+text align, transform, decoration, italic, gradient direction, and the screen-size buckets of the
+panel header.
+
+- Glyphs are data (`OPTION_GLYPHS`, keyed `property:value`): stroked paths on a 16 × 16 grid, or a
+  short text mark (`Aa`) for typographic choices.
+- A glyph along the inline axis carries `data-mirror` and flips under `:dir(rtl)`, the NEAREST
+  direction. A group laid out in the page's direction mirrors with the page, not with the editor.
+- Decorative only (`aria-hidden`). The option button keeps the translated label as its accessible
+  name and tooltip.
+- An option with no glyph renders nothing; `SegmentedChoice` moves such options into its overflow menu.

@@ -3,11 +3,6 @@
   "display": "CraftKit Storybook",
   "extends": "./react-library.json",
   "compilerOptions": {
-    "types": [
-      "node",
-      "react",
-      "react-dom",
-      "vitest/globals"
-    ]
+    "types": ["node", "react", "react-dom", "vitest/globals"]
   }
 }

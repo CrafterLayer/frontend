@@ -1,0 +1,93 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ChromeButtonStories from './ChromeButton.stories';
+
+<Meta of={ChromeButtonStories} />
+
+# ChromeButton
+
+`ChromeButton` is the one native button primitive for editor chrome. Shell regions choose a declared
+size and semantic variant instead of rebuilding height, padding, state colours, focus, and disabled
+behavior around a raw `<button>`.
+
+<Canvas of={ChromeButtonStories.Default} />
+
+## When to use
+
+Use it for every action owned by builder chrome: top bars, rails, status tools, floating action
+bars, and toggles. Do not use it for page content, links, static status chips, or a control whose
+semantics are not a button.
+
+## Size scale
+
+| Size    | Theme token             | Resolved default | Use                                            |
+| ------- | ----------------------- | ---------------- | ---------------------------------------------- |
+| `sm`    | `--bldr-control-sm`     | 28px             | Dense panel and compact status controls        |
+| `lg`    | `--bldr-control-lg`     | 36px             | Default editor chrome                          |
+| `touch` | `--bldr-hit-target-min` | 44px             | A genuine coarse-pointer or finger target only |
+
+The component defaults to `lg`. `touch` is not a general accessibility synonym: the editor's desktop
+chrome uses the compact AA-compliant scale, and only a surface explicitly designed for direct finger
+acquisition should opt into 44px.
+
+<Canvas of={ChromeButtonStories.EveryVariantAtEverySize} />
+
+## Variants
+
+- `primary` is the high-emphasis action, such as Publish.
+- `quiet` is the default secondary or ambient action.
+- `icon` is square and icon-only. Its type requires an `aria-label`; omitting the name is a
+  compile-time error. `tone="primary"` supports the icon half of a primary split action.
+- `toggle` requires a boolean `aria-pressed`. It remains a native button and never substitutes link
+  or current-page semantics for pressed state.
+
+## Usage
+
+```tsx
+<ChromeButton variant="primary" onClick={publish}>
+  Publish
+</ChromeButton>
+
+<ChromeButton variant="icon" aria-label="Undo" onClick={undo}>
+  <UndoIcon aria-hidden="true" />
+</ChromeButton>
+
+<ChromeButton variant="toggle" aria-pressed={bold} onClick={toggleBold}>
+  Bold
+</ChromeButton>
+```
+
+## Public props and defaults
+
+`ChromeButton` forwards native button props and the React 19 `ref` prop, fixes `type="button"`, and
+adds these chrome-specific props:
+
+| Prop           | Type                                                | Default   |
+| -------------- | --------------------------------------------------- | --------- |
+| `size`         | `'sm' \| 'lg' \| 'touch'`                           | `'lg'`    |
+| `variant`      | `'primary' \| 'quiet' \| 'icon' \| 'toggle'`        | `'quiet'` |
+| `tone`         | `'quiet' \| 'primary'` on `icon` only               | `'quiet'` |
+| `aria-label`   | required `string` on `icon`; optional otherwise     | none      |
+| `aria-pressed` | required `boolean` on `toggle`; forbidden otherwise | none      |
+| `tooltip`      | optional `string` — a visible hint, name and keys   | none      |
+
+`tooltip` draws a hint under the button on hover (after a short pause) and at once on keyboard focus
+— the name of an icon-only control and its shortcut, such as "Undo · Ctrl Z". It is visual only: the
+accessible name stays `aria-label`, and a shortcut also belongs in `aria-keyshortcuts`. The hint
+uses the panel's inverse colour pair, mirrors in RTL, and appears without a fade under
+`prefers-reduced-motion: reduce`.
+
+## Accessibility and keyboard behavior
+
+The rendered element is always a native button, so Enter, Space, Tab, `disabled`, and focus follow
+platform behavior. The focus ring uses the shared builder theme tokens. Icon glyphs must be hidden
+from assistive technology because the required label owns the accessible name. Radio groups and
+navigation destinations may pass native `role`, `aria-checked`, or `aria-current`; they must use an
+icon or quiet variant rather than pretending to be a pressed toggle.
+
+## RTL, theme, and content constraints
+
+Spacing uses logical properties and inherits direction. Every measurement and colour resolves
+through an existing `--bldr-*` theme token. Labels should stay concise; overflow and group layout
+belong to the composing region. The browser matrix measures every variant at every size, while the
+assembled-editor story rejects a third button height or a raw button that bypasses this component.

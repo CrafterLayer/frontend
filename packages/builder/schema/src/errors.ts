@@ -1,0 +1,86 @@
+import type { JsonValue } from './json/json-value';
+
+export type BuilderErrorCode =
+  | 'doc/root-missing'
+  | 'doc/root-parented'
+  | 'doc/orphan'
+  | 'doc/cycle'
+  | 'doc/duplicate-membership'
+  | 'doc/duplicate-in-slot'
+  | 'doc/dangling-child'
+  | 'doc/empty-slot-array'
+  | 'doc/id-mismatch'
+  | 'doc/reserved-node-id'
+  | 'doc/invalid-patch'
+  | 'doc/invalid-slot-name'
+  | 'doc/unknown-type'
+  | 'doc/unknown-slot'
+  | 'doc/slot-not-allowed'
+  | 'doc/slot-capacity'
+  | 'doc/non-json-value'
+  | 'doc/non-finite-number'
+  | 'doc/raw-style-literal'
+  | 'doc/invalid-props'
+  | 'doc/migration-gap'
+  | 'block/non-json-props'
+  | 'cmd/unknown'
+  | 'cmd/invalid-args'
+  | 'cmd/structural-violation'
+  /*
+    The SITE analogues of `cmd/structural-violation` and `doc/invalid-patch`.
+    Two codes, not more: a site command either refuses because the change would
+    break the site's structure (an unknown page, a duplicate address, a design
+    system nobody could read) or because a raw patch batch produced a site the
+    validator rejects. Anything finer would be a taxonomy nobody switches on.
+  */
+  | 'site/structural-violation'
+  | 'site/invalid-patch'
+  | 'code/revision-conflict'
+  | 'code/file-conflict'
+  | 'code/merge-invalid'
+  | 'ext/cycle'
+  | 'ext/duplicate'
+  | 'ext/missing-dependency'
+  | 'ext/tier2-executable'
+  | 'ext/tier2-invalid'
+  | 'widget/missing-states'
+  | 'persist/seq-conflict';
+
+export interface BuilderErrorInit {
+  code: BuilderErrorCode;
+  message: string;
+  path?: (string | number)[] | undefined;
+  meta?: Record<string, JsonValue> | undefined;
+}
+
+/**
+ * Typed, path-addressed error. Validators return arrays of these; the dispatch door
+ * throws them. `path` addresses the offending location inside a document, manifest,
+ * or command args.
+ */
+export class BuilderError extends Error {
+  readonly code: BuilderErrorCode;
+  readonly path: (string | number)[] | undefined;
+  readonly meta: Record<string, JsonValue> | undefined;
+
+  constructor(init: BuilderErrorInit) {
+    super(init.message);
+    this.name = 'BuilderError';
+    this.code = init.code;
+    this.path = init.path;
+    this.meta = init.meta;
+  }
+}
+
+export function builderError(
+  code: BuilderErrorCode,
+  message: string,
+  path?: (string | number)[],
+  meta?: Record<string, JsonValue>,
+): BuilderError {
+  return new BuilderError({ code, message, path, meta });
+}
+
+export function isBuilderError(value: unknown): value is BuilderError {
+  return value instanceof BuilderError;
+}

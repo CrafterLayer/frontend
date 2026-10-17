@@ -1,0 +1,81 @@
+/* Name/value rows for a record property. Logical properties and chrome tokens only. */
+.bldr-kv-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.bldr-kv-field__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+}
+
+.bldr-kv-field__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bldr-kv-field__row {
+  align-items: center;
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) var(--bldr-control-sm);
+}
+
+.bldr-kv-field__key {
+  font-family: var(--bldr-font-mono);
+  text-align: start;
+}
+
+.bldr-kv-field__remove,
+.bldr-kv-field__remove-spacer {
+  block-size: var(--bldr-control-sm);
+  inline-size: var(--bldr-control-sm);
+}
+
+.bldr-kv-field__remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.bldr-kv-field__remove:hover:not(:disabled) {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-danger);
+}
+
+.bldr-kv-field__remove svg {
+  block-size: var(--bldr-space-xl);
+  inline-size: var(--bldr-space-xl);
+}
+
+.bldr-kv-field__add {
+  align-self: flex-start;
+  background-color: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-kv-field__add:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

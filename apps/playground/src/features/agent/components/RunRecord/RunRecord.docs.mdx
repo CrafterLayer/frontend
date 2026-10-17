@@ -1,0 +1,106 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as RunRecordStories from './RunRecord.stories';
+
+<Meta of={RunRecordStories} />
+
+# RunRecord
+
+Long operation titles may occupy two lines before visual truncation. The full title remains the
+article's accessible name, so narrow panels retain the target context without horizontal clipping.
+
+The shell every past run is drawn in (SPEC §4.6): BuildRecord, EditRecord, AnswerRecord,
+ErrorRecord, and a decision card once it is answered.
+
+<Canvas of={RunRecordStories.EveryKindAt320} />
+
+## Purpose
+
+The panel is an instrument, not a chat app (SPEC §1). Only two things get a border: the composer,
+where you write, and a decision waiting for you. Everything that already happened is an unboxed
+record: a status glyph, a title, a few precise lines. So what is waiting for you stands apart from
+what is history at a glance.
+
+RunRecord is that record: the geometry every record shares, so seven kinds of record line up on one
+edge.
+
+## When to use / not
+
+Use it for every turn that reports a run, whether it is running, finished, failed or answered. A
+decision still waiting (a page plan, a proposal) is a card with a border, not a record; it becomes
+one once answered.
+
+Do not put a box, a fill or a fourth type size in it. Do not show a ticking clock in its head: while
+a run is live the RunBar owns the one clock, and the head shows the count.
+
+## Props
+
+| prop               | type                        | default | notes                                                     |
+| ------------------ | --------------------------- | ------- | --------------------------------------------------------- |
+| `glyph`            | `RunGlyphState`             | none    | `glyphForBuildPhase` / `glyphForRow` pick it              |
+| `animateGlyph`     | `boolean`                   | `false` | a live build's arrival motion                             |
+| `title`            | `ReactNode`                 | none    | the `h3`: says the state in words; page words in `<bdi>`  |
+| `meta`             | `readonly RecordMetaItem[]` | none    | `{ text, label? }`: `1/8` read as its sentence, or `2:21` |
+| `children`         | `ReactNode`                 | none    | body lines                                                |
+| `actions`          | `ReactNode`                 | none    | at most one primary and one secondary                     |
+| `menu`             | `ReactNode`                 | none    | the `[⋯]` RecordMenu, at the footer's inline end          |
+| `headingRef`       | `Ref<HTMLHeadingElement>`   | none    | a focus destination (SPEC §6.3)                           |
+| article attributes | `data-*`, `id`, …           | none    | forwarded to the `<article>`                              |
+
+## States
+
+The stories compose the records wave 2 builds on this shell: `BuildRunning`, `BuildDone` (with an
+InlineConfirm for Undo build and a RecordMenu), `BuildPartial`, `BuildStopped`, `Failed`, `EditDone`
+(with ChangeLines) and `Answer`; `BuildDoneDark`, `BuildDoneRightToLeft`, `BuildDoneRightToLeftDark`
+and `EditDoneRightToLeft`; and every kind stacked at 320 (`EveryKindAt320`) and in Arabic at 420
+(`EveryKindAt420Arabic`). `UndoBuildConfirming` and `UndoBuildConfirmingRightToLeftDark` open the
+Undo build InlineConfirm. Their plays check that the article is named by its title, that every body
+line starts on the title's edge, that nothing scrolls sideways, and, with the confirm open, that
+`[⋯]` stays at the footer's inline end on the same row as Undo and Cancel.
+
+The footer buttons in these stories are placeholders at the panel's 32px control height: each
+record's own buttons belong to its work package (WP-12).
+
+## Anatomy
+
+```text
+[glyph 16] 8 [title, h3, one line …………………………] [figures]      head, 32px
+           [body lines, in the text column]                   4px under the head, 2px apart
+           [primary] [secondary]                    [⋯]       8px under the body
+           [consequence of Undo build, wrapping ……]           an InlineConfirm, open:
+           [Undo] [Cancel]                          [⋯]       [⋯] stays on the answers' row
+```
+
+- **Head**: a grid of a 16px glyph column, 8px, the title, and the figures at the inline end. The
+  title is Heading type (Read, 600) in Ink, one line, ending in an ellipsis. The figures are Figure
+  type, tabular, in Slate, each in an LTR `<bdi>`.
+- **Body**: a two-column grid, the glyph column and the text column, so every line starts under the
+  title, 24px in. A child that draws in the glyph column (a SpineList, a spine segment beside a
+  caption) spans both with `grid-column: 1 / -1`. Lines default to Read in Graphite.
+- **Footer**: 24px in, 8px under the body, 44px tall on a coarse pointer. Two columns: the actions
+  (`.ck-agent-record__actions`), which wrap within their own column with 8px gaps, and `[⋯]` at the
+  inline end, on the actions' last row. An InlineConfirm takes a full row of the actions column (its
+  consequence, then its answers), and `[⋯]` stays beside the answers. In a single wrapping row it
+  dropped to a line of its own, 40px under them (measured in Chromium). A menu-only footer (an
+  answer) keeps `[⋯]` at the end.
+
+## Accessibility
+
+- An `<article aria-labelledby>` on its `h3`: a screen reader lists records by their titles.
+- The title says the state in words ("Build stopped"); the glyph is `aria-hidden` and adds nothing
+  to the name, so no state is carried by colour or shape alone. A test renders every glyph state and
+  checks the name is only the title.
+- The heading takes `tabindex="-1"`, so an action can send focus to it (Build this page, Retry,
+  Finish the rest, Undo build), with the product's ring drawn around the words.
+- A figure whose bare text would not make sense read aloud takes a `label`: `1/8` is read as "1 of 8
+  sections is on the page".
+
+## RTL
+
+Logical properties only: in Arabic the glyph column is at the right, the figures at the left, and
+`2:21` and `1/8` stay intact in their LTR islands. The stories check the glyph sits right of the
+figures.
+
+## Motion
+
+None of its own. The glyph's arrival motion runs only when `animateGlyph` is set.

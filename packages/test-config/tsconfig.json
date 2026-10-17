@@ -1,7 +1,13 @@
 {
   "extends": "@craftkit/typescript-config/node.json",
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts"
-  ]
+  "compilerOptions": {
+    // This package ships jsdom test setup (@testing-library/jest-dom), whose
+    // declarations reference DOM globals — the DOM lib is semantically correct here.
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    // jest-dom's vitest augmentation conflicts with @vitest/browser's built-in
+    // matcher types (TestingLibraryMatchers<any,any> vs <void,void>) — a pure
+    // third-party/third-party declaration clash. Scoped exception here only.
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

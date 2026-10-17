@@ -1,0 +1,88 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ReportStories from './Report.stories';
+
+<Meta of={ReportStories} />
+
+# Report
+
+One dataset as a report section: a title that states the finding, a summary, up to four KPI cards
+computed from the data, one accessible chart, and an optional table of the numbers. It is what the
+agent's `report.build` tool inserts from pasted rows, and it renders with no client script.
+
+## When to use it
+
+Use it when one table of numbers deserves a section of its own — monthly sales, bookings by quarter,
+a conversion funnel. Use a `chart` for a picture alone, a `table` for text or exact values alone,
+and `stats` for headline numbers that do not come from one table.
+
+## Content model
+
+- `title` (default "Quarterly report") and an optional `summary`. The title names the section and
+  the chart; the summary describes the chart.
+- `categories`: up to 24 row labels (the first column). `series`: up to six numeric columns, each
+  `{ name, values }` with one number per category.
+- `valuePrefix` / `valueSuffix` print beside every number: cards, chart and table.
+- `kpis`: up to four `{ label, series, measure, better }` cards. `series` is the column's index;
+  `measure` is `last` (default), `total`, `average`, `max` or `min`. A `last` card also shows the
+  change against the row before: an arrow, the signed percentage and `changeLabel` ("vs previous").
+  `better: 'up' | 'down'` says which way is good — revenue up, costs down.
+- `chartType`: `bar`, `hbar`, `line`, `area`, `combo`, `scatter`, `radar`, `funnel`, `pie` or
+  `donut` (the Chart block's types that read a whole table), with `stacked`, `showLegend`,
+  `showValues`, `showGrid`, `palette`, `height` and `otherLabel` as on the Chart.
+- `showTable = true`, `variant: 'card' | 'plain' = 'card'`, plus the shared section props.
+
+## How it is drawn
+
+`report-model.ts` computes each card's number and change and decides which element hosts a label
+printed in several places; `report-kpis.tsx` and `report-table.tsx` draw the cards and the table,
+and the chart is drawn by the Chart block's own figures (`Chart/chart-figure.tsx`), so a report's
+chart is exactly a Chart. Numbers past 100,000 shorten on a card (`$145.7K`); the table prints them
+in full.
+
+- **Change and colour.** The arrow (▲ ▼ –) and the sign carry the direction for everyone. A change
+  the `better` way wears the success role; a worsening keeps the ink, because no theme role means
+  "bad"; a flat change is muted. No colour is ever the only signal.
+- **Cards.** A card variant draws each card and the chart on the surface, with the ink set on their
+  children so a dark section stays legible; the plain variant draws a hairline at each card's inline
+  start instead.
+- **RTL.** Cards and the table follow the page direction; the chart mirrors exactly as the Chart
+  block does. Signed percentages sit in a left-to-right isolate so the sign stays in front.
+
+## Accessibility
+
+The section is a region named by its title. The chart is one image named by the title and described
+by the summary. The table is a real table — a row header per category, a column header per column —
+inside a focusable group named by the title so a keyboard can scroll it. Without the table, the
+chart's visually hidden data table carries the numbers instead. KPI arrows are hidden from screen
+readers; the signed percentage is read.
+
+## Parts
+
+| name           | kind | bind            | label (en / ar)                          |
+| -------------- | ---- | --------------- | ---------------------------------------- |
+| `title`        | text | `title`         | Title / العنوان                          |
+| `summary`      | text | `summary`       | Summary / الملخص (multiline)             |
+| `kpis`         | list | `kpis`          | KPI cards / بطاقات المؤشرات              |
+| `kpi`          | item | `kpis.*`        | KPI card / بطاقة مؤشر                    |
+| `kpi.label`    | text | `kpis.*.label`  | KPI label / تسمية المؤشر                 |
+| `changeLabel`  | text | `changeLabel`   | Change label / تسمية التغيّر             |
+| `categories`   | list | `categories`    | Categories / الفئات                      |
+| `category`     | text | `categories.*`  | Category / الفئة                         |
+| `series`       | list | `series`        | Data columns / أعمدة البيانات            |
+| `dataset`      | item | `series.*`      | Data column / عمود البيانات              |
+| `dataset.name` | text | `series.*.name` | Column name / اسم العمود                 |
+| `valuePrefix`  | text | `valuePrefix`   | Value prefix / بادئة القيمة              |
+| `valueSuffix`  | text | `valueSuffix`   | Value suffix / لاحقة القيمة              |
+| `otherLabel`   | text | `otherLabel`    | Other slice label / تسمية الشريحة الأخرى |
+
+A label printed in several places is one part with one host for the in-place editor: the table hosts
+the categories and column names (the chart, without a table); the first card with a number hosts the
+value prefix and suffix (else the table, else the chart); the first card with a change hosts the
+change label. The other copies show the committed text.
+
+## Limitations
+
+- A card's change always compares the last row with the one before; a `total`, `average`, `max` or
+  `min` card shows no change.
+- The cards read columns by index: reordering `series` moves what a card shows.

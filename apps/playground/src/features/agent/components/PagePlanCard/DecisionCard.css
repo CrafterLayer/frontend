@@ -1,0 +1,215 @@
+/*
+  DecisionCard (SPEC §1, §2.3 "Decision card padding", §2.4, §2.5 e1). The shell PagePlanCard,
+  StepPlanCard and ProposalCard share.
+
+  e1: the Sheet, a 1px Hairline, no shadow, a 9px radius. 12px in on every side; each part
+  carries the inline padding itself, so a Hairline between parts runs the card's full width
+  and still has 8px of air above and below.
+
+    ╭────────────────────────────────╮
+    │ ◇ Proposed change: FAQ  [tag]  │  head: node 16, 8, title, tag at the inline end
+    │   Heading “FAQ” → “Questions…” │  body: 4px under the head, on the title's edge
+    │   The page hasn't changed yet. │        lines 2px apart
+    ├────────────────────────────────┤  section: a Hairline, 8px above and below
+    │ [ Apply ] Discard      [◫] [⋯] │  footer: actions at the start, tools at the end
+    │ Builds exactly the sections…   │          one note under them, 4px down
+    ╰────────────────────────────────╯
+*/
+
+.ck-agent-card {
+  /* RunGlyph's 2px ground ring matches the card, so nodes stay solid on the Sheet. */
+  --ck-agent-ground: var(--bldr-surface);
+  --ck-agent-card-pad: var(--bldr-space-xl);
+  /* The text edge: the title's start, 24px in when the head has a node. */
+  --ck-agent-card-text: 0px;
+
+  display: grid;
+  min-inline-size: 0;
+  padding-block: var(--ck-agent-card-pad);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-card[data-glyph] {
+  --ck-agent-card-text: calc(var(--bldr-space-3xl) + var(--bldr-space-md));
+}
+
+.ck-agent-card :where(h3, p, ol, ul) {
+  margin: 0;
+}
+
+.ck-agent-card > * {
+  min-inline-size: 0;
+  padding-inline: var(--ck-agent-card-pad);
+}
+
+/* ── Head ─────────────────────────────────────────────────────────────────── */
+
+.ck-agent-card__head {
+  display: grid;
+  row-gap: var(--bldr-space-2xs);
+}
+
+.ck-agent-card__headline {
+  display: flex;
+  gap: var(--bldr-space-md);
+  align-items: center;
+  min-inline-size: 0;
+  min-block-size: var(--bldr-line-height-read);
+}
+
+/* One line, ending in an ellipsis at the inline end (SPEC §2.2 "Titles are single-line"). */
+.ck-agent-card__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A focus destination, not a control: the ring hugs the words. */
+.ck-agent-card__title:focus-visible {
+  border-radius: var(--bldr-radius-xs);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/*
+  The tag: Meta, Graphite on Tint (6.45:1; never Slate on Tint, SPEC §2.1 rule 2), the
+  control radius, 20px tall so it centres on the title's line.
+*/
+.ck-agent-card__tag {
+  flex: none;
+  max-inline-size: 60%;
+  overflow: hidden;
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The subject: Read, Graphite, one line, on the title's edge. */
+.ck-agent-card__subject {
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-inline-start: var(--ck-agent-card-text);
+  color: var(--bldr-panel-text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Body: lines under the head, on the title's edge ──────────────────────── */
+
+.ck-agent-card__body {
+  display: grid;
+  row-gap: var(--bldr-space-2xs);
+  margin-block-start: var(--bldr-space-xs);
+  padding-inline-start: calc(var(--ck-agent-card-pad) + var(--ck-agent-card-text));
+  color: var(--bldr-panel-text-soft);
+}
+
+/* ── Sections: a full-width Hairline, 8px above and below ─────────────────── */
+
+.ck-agent-card__section {
+  display: grid;
+  margin-block-start: var(--bldr-space-md);
+  padding-block-start: var(--bldr-space-md);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+/* ── Footer: actions, tools, then one note ────────────────────────────────── */
+
+.ck-agent-card__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--bldr-space-md);
+  row-gap: var(--bldr-space-xs);
+  align-items: center;
+}
+
+.ck-agent-card__footer:not(.ck-agent-card__section) {
+  margin-block-start: var(--bldr-space-md);
+}
+
+.ck-agent-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.ck-agent-card__tools {
+  display: flex;
+  grid-column: 2;
+  gap: var(--bldr-space-xs);
+  align-items: center;
+}
+
+/* The note under the buttons: Meta, Slate on the Sheet (4.69:1). */
+.ck-agent-card__note {
+  grid-column: 1 / -1;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+/* What stands in the way: Amber, the words say it (SPEC §4.11 "an Amber line"). */
+.ck-agent-card__note[data-tone='warning'] {
+  color: var(--bldr-warning);
+}
+
+/* A meta line inside the body: Meta, Graphite (SPEC §4.13 honesty line). */
+.ck-agent-card__meta {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-card__meta[data-tone='warning'] {
+  color: var(--bldr-warning);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-card__tools {
+    gap: var(--bldr-space-md);
+  }
+}
+
+/* SPEC §6.4: `prefers-contrast: more` swaps Hairline for Rule. */
+@media (prefers-contrast: more) {
+  .ck-agent-card,
+  .ck-agent-card__section {
+    border-color: var(--bldr-panel-border-strong);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-card {
+    border-color: CanvasText;
+  }
+
+  .ck-agent-card__section {
+    border-block-start-color: CanvasText;
+  }
+
+  .ck-agent-card__tag {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

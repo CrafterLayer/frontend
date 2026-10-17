@@ -1,0 +1,37 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ValueSourceDotStories from './ValueSourceDot.stories';
+
+<Meta of={ValueSourceDotStories} />
+
+# ValueSourceDot
+
+The provenance mark beside every style control (style-manager DESIGN.md §A.5). Its colour says where
+the value comes from:
+
+| Origin          | Meaning                                                                   |
+| --------------- | ------------------------------------------------------------------------- |
+| `here`          | A class at the current bucket and state sets it. Reset removes that class. |
+| `larger-bucket` | Inherited from a wider screen (desktop-first buckets).                    |
+| `default-state` | Inherited from the Default state while editing Hover, Focus and so on.    |
+| `named-style`   | Comes from a `ck-s-*` named style the element wears.                      |
+| `unset`         | Nothing sets it.                                                          |
+
+Hovering the dot shows the class behind the value; pressing it opens a card naming the class. Reset
+is offered only when the value is set here, and it removes only that one class.
+
+## Props
+
+| Prop               | Contract                                                          |
+| ------------------ | ----------------------------------------------------------------- |
+| `origin`           | One of the origins above.                                         |
+| `property`         | The person-facing property name, part of the accessible name.     |
+| `className`        | The class behind the value, shown verbatim.                       |
+| `customBreakpoint` | Marks a family that also has `sm:`/`xl:`/`@md:` classes.           |
+| `onReset`          | Removes the class. Omit to hide Reset.                            |
+| `labels`           | `VALUE_SOURCE_DOT_LABELS_EN` (default) or `VALUE_SOURCE_DOT_LABELS_AR`. |
+
+## Accessibility
+
+The dot is a real button named "Padding: Set here". The card opens on click, Enter or Space and
+takes focus; Escape returns focus to the dot (Radix Popover).

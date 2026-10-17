@@ -1,0 +1,113 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as LibraryPanelStories from './LibraryPanel.stories';
+
+<Meta of={LibraryPanelStories} />
+
+# LibraryPanel
+
+Everything a person can add, in one place (style-manager DESIGN.md §E). Five tabs share one search,
+which matches English and Arabic names alike:
+
+- **Elements** — 42 starting points, including the original essentials (heading, text, button, link, image, video, icon, divider,
+  spacer, container, columns, grid, card, list, form, input, map embed, video embed, accordion, tabs).
+  Each is an ordinary custom-code node with logical, token-based classes, so once inserted it is a
+  widget like any other: every Design sector, the quick bar, Layers and the agent work on it.
+- **Sections** — the host's ready-made sections (the section-kit catalogue, read-only) and the
+  registered page templates.
+- **Blocks** — the Palette, composed rather than copied.
+- **Saved** — the site's own templates (`site.library.templates`), saved from Layers.
+
+<Canvas of={LibraryPanelStories.Elements} />
+
+## Ready-made patterns and the AI agent
+
+The new category has eight compound patterns: feature, metric and quote cards, notice, checklist,
+process steps, contact card and Bento grid. Bilingual descriptions explain what each is for.
+These are ordinary editable trees, not screenshots or a separate locked component system.
+
+The same schema recipes power AI `element.insert` with `preset` and structured `content`, using
+`before`, `after` or `parent` + `index` for placement. Existing markup insertion is unchanged.
+One insertion is one Undo. Blank patterns never fabricate statistics, endorsements or contact links.
+When a page already has a generated page kit, both paths use its palette and radius; thumbnails
+scope that kit through the normal renderer rather than inserting raw page CSS.
+
+<Canvas of={LibraryPanelStories.ReadyPatterns} />
+
+## Inserting is the kernel's door
+
+A click inserts at the selection as ONE labelled transaction:
+
+- an element goes into the focused custom section with `insertTreeNode` — after the focused element,
+  inside a focused container, or at the end of a selected section;
+- a section, or an element when nothing editable is selected, becomes a new custom-code region with
+  `insertNode`, after the selected block.
+
+Region CSS a saved element needs travels with it and is merged into the destination once. A press
+that
+turns into a drag hands the element payload to the canvas (`beginElementDrag`), which resolves the
+drop.
+
+<Canvas of={LibraryPanelStories.ClickInserts} />
+
+## Thumbnails
+
+Element categories separate essentials, layout, media, forms and motion. Category filtering
+combines with the bilingual search. Tabs and filters never shrink when the results scroll.
+
+Dragging an element into a custom section uses the exact tree seat and carries its CSS.
+Elsewhere it creates a region at the visible block insertion line, not at the selection or
+the page end. Sections and page templates can also be dragged to that line. Cancelling a
+drag writes nothing; insertion remains one undoable transaction. This is responsive flow
+placement, not automatic absolute positioning.
+
+Previews are built only when a tile scrolls into view: the entry is rendered by the same static
+renderer the export uses and shown in a scaled, sandboxed `srcdoc` iframe (no script, never
+focusable), in the page's direction. `previewStylesheet` and `compilePreviewCss` give it the theme
+and exactly the classes it uses.
+
+The iframe keeps an authored viewport (400px for elements, 1040px for sections); its host
+scales it to the measured card width using ResizeObserver. Scaling stays top-left for both
+directions while text inside retains the page direction. This avoids cropped RTL thumbnails
+and adapts to panel resizing.
+
+<Canvas of={LibraryPanelStories.Arabic} />
+
+<Canvas of={LibraryPanelStories.Sections} />
+
+<Canvas of={LibraryPanelStories.Saved} />
+
+## The Arabic editor
+
+`LIBRARY_PANEL_LABELS_AR` carries the composed palette's own set (`labels.palette`), so the Blocks
+tab's inner tabs ("الكتل / القوالب"), groups, block names and search are Arabic too, and the tab
+strip's arrow keys run right to left.
+
+{/* library-playground additions (2026-10-08) */}
+
+## Templates (top level)
+
+A fifth tab, **Templates**, lists the registered page templates as photo cards
+([`TemplateCard`](?path=/docs/shell-templatecard--docs)) when the host passes `templateCards`
+(`marketingTemplateCatalog` in the editor). The page's language comes first — the root `lang` prop,
+else `ar` for a right-to-left page — then "Other language" / «لغة أخرى»; nothing is hidden, and the
+one search matches the names in both languages. A template with a card lives here rather than in
+Sections; one without a card keeps a plain tile in both. The Blocks tab's own Blocks/Templates toggle
+stays for compatibility and shows the same cards.
+
+```tsx
+<LibraryPanel kernel={kernel} sections={sections} templateCards={marketingTemplateCatalog} />
+```
+
+<Canvas of={LibraryPanelStories.Templates} />
+
+## The section page kit
+
+A ready-made section is written in the page kit's classes (`ck-btn`, `ck-card`, the `--ck-*`
+tokens). An entry may carry `pageKit: { marker, css }`; inserting it adds `css` to the page root's
+`pageCss` in the **same** grouped dispatch as the `insertNode` — one transaction, one Undo — unless
+the page's `pageCss` already contains `marker` (the page plan's fence, `.ck-page-plan{`). A page whose
+css cannot take the kit still gets the section. The tile's thumbnail is drawn with the kit too, so it
+looks like what lands on the page.
+
+{/* end library-playground additions */}

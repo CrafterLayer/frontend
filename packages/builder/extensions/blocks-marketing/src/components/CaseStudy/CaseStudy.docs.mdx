@@ -1,0 +1,51 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CaseStudyStories from './CaseStudy.stories';
+
+<Meta of={CaseStudyStories} />
+
+# Case Study
+
+One customer's story, told the way a services page or an agency portfolio tells it: who the client
+is, the numbers that changed, the challenge / approach / result, an image, and a line from the
+client — with a link to the full write-up. A Content Section has no results or quote; Stats has no
+story; this block holds the three together so they read as one argument.
+
+## Content model
+
+- `eyebrow` ("Case study"), `client` (a pill beside it), `heading` (edited in place), `body`.
+- `metrics`: up to four `{ value, label }` — free text, so "32%", "2×" and "6 weeks" all fit.
+- `points`: up to four `{ label, text }` — Challenge, Approach, Result by default.
+- `quote`, `quoteAuthor`, `quoteRole`; `imageSrc` / `imageAlt`.
+- An optional action (`actionLabel` + `actionHref`), `mediaPosition: 'start' | 'end' = 'end'`, and
+  the shared section props.
+
+## Semantics, layout and direction
+
+The results are a `<dl>`: each a term (the label) and its definition (the value), drawn value-first
+with `flex-col-reverse` and an accent bar at the inline start (`border-s-2`). The story points are a
+second `<dl>`. The quote is a `<figure>` with a `<blockquote>` and a `<figcaption>`, its accent bar
+also at the inline start. From a 56rem container the story and the image + quote sit side by side;
+`mediaPosition: 'start'` moves the aside to the inline start with `order`, keeping the reading
+order. The action's arrow mirrors under RTL.
+
+## Parts
+
+| name           | kind  | bind                                      | label (en / ar)                   |
+| -------------- | ----- | ----------------------------------------- | --------------------------------- |
+| `eyebrow`      | text  | `eyebrow`                                 | Eyebrow / الشارة                  |
+| `client`       | text  | `client`                                  | Client / العميل                   |
+| `heading`      | text  | `heading`                                 | Heading / العنوان                 |
+| `body`         | text  | `body`                                    | Body / الوصف (multiline)          |
+| `metrics`      | list  | `metrics`                                 | Results / النتائج                 |
+| `metric`       | item  | `metrics.*`                               | Result / نتيجة                    |
+| `metric.value` | text  | `metrics.*.value`                         | Result value / قيمة النتيجة       |
+| `metric.label` | text  | `metrics.*.label`                         | Result label / وصف النتيجة        |
+| `points`       | list  | `points`                                  | Story / القصة                     |
+| `point.label`  | text  | `points.*.label`                          | Story step / مرحلة القصة          |
+| `point.text`   | text  | `points.*.text`                           | Story text / نص القصة (ml)        |
+| `quote`        | text  | `quote`                                   | Client quote / اقتباس العميل (ml) |
+| `quoteAuthor`  | text  | `quoteAuthor`                             | Quote author / صاحب الاقتباس      |
+| `quoteRole`    | text  | `quoteRole`                               | Quote role / منصب صاحب الاقتباس   |
+| `image`        | image | `{ src: imageSrc, alt: imageAlt }`        | Image / الصورة                    |
+| `action`       | link  | `{ text: actionLabel, href: actionHref }` | Link / الرابط                     |

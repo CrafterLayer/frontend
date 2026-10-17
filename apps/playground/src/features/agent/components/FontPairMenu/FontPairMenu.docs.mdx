@@ -1,0 +1,71 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as FontPairMenuStories from './FontPairMenu.stories';
+
+<Meta of={FontPairMenuStories} />
+
+# FontPairMenu
+
+The plan's font pair (SPEC §4.11): a quiet trigger at the inline end of the swatch line, and a menu
+of curated, Arabic-capable pairs.
+
+<Canvas of={FontPairMenuStories.Open} />
+
+## Purpose
+
+Every recorded skeleton used Cairo for its headings, because the skills offered four faces. The menu
+offers a short list of pairs a person can read, each face one the engine has verified (fetched from
+both font hosts with its Arabic ranges, rendered in Chromium). It is not "any Google font", and it
+never offers a face the build would refuse.
+
+## When to use / not
+
+Use it in DirectionEditor. Do not use it for the read-only direction line.
+
+## Props
+
+| prop         | type                        | default      | notes                                          |
+| ------------ | --------------------------- | ------------ | ---------------------------------------------- |
+| `locale`     | `'ar' \| 'en'`              | none         |                                                |
+| `selectedId` | `string`                    | none         | the curated pair the plan uses                 |
+| `fonts`      | `string`                    | none         | the faces by name, for a pair outside the list |
+| `options`    | `readonly FontPairOption[]` | `FONT_PAIRS` | filtered by the engine's verified families     |
+| `onSelect`   | `(pairId: string) => void`  | none         | a `setFonts` op                                |
+
+`verifiedPairs()` and `engineVerifiedFamilies()` are exported from the folder: when the engine's
+public API exports `VERIFIED_FONT_FAMILIES`, any pair naming another face is left out. Until then
+the curated list stands, and the tests hold it to the engine's own `validatePagePlan`.
+
+## States
+
+| story                                                        | what it shows                                  |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| `Closed`                                                     | the heading face, then ▾                       |
+| `ClosedAt420`, `ClosedAt420RightToLeft`                      | the specimen and both faces                    |
+| `Open`, `OpenDark`, `OpenRightToLeft`, `OpenRightToLeftDark` | the pairs, the plan's pair checked on Mist     |
+| `UncuratedFaces`                                             | faces outside the list, named, nothing checked |
+
+## Anatomy
+
+The trigger is a ghost (Meta 500, Graphite, the Wash on hover), 32px tall (44 coarse): the heading
+face narrow; from 400px the specimen («أب» / "Aa"), both faces and ▾. The menu is RecordMenu's
+surface (e2) with radio items of two lines: the heading face (Ink, 500) over the body face (Meta,
+Graphite), a check column so every name starts on one edge, the checked item on Mist with its
+heading face in Indigo deep.
+
+## Accessibility
+
+- The trigger's name is always the whole pair ("Fonts: Reem Kufi / IBM Plex Sans Arabic"), which
+  contains every word it shows (WCAG 2.5.3).
+- The menu is named by its trigger (Radix's `aria-labelledby`), and its radio group "Fonts"; its
+  items are `menuitemradio`, the plan's pair `aria-checked`.
+- Esc or a choice closes it; focus returns to the trigger.
+
+## RTL
+
+Face names are Latin proper nouns, each in its own `<bdi>`, so in Arabic the heading face reads
+first, at the right. The menu follows the panel's direction.
+
+## Motion
+
+RecordMenu's: opacity and a 4px rise from the trigger.

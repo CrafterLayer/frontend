@@ -1,0 +1,206 @@
+/* The pipeline card that sits inside the assistant thread.
+
+   Every value here reads a `--bldr-*` chrome token. It deliberately reads NO
+   `--t-*` token: those belong to the page being edited, so a site whose accent
+   is red would otherwise repaint the builder's own progress card red. The test
+   asserts both halves of that rule. */
+
+.bldr-genprogress {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-md);
+}
+
+.bldr-genprogress__head {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  justify-content: space-between;
+}
+
+.bldr-genprogress__heading {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-snug);
+  margin: 0;
+}
+
+/* Tabular figures so "2/5" and "3/5" do not shift the heading as it counts. */
+.bldr-genprogress__count {
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.bldr-genprogress__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* `1fr auto auto auto` after the icon: the name takes the slack, and the
+   detail, status and mark stay pinned to the row's END — which mirrors
+   automatically under RTL because the track order is logical, not left/right. */
+.bldr-genprogress__stage {
+  align-items: center;
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text-soft);
+  display: grid;
+  gap: var(--bldr-space-sm);
+  grid-template-columns: auto 1fr auto auto auto;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+}
+
+.bldr-genprogress__icon {
+  align-items: center;
+  color: var(--bldr-panel-muted);
+  display: flex;
+}
+
+.bldr-genprogress__glyph {
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-genprogress__name {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-control);
+  line-height: var(--bldr-line-height-snug);
+  min-inline-size: 0;
+}
+
+/* Elapsed time and failure reasons share this slot. Monospace keeps a column
+   of timings aligned; wrapping is allowed because a reason is a sentence. */
+.bldr-genprogress__detail {
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-micro);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.bldr-genprogress__status {
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.bldr-genprogress__mark {
+  align-items: center;
+  block-size: var(--bldr-space-3xl);
+  display: flex;
+  inline-size: var(--bldr-space-3xl);
+  justify-content: center;
+}
+
+.bldr-genprogress__mark-glyph {
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.bldr-genprogress__ring {
+  block-size: var(--bldr-space-xl);
+  border: var(--bldr-border-thick) solid currentcolor;
+  border-radius: var(--bldr-radius-full);
+  inline-size: var(--bldr-space-xl);
+  opacity: 0.35;
+}
+
+/* ── Per-status colour. Each pairs with a WORD in the row, never alone. ──── */
+
+.bldr-genprogress__stage[data-status='pending'] .bldr-genprogress__status {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-genprogress__stage[data-status='active'] {
+  background: var(--bldr-accent-soft);
+}
+
+.bldr-genprogress__stage[data-status='active'] .bldr-genprogress__icon,
+.bldr-genprogress__stage[data-status='active'] .bldr-genprogress__status {
+  color: var(--bldr-accent);
+}
+
+/* The one moving part: the active ring spins with a gap cut out of it. */
+.bldr-genprogress__stage[data-status='active'] .bldr-genprogress__ring {
+  animation: bldr-genprogress-spin var(--bldr-duration-move) linear infinite;
+  animation-duration: 900ms;
+  border-block-start-color: transparent;
+  color: var(--bldr-accent);
+  opacity: 1;
+}
+
+.bldr-genprogress__stage[data-status='done'] .bldr-genprogress__status,
+.bldr-genprogress__stage[data-status='done'] .bldr-genprogress__mark {
+  color: var(--bldr-success);
+}
+
+.bldr-genprogress__stage[data-status='failed'] {
+  background: var(--bldr-danger-soft);
+}
+
+.bldr-genprogress__stage[data-status='failed'] .bldr-genprogress__status,
+.bldr-genprogress__stage[data-status='failed'] .bldr-genprogress__mark,
+.bldr-genprogress__stage[data-status='failed'] .bldr-genprogress__detail {
+  color: var(--bldr-danger);
+}
+
+.bldr-genprogress__stage[data-status='cancelled'] .bldr-genprogress__status,
+.bldr-genprogress__stage[data-status='cancelled'] .bldr-genprogress__mark {
+  color: var(--bldr-panel-muted);
+}
+
+.bldr-genprogress__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bldr-genprogress__cancel {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-control);
+  min-block-size: var(--bldr-hit-target-min);
+  padding-inline: var(--bldr-space-md);
+  transition: background var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-genprogress__cancel:hover {
+  background: var(--bldr-surface-hover);
+}
+
+.bldr-genprogress__cancel:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@keyframes bldr-genprogress-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Reduced motion keeps the ring, drops the spin: the state is already carried
+   by the word "Active", so nothing is lost by holding it still. */
+@media (prefers-reduced-motion: reduce) {
+  .bldr-genprogress__stage[data-status='active'] .bldr-genprogress__ring {
+    animation: none;
+    border-block-start-color: currentcolor;
+  }
+
+  .bldr-genprogress__cancel {
+    transition: none;
+  }
+}

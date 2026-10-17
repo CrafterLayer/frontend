@@ -1,0 +1,18 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as Stories from './AgentContextBar.stories';
+
+<Meta of={Stories} />
+
+# AgentContextBar
+
+This single row states the target captured by an Agent request: site, page, selected instance, shared
+source, or a target that became stale. It stays separate from the title and model controls.
+
+<Canvas of={Stories.Shared} />
+<Controls />
+
+Shared scope includes affected instances and pages. A stale target changes to an alert and requires a
+new selection before a mutating run. Logical properties and `dir="auto"` preserve mixed Arabic and
+English labels; all colors come from editor theme tokens. Stable context is labelled but intentionally
+is not a live region; only a stale target interrupts assistive technology, while the Agent voice stays
+the panel's single polite status channel.

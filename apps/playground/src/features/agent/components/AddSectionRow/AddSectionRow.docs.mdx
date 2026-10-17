@@ -1,0 +1,61 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AddSectionRowStories from './AddSectionRow.stories';
+
+<Meta of={AddSectionRowStories} />
+
+# AddSectionRow
+
+The last line of an editable plan (SPEC §4.11): "+ Add section", which becomes a 32px field in
+place.
+
+<Canvas of={AddSectionRowStories.Open} />
+
+## Purpose
+
+Adding a section should cost one click and a name. The row sits under the plan's last section, the
+`+` on the glyph column below the pencil's last ring, as if the spine could go one step further.
+
+## When to use / not
+
+Use it in PagePlanCard under an editable PlanSectionList. Not in the read-only fallback.
+
+## Props
+
+| prop     | type                      | default | notes                                        |
+| -------- | ------------------------- | ------- | -------------------------------------------- |
+| `locale` | `'ar' \| 'en'`            | none    |                                              |
+| `canAdd` | `boolean`                 | none    | false at twelve sections (`plan.max`)        |
+| `onAdd`  | `(title: string) => void` | none    | a tidied, non-empty name (`{ kind: 'add' }`) |
+
+## States
+
+| story                                       | what it shows                                   |
+| ------------------------------------------- | ----------------------------------------------- |
+| `Closed`, `ClosedDark`, `ClosedRightToLeft` | Indigo words, the + on the glyph column         |
+| `Open`, `OpenRightToLeftDark`               | the field, focused                              |
+| `AtMaximum`, `AtMaximumRightToLeft`         | refused, reachable, the reason written under it |
+
+## Anatomy
+
+Closed: a text button the row's height (32, 44 coarse), Indigo words (500) starting 24px in, the `+`
+centred in the 16px glyph column; hover lays the Wash, never changes the colour. Open: the `+` in
+Slate and a 32px field (Input type, Rule border, Sheet) whose text starts where the words did; its
+placeholder is the example, "Section name, e.g. Pricing". At twelve: the words in Slate and the
+reason under them in Meta.
+
+## Accessibility
+
+- The button and the field are both named "Add section". At twelve the button stays in the tab
+  order, `aria-disabled`, described by "A plan holds up to 12 sections", which is also written.
+- Enter adds and keeps the field open, empty, for the next name; Esc closes it and focus returns to
+  the button; leaving it with a name adds it, as a rename saves.
+- When the last free place is taken, the field closes onto the button, which says why.
+
+## RTL
+
+Logical properties only; the field's direction follows what is typed.
+
+## Motion
+
+None beyond the 120ms hover fill. A new row arrives in the list with its own 220ms fade.

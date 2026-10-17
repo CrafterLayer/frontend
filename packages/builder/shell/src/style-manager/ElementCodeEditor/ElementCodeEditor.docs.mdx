@@ -1,0 +1,26 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ElementCodeEditorStories from './ElementCodeEditor.stories';
+
+<Meta of={ElementCodeEditorStories} />
+
+# ElementCodeEditor
+
+The element **Code** tab (style-manager DESIGN.md §G). One element as one line of markup:
+
+```html
+<a class="rounded-full bg-accent px-5 py-3" href="/contact">Book a call</a>
+```
+
+- Children are collapsed to `…` and kept; edit them in Layers.
+- **Apply** (or Ctrl/⌘+Enter) parses the markup with the small attribute parser in
+  `element-code.ts`, diffs it against the element and calls `onCommit(patch)` once — the host writes
+  it as one `patchTreeNode` (one Undo).
+- A parse error (an unquoted value, `style`, an `on*` handler, a missing end tag) or a door refusal
+  is shown **at the attribute** it is about; the draft is kept so it can be fixed. **Revert** drops
+  the draft.
+- `onOpenRegionCss` / `onOpenPageCss` link to the region `css` and the page `pageCss` fields, the
+  escape hatch for what classes cannot say.
+
+A monospace textarea is used because the shell cannot import the code-view extension's editor; the
+editor is always LTR (markup reads left to right) inside an RTL panel.

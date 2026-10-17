@@ -1,0 +1,391 @@
+.bldr-design-system {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding: var(--bldr-panel-padding);
+}
+
+.bldr-design-system__head {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+  justify-content: space-between;
+}
+
+.bldr-design-system__title {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-body);
+  font-weight: var(--bldr-font-weight-semibold);
+  margin: var(--bldr-space-0);
+}
+
+.bldr-design-system__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-design-system__label {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-design-system__field {
+  background: var(--bldr-surface);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-body);
+  padding: var(--bldr-space-sm);
+}
+
+.bldr-design-system__field:focus-visible {
+  border-color: var(--bldr-accent-ring);
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-design-system__field[aria-invalid='true'] {
+  border-color: var(--bldr-danger);
+}
+
+.bldr-design-system__issues {
+  border-inline-start: var(--bldr-border-thick) solid var(--bldr-danger);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding-block: var(--bldr-space-0);
+  padding-inline-end: var(--bldr-space-0);
+  padding-inline-start: var(--bldr-space-md);
+}
+
+.bldr-design-system__group {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  margin: var(--bldr-space-0);
+  text-transform: uppercase;
+}
+
+/* ── Sectioned editor (style-manager DESIGN.md §G) ── */
+
+.bldr-design-system__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+}
+
+/*
+  Studio Indigo (2026-10-12): the four sections are one segmented control on a
+  sunken track — a single row where the panel is wide, two even rows where it is
+  not — instead of underlined tabs that wrapped onto a ragged second line.
+*/
+.bldr-design-system__tablist {
+  background: var(--bldr-surface-sunken);
+  border-radius: var(--bldr-radius-md);
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  /* Two tabs a row in the panel; the minimum is the swatch-picker field's measure, not a literal. */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--bldr-measure-picker-field) * 0.75), 1fr)
+  );
+  padding: var(--bldr-space-2xs);
+}
+
+.bldr-design-system__tab {
+  background: transparent;
+  border: none;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  min-block-size: var(--bldr-control-height-sm);
+  padding-inline: var(--bldr-space-sm);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+  white-space: nowrap;
+}
+
+.bldr-design-system__tab:hover {
+  color: var(--bldr-panel-text);
+}
+
+.bldr-design-system__tab[data-state='active'] {
+  background: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.bldr-design-system__tab:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-design-system__panel,
+.bldr-design-system__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-md);
+}
+
+.bldr-design-system__edit-row {
+  align-items: center;
+  display: flex;
+  gap: var(--bldr-space-sm);
+}
+
+.bldr-design-system__edit-row .bldr-design-system__field {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.bldr-design-system__swatch {
+  block-size: var(--bldr-control-height-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  flex: none;
+  inline-size: var(--bldr-control-height-sm);
+}
+
+.bldr-design-system__roles {
+  border: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-design-system__role {
+  align-items: center;
+  color: var(--bldr-panel-text);
+  display: flex;
+  font-size: var(--bldr-font-size-caption);
+  gap: var(--bldr-space-2xs);
+}
+
+/* Token rows: label · field · live preview. */
+.bldr-token-rows__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-token-rows__row {
+  align-items: center;
+  display: grid;
+  gap: var(--bldr-space-sm);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) var(--bldr-measure-value-column);
+}
+
+.bldr-token-rows__label {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.bldr-token-rows__field,
+.bldr-palette__value,
+.bldr-palette__input {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-xs);
+}
+
+/*
+  A colour's NAME is words, often Arabic: mono spaced «اسم اللون» into separate letters.
+  Only the hex field keeps the mono face (Studio Indigo, 2026-10-12).
+*/
+.bldr-palette__input:not(.bldr-palette__input--mono) {
+  font-family: var(--bldr-font);
+}
+
+.bldr-token-rows__field:focus-visible,
+.bldr-palette__value:focus-visible,
+.bldr-palette__input:focus-visible,
+.bldr-palette__remove:focus-visible,
+.bldr-palette__submit:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.bldr-token-preview {
+  align-items: center;
+  block-size: var(--bldr-control-height-sm);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bldr-token-preview--type {
+  color: var(--bldr-panel-text);
+  white-space: nowrap;
+}
+
+.bldr-token-preview__shape {
+  background: var(--bldr-surface-raised);
+  block-size: var(--bldr-measure-swatch);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border-strong);
+  display: block;
+  inline-size: var(--bldr-measure-swatch);
+}
+
+.bldr-token-preview[data-kind='length'],
+.bldr-token-preview[data-kind='width'] {
+  justify-content: flex-start;
+}
+
+.bldr-token-preview[data-kind='length'] .bldr-token-preview__shape,
+.bldr-token-preview[data-kind='width'] .bldr-token-preview__shape {
+  background: var(--bldr-accent-soft);
+  block-size: 0.5rem;
+  border: none;
+}
+
+.bldr-token-preview[data-kind='border-width'] .bldr-token-preview__shape {
+  border-color: var(--bldr-panel-text);
+  border-style: solid;
+}
+
+/* Palette */
+/*
+  .bldr-palette is ALSO the block Palette's root class (Palette.css), whose panel padding,
+  background and full height landed on this section: the Site palette sat inset as a card
+  of its own, 16px further in than everything around it. Scoped back to a plain section.
+*/
+.bldr-design-system .bldr-palette {
+  background: transparent;
+  block-size: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-0);
+}
+
+/* Scoped for the same collision: the block Palette's empty state pads itself 16px. */
+.bldr-design-system .bldr-palette__empty {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-snug);
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-palette__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  max-block-size: var(--bldr-measure-list-sm);
+  overflow-y: auto;
+  padding: var(--bldr-space-0);
+}
+
+.bldr-palette__row {
+  align-items: center;
+  display: grid;
+  gap: var(--bldr-space-xs);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr) auto;
+}
+
+.bldr-palette__swatch {
+  block-size: var(--bldr-measure-handle);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xs);
+  inline-size: var(--bldr-measure-handle);
+}
+
+.bldr-palette__name {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-palette__remove {
+  background: transparent;
+  border: none;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-body);
+  min-inline-size: var(--bldr-control-height-sm);
+}
+
+.bldr-palette__remove:hover {
+  background: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+/*
+  The add row (UX pass, 2026-10-13): the name takes the whole first line, the value and the
+  button share the second, every control at the 28px small control height. Three controls
+  in one 288px row clipped the placeholder ("New colour nam") and left the button the width
+  of its word.
+*/
+.bldr-palette__add {
+  display: grid;
+  gap: var(--bldr-space-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bldr-palette__add > .bldr-palette__input:first-child {
+  grid-column: 1 / -1;
+}
+
+.bldr-palette__add .bldr-palette__input,
+.bldr-palette__submit {
+  min-block-size: var(--bldr-control-height-sm);
+}
+
+.bldr-palette__submit {
+  background: var(--bldr-accent);
+  border: var(--bldr-border-hairline) solid var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  padding-inline: var(--bldr-space-xl);
+}
+
+.bldr-palette__submit:enabled:hover {
+  background: var(--bldr-accent-strong);
+  border-color: var(--bldr-accent-strong);
+}
+
+/* Disabled until a name and a valid colour are typed: the chrome's disabled look, not a fade. */
+.bldr-palette__submit:disabled {
+  background: var(--bldr-surface-sunken);
+  border-color: var(--bldr-panel-border);
+  color: var(--bldr-panel-muted);
+  cursor: not-allowed;
+}
+
+.bldr-design-system__panel[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-design-system__tab {
+    transition: none;
+  }
+}

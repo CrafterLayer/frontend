@@ -1,0 +1,1 @@
+export { educationTemplate } from './template';

@@ -1,0 +1,102 @@
+.ace-spotlight {
+  position: relative;
+  isolation: isolate;
+  min-inline-size: 0;
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.ace-spotlight::before,
+.ace-spotlight::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inline-size: 72%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--t-accent) var(--ace-spotlight-opacity), transparent) 0%,
+    color-mix(in srgb, var(--t-success) calc(var(--ace-spotlight-opacity) / 2), transparent) 32%,
+    transparent 70%
+  );
+  filter: blur(18px);
+  inset-block-start: -44%;
+  inset-inline-start: var(--ace-spotlight-inline-offset);
+  animation: ace-spotlight-drift 12s ease-in-out infinite alternate;
+}
+
+.ace-spotlight::after {
+  display: none;
+  inset-block-start: auto;
+  inset-block-end: -58%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--t-success) var(--ace-spotlight-opacity), transparent) 0%,
+    transparent 68%
+  );
+  animation-direction: alternate-reverse;
+}
+
+.ace-spotlight[data-spotlight-position='start'] {
+  --ace-spotlight-inline-offset: -34%;
+}
+
+.ace-spotlight[data-spotlight-position='center'] {
+  --ace-spotlight-inline-offset: 20%;
+}
+
+.ace-spotlight[data-spotlight-position='end'] {
+  --ace-spotlight-inline-offset: 62%;
+}
+
+.ace-spotlight[data-spotlight-intensity='subtle'] {
+  --ace-spotlight-opacity: 18%;
+}
+
+.ace-spotlight[data-spotlight-intensity='balanced'] {
+  --ace-spotlight-opacity: 32%;
+}
+
+.ace-spotlight[data-spotlight-intensity='strong'] {
+  --ace-spotlight-opacity: 48%;
+}
+
+.ace-spotlight[data-spotlight-variant='focused']::before {
+  inline-size: 54%;
+  filter: blur(10px);
+}
+
+.ace-spotlight[data-spotlight-variant='dual']::after {
+  display: block;
+}
+
+.ace-spotlight[data-spotlight-animate='false']::before,
+.ace-spotlight[data-spotlight-animate='false']::after {
+  animation-play-state: paused;
+}
+
+.ace-spotlight__content {
+  position: relative;
+  z-index: 1;
+  min-inline-size: 0;
+}
+
+@keyframes ace-spotlight-drift {
+  from {
+    translate: -3% 0;
+    scale: 0.96;
+  }
+  to {
+    translate: 4% 3%;
+    scale: 1.04;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ace-spotlight::before,
+  .ace-spotlight::after {
+    animation: none;
+  }
+}

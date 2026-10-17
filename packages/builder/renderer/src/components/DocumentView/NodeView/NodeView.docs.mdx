@@ -1,0 +1,44 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as NodeViewStories from './NodeView.stories';
+
+<Meta of={NodeViewStories} />
+
+# NodeView
+
+The live renderer's per-node unit — the subscription boundary that makes scoped re-rendering real:
+it subscribes to exactly one node and to the registry epoch.
+
+## Usage
+
+Internal to `DocumentView`; not part of the preset's public surface. Documented because it IS the
+performance law's mechanism.
+
+## API
+
+- `kernel: BuilderKernel` — by prop (the renderer never imports the react-bindings context; layer
+  law).
+- `id: NodeId`, `breakpoint: RenderBreakpoint`.
+- `onBlockRender?: (nodeId) => void` — test instrumentation for SC-002 counting.
+- `inlineEdit?: InlineEditSeam` — a stable external store queried and subscribed by this node id,
+  rather than a changing descriptor prop passed through the whole tree. Its `InlineEditTarget` is
+  `{ propKey, bind?, render, entryPoint?, rejection? }`; `render` receives
+  `{ nodeId, propKey, bind?, value, entryPoint? }`, where `value` is the value at `bind` when set.
+
+## Behavior
+
+- Registered type → block renderer with cascade-resolved props and slot children in document order.
+- Unregistered type (never loaded, or disposed at runtime) → `UnknownBlock`.
+- Removed node → renders nothing (parents update in the same commit).
+- A matching inline descriptor swaps only the declared prop value for the editing surface. When the
+  descriptor carries a block part's `bind` (for example `items.2.title`), the value **at that nested
+  path** is swapped instead (`parsePropPath` + `setAtPropPath`, structural sharing): sibling items
+  and the item's other fields render exactly as stored, and a bind whose item is gone swaps nothing.
+  Without `bind`, the classic top-level `propKey` swap is used. The published render never sees a
+  descriptor, so it is unchanged. A null
+  renderer means the chosen contributed editor is still loading, so ordinary block output remains
+  mounted.
+- The seam's optional entry point restores the caret at pointer coordinates or the logical end for
+  keyboard entry after the surface mounts.
+- A door rejection is rendered adjacent to the control and added to its `aria-describedby` without
+  replacing the draft or ending the session.

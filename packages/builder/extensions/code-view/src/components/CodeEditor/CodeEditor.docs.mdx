@@ -1,0 +1,46 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CodeEditorStories from './CodeEditor.stories';
+
+<Meta of={CodeEditorStories} />
+
+# CodeEditor
+
+`CodeEditor` is the lazy source surface for authored project files. Mounting it begins the
+CodeMirror 6 import; the normal Canvas path does not statically load the editor, language parsers,
+lint, or merge packages. The loading state stays labelled until the editor is ready.
+
+## Languages and source truth
+
+The `language` prop supports JS, JSX, TS, TSX, CSS, and JSON. The controlled `value` is one
+`CodeProject.files[path].source` value. Source remains the truth for a `codePage`; this component
+does not project rendered DOM back to JSX. Parent code must persist edits through a revision-checked
+code transaction.
+
+## Diagnostics and save
+
+Pass compiler diagnostics for the active module. Markers appear in CodeMirror and the native list
+below it provides deterministic keyboard navigation to the named line and zero-based column. Errors
+do not disable `onSave`: invalid manual source must remain recoverable while the preview can keep
+its last successful artifact.
+
+## Completion and search
+
+`completions` contains only approved project or managed-catalog names. CodeMirror's completion
+command uses that list and its built-in search opens with the platform Find shortcut. The package
+does not inspect globals, fetch package metadata, or offer unmanaged imports.
+
+## Diff review
+
+Provide `diff.original` when `value` is a proposed revision. CodeMirror's unified merge extension
+marks inserted and removed ranges. Approve and Reject stay explicit callbacks; the component itself
+cannot write to the project.
+
+## Accessibility, RTL, responsive, and theme
+
+The CodeMirror content has the supplied accessible name, busy and invalid state, and a visible focus
+ring. Diagnostics and diff actions remain native buttons. Builder chrome follows the surrounding
+direction and uses logical properties; source text deliberately remains LTR. At narrow widths the
+file metadata and diff actions wrap above the editor. Colours come from Builder CSS variables and
+retain readable fallbacks in light and dark chrome. Search, completion, diagnostic navigation, save,
+and all review actions are keyboard reachable.

@@ -1,0 +1,56 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PageStories from './Page.stories';
+
+<Meta of={PageStories} />
+
+# Page
+
+The structural document root shipped by the preset's `defaultBlocks` starter set: a `main` landmark
+flowing its `default` slot children in document order.
+
+## Usage
+
+Documents start with one `page` node as their root; applications never place it by hand —
+`emptyDocument()` and fixtures do. Its vocabulary lists every insertable top-level type, including
+`announcement` (whose renderer registers at runtime in the playground demo).
+
+## Props
+
+The Inspector groups every setting explicitly:
+
+- Content / Identity
+  - `title: string = ''` — the page name and the landmark's accessible label when non-empty.
+  - `description: string = ''` — page summary, up to 200 characters.
+  - `slug: string = ''` — path segment, up to 120 characters; empty represents the site root.
+- Content / Sharing
+  - `socialTitle?: string` — optional sharing title; publishing integrations fall back to `title`
+    when it is unset.
+  - `socialDescription?: string` — optional sharing summary.
+  - `socialImage?: string` — optional sharing-image URL.
+- Design / Appearance
+  - `contentWidth: 'narrow' | 'standard' | 'wide' | 'full' = 'standard'` — caps the root at the
+    matching document-theme width; `full` removes the cap.
+- Advanced / Indexing
+  - `noIndex: boolean = false` — asks publishing integrations to keep the page out of search
+    indexes.
+  - `lang: string = ''` — BCP-47 language tag; empty inherits the document language.
+
+Description, path, sharing, and indexing values remain inspector metadata. `Page` does not render
+them as visible canvas or preview content, and it does not pretend that a nested `main` owns the
+document head. Publishing integrations can consume the props at their proper document boundary.
+
+## Slots
+
+- `default` — accepts the top-level block vocabulary declared by `pageSchema`; that schema remains
+  the exact allow-list authority.
+
+## Accessibility / RTL / Theming
+
+`main` landmark; an empty title omits its accessible name, and an empty `lang` omits the attribute
+instead of declaring the language unknown. A page in a language set (its `seo.alternates` name its
+versions) also carries `dir` from its own `lang`, so an English version reads left to right inside
+an Arabic site while the site keeps one direction. Width variants use only logical sizing and the real
+document-theme tokens: narrow (`--t-content-width-narrow`, 40rem fallback), standard
+(`--t-content-width-standard`, 64rem fallback), and wide (`--t-content-width-wide`, 80rem fallback).
+Full width needs no invented token. Otherwise direction and colour come from the frame.

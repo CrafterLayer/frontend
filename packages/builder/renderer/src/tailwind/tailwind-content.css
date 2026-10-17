@@ -1,0 +1,130 @@
+/*
+  GENERATED FILE — do not edit by hand.
+
+  Produced by packages/builder/renderer/src/tailwind/plugin-bridge.ts and held equal to its
+  generator by plugin-bridge.test.ts. Edit the generator.
+
+  Typography (prose) and forms (form-*, class strategy: no global input reset) in the site's
+  tokens. The in-page compiler and the export generate it per page; a static entry may import it
+  after the token bridge, at the cost of every class it carries.
+*/
+
+@plugin '@tailwindcss/typography';
+@plugin '@tailwindcss/forms' {
+  strategy: 'class';
+}
+
+/*
+  prose in the site's colours. color is restated (the plugin sets it too) only to sort this rule
+  between the plugin's prose and its colour modifiers; see plugin-bridge.ts.
+*/
+@utility prose {
+  color: var(--tw-prose-body);
+  --tw-prose-body: --theme(--color-text);
+  --tw-prose-headings: --theme(--color-text);
+  --tw-prose-lead: --theme(--color-text-muted);
+  --tw-prose-links: --theme(--color-accent);
+  --tw-prose-bold: --theme(--color-text);
+  --tw-prose-counters: --theme(--color-text-muted);
+  --tw-prose-bullets: color-mix(in oklab, --theme(--color-text-muted) 60%, transparent);
+  --tw-prose-hr: color-mix(in oklab, --theme(--color-text) 12%, transparent);
+  --tw-prose-quotes: --theme(--color-text);
+  --tw-prose-quote-borders: --theme(--color-accent);
+  --tw-prose-captions: --theme(--color-text-muted);
+  --tw-prose-kbd: --theme(--color-text);
+  --tw-prose-kbd-shadows: color-mix(in oklab, currentColor 10%, transparent);
+  --tw-prose-code: --theme(--color-text);
+  --tw-prose-pre-code: --theme(--color-text-inverse);
+  --tw-prose-pre-bg: --theme(--color-surface-inverse);
+  --tw-prose-th-borders: color-mix(in oklab, --theme(--color-text) 20%, transparent);
+  --tw-prose-td-borders: color-mix(in oklab, --theme(--color-text) 10%, transparent);
+  --tw-prose-invert-body: --theme(--color-text-inverse);
+  --tw-prose-invert-headings: --theme(--color-text-inverse);
+  --tw-prose-invert-lead: color-mix(in oklab, --theme(--color-text-inverse) 80%, transparent);
+  --tw-prose-invert-links: --theme(--color-text-inverse);
+  --tw-prose-invert-bold: --theme(--color-text-inverse);
+  --tw-prose-invert-counters: color-mix(in oklab, --theme(--color-text-inverse) 70%, transparent);
+  --tw-prose-invert-bullets: color-mix(in oklab, --theme(--color-text-inverse) 45%, transparent);
+  --tw-prose-invert-hr: color-mix(in oklab, --theme(--color-text-inverse) 20%, transparent);
+  --tw-prose-invert-quotes: --theme(--color-text-inverse);
+  --tw-prose-invert-quote-borders: --theme(--color-accent);
+  --tw-prose-invert-captions: color-mix(in oklab, --theme(--color-text-inverse) 70%, transparent);
+  --tw-prose-invert-kbd: --theme(--color-text-inverse);
+  --tw-prose-invert-kbd-shadows: color-mix(in oklab, currentColor 10%, transparent);
+  --tw-prose-invert-code: --theme(--color-text-inverse);
+  --tw-prose-invert-pre-code: --theme(--color-text-inverse);
+  --tw-prose-invert-pre-bg: color-mix(in oklab, --theme(--color-text) 50%, transparent);
+  --tw-prose-invert-th-borders: color-mix(in oklab, --theme(--color-text-inverse) 30%, transparent);
+  --tw-prose-invert-td-borders: color-mix(in oklab, --theme(--color-text-inverse) 15%, transparent);
+}
+
+/* Fields and checks in the site's colours, without the plugin's global reset. */
+@utility form-input {
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 30%, transparent);
+  border-radius: --theme(--radius-sm);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+    border-color: --theme(--color-accent);
+  }
+  &::placeholder {
+    color: color-mix(in oklab, currentColor 55%, transparent);
+  }
+}
+@utility form-textarea {
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 30%, transparent);
+  border-radius: --theme(--radius-sm);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+    border-color: --theme(--color-accent);
+  }
+  &::placeholder {
+    color: color-mix(in oklab, currentColor 55%, transparent);
+  }
+}
+@utility form-select {
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 30%, transparent);
+  border-radius: --theme(--radius-sm);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+    border-color: --theme(--color-accent);
+  }
+  &:where(:dir(rtl), [dir='rtl'], [dir='rtl'] *) {
+    background-position: left 0.5rem center;
+    padding-right: 0.75rem;
+    padding-left: 2.5rem;
+  }
+}
+@utility form-multiselect {
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 30%, transparent);
+  border-radius: --theme(--radius-sm);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+    border-color: --theme(--color-accent);
+  }
+}
+@utility form-checkbox {
+  color: --theme(--color-accent);
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 55%, transparent);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+  }
+}
+@utility form-radio {
+  color: --theme(--color-accent);
+  background-color: transparent;
+  border-color: color-mix(in oklab, currentColor 55%, transparent);
+  &:focus {
+    --tw-ring-offset-color: --theme(--color-surface);
+    --tw-ring-color: --theme(--color-accent);
+  }
+}

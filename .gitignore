@@ -4,7 +4,8 @@ node_modules/
 .yarn/cache/
 .yarn/unplugged/
 .cache/
-
+.graphify-out/
+graphify-out/
 # Framework, build, test, and Storybook output
 dist/
 build/
@@ -35,6 +36,11 @@ test-results/
 *.swo
 
 # Machine-local Spec Kit locks and regenerated caches
+.claude/settings.local.json
 .specify/.workflow-install.lock
+.specify/workflows/runs/
 .specify/extensions/*/.specify-dev/
 .specify/presets/*/.composed/
+
+# Playwright MCP session output (snapshots, console logs)
+.playwright-mcp/

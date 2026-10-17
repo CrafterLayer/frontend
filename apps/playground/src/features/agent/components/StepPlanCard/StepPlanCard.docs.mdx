@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as StepPlanCardStories from './StepPlanCard.stories';
+
+<Meta of={StepPlanCardStories} />
+
+# StepPlanCard
+
+Plan mode's answer to an edit request (SPEC §4.12): the steps the change would take, each naming the
+block it touches, and "Run this plan".
+
+<Canvas of={StepPlanCardStories.Ready} />
+
+## Purpose
+
+Plan mode used to end in a plan that could only be read. The card keeps the plan readable and makes
+it actionable: "Run this plan" runs the request once, with authority to apply, and the chosen mode
+does not change. Nothing on the page moves before that, and the note says so.
+
+## When to use / not
+
+Use it for a `step-plan` turn. While the steps are drafted it is a working record.
+
+Do not use it for a page request (PagePlanCard) or an Ask edit (ProposalCard). The steps are not
+editable: change the request instead.
+
+## Props
+
+| prop        | type                                             | default | notes                                      |
+| ----------- | ------------------------------------------------ | ------- | ------------------------------------------ |
+| `locale`    | `'ar' \| 'en'`                                   | none    |                                            |
+| `view`      | `StepPlanView`                                   | none    |                                            |
+| `actions`   | `Pick<AgentController, 'runSteps' \| 'discard'>` | none    |                                            |
+| `className` | `string`                                         | none    | appended to `ck-agent-card ck-agent-steps` |
+
+## States
+
+| story                                                   | what it shows                                  |
+| ------------------------------------------------------- | ---------------------------------------------- |
+| `Ready`, `ReadyDark`, `ReadyRightToLeft…`, `ReadyAt420` | three steps, each with its block, and the note |
+| `PageWide`, `PageWideRightToLeft`                       | a step with no block                           |
+| `Drafting`, `DraftingRightToLeft`                       | the working record                             |
+
+## Anatomy
+
+The DecisionCard shell. The head is the decision diamond and "Change plan". The steps are an `<ol>`:
+each number (Figure, Slate, tabular) stands in the glyph column under the diamond, and each step's
+words (Read, Ink, wrapping) start on the title's edge; the block it touches is a Meta line in
+Graphite under it ("In FAQ"). The footer: "Run this plan" (the Indigo fill), "Discard" (Indigo
+words), and the note in Meta, Slate.
+
+## Accessibility
+
+- An `<article>` named by its `h3`. The steps are a list named "Steps"; the printed numbers are
+  `aria-hidden`, since the list already says each position.
+- Focus names its destination (SPEC §6.3): Run this plan → the new edit record's head, in the same
+  turn; Discard → the composer.
+
+## RTL
+
+Logical properties only. Each step takes its own direction from its script; the block is quoted «»
+in Arabic.
+
+## Motion
+
+None.

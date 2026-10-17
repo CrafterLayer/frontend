@@ -1,0 +1,99 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CustomCodeBlockStories from './CustomCodeBlock.stories';
+
+<Meta of={CustomCodeBlockStories} />
+
+# CustomCodeBlock
+
+The assistant's escape hatch, as a block: a region whose **shape is authored per request** instead
+of chosen from the catalog.
+
+<Canvas of={CustomCodeBlockStories.Default} />
+
+Everything else the product ships is a registered block with a fixed prop vocabulary, and that is
+what makes a document editable, validated and undoable. It is also what bounds the design space: a
+request the catalog has no shape for — "a CV page with a diagonal timeline" — had no answer except
+the nearest section that already exists. This block is the answer, and it gives up none of those
+properties: it stores a **tree**, so the document stays JSON, the door still validates every write,
+and undo still moves one node.
+
+## One node, not dozens
+
+A generated section could be expanded into many real document nodes. That was rejected for v1: it
+multiplies the undo history for one user action, and it turns "regenerate this section" into a diff
+across dozens of nodes rather than one prop write. One node also states the truth plainly in the
+layers tree — this region was authored, and it is edited as a unit.
+
+## What this file owns
+
+Only three things: the stored props, the stylesheet that belongs to this one region, and the
+region's own script (below). The walk
+itself lives in the renderer package as
+[`CustomCode`](?path=/docs/builder-renderer-customcode--docs), because the tolerant read, the depth
+ceiling and component resolution are rendering concerns shared by the canvas and the static export.
+
+## The stylesheet is scoped, and scoped completely
+
+<Canvas of={CustomCodeBlockStories.Styled} />
+
+Every selector is prefixed with the hosting node's `[data-ck]` attribute before it is written, so
+one region's CSS cannot reach into another's — or into the editor chrome around it. Colours go
+through `var(--t-accent)` so the page still re-themes.
+
+Viewport heights (`vh`, `svh`, `lvh`, `dvh`) are written as `calc(N * var(--ck-vh, 1vh))`. Only the
+editor canvas sets `--ck-vh` — to its viewport at zoom 1 — so a `min-height: 70vh` stage is as tall
+at any canvas zoom as at 100%, and Preview and the published page keep the real unit.
+
+## A refused stylesheet is dropped whole, and said out loud
+
+<Canvas of={CustomCodeBlockStories.RefusedOnCanvas} />
+
+One rule the policy refuses and **nothing** in the sheet applies. That is the right thing to publish
+and the wrong thing to hide. The first live user hit exactly this: an external image URL the
+sanitizer of the day refused, and every other rule vanished with it, silently — an unstyled panel
+and no reason anywhere.
+
+So the canvas says why, in the same voice `UnknownBlock` uses, naming the rule that was refused.
+
+<Canvas of={CustomCodeBlockStories.RefusedWhenPublished} />
+
+The published page never carries the note. A visitor cannot act on it, and a page that explains its
+own chrome to a reader is talking to the wrong person.
+
+## A region can run its own script
+
+<Canvas of={CustomCodeBlockStories.WithScript} />
+
+`js` (up to 32 000 characters, the `customJs()` marker, the **Custom JS** field in the Advanced tab)
+is the owner-approved free-code mode: the text is the **body of an async function with one parameter,
+`ck`**, and it runs when the region mounts — on the editor canvas _and_ on the published site. The
+composer toggle gates who may **author** it; a block that already carries `js` always runs.
+
+| `ck` member                | Meaning                                                              |
+| -------------------------- | -------------------------------------------------------------------- |
+| `ck.root`                  | the region element to draw inside (`position: relative` if static)   |
+| `ck.editor`                | `true` on the editor canvas, `false` on Preview and the live site    |
+| `ck.reducedMotion`         | the visitor's reduced-motion preference                              |
+| `ck.onDispose(fn)`         | cleanup on re-run, region removal and page teardown                  |
+| `await ck.pixi()`          | the **full** pixi.js v8 namespace, loaded lazily                     |
+| `await ck.stage(options?)` | a ready `PIXI.Application` filling `ck.root`: `{ PIXI, app, canvas }` |
+
+It is a prop of its own, not part of the tree: **the tree still cannot express a `<script>`**, and the
+renderer never emits one. The code rides on the region as `data-ck-js` (plus `data-ck-js-id`, the node
+id), which the same attribute escaping round-trips, so the canvas and the published page stay equal;
+the `scripts` behaviour pack evaluates it. `ck-pixi.js` ships on a published site only when some
+page's code names Pixi (`ck.pixi()` / `ck.stage()`).
+
+The stage **follows its region**, not only the window: when `ck.root` changes size (the script filled
+its own copy, a web font arrived, Preview's viewport is shorter than the canvas's) the canvas still
+fills it. A script that lays itself out on `app.renderer.on('resize', layout)` gets the new size; one
+that never listens keeps its first frame, scaled to cover the region like a background image.
+
+Errors never escape: each run is try/caught, logged as `[ck-js]`, and on the canvas the region gets
+`data-ck-js-error="<message>"` for the shell to show. A script has full page access on the published
+site, by design. On the canvas a **crash guard** protects the editor from a synchronous infinite
+loop: it records that scripts are running in `localStorage['ck-js-guard']` and clears it on the next
+task; if the page boots with the flag still set, no script runs and each region says so.
+
+<Canvas of={CustomCodeBlockStories.Empty} />

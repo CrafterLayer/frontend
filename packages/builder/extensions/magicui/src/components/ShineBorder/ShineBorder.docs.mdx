@@ -1,0 +1,83 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ShineBorderStories from './ShineBorder.stories';
+
+<Meta of={ShineBorderStories} />
+
+# ShineBorder
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-magicui`. A travelling highlight around the edge of whatever it contains
+— one card, one call to action. **Never more than one per page**; two things shining at once is two
+things shouting.
+
+## Provenance
+
+Adapted from [Magic UI](https://magicui.design/docs/components/shine-border), MIT.
+
+|                  |                                           |
+| ---------------- | ----------------------------------------- |
+| Verbatim source  | `vendor/magicui/ShineBorder.upstream.tsx` |
+| Licence          | `vendor/magicui/LICENSE`                  |
+| Full change list | `vendor/VENDOR.md`                        |
+
+## What the adaptation changed
+
+Upstream takes **numbers**: `borderRadius={8}`, `borderWidth={1}`, `duration={14}`,
+`color="#000000"`. Every one is a literal a theme cannot move — a black shine on a terracotta brand,
+an 8px radius on a page whose corners are 12.
+
+They became named steps that resolve to tokens:
+
+| Upstream           | Here                 | Resolves to                      |
+| ------------------ | -------------------- | -------------------------------- |
+| `borderRadius={8}` | —                    | `--t-radius`, inherited          |
+| `borderWidth={1}`  | `weight: 'hairline'` | `var(--t-border-width)`          |
+| `duration={14}`    | `speed: 'normal'`    | `14s`, decided by the stylesheet |
+| `color="#000000"`  | —                    | `--t-accent` and `--t-success`   |
+
+## What is kept verbatim, because it is worth vendoring
+
+The mask-composite trick that paints the gradient on the **border only**:
+
+```css
+mask:
+  linear-gradient(#fff 0 0) content-box,
+  linear-gradient(#fff 0 0);
+mask-composite: exclude;
+```
+
+Two masks — one clipped to the content box, one to the whole box — composited with `exclude` cut the
+fill out and leave the ring. Four lines, and genuinely annoying to rediscover. Both the prefixed and
+unprefixed spellings ship, because WebKit still wants the prefix.
+
+## Props
+
+| Prop        | Type                                | Default      | Notes                              |
+| ----------- | ----------------------------------- | ------------ | ---------------------------------- |
+| `speed`     | `'slow' \| 'normal' \| 'brisk'`     | `'normal'`   | Named steps, not seconds           |
+| `weight`    | `'hairline' \| 'medium' \| 'heavy'` | `'hairline'` | Multiples of `--t-border-width`    |
+| `animate`   | `boolean`                           | `true`       | Stillness is a real choice         |
+| `motion`    | `MotionSpec`                        | —            | From the closed vocabulary         |
+| `className` | validated utilities                 | —            | Full Tailwind, checked at the door |
+
+## Accessibility
+
+The ring is a `::before` pseudo-element — unreachable by the accessibility tree, unfocusable,
+unselectable. Correct for something no reader interacts with.
+
+Under `prefers-reduced-motion: reduce` the travel stops and the border stays. A travelling highlight
+is precisely the ambient motion that preference is asking about; removing the border entirely would
+cost the element its identity for no gain.
+
+The slot accepts suitable Primary blocks—including badges, breadcrumbs, dialogs, pagination, alerts,
+and tabs—alongside marketing content. Pure dividers and other background effects are kept out
+because a second decorative wrapper would not create a meaningful highlight target.
+
+## Known limitations
+
+- **One per page.** The schema cannot enforce it; the description and these docs say it because two
+  competing highlights defeat the purpose of either.
+- **The gradient is fixed to accent and success.** A third brand colour would need a token to point
+  at, and inventing one for a decoration is the wrong direction.

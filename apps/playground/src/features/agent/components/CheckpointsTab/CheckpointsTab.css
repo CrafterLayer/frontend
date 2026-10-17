@@ -1,0 +1,64 @@
+/*
+  CheckpointsTab (2026-10-12): the intro, a name field with Save, the status line, then the
+  points newest first — the request or name in Ink, its kind and time in Graphite, Restore at
+  the inline end. A point the person saved carries an Accent mark at its start.
+*/
+
+.ck-agent-checkpoints {
+  display: grid;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.ck-agent-checkpoints__save {
+  display: flex;
+  align-items: end;
+  gap: var(--bldr-space-xs);
+  margin: 0;
+}
+
+.ck-agent-checkpoints__name {
+  flex: 1 1 auto;
+}
+
+.ck-agent-checkpoints__point {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+  border-inline-start: var(--bldr-space-2xs) solid transparent;
+  border-radius: var(--bldr-radius-md);
+}
+
+.ck-agent-checkpoints__point[data-kind='manual'] {
+  border-inline-start-color: var(--bldr-accent);
+}
+
+.ck-agent-checkpoints__point:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-checkpoints__text {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.ck-agent-checkpoints__label {
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-checkpoints__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-sm);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}

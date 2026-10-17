@@ -1,0 +1,55 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ContentSectionStories from './ContentSection.stories';
+
+<Meta of={ContentSectionStories} />
+
+# Content section
+
+A narrative section for company stories, product explanations, case-study context, and editorial
+content. Media is optional; an absent image never leaves an empty published placeholder.
+
+## Props
+
+- `eyebrow?: string (1–40)`
+- `heading: string (1–110)`
+- `body: string (1–600)`
+- `highlights: Array<{ title, body }>` — up to six supporting points.
+- `imageSrc?`, `imageAlt`, `caption?`, and `imageFit: 'cover' | 'contain'`
+- `mediaPosition: 'start' | 'end'`
+- `link?: { label, href }`
+- `layout: 'split' | 'stacked' | 'editorial'`
+- Shared section design controls.
+
+## Accessibility
+
+The visible `h2` names the section. Supporting points are a list, the action is a real anchor, and
+media uses native image alternative text and an optional `figcaption`.
+
+## Responsive and RTL behavior
+
+Split and editorial layouts become two columns only when their container is wide enough. Logical
+border and padding utilities keep the editorial rule on the reading-start edge in both LTR and RTL.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name              | kind  | bind                       | label (en / ar)                         |
+| ----------------- | ----- | -------------------------- | --------------------------------------- |
+| `eyebrow`         | text  | `eyebrow`                  | Eyebrow / الشارة                        |
+| `heading`         | text  | `heading`                  | Heading / العنوان                       |
+| `body`            | text  | `body`                     | Body / الوصف (multiline)                |
+| `highlights`      | list  | `highlights`               | Highlights / النقاط البارزة             |
+| `highlight`       | item  | `highlights.*`             | Highlight / نقطة بارزة                  |
+| `highlight.title` | text  | `highlights.*.title`       | Highlight title / عنوان النقطة          |
+| `highlight.body`  | text  | `highlights.*.body`        | Highlight text / وصف النقطة (multiline) |
+| `link`            | link  | `link.label` + `link.href` | Link / الرابط                           |
+| `image`           | image | `imageSrc` + `imageAlt`    | Image / الصورة                          |
+| `caption`         | text  | `caption`                  | Caption / التعليق                       |
+
+The link part edits its label in place and its destination in the Link popover; the image part opens
+the asset picker and its alt text is its second value.

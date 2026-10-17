@@ -1,0 +1,81 @@
+/*
+  RecordLead (SPEC §2.3 "Record internals", §5 moment 10). The record body's first lines, and
+  the stretch of spine beside them. Lines are 2px apart, as everywhere in a record; they are
+  Meta, the caption role, unless a line says otherwise (an error's sentences are Read).
+*/
+
+.ck-agent-record__body > .ck-agent-lead {
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-lead > :not(.ck-agent-segment) {
+  grid-column: 2;
+  min-inline-size: 0;
+}
+
+.ck-agent-lead > :where(p) {
+  margin: 0;
+}
+
+/* The stretch reaches the first spine row across the body's 2px row gap. */
+.ck-agent-lead > .ck-agent-segment {
+  --ck-agent-segment-gap: var(--bldr-space-2xs);
+}
+
+/*
+  The live line (SPEC §5 moment 10, the prompt-kit TextShimmer pattern in plain CSS): the words
+  are cut out of a gradient from Slate through Ink and back, which drifts in the reading
+  direction every 2s, so "still working" reads without a spinner wall. Every point of it is at
+  least Slate on Paper, 4.54:1. Under reduced motion, and in high contrast, it is plain Slate.
+*/
+.ck-agent-lead__live {
+  background-image: linear-gradient(
+    90deg,
+    var(--bldr-panel-muted) 0%,
+    var(--bldr-panel-muted) 38%,
+    var(--bldr-panel-text) 50%,
+    var(--bldr-panel-muted) 62%,
+    var(--bldr-panel-muted) 100%
+  );
+  background-clip: text;
+  background-size: 250% 100%;
+  color: transparent;
+  animation: ck-agent-lead-shimmer var(--bldr-duration-shimmer) linear infinite;
+}
+
+.ck-agent-lead__live:dir(rtl) {
+  animation-direction: reverse;
+}
+
+@keyframes ck-agent-lead-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-lead__live {
+    background: none;
+    color: var(--bldr-panel-muted);
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-lead__live {
+    background: none;
+    color: CanvasText;
+    animation: none;
+  }
+}

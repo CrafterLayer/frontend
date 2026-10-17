@@ -1,0 +1,142 @@
+/*
+  The Help destination (UX pass, 2026-10-13): the panel gutter, the panel Title step, and
+  section eyebrows like every other destination's. Chrome tokens only; logical properties
+  only, so the step numbers and keys sit on the correct side in the Arabic editor.
+*/
+.pg-help {
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-normal)
+    var(--bldr-font);
+  gap: var(--bldr-space-5xl);
+  padding: var(--bldr-panel-padding);
+}
+
+.pg-help:lang(ar) {
+  font-family: var(--bldr-font-arabic);
+}
+
+.pg-help__head {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.pg-help__title {
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+}
+
+.pg-help__intro {
+  color: var(--bldr-panel-text-soft);
+  margin: var(--bldr-space-0);
+}
+
+.pg-help__section {
+  display: grid;
+  gap: var(--bldr-space-md);
+}
+
+.pg-help__heading {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-bold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  text-transform: uppercase;
+}
+
+.pg-help__steps {
+  counter-reset: pg-help-step;
+  display: grid;
+  gap: var(--bldr-space-md);
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.pg-help__step {
+  column-gap: var(--bldr-space-md);
+  counter-increment: pg-help-step;
+  display: grid;
+  grid-template-columns: var(--bldr-measure-swatch) minmax(0, 1fr);
+  row-gap: var(--bldr-space-2xs);
+}
+
+.pg-help__step::before {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-measure-swatch);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  content: counter(pg-help-step);
+  display: inline-flex;
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--bldr-font-weight-semibold);
+  grid-row: 1 / span 2;
+  inline-size: var(--bldr-measure-swatch);
+  justify-content: center;
+}
+
+.pg-help__step-title {
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.pg-help__step-body {
+  color: var(--bldr-panel-text-soft);
+  grid-column: 2;
+}
+
+.pg-help__tools {
+  display: grid;
+  gap: var(--bldr-space-sm);
+}
+
+.pg-help__tool {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-md);
+  justify-content: space-between;
+  min-block-size: var(--bldr-control-lg);
+  padding-inline: var(--bldr-space-xl);
+  text-align: start;
+  transition: border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-help__tool:hover {
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent);
+}
+
+.pg-help__tool:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.pg-help__key {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text-soft);
+  font: var(--bldr-font-weight-medium) var(--bldr-font-size-micro) / var(--bldr-line-height-tight)
+    var(--bldr-font-mono);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-sm);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-help__tool {
+    transition: none;
+  }
+}

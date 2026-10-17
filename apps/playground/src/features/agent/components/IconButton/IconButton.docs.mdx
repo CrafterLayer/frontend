@@ -1,0 +1,105 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as IconButtonStories from './IconButton.stories';
+
+<Meta of={IconButtonStories} />
+
+# IconButton
+
+The agent panel's icon-only button (SPEC §4.21): the shell's `ChromeButton`, one `AgentIcon` and a
+Radix Tooltip. 32px on a fine pointer, 44px on a coarse one. Its accessible name is the tooltip's
+text, always the same words.
+
+<Canvas of={IconButtonStories.Header} />
+
+## Purpose
+
+Every icon action in the panel is this button: the header's Conversations and New conversation, a
+row's Undo, Redo and Retry, the proposal's Preview toggle, a chip's remove, the record menu's `[⋯]`.
+One component, so one hit size, one hover, one focus ring and one tooltip clock everywhere.
+
+It is also the fix for v1's lost first click. The glyph is static JSX, so a re-render between
+pointerdown and pointerup (the composer re-renders as the textarea blurs) cannot replace the node
+under the pointer. `FirstClickAfterBlur` presses it with Playwright's real mouse after typing, and
+`V1LosesTheFirstClick` rebuilds v1's button beside it and shows Chromium dropping that same press.
+The unit test runs the same pair in jsdom.
+
+## When to use / not
+
+Use it for any action shown as a glyph alone. Use `unavailable` with a `hint` when the action exists
+but cannot run now, so the person can still focus it and hear why.
+
+Do not use it for Send (SendButton has its own states) or Stop (StopButton keeps its label). Do not
+use `disabled`: it drops the button out of the tab order and silences its tooltip.
+
+## Props
+
+| prop              | type                            | default    | notes                                                                  |
+| ----------------- | ------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| `icon`            | `AgentIconName`                 | none       | required                                                               |
+| `label`           | `string`                        | none       | the accessible name and the tooltip's text                             |
+| `hint`            | `string`                        | none       | a second tooltip line, also the accessible description                 |
+| `describedBy`     | `string`                        | none       | ids that also describe it, after the hint (a revived record's caption) |
+| `unavailable`     | `boolean`                       | `false`    | `aria-disabled`; focusable; clicks, pointerdown and keys do nothing    |
+| `pressed`         | `boolean`                       | none       | makes it a toggle (`aria-pressed`)                                     |
+| `tooltipSide`     | `'top' \| 'bottom'`             | `'bottom'` | block sides only: the panel is narrow                                  |
+| `tooltipAlign`    | `'start' \| 'center' \| 'end'`  | `'center'` | `end` for a button at the panel's inline end                           |
+| button attributes | `ref`, `id`, `aria-*`, handlers | none       | forwarded, so a Radix trigger can wrap it with `asChild`               |
+
+`AgentTooltipProvider` (one per panel, at the root) shares the tooltip delay, so sliding from one
+icon to the next opens the second tooltip at once. Without it each button brings its own provider.
+`usePortalScope` and `portalScopeOf` decide where a floating layer mounts; `RecordMenu` uses them
+too.
+
+## States
+
+| story                     | what it shows                                                         |
+| ------------------------- | --------------------------------------------------------------------- |
+| `Rest`                    | a ghost: no fill, a Graphite glyph                                    |
+| `WithTooltip`             | focus opens the tooltip; its text equals the accessible name          |
+| `Unavailable`             | New conversation while a run is live: Slate glyph, a two-line tooltip |
+| `Pressed`                 | the Preview toggle on: Mist under Indigo deep                         |
+| `Header`, `HeaderRunning` | the header's two actions, at rest and while running                   |
+| `HeaderDark`              | dark                                                                  |
+| `HeaderRightToLeft`       | Arabic; the tooltip mounts inside the panel with `lang="ar"`          |
+| `HeaderRightToLeftDark`   | Arabic, dark                                                          |
+| `FirstClickAfterBlur`     | the regression, with a real pointer                                   |
+| `V1LosesTheFirstClick`    | the control: v1's button loses that same press                        |
+
+A coarse pointer cannot be emulated in a story; the 44px size is asserted on the stylesheet.
+
+## Anatomy
+
+A `ChromeButton` (`variant="icon"`, or `variant="toggle"` when `pressed` is given) with class
+`ck-agent-icon-button`, holding the `AgentIcon` and, with a hint, a `hidden` span the description
+points at. The tooltip (`.ck-agent-tooltip`) is e2: the Sheet, a hairline border, the floating
+shadow, radius 6, Meta type in Ink with the hint in Graphite.
+
+The stylesheet restates every state over ChromeButton's, from four simple selectors, so each state
+out-ranks ChromeButton's matching state whatever order the bundler emits them in. ChromeButton's own
+hover paints the glyph Indigo, which the panel never does.
+
+## Accessibility
+
+- The name is `label`. Radix would point an open trigger's description at its tooltip, which here
+  only repeats the name ("Conversations, button, Conversations"), so the description is set
+  explicitly: the hint, then `describedBy`, or nothing.
+- Unavailable is `aria-disabled`, never `disabled`: it stays in the tab order, and its tooltip still
+  explains why.
+- Focus ring: the product's, 2px `--bldr-focus-ring`, offset 1px.
+- Keyboard focus opens the tooltip at once; hover waits 500ms. A tooltip never opens over the menu
+  or popover the button opened (`aria-expanded="true"`).
+- Targets: 32×32 on a fine pointer, 44×44 under `(pointer: coarse)`.
+
+## RTL
+
+The tooltip mounts inside the nearest `.ck-agent` panel root (else the nearest themed element, else
+the body) and carries the trigger's `lang` and `dir` itself. Mounted on the body it would lose the
+dark theme and the `:lang(ar)` type tokens. The glyph mirrors if it is directional (AgentIcon).
+
+## Motion
+
+Hover and press are colour only: 120ms, and 80ms for the press. The tooltip rises 4px away from its
+anchor and fades in over 220ms, out over 140ms (SPEC §5 moment 9), but only after the hover delay: a
+tooltip reached through the skip delay swaps at once, so it reads as one tooltip following the
+pointer. Under reduced motion it only fades, over 120ms.

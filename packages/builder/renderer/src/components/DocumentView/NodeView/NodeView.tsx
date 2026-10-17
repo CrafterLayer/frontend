@@ -1,0 +1,504 @@
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
+
+import type { BuilderKernel } from '@craftkit/builder-core';
+import {
+  DEFAULT_SLOT,
+  blockPropDefaults,
+  // ── block-parts (2026-10-06) ──
+  getAtPropPath,
+  parsePropPath,
+  setAtPropPath,
+  // ── /block-parts ──
+  withBlockPropDefaults,
+  type BlockRenderProps,
+  type BlockSlotChildMetadata,
+  type NodeId,
+  type SlotName,
+} from '@craftkit/builder-schema';
+
+import { resolveResponsiveProps, type RenderBreakpoint } from '../../../resolve/responsive';
+import { resolveSlotChildMetadata } from '../../../resolve/slot-child-metadata';
+import { useKernelNode, useKernelNodes, useRegistryEpoch } from '../../../subscribe';
+import { UnknownBlock } from '../../UnknownBlock';
+
+import './slot.css';
+
+export interface NodeViewProps {
+  kernel: BuilderKernel;
+  id: NodeId;
+  breakpoint: RenderBreakpoint;
+  onBlockRender?: ((nodeId: NodeId) => void) | undefined;
+  /**
+   * Edit-mode geometry attachment (005 contract §2): when present, the block
+   * renders inside a `data-bldr-node` wrapper whose callback ref reports
+   * (id, element) on mount and (id, null) on unmount. Absent ⇒ output identical
+   * to the plain view; the static path never sets it.
+   */
+  attachNodeElement?: ((id: NodeId, element: HTMLElement | null) => void) | undefined;
+  /**
+   * Whether this tree is the EDITING canvas.
+   *
+   * It used to be the literal `true` on the line that renders a block, which
+   * made it a lie in the one place it mattered: preview renders through this
+   * same view, so a block that showed editing scaffolding behind `isCanvas`
+   * showed it to the reader of the finished page as well. Defaults to `true`
+   * because every existing caller of this view IS the canvas; preview is the
+   * one that has to say otherwise.
+   */
+  isCanvas?: boolean | undefined;
+  /**
+   * Inline editing seam (009 contract §7). When the descriptor names THIS node,
+   * the named property's value is replaced by the element the editor returns,
+   * so the block renders its editing surface exactly where the text lives
+   * without knowing anything about editing. Every other node is untouched —
+   * which is what keeps "an inline edit re-renders ONE subtree" true.
+   */
+  inlineEdit?: InlineEditSeam | undefined;
+}
+
+export interface InlineEditSeam {
+  /** Subscribe only to the descriptor for `nodeId`. */
+  subscribe: (nodeId: NodeId, listener: () => void) => () => void;
+  /** Stable snapshot identity until that node's descriptor actually changes. */
+  getSnapshot: (nodeId: NodeId) => InlineEditTarget | null;
+}
+
+export type InlineEditEntryPoint =
+  | { key: number; kind: 'pointer'; clientX: number; clientY: number }
+  | { key: number; kind: 'keyboard' };
+
+export interface InlineEditTarget {
+  /** The TOP-LEVEL prop being edited (for a nested part, the key that holds it). */
+  propKey: string;
+  /**
+   * A block part's dotted bind path (block-parts DESIGN §2.8), e.g. `heading`
+   * or `items.2.title`. When set, the value AT THIS PATH is swapped for the
+   * editor, so a part inside an array edits in place while its siblings render
+   * untouched. Absent ⇒ the classic top-level `propKey` swap.
+   */
+  bind?: string | undefined;
+  /** Null while the chosen contributed implementation is still loading. */
+  render:
+    | ((context: {
+        nodeId: NodeId;
+        propKey: string;
+        /** The bind path, when the session edits a block part. */
+        bind?: string | undefined;
+        value: unknown;
+        entryPoint?: InlineEditEntryPoint | undefined;
+      }) => ReactNode)
+    | null;
+  /** Pointer coordinates or keyboard entry, consumed once after the surface mounts. */
+  entryPoint?: InlineEditEntryPoint | undefined;
+  /** Door rejection shown next to, and described by, the live editing control. */
+  rejection?: { id: string; message: string } | undefined;
+}
+
+const NO_INLINE_EDIT = null;
+const doNothing = () => undefined;
+
+function inlineControlOf(root: HTMLElement): HTMLElement | null {
+  return root.querySelector<HTMLElement>(
+    '[contenteditable="plaintext-only"], [contenteditable="true"], [role="textbox"]',
+  );
+}
+
+function nodeBelongsTo(control: HTMLElement, node: Node): boolean {
+  return node === control || control.contains(node);
+}
+
+/**
+ * Place the initial caret after the surface's own mount/focus effects. Pointer
+ * entry uses the frame document's native point-to-caret bridge; keyboard entry
+ * opens at the logical end. No editor-specific public prop is required.
+ */
+function applyEntryPoint(control: HTMLElement, entryPoint: InlineEditEntryPoint): boolean {
+  const document_ = control.ownerDocument;
+  const selection = document_.getSelection();
+  if (selection === null) {
+    return false;
+  }
+  control.focus({ preventScroll: true });
+
+  if (entryPoint.kind === 'keyboard') {
+    const range = document_.createRange();
+    range.selectNodeContents(control);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  }
+
+  const caretDocument = document_ as unknown as {
+    caretPositionFromPoint?:
+      ((x: number, y: number) => { offsetNode: Node; offset: number } | null) | undefined;
+    caretRangeFromPoint?: ((x: number, y: number) => Range | null) | undefined;
+  };
+  const position = caretDocument.caretPositionFromPoint?.(entryPoint.clientX, entryPoint.clientY);
+  let range: Range | null = null;
+  if (position !== null && position !== undefined && nodeBelongsTo(control, position.offsetNode)) {
+    range = document_.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    range.collapse(true);
+  } else {
+    const candidate = caretDocument.caretRangeFromPoint?.(entryPoint.clientX, entryPoint.clientY);
+    if (
+      candidate !== null &&
+      candidate !== undefined &&
+      nodeBelongsTo(control, candidate.startContainer)
+    ) {
+      range = candidate;
+    }
+  }
+  if (range === null) {
+    return false;
+  }
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
+}
+
+// ── block-parts (2026-10-06) ──
+/** An object or array a nested bind can be set inside. */
+function isContainer(value: unknown): boolean {
+  return typeof value === 'object' && value !== null;
+}
+// ── /block-parts ──
+
+function removeDescription(control: HTMLElement, id: string): void {
+  const remaining = (control.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter((token) => token !== '' && token !== id);
+  if (remaining.length === 0) {
+    control.removeAttribute('aria-describedby');
+  } else {
+    control.setAttribute('aria-describedby', remaining.join(' '));
+  }
+}
+
+/**
+ * One document node, live: subscribes to exactly its own node (FR-003) and to the
+ * registry epoch (runtime registration/disposal — FR-013). Renders the registered
+ * block with resolved props and slot children in document order; unknown types
+ * fall back to <UnknownBlock/> without breaking siblings (FR-010).
+ */
+/**
+ * IMPORTANT — self-reference through the MEMOIZED export: inside
+ * `memo(function NodeView() {...})` the inner function's own name shadows the
+ * exported const, so recursive `<NodeView/>` children would silently use the
+ * UN-memoized function and every parent re-render would drag its whole subtree
+ * (found when moveNode — the first command that re-renders a parent with
+ * mounted children — re-rendered all 1,000 stress nodes). The inner function
+ * is therefore named differently and children reference the wrapped const.
+ */
+function NodeViewInner({
+  kernel,
+  id,
+  breakpoint,
+  onBlockRender,
+  attachNodeElement,
+  inlineEdit,
+  isCanvas = true,
+}: NodeViewProps) {
+  const node = useKernelNode(kernel, id);
+  useRegistryEpoch(kernel);
+  const entry = node === undefined ? undefined : kernel.context.registry.block(node.type);
+  const metadataChildIds = useMemo(() => {
+    if (node === undefined || entry === undefined) {
+      return [];
+    }
+    return Object.entries(entry.schema.slots ?? {}).flatMap(([slotName, declaration]) =>
+      declaration.exposeChildMetadata ? (node.slots?.[slotName] ?? []) : [],
+    );
+  }, [entry, node]);
+  const metadataChildNodes = useKernelNodes(kernel, metadataChildIds);
+  const metadataNodesById = useMemo(
+    () => new Map(metadataChildIds.map((childId, index) => [childId, metadataChildNodes[index]])),
+    [metadataChildIds, metadataChildNodes],
+  );
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const attachRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      elementRef.current = element;
+      attachNodeElement?.(id, element);
+    },
+    [attachNodeElement, id],
+  );
+  const subscribeInlineEdit = useCallback(
+    (listener: () => void) => inlineEdit?.subscribe(id, listener) ?? doNothing,
+    [id, inlineEdit],
+  );
+  const readInlineEdit = useCallback(
+    () => inlineEdit?.getSnapshot(id) ?? NO_INLINE_EDIT,
+    [id, inlineEdit],
+  );
+  const activeInlineEdit = useSyncExternalStore(
+    subscribeInlineEdit,
+    readInlineEdit,
+    readInlineEdit,
+  );
+  const appliedEntryKeyRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const root = elementRef.current;
+    const entryPoint = activeInlineEdit?.entryPoint;
+    if (
+      root === null ||
+      activeInlineEdit?.render === null ||
+      entryPoint === undefined ||
+      appliedEntryKeyRef.current === entryPoint.key
+    ) {
+      return undefined;
+    }
+    const apply = () => {
+      const control = inlineControlOf(root);
+      if (control === null || !applyEntryPoint(control, entryPoint)) {
+        return false;
+      }
+      appliedEntryKeyRef.current = entryPoint.key;
+      return true;
+    };
+    if (apply()) {
+      return undefined;
+    }
+    const Observer = root.ownerDocument.defaultView?.MutationObserver;
+    /* v8 ignore next 3 -- mounted React DOM in supported browsers always exposes MutationObserver. */
+    if (Observer === undefined) {
+      return undefined;
+    }
+    const observer = new Observer(() => {
+      if (apply()) {
+        observer.disconnect();
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+    };
+  }, [activeInlineEdit]);
+
+  useEffect(() => {
+    const root = elementRef.current;
+    const rejectionId = activeInlineEdit?.rejection?.id;
+    if (root === null || rejectionId === undefined) {
+      return undefined;
+    }
+    const wire = () => {
+      const control = inlineControlOf(root);
+      if (control === null) {
+        return false;
+      }
+      const ids = new Set((control.getAttribute('aria-describedby') ?? '').split(/\s+/));
+      ids.delete('');
+      ids.add(rejectionId);
+      control.setAttribute('aria-describedby', [...ids].join(' '));
+      return true;
+    };
+    let observer: MutationObserver | null = null;
+    if (!wire()) {
+      const Observer = root.ownerDocument.defaultView?.MutationObserver;
+      if (Observer !== undefined) {
+        observer = new Observer(() => {
+          if (wire()) {
+            observer?.disconnect();
+            observer = null;
+          }
+        });
+        observer.observe(root, { childList: true, subtree: true });
+      }
+    }
+    return () => {
+      observer?.disconnect();
+      const control = inlineControlOf(root);
+      if (control !== null) {
+        removeDescription(control, rejectionId);
+      }
+    };
+  }, [activeInlineEdit?.rejection?.id]);
+
+  if (node === undefined) {
+    return null; // removed while a parent list still referenced it mid-update
+  }
+
+  // Test/dev instrumentation only (SC-002 counting); no-op in production usage.
+  onBlockRender?.(id);
+
+  const render = entry?.render;
+
+  let content: ReactNode;
+  if (render === undefined) {
+    content = <UnknownBlock type={node.type} />;
+  } else {
+    const slots: Record<SlotName, ReactNode> = {};
+    const slotChildren: Record<SlotName, readonly BlockSlotChildMetadata[]> = {};
+    const declaredSlotNames = Object.keys(entry?.schema.slots ?? {});
+    const declaredSlots = new Set(declaredSlotNames);
+    const slotNames = [
+      ...declaredSlotNames,
+      ...Object.keys(node.slots ?? {}).filter((slotName) => !declaredSlots.has(slotName)),
+    ];
+    for (const slotName of slotNames) {
+      const childIds = node.slots?.[slotName] ?? [];
+      if (entry?.schema.slots?.[slotName]?.exposeChildMetadata === true) {
+        slotChildren[slotName] = childIds.flatMap((childId) => {
+          const child = metadataNodesById.get(childId);
+          return child === undefined
+            ? []
+            : [resolveSlotChildMetadata(child, kernel.context.registry.block, breakpoint)];
+        });
+      }
+      const hasChildren = childIds.length > 0;
+      const children = childIds.map((childId) => (
+        <NodeView
+          key={childId}
+          kernel={kernel}
+          id={childId}
+          breakpoint={breakpoint}
+          onBlockRender={onBlockRender}
+          attachNodeElement={attachNodeElement}
+          inlineEdit={inlineEdit}
+          isCanvas={isCanvas}
+        />
+      ));
+
+      /*
+        The slot wrapper is CANVAS scaffolding, not page content.
+
+        It exists so the drop resolver can measure a slot and target it — an
+        empty slot is a real box precisely so a person can drop into it, and a
+        filled one is `display: contents` so it adds no box and Stack's row
+        layout is untouched. None of that means anything to a reader of the
+        finished page, and `data-bldr-*` attributes in published HTML are the
+        same mistake as an editing hint reaching a published page. So the
+        published render emits the children bare, and `StaticDocument` matches
+        it exactly.
+      */
+      slots[slotName] = isCanvas ? (
+        <div
+          data-bldr-slot={slotName}
+          data-bldr-slot-of={id}
+          className={hasChildren ? undefined : 'bldr-slot-empty'}
+          style={hasChildren ? { display: 'contents' } : undefined}
+        >
+          {children}
+          {hasChildren || slotName === DEFAULT_SLOT ? null : (
+            /*
+              The slot's NAME, because three identical dashed boxes tell a person
+              nothing about which region they are about to fill. Not for the
+              block's unnamed `default` region: that name is an identifier, not
+              words, and on an empty page it sat alone mid-canvas as debug text.
+            */
+            <span className="bldr-slot-empty__label">{slotName}</span>
+          )}
+        </div>
+      ) : (
+        children
+      );
+    }
+    // The single un-erasure boundary (see BlockRenderComponent): stored renderers
+    // are typed over `never`; here they receive their real resolved props.
+    const Block = render as ComponentType<BlockRenderProps>;
+    /*
+      Schema defaults, filled for props the document omits.
+
+      A block declaring `spacing: z.enum(...).default('lg')` did not render at
+      'lg': nothing on this path ever parsed props against the schema, so an
+      omitted prop arrived `undefined` and went straight into a class name.
+      Defaults are FILLED rather than the props PARSED — a parse would reject
+      the React element the inline-edit boundary swaps in below, and would
+      coerce values a person actually stored.
+    */
+    const stored = withBlockPropDefaults(
+      resolveResponsiveProps(node, breakpoint),
+      entry === undefined ? {} : blockPropDefaults(entry.schema.props),
+    );
+    let resolved = stored;
+    if (activeInlineEdit !== null && activeInlineEdit.render !== null) {
+      // THE EDIT BOUNDARY, declared rather than hidden: the prop's VALUE becomes
+      // the editing surface, so a block that renders `{props.heading}` renders
+      // the editor exactly where the text lives — no block-side code, no second
+      // render path, and the swap is scoped to this one node. The stored type
+      // says JsonValue; at this one boundary, in edit mode only, it is a React
+      // element. (The same trick Puck's field transforms use — see
+      // vendor/VENDOR.md — and the reason blocks need no editing awareness.)
+      // ── block-parts (2026-10-06) ──
+      // A part's bind addresses a NESTED value (`items.2.title`): the editor is
+      // set at that path with structural sharing, so only the containers on
+      // the path are copied and every sibling item renders exactly as stored.
+      // A bind whose container is gone (the item was removed mid-session)
+      // swaps nothing rather than inventing the missing item.
+      const bindPath =
+        activeInlineEdit.bind === undefined ? undefined : parsePropPath(activeInlineEdit.bind);
+      const bindReachable =
+        bindPath === undefined ||
+        (bindPath.length > 0 &&
+          isContainer(bindPath.length === 1 ? stored : getAtPropPath(stored, bindPath.slice(0, -1))));
+      const value =
+        bindPath === undefined ? stored[activeInlineEdit.propKey] : getAtPropPath(stored, bindPath);
+      // ── /block-parts ──
+      const editor = activeInlineEdit.render({
+        nodeId: id,
+        propKey: activeInlineEdit.propKey,
+        ...(activeInlineEdit.bind === undefined ? {} : { bind: activeInlineEdit.bind }),
+        value,
+        ...(activeInlineEdit.entryPoint === undefined
+          ? {}
+          : { entryPoint: activeInlineEdit.entryPoint }),
+      });
+      const surface =
+        activeInlineEdit.rejection === undefined ? (
+          editor
+        ) : (
+          <>
+            {editor}
+            <span
+              id={activeInlineEdit.rejection.id}
+              className="bldr-inline-rejection"
+              data-bldr-inline-rejection
+            >
+              {activeInlineEdit.rejection.message}
+            </span>
+          </>
+        );
+      if (bindPath === undefined) {
+        const swapped: Record<string, unknown> = {
+          ...stored,
+          [activeInlineEdit.propKey]: surface,
+        };
+        resolved = swapped as typeof stored;
+      } else if (bindReachable) {
+        resolved = setAtPropPath(stored, bindPath, surface);
+      }
+    }
+    content = (
+      <Block
+        node={node}
+        props={resolved}
+        slots={slots}
+        slotChildren={slotChildren}
+        data={{}}
+        isCanvas={isCanvas}
+      />
+    );
+  }
+
+  if (attachNodeElement === undefined) {
+    return content;
+  }
+  return (
+    <div data-bldr-node={id} data-bldr-type={node.type} ref={attachRef}>
+      {content}
+    </div>
+  );
+}
+
+export const NodeView = memo(NodeViewInner);

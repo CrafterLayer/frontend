@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# CraftKit plan-quality evals.
+#
+# Two modes, ONE config. The provider reads CRAFTKIT_EVAL_MODE and builds
+# either the deterministic local plan provider (offline: no key, no socket,
+# safe in CI) or the remote provider pointed at apps/ai-server (live). Two
+# provider entries would mean CI silently attempting the network the first time
+# someone reordered the list.
+#
+#   offline:  pnpm --filter @craftkit/evals eval
+#   live:     CRAFTKIT_EVAL_MODE=live pnpm --filter @craftkit/evals eval
+#   + taste:  CRAFTKIT_EVAL_RUBRIC=1 ... (adds the one model-judged metric)
+#
+# Everything under dist/ is built by `vite build`, which the eval script runs
+# first. Pointing promptfoo at src/ does not work — see vite.config.ts.
+
+description: CraftKit AI plan quality — golden corpus of real page requests
+
+prompts:
+  # Shown in the report so a row is readable. The provider runs the request it
+  # reads from the corpus file, not this rendered string; see src/promptfoo/provider.ts.
+  - '{{request}}'
+
+providers:
+  - id: file://./dist/promptfoo-provider.js
+    label: craftkit-plan
+
+# Generated from apps/evals/corpus/*.json at load time, assertions included.
+# Adding a case is adding one JSON file; nothing here changes.
+tests: file://./dist/promptfoo-tests.js
+
+outputPath: ./eval-results.json

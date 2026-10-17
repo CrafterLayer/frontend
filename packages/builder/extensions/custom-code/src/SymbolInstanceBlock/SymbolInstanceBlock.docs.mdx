@@ -1,0 +1,23 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as SymbolInstanceBlockStories from './SymbolInstanceBlock.stories';
+
+<Meta of={SymbolInstanceBlockStories} />
+
+# SymbolInstanceBlock
+
+The `customCodeSymbol` block: one instance of a site symbol (style-manager DESIGN.md §G).
+
+- **Props** `{ label, symbolId, overrides }`. The master tree and its CSS live once in
+  `library.symbols[symbolId]`; the instance stores only what it changes.
+- **Overrides** `{ path, text?, className?, attributes? }` (at most 200), addressed by child indices
+  inside the master. Applied with `applySymbolOverrides`; an override whose path no longer resolves
+  after a master edit is skipped, never misapplied, so every override that still fits survives.
+- **Rendering.** Read from `SiteDesignContext`, then drawn by the shared `CustomCode` renderer with
+  the master's CSS scoped to the instance node, on the canvas (elements carry `data-ck-path`, so
+  they are focusable) and in `StaticDocument` / the static export.
+- **Missing symbol.** The canvas says so in a note; the published page renders nothing.
+
+Made by the SymbolsPanel ("Make into symbol"), detached back into a `customCode` region by
+"Detach" or by `removeSymbol { detach: true }`. The page root must list `customCodeSymbol` in its
+slot allow list for an instance to be inserted at the root.

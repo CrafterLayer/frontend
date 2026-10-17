@@ -37,10 +37,10 @@ State the selected option and the boundary it establishes.
 
 ## Verification
 
-Describe how architecture checks, tests, builds, or runtime evidence prove the decision
-is implemented correctly.
+Describe how architecture checks, tests, builds, or runtime evidence prove the decision is
+implemented correctly.
 
 ## Rollout and Reversal
 
-Describe adoption order, compatibility concerns, rollback, and the condition that would
-trigger reconsideration.
+Describe adoption order, compatibility concerns, rollback, and the condition that would trigger
+reconsideration.

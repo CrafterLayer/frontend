@@ -1,0 +1,21 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ThemePickerStories from './ThemePicker.stories';
+
+<Meta of={ThemePickerStories} />
+
+# ThemePicker
+
+Controlled radio pair selecting the preview theme (`light`/`dark`). Pure UI state — theme is APP
+state handed to the frame, never document data.
+
+## API
+
+- `value: 'light' | 'dark'`
+- `onChange(next)`
+- `labels?: ThemePickerLabels` — the legend and the two choices; English by default
+  (`THEME_PICKER_LABELS_EN`).
+
+## Accessibility
+
+A `fieldset` with a legend; labelled native radios, keyboard-operable.

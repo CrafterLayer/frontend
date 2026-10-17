@@ -1,0 +1,67 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as AnswerRecordStories from './AnswerRecord.stories';
+
+<Meta of={AnswerRecordStories} />
+
+# AnswerRecord
+
+A words-only answer (SPEC §4.10): a question was asked, and nothing on the page changed.
+
+<Canvas of={AnswerRecordStories.Long} />
+
+## Purpose
+
+When the person asks rather than instructs, the answer is the outcome. So it is the one record
+body in Ink rather than Graphite, under the note glyph (three lines of prose), never the Indigo
+ink that means "on the page".
+
+## When to use / not
+
+Every `answer` turn (intent `question`). A request that changed the page is an EditRecord or a
+BuildRecord, however much it says.
+
+## Props
+
+| prop             | type                                  | default | notes                                        |
+| ---------------- | ------------------------------------- | ------- | -------------------------------------------- |
+| `locale`         | `Locale`                              | none    |                                              |
+| `view`           | `AnswerView`                          | none    | `text`, `menu`                               |
+| `onMenuSelect`   | `(item: RecordMenuItem) => void`      | none    | Copy answer; the caller copies it            |
+| `menuFocusAfter` | `RecordMenuProps['focusAfterSelect']` | none    |                                              |
+| `menuTriggerRef` | `Ref<HTMLButtonElement>`              | none    |                                              |
+| `headingRef`     | `Ref<HTMLHeadingElement>`             | none    |                                              |
+| `className`      | `string`                              | none    | appended to `ck-agent-record ck-agent-answer` |
+
+## States
+
+`Short` (no "Show more"), `Long` (folded to six lines; its play opens it), `LongAt420`,
+`EnglishInArabicPanel` and `ArabicInEnglishPanel` (the prose keeps its own direction and
+language), `CopyAnswer` (the menu hands `copyAnswer` to the caller), with Arabic and dark twins.
+
+## Anatomy
+
+```text
+[≡] Answer
+    The pricing section shows three plans. The middle    prose: Read, Ink, text-wrap: pretty
+    one is highlighted in the site colour.
+    ▸ Show more                                          only when six lines hide something
+                                                  [⋯]    Copy answer
+```
+
+## Accessibility
+
+- An `<article>` named "Answer".
+- The prose carries `dir` from the majority of its letters (never `dir="auto"`) and `lang` from
+  its script; each line takes its own direction by its own letters.
+- "Show more" is a real disclosure: `aria-expanded`, `aria-controls` on the prose, focus kept on
+  it, "Show less" once open. It appears only when six lines hide something, measured on resize.
+
+## RTL
+
+The record mirrors with the panel; the prose follows its own language, so an English answer in
+the Arabic panel reads left to right.
+
+## Motion
+
+The disclosure chevron turns over 120ms; nothing else moves. Instant under reduced motion.

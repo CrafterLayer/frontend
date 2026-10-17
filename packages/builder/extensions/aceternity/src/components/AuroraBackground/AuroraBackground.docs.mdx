@@ -1,0 +1,83 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AuroraStories from './AuroraBackground.stories';
+
+<Meta of={AuroraStories} />
+
+# AuroraBackground
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-aceternity`. A slow, drifting gradient behind a supported content block,
+such as a hero, card, tabs, alert, progress indicator, or pagination control. The slot intentionally
+excludes Aurora itself and the other background effects, preventing recursive or competing
+full-surface animation stacks.
+
+## Provenance
+
+Adapted from [Aceternity UI](https://ui.aceternity.com/components/aurora-background), MIT.
+
+|                  |                                                   |
+| ---------------- | ------------------------------------------------- |
+| Verbatim source  | `vendor/aceternity/AuroraBackground.upstream.tsx` |
+| Licence          | `vendor/aceternity/LICENSE`                       |
+| Full change list | `vendor/VENDOR.md`                                |
+
+Aceternity is a copy-paste catalog rather than a package, which is exactly the shape this
+workspace's standing rule already assumes: **vendor with attribution, never npm-depend.**
+
+## What the adaptation changed, and why it mattered
+
+**The palette.** Upstream hard-codes Tailwind's own colours into the gradient — `--blue-500`,
+`--indigo-300`, `--violet-200`. Copied as-is, every generated site would have carried the same blue
+aurora regardless of its brand, at the top of the page, where people look first. The gradients are
+rewritten in terms of `--t-*`, so a site with a warm palette gets a warm aurora.
+
+**The form.** Upstream expresses the whole effect as Tailwind arbitrary values. That is a reasonable
+choice for a snippet and the wrong one here: arbitrary values are precisely what this project
+refuses to store, and a block whose implementation is a wall of them cannot honestly be called
+token-bound. The gradients live in one stylesheet instead.
+
+**The engine.** Several Aceternity components reach for `framer-motion`. This one does not need to,
+and keeping it engine-free is what lets a published page render the effect without downloading
+anything.
+
+## Props
+
+| Prop        | Type                                 | Default    | Notes                              |
+| ----------- | ------------------------------------ | ---------- | ---------------------------------- |
+| `intensity` | `'subtle' \| 'normal' \| 'bold'`     | `'normal'` | Named steps, not an opacity number |
+| `tone`      | `'light' \| 'dark' \| 'transparent'` | `'dark'`   | Chooses the paired ground and ink  |
+| `animate`   | `boolean`                            | `true`     | Stillness is a real choice         |
+| `minHeight` | `'none' \| 'half' \| 'screen'`       | `'half'`   | Measured in `svh`                  |
+| `motion`    | `MotionSpec`                         | —          | From the closed vocabulary         |
+| `className` | validated utilities                  | —          | Full Tailwind, checked at the door |
+
+`className` is what makes this customisable by a person **or a planner**: any layout, spacing, or
+responsive utility is accepted, and exactly two families are refused — arbitrary values in brackets
+and Tailwind's own palette, because the design system cannot reach either.
+
+## Two details worth knowing
+
+**`svh`, not `vh`.** On a phone `100vh` is the viewport _without_ browser chrome, so a full-height
+hero sits partly under the address bar until the user scrolls. It is the most common mobile layout
+bug of the last decade and it costs one letter to avoid.
+
+**Intensity is a custom property, not a class per level.** Four variant classes would mean the same
+gradient written four times; one property keeps every stop in one place.
+
+## Accessibility
+
+The effect is drawn on a `::before` pseudo-element, so it cannot be reached by the accessibility
+tree, focused, or selected — the correct status for something no reader will interact with.
+
+Under `prefers-reduced-motion: reduce` the drift stops and the gradient remains. Removing it
+entirely would take away the section's visual identity for no accessibility gain; a static gradient
+harms nobody.
+
+## Known limitations
+
+- **One effect.** Aceternity has many; this pack vendors the one that earns its place on a landing
+  page. Each additional one is a deliberate act with its own provenance entry.
+- **The mask is directional** — it fades toward the top-inline-end corner. That is a design choice,
+  not an RTL bug.

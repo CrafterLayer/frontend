@@ -1,0 +1,175 @@
+/*
+  BuildRecord (SPEC §4.8, §3.3 to §3.5, §3.10, §3.12, §3.17).
+
+  The record's geometry is RunRecord's: a 32px head, then the body's two columns, the 16px
+  glyph column and the text column, 8px apart. The lead (captions, the direction, the
+  estimate) sits in the text column beside the spine's first stretch; the spine spans both
+  columns, so every node, the head's included, is on one vertical line.
+
+  Captions are Meta: the outcome in Graphite ("8 sections on the page"), the estimate in
+  Slate. Three sizes in all (Read, Meta, Figure), and no box.
+*/
+
+/* The spine and its fold span both body columns (RunRecord puts children in the text column). */
+.ck-agent-record__body > .ck-agent-spine,
+.ck-agent-record__body > .ck-agent-build__sections {
+  grid-column: 1 / -1;
+}
+
+.ck-agent-build__caption {
+  color: var(--bldr-panel-text-soft);
+  text-wrap: pretty;
+}
+
+.ck-agent-build__estimate {
+  color: var(--bldr-panel-muted);
+}
+
+/*
+  Page history, under the revived caption: a text button in the caption's own size, its words
+  on the text edge. Its 32px target rises 4px into the gap above, so the words sit 4px under
+  the caption's instead of 8px: one thought, not two.
+*/
+.ck-agent-build__history.ck-agent-button[data-ck-tone][data-bldr-chrome-button][data-variant][data-size] {
+  justify-self: start;
+  margin-block-start: calc(-1 * var(--bldr-space-xs));
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* ── Show sections / Hide sections (SPEC §3.2, §3.12) ─────────────────────── */
+
+/*
+  A quiet text disclosure, like ChangeLines' "Show all changes": Meta 500 in Graphite, hung
+  into the gutter so the chevron's stroke sits on the text edge (4px of padding and the
+  glyph's 5.5px of side bearing), the hover fill reaching back that far.
+*/
+.ck-agent-build__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--bldr-space-lg));
+  padding-block: 0;
+  padding-inline: var(--bldr-space-xs) var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-build__toggle:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-build__toggle:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-build__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-build__toggle[aria-expanded='true'] .ck-agent-build__chevron {
+  transform: rotate(90deg);
+}
+
+/*
+  The folded sections: 0fr closed, 1fr open. Motion answers the person's click only (SPEC §5
+  moment 8): folding under a newer turn is instant. The fold clips its rows, but 3px outside
+  it stay visible, so a focused Undo's ring at the row end is never cut.
+*/
+.ck-agent-build__sections {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-inline-size: 0;
+  visibility: hidden;
+}
+
+.ck-agent-build__sections[data-open] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.ck-agent-build__sections[data-animate] {
+  transition:
+    grid-template-rows var(--bldr-duration-exit) var(--bldr-easing-exit),
+    visibility 0s linear var(--bldr-duration-exit);
+}
+
+.ck-agent-build__sections[data-animate][data-open] {
+  transition:
+    grid-template-rows var(--bldr-duration-enter) var(--bldr-easing-enter),
+    visibility 0s linear 0s;
+}
+
+.ck-agent-build__sections-inner {
+  display: grid;
+  overflow: clip;
+  min-block-size: 0;
+  overflow-clip-margin: calc(var(--bldr-focus-ring-width) + var(--bldr-focus-ring-offset));
+}
+
+/* ── A live build ─────────────────────────────────────────────────────────── */
+
+/* Off screen, the writers' light holds still (SPEC §5 moment 2); a landing still completes. */
+.ck-agent-build[data-offscreen] .ck-agent-segment[data-state='writing']::after {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-build__chevron,
+  .ck-agent-build__sections[data-animate],
+  .ck-agent-build__sections[data-animate][data-open] {
+    transition: none;
+  }
+}
+
+/* A finger needs 44px (SPEC §6.4). */
+@media (pointer: coarse) {
+  .ck-agent-build__toggle {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+/*
+  Copy summary joins a finished build's footer as text only where the panel has room
+  (SPEC §3.17: container ≥ 400); narrower, it lives in the [⋯] menu alone.
+*/
+.ck-agent-build .ck-agent-record__actions .ck-agent-build__copy[data-bldr-chrome-button][data-variant][data-size] {
+  display: none;
+}
+
+@container agent (inline-size >= 400px) {
+  .ck-agent-build .ck-agent-record__actions .ck-agent-build__copy[data-bldr-chrome-button][data-variant][data-size] {
+    display: inline-flex;
+  }
+}
+
+/* ── The phone sheet (SPEC §3.17): the way forward is the easiest thing to reach ─ */
+
+@media (pointer: coarse) and (width < 600px) {
+  .ck-agent-build .ck-agent-record__actions .ck-agent-button:is([data-ck-tone='primary'], [data-ck-tone='secondary']) {
+    flex: 1 1 100%;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-build__toggle:hover {
+    outline: var(--bldr-border-hairline) solid Highlight;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+}

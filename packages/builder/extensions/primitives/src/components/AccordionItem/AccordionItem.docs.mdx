@@ -1,0 +1,78 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as AccordionItemStories from './AccordionItem.stories';
+
+<Meta of={AccordionItemStories} />
+
+# AccordionItem
+
+## Purpose and ownership
+
+Owned by `@craftkit/builder-primitives`. One collapsible section inside an
+[Accordion](?path=/docs/builder-primitives-accordion--docs): a heading a reader can activate, and
+the content revealed underneath it.
+
+## The boundary this component draws
+
+This is where the curated-catalog argument becomes concrete. The item is a heading plus a slot, and
+that slot accepts ordinary content blocks — so a planner composes **freely inside** an item while
+the accordion's keyboard semantics stay intact around it.
+
+**Bounded vocabulary, unbounded arrangement.** That is the whole design.
+
+## Props
+
+| Prop    | Type             | Default           | Notes                     |
+| ------- | ---------------- | ----------------- | ------------------------- |
+| `title` | `string` (1–120) | `'Section title'` | Required. Inline-editable |
+
+`title` has no `optional()`. An item without one is a control with no accessible name — a button a
+screen reader announces as nothing at all — so the schema refuses it rather than letting the page
+ship with it.
+
+The item has **no** open-state property. That state belongs to the container, because in Radix the
+root owns it and an item cannot open itself.
+
+## Slots
+
+`default` accepts `stack`, `grid`, `richText`, `image`, `cta`, `features`, and `navLinks`.
+
+`accordion` is deliberately absent: nesting one inside another produces two competing roving-focus
+regions, and arrow keys then belong to whichever mounted first.
+
+## Accessibility
+
+The trigger is a real `<button>` inside a heading, with `aria-expanded` and `aria-controls` wired by
+Radix. `title` is rendered as a **child**, not copied into an attribute, so the trigger takes its
+accessible name from the visible text — inline editing swaps that property for an editor element,
+and an element in `aria-label` stringifies to `[object Object]`.
+
+The chevron is `aria-hidden` and rotates on Radix's own `data-state`; no JavaScript here observes
+anything. Under `prefers-reduced-motion: reduce` it still turns, it just arrives.
+
+## Composition
+
+```
+accordion
+└── accordionItem  (title: "How long does delivery take?")
+    └── richText   (the answer)
+```
+
+## Known limitations
+
+- **It must live inside an accordion.** Rendered bare it has no open state and no keyboard position;
+  the stories wrap it in a Radix root for that reason.
+- **One heading level.** The trigger sits in Radix's `Header`, which is a `<h3>` by default and not
+  yet configurable from the document.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles`, and addressable by the agent by name, alias or label. Text and link
+parts carry `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end. Part
+markers (`data-ck-part`, `data-ck-bind`) exist on the canvas only.
+
+| name      | kind | bind    | label (en / ar)          |
+| --------- | ---- | ------- | ------------------------ |
+| `trigger` | box  | —       | Trigger row / صف العنوان |
+| `title`   | text | `title` | Title / العنوان          |

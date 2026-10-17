@@ -1,0 +1,129 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PaletteStories from './Palette.stories';
+
+<Meta of={PaletteStories} />
+
+# Palette
+
+The registered block and page-template vocabulary as a searchable insert surface. The **Blocks** tab
+groups individual primitives; the **Templates** tab exposes complete responsive compositions. Both
+catalogs come straight from the kernel registry and stay live under runtime extension registration
+and disposal (the kernel-intrinsic catalog version, the same race-proof pattern the canvas uses).
+First-party block types receive compact card names; custom extension types keep their schema
+description as the display-name fallback. Search also matches the full model-facing schema
+description.
+
+## Information design
+
+- **Layout**: page, section, container, columns, grid, row, stack, spacer, and divider types.
+- **Content**: text, rich text, heading, paragraph, image, media, video, embed, and form types.
+- **Marketing**: hero, features, pricing, testimonials, CTA, FAQ, navigation, footer, banner, and
+  announcement types.
+- **Primary**: reusable controls, containers, navigation, and visual-effect primitives from the
+  curated shadcn, Aceternity, Magic UI, and primitive packs.
+
+Every group is independently collapsible for the lifetime of the mounted palette. Filtering keeps
+that state intact and matches card names, type keys, descriptions, and category names. When no block
+matches, the panel tells the author to try another block name.
+
+Card diagrams are semantic miniatures rather than a repeated generic glyph: Hero uses headline,
+body, action, and media shapes; Columns uses three vertical bands; Grid and Features use a 3×2
+matrix; Pricing, Testimonials, CTA, text, media, and structural sections each have their own shape.
+Every known Primary and effects block is mapped too: navigation controls use the ordered-band
+miniature, controls use the action miniature, avatar and marquee collections use the grid, ambient
+effects use the hero or surface miniature, and accordion content uses the text miniature. Unknown
+types alone use the generic fallback. Every diagram sits in a token-sized rounded square: the tile
+resolves `--bldr-accent-soft` and its glyph resolves `--bldr-accent`. Hover, keyboard focus, and the
+native pressed state used during drag handoff keep distinct token-backed treatments without changing
+the card button's semantics. Because the soft accent is theme-specific, a Chromium story reads both
+painted colours with `getComputedStyle` in explicit light and dark themes and first proves those
+themes resolve to different values.
+
+## Two insert paths
+
+- **Keyboard / click**: activating an entry inserts AFTER the current selection when its parent slot
+  accepts the type; otherwise the placement walks UP from the selection to the document root and
+  appends into the first slot whose rules accept it. If nothing accepts, nothing is dispatched and
+  the palette's polite live region explains why.
+- **Drag**: pressing an entry hands an insert payload to the editing canvas through its drag handle;
+  from that point the canvas owns the ghost, the insertion indicator, and target resolution — the
+  same session machinery as rearranging, so every rule (allow lists, max counts, one transaction per
+  drop, zero-trace cancel) holds identically.
+
+Template activation follows the same selection-aware placement rule, then dispatches a single
+`insertComposition` command. The kernel validates the entire stored subtree against the live block
+schemas before allocating an id or changing the document, and the whole page lands as one
+transaction with one-step undo.
+
+## Usage
+
+```tsx
+import { EditorCanvas, Palette } from '@craftkit/builder';
+
+const [handle, setHandle] = useState<CanvasDragHandle>();
+<Palette kernel={kernel} dragHandle={handle} />
+<EditorCanvas kernel={kernel} theme={theme} editable onDragHandle={setHandle} />;
+```
+
+## API
+
+| Prop         | Type               | Notes                                                   |
+| ------------ | ------------------ | ------------------------------------------------------- |
+| `kernel`     | `BuilderKernel`    | required; by prop (the shell never reads React context) |
+| `dragHandle` | `CanvasDragHandle` | optional; absent ⇒ keyboard-insert only                 |
+| `showViewTabs` | `boolean` | optional, default `true`; LibraryPanel passes `false` (its own Templates tab) |
+
+## Accessibility
+
+A labelled `nav` contains a labelled native search input, heading-level category controls, and real
+block buttons. Category controls expose `aria-expanded`, retain an `aria-controls` relationship to
+their labelled regions, and stay keyboard reachable. Diagrams and search glyphs are decorative; each
+card's visible block name is its accessible name. Insert outcomes are voiced through a polite live
+region, and the empty search result is a status with actionable guidance.
+
+The component uses the shared builder focus ring and only `--bldr-*` theme tokens. Logical
+properties make the search glyphs, padding, border edge, and card grid mirror under RTL without a
+direction-specific stylesheet.
+
+<Canvas of={PaletteStories.Default} />
+
+<Canvas of={PaletteStories.TemplateInsert} />
+
+<Canvas of={PaletteStories.AccentTileThemeContract} />
+
+<Canvas of={PaletteStories.SearchMatches} />
+
+<Canvas of={PaletteStories.SearchMatchesNothing} />
+
+<Canvas of={PaletteStories.CollapsedGroup} />
+
+<Canvas of={PaletteStories.RightToLeft} />
+
+## Arabic
+
+`labels` takes `PALETTE_LABELS_AR` (the Library panel passes its own `labels.palette`): the tabs,
+group names, empty states and announcements are Arabic, every registered block shows its Arabic
+name from `BLOCK_NAMES_AR`, and search matches the Arabic name, the English name or the type. English
+keeps its long-standing wording, announcements included.
+
+<Canvas of={PaletteStories.Arabic} />
+
+{/* library-playground additions (2026-10-08) */}
+
+## Template cards
+
+`templateCards` (optional) takes the host's template catalog — `marketingTemplateCatalog` in the
+editor, whose entries are structurally `TemplateCardInfo`. A composition with a card renders as a
+[`TemplateCard`](?path=/docs/shell-templatecard--docs): a real photo, the name and description in the
+editor's language, an `EN` / `ع` content-language badge and the section count. Cards in the page's
+content language (the root `lang` prop, else `ar` for a right-to-left page and `en` otherwise) come
+first, followed by any composition without a card (the abstract preview it always had); the rest sit
+under "Other language" / «لغة أخرى». Nothing is hidden, and search matches the names and descriptions
+in both languages.
+
+```tsx
+<Palette kernel={kernel} templateCards={marketingTemplateCatalog} />
+```
+
+{/* end library-playground additions */}

@@ -1,0 +1,57 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as PagePickerStories from './PagePicker.stories';
+
+<Meta of={PagePickerStories} />
+
+# PagePicker
+
+The pages a background job runs on (2026-10-12): a checklist of the site's pages, in site order,
+with the page open on the canvas marked "Open now".
+
+<Canvas of={PagePickerStories.Default} />
+
+## Purpose
+
+BatchJobForm offers "All pages" or "Choose pages"; this is the second. It belongs to the agent
+feature's background jobs and knows nothing of batches: it lists pages and reports which are
+checked.
+
+## When to use / not
+
+Inside BatchJobForm, when the person chooses pages. Not for choosing one page (the Pages panel does
+that), and not for the site's page tree: it is a flat list.
+
+## Props
+
+| prop          | type                                    | default | notes                                       |
+| ------------- | --------------------------------------- | ------- | ------------------------------------------- |
+| `locale`      | `Locale`                                | none    | the count, Select all, Clear and "Open now" |
+| `pages`       | `readonly BatchPageOption[]`            | none    | `{ id, title, address, current }`           |
+| `selected`    | `readonly string[]`                     | none    | the checked pages' ids                      |
+| `onChange`    | `(selected: readonly string[]) => void` | none    | always in site order                        |
+| `label`       | `string`                                | none    | the group's accessible name ("Pages")       |
+| `describedBy` | `string`                                | none    | the form's error line, when there is one    |
+| `invalid`     | `boolean`                               | `false` | the list's border turns Alarm               |
+
+## States
+
+| story                            | what it shows                                                 |
+| -------------------------------- | ------------------------------------------------------------- |
+| `Default`, `Dark`                | the open page checked; the play test selects all, unticks one |
+| `RightToLeft`, `DarkRightToLeft` | Arabic                                                        |
+| `Invalid`                        | nothing checked after Submit                                  |
+| `ManyPages`                      | 24 pages: the list scrolls on its own; long titles end in …   |
+| `Narrow`                         | a 300px panel                                                 |
+
+## Accessibility
+
+- A `fieldset` named by its (visually hidden) legend; each checkbox is named by its page's title and
+  address, and described by the count line ("2 of 5 selected").
+- Select all and Clear are ordinary buttons; Space toggles a checkbox.
+- Every control has the panel's 2px focus ring.
+
+## RTL
+
+Logical properties only: the checkbox sits at the inline start, "Open now" at the inline end. Titles
+take their own direction (`dir="auto"`); addresses are `<bdi dir="ltr">`. Digits stay Latin.

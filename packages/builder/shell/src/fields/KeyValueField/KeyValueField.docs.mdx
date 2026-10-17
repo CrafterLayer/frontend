@@ -1,0 +1,25 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as KeyValueFieldStories from './KeyValueField.stories';
+
+<Meta of={KeyValueFieldStories} />
+
+# KeyValueField
+
+A record property (`z.record(name, string)`) shown as name and value rows. The first user is a
+symbol instance's per-element attribute overrides (`customCodeSymbol.overrides[].attributes`), which
+used to show as raw JSON.
+
+<Canvas of={KeyValueFieldStories.Entries} />
+
+## Behaviour
+
+- **Rename, edit, remove, add.** Each input drafts locally and commits once on blur or Enter. The
+  whole record is written through the row's door, so one change is one Undo.
+- **A new entry** is written once focus leaves its row, so moving from its name to its value does
+  not commit a half-typed pair.
+- **Duplicate names** are refused with a sentence.
+- **`null` values** (the override law for "remove this attribute") stay null until a value is typed.
+- **Bidi.** Names are `dir="ltr"` (they are attribute names); values are `dir="auto"`.
+
+<Canvas of={KeyValueFieldStories.Arabic} />

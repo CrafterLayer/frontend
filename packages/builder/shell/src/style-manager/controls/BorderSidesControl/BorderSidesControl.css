@@ -1,0 +1,11 @@
+.bldr-border-sides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.bldr-border-sides .bldr-box-model__ring[data-ring='borderWidth'] {
+  background: var(--bldr-surface-sunken);
+  border-style: solid;
+}

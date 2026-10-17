@@ -1,18 +1,12 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
-- Added principles:
-  - I. Spec Kit Is the Agent Source of Truth
-  - II. Modern React 19 Baseline
-  - III. One Component per TSX File
-  - IV. Every UI Component Ships Complete
-  - V. Evidence-Based Quality and Review
-  - VI. Shared Context and Deliberate Delegation
-  - VII. Commit Integrity
-  - VIII. Monorepo Boundaries and Scoped Specifications
-- Added sections:
-  - Architecture and Artifact Standards
-  - Agent Workflow and Delivery Gates
+- Version change: 1.1.0 -> 1.2.0
+- Modified principles:
+  - VI. Shared Context and Deliberate Delegation (formalized cross-runtime orchestration,
+    bounded worker authority, and fail-closed bridge behavior)
+- Updated section:
+  - Agent Workflow and Delivery Gates (added explicit task partition and delegation gate)
+- Added sections: none
 - Removed sections: none
 - Deferred items: none
 -->
@@ -110,11 +104,33 @@ replaceable task state belongs in `.specify/agents/HANDOFF.md` and
 sensitive values MUST NOT be stored in these files.
 
 Sub-agents MAY be used only for concrete, bounded work that can proceed independently.
-Delegated tasks MUST define the deliverable, allowed paths, verification, and whether the
-task is read-only or may edit. Parallel agents MUST NOT receive overlapping write scopes.
-The primary agent retains ownership of integration, review, final verification, and the
-user-facing result. A permanent context-heavy sub-agent registry is forbidden unless the
-user explicitly requests one.
+The agent that accepts the user request is the coordinating primary agent unless the user
+explicitly assigns that role elsewhere. Every delegated task MUST define its objective and
+deliverable, read or write authority, exact allowed paths, source-of-truth artifacts,
+verification, prohibited actions, and evidence to return. Parallel agents MUST NOT receive
+overlapping write scopes.
+
+Cross-runtime delegation through MCP, an agent plugin, a CLI, or a future transport MUST obey
+the same contract. Transport configuration is an adapter, never a second source of governance.
+A delegated worker MUST NOT widen its scope, recursively delegate or spawn additional workers
+without explicit coordinator authority, or commit, push, deploy, install dependencies, or mutate
+external state unless the task contract and current user authorization explicitly allow that
+action. The coordinator MUST select the working directory, least-privilege sandbox and approval
+policy, and any model override deliberately; an unbounded or danger-full-access default is
+forbidden.
+
+The coordinator retains ownership of task partitioning, integration, review, final verification,
+continuity updates, and the user-facing result. It MUST verify bridge availability before relying
+on delegation. A required independent review or required delegation MUST fail closed when the
+selected worker is unavailable; optional parallel work MAY continue in the coordinator only when
+that fallback is reported and does not weaken an acceptance gate. A permanent context-heavy
+sub-agent registry is forbidden unless the user explicitly requests one.
+
+Workflow enforcement MUST be observable outside an agent's prose. Required delegation MUST emit a
+run-local structured result that a separate engine step validates before implementation. Mandatory
+Codex review MUST start a fresh process with an explicitly enforced read-only sandbox and
+never-approve policy, produce non-empty review evidence, and expose that evidence to the following
+approval gate. A workflow-designated independent reviewer MUST NOT recursively delegate review.
 
 ### VII. Commit Integrity
 
@@ -138,6 +154,15 @@ public entrypoints, avoid undocumented deep imports, and maintain an acyclic dep
 graph. Cross-app code MUST move into a package only when its ownership and reuse contract
 are clear; generic `shared` or `common` packages are not acceptable dumping grounds.
 
+A package MUST NOT be created for possible future reuse. It requires either two credible
+consumers or a clear platform or integration boundary, an owner, a narrower public API than
+its implementation, and an acyclic dependency direction. Empty placeholder packages and
+pre-scaffolded optional folders are forbidden. When multiple applications or external
+projects consume the same backend contract, the generated client, transport, normalization,
+and framework-agnostic domain operations MUST live behind an intentional package public API.
+React, routing, notifications, and application state MUST NOT leak into that shared API
+package.
+
 The root `.specify/` project owns workspace governance and cross-cutting features.
 App- and package-specific features MUST use scoped feature directories such as
 `specs/apps/<app>/<feature>` and `specs/packages/<package>/<feature>`. A member may receive
@@ -148,6 +173,37 @@ MUST use `SPECIFY_INIT_DIR` to select a member project and `SPECIFY_FEATURE_DIRE
 select its feature; ambiguous scope is a blocking error, not permission to write into the
 nearest convenient directory.
 
+### IX. Vertical Feature Ownership and Thin Delivery Layers
+
+Application composition MUST flow in one direction:
+`app bootstrap -> routes -> pages -> features -> package public APIs`. Each layer has one
+non-overlapping responsibility:
+
+- `app/` owns bootstrap, root providers, global error handling, and application-wide wiring;
+- `routes/` owns route objects, URL structure, guards, loaders or actions, lazy boundaries,
+  route error elements, and intent prefetch;
+- `pages/` owns thin route-entry composition and page-level layout or metadata;
+- `features/<feature>/` owns the product capability, including its UI, behavior, state,
+  validation, feature-specific query orchestration, and presentation adapters; and
+- `packages/` owns stable, explicitly exported contracts that have proven reuse or a clear
+  platform boundary.
+
+Route modules and pages MUST NOT contain feature business logic, transport implementations,
+stores, schemas, or collections of inline components. A page MAY compose multiple feature
+public APIs, but feature code MUST NOT import from `pages/` or `routes/`. Cross-feature imports
+MUST use each feature's narrow `index.ts`; implementation deep imports are forbidden. If two
+features genuinely share domain behavior, the behavior MUST move to the nearest specifically
+named owner or a justified domain package, never to a generic `shared`, `common`, or global
+`utils` area.
+
+A feature MUST begin with the smallest real shape and add `components/`, `hooks/`, `model/`,
+`validation/`, focused support modules, or nested component folders only when those
+responsibilities exist. Product code MUST NOT be horizontally scattered across top-level
+`components/`, `api/`, `forms/`, `store/`, and `utils/` trees. App-specific query Hooks and
+view adapters stay with the owning feature; a shared framework-agnostic API client belongs in
+an integration package. A React Query package is justified only when the same Hook contract is
+consumed unchanged by multiple applications.
+
 ## Architecture and Artifact Standards
 
 The preferred monorepo and component shape is:
@@ -156,10 +212,25 @@ The preferred monorepo and component shape is:
 apps/
 └── <app>/
     └── src/
-        ├── app/                    # bootstrap, providers, routing
-        ├── routes/                 # thin route composition
-        └── features/<feature>/     # app-owned product capabilities
+        ├── app/                              # bootstrap, root providers, global wiring
+        ├── routes/                           # URLs, guards, loaders, lazy boundaries
+        ├── pages/
+        │   └── <page>/                       # thin route-entry composition only
+        │       ├── <PageName>.tsx
+        │       └── index.ts
+        └── features/
+            └── <feature>/                    # complete vertical product capability
+                ├── components/
+                │   └── ComponentName/        # full component contract
+                ├── hooks/                    # only concrete reusable feature behavior
+                ├── model/                    # state and domain transformations
+                ├── validation/               # runtime/form schemas when needed
+                ├── types.ts                  # only feature-owned public types
+                ├── utils.ts                  # focused pure helpers only
+                └── index.ts                  # narrow feature public API
 packages/
+├── <api-client>/                    # shared transport/contracts; no React or app state
+├── <api-react-query>/               # only for proven identical multi-app Hook contracts
 ├── ui/src/components/
 │   └── ComponentName/
 │       ├── ComponentName.tsx
@@ -191,6 +262,12 @@ No application may become the source of reusable code for another application. W
 tooling MUST enforce dependency direction, package public APIs, TypeScript boundaries,
 and affected-only task execution once the monorepo toolchain is selected in a plan.
 
+The shared API package MUST expose generated contracts and transport through curated exports;
+generated files are read-only and MUST remain behind normalization or domain adapters when their
+wire shape is not the application contract. Feature code consumes that public API and owns only
+application-specific orchestration. The architecture tree documents allowed ownership, not a
+scaffolding checklist: absent responsibilities MUST remain absent.
+
 Storybook SHOULD run as one workspace catalog for shared UI and collect colocated stories
 from packages and applications. A separate app Storybook is allowed only when a framework
 or runtime boundary makes the shared catalog technically incorrect. The plan MUST record
@@ -211,10 +288,12 @@ Each feature follows the Spec Kit lifecycle:
 4. Produce the technical plan and record architecture and dependency-graph decisions.
 5. Generate dependency-ordered tasks with documentation, stories, tests, review, and
    verification represented explicitly.
-6. Implement in small coherent changes with non-overlapping package ownership.
-7. Review the diff and run package-level checks before affected workspace checks.
-8. Converge implementation against the specification, plan, and tasks.
-9. Update shared context or handoff state before pausing or transferring work.
+6. Partition the approved task graph; delegate only independently verifiable, path-disjoint work
+   through the shared collaboration contract and record which agent owns each active write scope.
+7. Integrate delegated evidence, then implement remaining work in small coherent changes.
+8. Review the diff and run package-level checks before affected workspace checks.
+9. Converge implementation against the specification, plan, and tasks.
+10. Update shared context or handoff state before pausing or transferring work.
 
 UI task lists MUST NOT collapse implementation, docs, Storybook, and tests into an
 optional final note. Those artifacts are part of the component's definition of done.
@@ -234,4 +313,4 @@ without changed obligations. Every feature plan and every code review MUST inclu
 constitution compliance check. Exceptions require a documented rationale, owner, and
 removal condition in the active plan; undocumented exceptions are invalid.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-24 | **Last Amended**: 2026-08-24
+**Version**: 1.2.0 | **Ratified**: 2026-08-24 | **Last Amended**: 2026-08-26

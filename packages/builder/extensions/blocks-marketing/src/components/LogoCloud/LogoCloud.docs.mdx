@@ -1,0 +1,81 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as LogoCloudStories from './LogoCloud.stories';
+
+<Meta of={LogoCloudStories} />
+
+# Logo Cloud
+
+A social-proof section for customers, partners, integrations, sponsors, or publications. Each brand
+shows its logo image when it has one, and a typographic monogram when it does not, so the section
+stays polished before approved logo files are available. The site agent fills `logo` only for brands
+the person names, from the verified Simple Icons catalog; a brand it does not hold keeps its
+monogram until the owner uploads the file.
+
+<Canvas of={LogoCloudStories.Default} />
+<Controls />
+
+<Canvas of={LogoCloudStories.WithLogos} />
+
+## Public props and defaults
+
+- `eyebrow`, `heading`, and optional `body` own the section introduction.
+- `items` accepts up to 12 `{ name, descriptor?, logo? }` records and defaults to six complete
+  sample marks. `logo` is an image address (https, a root-relative upload or a raster data URL; SVG
+  data URLs are refused). An empty array is valid and renders no invented placeholders.
+- `variant = 'cards'` also supports `minimal` and `framed`.
+- `columns = '6'` supports three through six requested columns, collapsing responsively.
+- Alignment, tone, section spacing, width, gutter, colour roles, motion, typography, and logical
+  spacing use the shared marketing-section contracts.
+
+## Accessibility
+
+The visible heading labels the section. Brands form a semantic unordered list, the generated
+monogram and the logo image (`alt=""`) are decorative, and the full brand name remains text in the
+accessibility tree. This component does not create links because a logo cloud is proof by default,
+not navigation.
+
+## Responsive, RTL, and content guidance
+
+Container queries start at two columns — a phone never stacks one logo per row — move to three from
+a 32rem container (four logos go straight from two to four, so none is left alone), then honor the
+requested count at a minimum useful card width. Logical alignment and
+spacing work in LTR and RTL. Names and descriptors wrap instead of producing direction-dependent
+ellipsis, while marks and padding scale down slightly on compact containers. Use short, distinct
+names, keep descriptors to a category rather than a sentence, and obtain permission before
+displaying real customer brands.
+
+## Example
+
+```ts
+logoCloudSchema.props.parse({
+  heading: 'Trusted from prototype to global rollout',
+  variant: 'cards',
+  columns: '5',
+  items: [
+    { name: 'Northstar', descriptor: 'Analytics' },
+    { name: 'Canopy', descriptor: 'Collaboration' },
+  ],
+});
+```
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (a part's name styles every instance; `name@2` styles the third one
+and wins), and addressable by the agent by name, alias or label. Text and link parts carry
+`dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
+
+| name              | kind  | bind                 | label (en / ar)                |
+| ----------------- | ----- | -------------------- | ------------------------------ |
+| `eyebrow`         | text  | `eyebrow`            | Eyebrow / الشارة               |
+| `heading`         | text  | `heading`            | Heading / العنوان              |
+| `body`            | text  | `body`               | Body / الوصف (multiline)       |
+| `items`           | list  | `items`              | Brands / العلامات              |
+| `item`            | item  | `items.*`            | Brand / العلامة                |
+| `item.name`       | text  | `items.*.name`       | Brand name / اسم العلامة       |
+| `item.logo`       | image | `items.*.logo`       | Brand logo / صورة الشعار       |
+| `item.descriptor` | text  | `items.*.descriptor` | Brand descriptor / وصف العلامة |
+
+The monogram tile a brand without a logo shows is decoration derived from the brand name, not a
+part.

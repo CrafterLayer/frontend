@@ -1,0 +1,91 @@
+.bldr-element-code {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+}
+
+.bldr-element-code__editor {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  line-height: var(--bldr-line-height-normal);
+  min-block-size: calc(var(--bldr-control-lg) * 3);
+  padding: var(--bldr-space-sm);
+  resize: vertical;
+  text-align: start;
+}
+
+.bldr-element-code__editor:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}
+
+.bldr-element-code__editor[aria-invalid='true'] {
+  border-color: var(--bldr-danger);
+}
+
+.bldr-element-code__error {
+  background: var(--bldr-danger-soft);
+  border: var(--bldr-border-hairline) solid var(--bldr-danger-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: var(--bldr-space-xs) var(--bldr-space-sm);
+}
+
+.bldr-element-code__attribute {
+  font-family: var(--bldr-font-mono);
+  font-weight: var(--bldr-font-weight-semibold);
+}
+
+.bldr-element-code__hint {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-micro);
+  margin: 0;
+}
+
+.bldr-element-code__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs);
+}
+
+.bldr-element-code__button,
+.bldr-element-code__link {
+  background: var(--bldr-surface-sunken);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-caption);
+  min-block-size: var(--bldr-control-sm);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-element-code__button[data-primary] {
+  background: var(--bldr-accent);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.bldr-element-code__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bldr-element-code__link {
+  background: none;
+  border-style: dashed;
+}
+
+.bldr-element-code__button:focus-visible,
+.bldr-element-code__link:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+}

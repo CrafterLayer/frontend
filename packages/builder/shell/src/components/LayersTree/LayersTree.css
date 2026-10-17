@@ -1,0 +1,344 @@
+.bldr-layers {
+  background: var(--bldr-panel);
+  /* Fills the region that places it, in BOTH axes. Leaving the block size to
+     content left the tree 276px tall in a 907px column, with the column's own
+     ground showing beneath it — the same defect the palette had, in the other
+     direction. */
+  block-size: 100%;
+  /* NO separator of its own. The shell region that places this panel already
+     draws the line between itself and the canvas; a component that draws one
+     too puts two var(--bldr-border-hairline) rules in the same place — measured, both were painted at
+     the panel's trailing edge. Worse, a border that is correct in one position
+     is wrong in every other: the layer tree's leading border made sense beside
+     the canvas and became a stray line against the rail the moment the tree
+     moved into the left panel. Separators belong to whoever decides placement. */
+  box-sizing: border-box;
+  /* The CONTAINER decides how wide a panel is. This used to name the left
+     panel's width token, which is wrong wherever the tree actually lives: in
+     the playground it sits in the var(--bldr-inspector-width) inspector column and drew itself var(--bldr-panel-width)
+     wide, leaving a 23px sliver of bare column beside it. A panel that sizes
+     itself can only ever be right in one place. */
+  inline-size: 100%;
+  min-block-size: 0;
+  padding-block: var(--bldr-space-xl);
+  padding-inline: var(--bldr-space-md);
+}
+
+.bldr-layers__title {
+  color: var(--bldr-panel-text);
+  font: var(--bldr-font-weight-bold) var(--bldr-font-size-caption) / var(--bldr-line-height-tight)
+    var(--bldr-font);
+  margin-block: var(--bldr-space-0) var(--bldr-space-md);
+  padding-inline-start: var(--bldr-space-md);
+  text-transform: uppercase;
+}
+
+.bldr-layers__tree {
+  list-style: none;
+  margin: var(--bldr-space-0);
+  padding: var(--bldr-space-0);
+}
+
+.bldr-layers__row {
+  align-items: center;
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: flex;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-snug)
+    var(--bldr-font);
+  gap: var(--bldr-space-xs);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  padding-block: var(--bldr-space-xs);
+  padding-inline-end: var(--bldr-space-md);
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+  white-space: nowrap;
+}
+
+.bldr-layers__row:hover {
+  background: var(--bldr-accent-soft);
+}
+
+.bldr-layers__row--selected {
+  background: var(--bldr-accent-soft);
+  color: var(--bldr-accent);
+}
+
+.bldr-layers__label {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--bldr-space-sm);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bldr-layers__name {
+  flex: 0 1 auto;
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-layers__identity {
+  color: var(--bldr-panel-muted);
+  flex: 1 1 auto;
+  font-size: var(--bldr-font-size-caption);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-layers__row:hover .bldr-layers__identity,
+.bldr-layers__row--selected .bldr-layers__identity {
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-layers__toggle {
+  display: inline-block;
+  flex: 0 0 var(--bldr-space-2xl);
+  inline-size: var(--bldr-space-2xl);
+  text-align: center;
+  user-select: none;
+}
+
+/* ── Element rows, drag, switches and the context menu (style-manager DESIGN.md §E) ── */
+
+.bldr-layers__grip {
+  align-items: center;
+  background: none;
+  block-size: var(--bldr-space-2xl);
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-muted);
+  cursor: grab;
+  display: inline-flex;
+  flex: 0 0 var(--bldr-space-xl);
+  inline-size: var(--bldr-space-xl);
+  justify-content: center;
+  opacity: 0;
+  padding: var(--bldr-space-0);
+  touch-action: none;
+}
+
+.bldr-layers__grip svg {
+  block-size: var(--bldr-space-lg);
+  fill: currentColor;
+  inline-size: var(--bldr-space-lg);
+}
+
+.bldr-layers__grip--none {
+  cursor: default;
+}
+
+.bldr-layers__row:hover .bldr-layers__grip,
+.bldr-layers__row:focus-within .bldr-layers__grip,
+.bldr-layers__grip:focus-visible {
+  opacity: 1;
+}
+
+.bldr-layers__grip:focus-visible,
+.bldr-layers__switch:focus-visible,
+.bldr-layers__row:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: calc(-1 * var(--bldr-focus-ring-width));
+}
+
+.bldr-layers__row--dragging {
+  background: var(--bldr-surface-raised);
+  box-shadow: var(--bldr-shadow-raised);
+  cursor: grabbing;
+  position: relative;
+  z-index: 1;
+}
+
+.bldr-layers__row--hidden .bldr-layers__name,
+.bldr-layers__row--hidden .bldr-layers__glyph,
+.bldr-layers__row--hidden .bldr-layers__preview {
+  opacity: 0.5;
+}
+
+.bldr-layers__glyph {
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-muted);
+  flex: 0 0 auto;
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-micro) / var(--bldr-line-height-tight)
+    var(--bldr-font-mono);
+  min-inline-size: var(--bldr-space-2xl);
+  padding-block: var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-2xs);
+  text-align: center;
+}
+
+.bldr-layers__row--selected .bldr-layers__glyph {
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent);
+}
+
+.bldr-layers__preview {
+  color: var(--bldr-panel-muted);
+  flex: 1 1 auto;
+  font-size: var(--bldr-font-size-caption);
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bldr-layers__rename {
+  background: var(--bldr-input-bg);
+  border: var(--bldr-border-hairline) solid var(--bldr-border-focus);
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-text);
+  flex: 1 1 auto;
+  font: inherit;
+  min-inline-size: var(--bldr-space-0);
+  padding-block: var(--bldr-space-0);
+  padding-inline: var(--bldr-space-xs);
+}
+
+.bldr-layers__switch {
+  align-items: center;
+  background: none;
+  block-size: var(--bldr-space-2xl);
+  border: 0;
+  border-radius: var(--bldr-radius-xs);
+  color: var(--bldr-panel-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--bldr-space-2xs);
+  justify-content: center;
+  min-inline-size: var(--bldr-space-2xl);
+  opacity: 0;
+  padding: var(--bldr-space-0);
+}
+
+.bldr-layers__switch svg {
+  block-size: var(--bldr-space-lg);
+  fill: none;
+  inline-size: var(--bldr-space-lg);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.bldr-layers__row:hover .bldr-layers__switch,
+.bldr-layers__row:focus-within .bldr-layers__switch,
+.bldr-layers__switch[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.bldr-layers__switch[aria-pressed='true'] {
+  color: var(--bldr-accent);
+}
+
+.bldr-layers__switch[data-inherited='true'] {
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-layers__badge {
+  font: var(--bldr-font-weight-bold) var(--bldr-font-size-micro) / var(--bldr-line-height-tight)
+    var(--bldr-font);
+}
+
+.bldr-layers__menu {
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-shadow: var(--bldr-shadow-floating);
+  min-inline-size: calc(var(--bldr-space-6xl) * 2);
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-xs);
+  z-index: 50;
+}
+
+.bldr-layers__menu-item {
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: var(--bldr-font-weight-regular) var(--bldr-font-size-body) / var(--bldr-line-height-snug)
+    var(--bldr-font);
+  outline: none;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-md);
+  user-select: none;
+}
+
+.bldr-layers__menu-item[data-highlighted] {
+  background: var(--bldr-accent-soft);
+  color: var(--bldr-accent);
+}
+
+.bldr-layers__menu-item[data-disabled] {
+  color: var(--bldr-panel-muted);
+  cursor: default;
+}
+
+.bldr-layers__menu-item--danger,
+.bldr-layers__menu-item--danger[data-highlighted] {
+  color: var(--bldr-danger);
+}
+
+.bldr-layers__menu-separator {
+  background: var(--bldr-panel-border);
+  block-size: var(--bldr-border-hairline);
+  margin-block: var(--bldr-space-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-layers__row {
+    transition: none;
+  }
+}
+
+/* ── block-parts (2026-10-06): a registered block's part rows ── */
+.bldr-layers__row--part .bldr-layers__name {
+  color: var(--bldr-panel-text-soft);
+}
+
+.bldr-layers__row--part.bldr-layers__row--selected .bldr-layers__name {
+  color: var(--bldr-panel-text);
+}
+
+/* A selected item keeps its actions in view; a disabled move says why by fading. */
+.bldr-layers__row--part.bldr-layers__row--selected .bldr-layers__part-action {
+  opacity: 1;
+}
+
+.bldr-layers__part-action:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+/* The preview shrinks inside the row's flex track and truncates at its OWN end
+   (fix pass: in the RTL panel it overflowed past the left edge, cut mid-word). */
+.bldr-layers__row--part .bldr-layers__label {
+  overflow: hidden;
+}
+
+.bldr-layers__row--part .bldr-layers__preview {
+  display: block;
+  flex: 1 1 0;
+  max-inline-size: 100%;
+  min-inline-size: var(--bldr-space-0);
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  unicode-bidi: isolate;
+  white-space: nowrap;
+}
+
+.bldr-layers__row:hover .bldr-layers__part-action:disabled,
+.bldr-layers__row:focus-within .bldr-layers__part-action:disabled {
+  opacity: 0.35;
+}
+/* ── /block-parts ── */

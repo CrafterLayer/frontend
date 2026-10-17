@@ -9,6 +9,7 @@ import { createBuildKernel } from '../testing/scripted-engine';
 import { initialBuildProgress, landedCount, reduceBuildProgress, type BuildProgress } from './build-progress';
 import {
   guardSection,
+  relandCommands,
   holdsValues,
   reopenForSuccessor,
   sectionLabel,
@@ -58,6 +59,20 @@ function stoppedBuild(): BuildProgress {
 }
 
 describe('successor fills', () => {
+  it('redoes initialized scenes with their code and settings and detects later settings edits', () => {
+    const before = { tree: '', css: '', js: '', jsMeta: {}, jsParams: {} };
+    const after = { ...before, tree: 'Scene', js: 'scene code', jsMeta: { ref: { tier: 'builtin', id: 'aurora-curtains' } }, jsParams: { speed: 0.5 } };
+    const landing = { transactionId: 'scene-tx', label: 'Scene', before, after };
+    expect(relandCommands('scene', landing)).toEqual(Object.entries(after).map(([key, value]) => ({
+      command: 'setProp', args: { id: 'scene', key, value },
+    })));
+    const document = createBuildKernel().getDocument();
+    const region = { id: 'scene', type: 'region', props: after };
+    const built = { ...document, nodes: { ...document.nodes, scene: region } };
+    expect(holdsValues(built, 'scene', after)).toBe(true);
+    const edited = { ...built, nodes: { ...built.nodes, scene: { ...region, props: { ...after, jsParams: { speed: 0.75 } } } } };
+    expect(holdsValues(edited, 'scene', after)).toBe(false);
+  });
   it('labels a section the way the build does', () => {
     expect(sectionLabel(2, 3, 'Proof')).toBe('Assistant: 2/3 — Proof');
   });

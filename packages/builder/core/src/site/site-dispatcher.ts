@@ -205,6 +205,9 @@ export function createSiteDispatcher(deps: SiteDispatcherDeps): SiteDispatcher {
   ): Transaction {
     assertJsonPatches(patches);
     assertDirectionStaysWhole(patches);
+    // Incremental (2026-10-12): `nextSite` is immer-frozen, so every page this
+    // transaction left alone is the same object and its per-page checks are
+    // reused; the cross-page rules still run over the whole site.
     const validation = validateSite(nextSite);
     if (!validation.ok) {
       throw builderError(

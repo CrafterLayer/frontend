@@ -48,7 +48,9 @@ document head. Publishing integrations can consume the props at their proper doc
 ## Accessibility / RTL / Theming
 
 `main` landmark; an empty title omits its accessible name, and an empty `lang` omits the attribute
-instead of declaring the language unknown. Width variants use only logical sizing and the real
+instead of declaring the language unknown. A page in a language set (its `seo.alternates` name its
+versions) also carries `dir` from its own `lang`, so an English version reads left to right inside
+an Arabic site while the site keeps one direction. Width variants use only logical sizing and the real
 document-theme tokens: narrow (`--t-content-width-narrow`, 40rem fallback), standard
 (`--t-content-width-standard`, 64rem fallback), and wide (`--t-content-width-wide`, 80rem fallback).
-Full width needs no invented token. Direction and colour continue to come from the frame.
+Full width needs no invented token. Otherwise direction and colour come from the frame.

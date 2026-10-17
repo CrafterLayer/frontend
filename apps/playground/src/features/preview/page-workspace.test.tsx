@@ -13,6 +13,7 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { createReferenceCodePageSite } from './code-page-fixture';
 import { PageWorkspace } from './page-workspace';
+import { PAGE_WORKSPACE_LABELS_AR } from './page-workspace.labels';
 
 function workspaceKernel(withLinkedAbout = false): BuilderSiteKernel {
   const site = createReferenceCodePageSite();
@@ -174,4 +175,80 @@ describe('PageWorkspace', () => {
     expect(kernel.undo()).toBe(true);
     expect(kernel.getSite().pages.map((page) => page.id)).toContain('about');
   });
+
+  it('reads in Arabic with the Arabic labels, page counts agreeing in number', async () => {
+    const kernel = workspaceKernel();
+    render(<PageWorkspace siteKernel={kernel} labels={PAGE_WORKSPACE_LABELS_AR} />);
+    const user = userEvent.setup();
+    const region = screen.getByRole('region', { name: 'مساحة عمل الصفحات' });
+    expect(within(region).getByRole('heading', { name: 'الصفحات' })).toBeVisible();
+    expect(region).toHaveTextContent('صفحتان · سجل تغييرات واحد مشترك');
+    expect(within(region).getByRole('group', { name: 'طريقة عرض الصفحات' })).toBeVisible();
+    expect(within(region).getByRole('button', { name: 'قائمة' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(region).getByRole('list', { name: 'صفحات الموقع' })).toBeVisible();
+    expect(region).toHaveTextContent('/ · الرئيسية');
+    expect(arabicOnly(region, DATA)).toEqual([]);
+
+    await user.click(within(region).getByRole('button', { name: 'إضافة صفحة' }));
+    expect(region).toHaveTextContent('3 صفحات · سجل تغييرات واحد مشترك');
+    expect(region).toHaveTextContent('أُضيفت صفحة.');
+    expect(kernel.getSite().pages.at(-1)?.title).toBe('صفحة 3');
+
+    // The counted forms the header never reaches in this fixture.
+    expect(PAGE_WORKSPACE_LABELS_AR.summary(1)).toBe('صفحة واحدة · سجل تغييرات واحد مشترك');
+    expect(PAGE_WORKSPACE_LABELS_AR.summary(11)).toBe('11 صفحة · سجل تغييرات واحد مشترك');
+
+    await user.click(within(region).getByRole('button', { name: 'خريطة الموقع' }));
+    const map = within(region).getByRole('region', { name: 'خريطة الموقع' });
+    expect(map).toHaveTextContent('3 صفحات · المسارات والمصادر المشتركة');
+    expect(within(map).getByRole('button', { name: 'فتح About، /about' })).toBeVisible();
+    // The map's thumbnails show each title's initials (data too).
+    expect(arabicOnly(region, [...DATA, '/page-3', 'NS', 'A'])).toEqual([]);
+
+    await user.click(within(region).getByRole('button', { name: 'إجراءات About' }));
+    await user.click(within(region).getByRole('menuitem', { name: 'الإعدادات والظهور في البحث' }));
+    const form = within(region).getByRole('form', { name: 'إعدادات About' });
+    expect(within(form).getByRole('textbox', { name: 'عنوان الصفحة' })).toHaveValue('About');
+    expect(within(form).getByRole('textbox', { name: 'المسار' })).toHaveValue('/about');
+    expect(within(form).getByRole('group', { name: 'محركات البحث والمشاركة' })).toBeDisabled();
+    expect(within(form).getByRole('option', { name: 'من اليمين إلى اليسار' })).toBeInTheDocument();
+    expect(arabicOnly(form, DATA)).toEqual([]);
+    await user.click(within(form).getByRole('button', { name: 'حفظ إعدادات الصفحة' }));
+    expect(region).toHaveTextContent('إعدادات الصفحة محدّثة أصلًا.');
+  });
 });
+
+/** The fixture's own words: page titles, routes, purposes and shared module names. */
+const DATA = [
+  'Northstar Studio',
+  'About',
+  'Explain the studio.',
+  'Prospective clients',
+  '/about',
+  '../../shared/Metric',
+  'Metric',
+];
+
+/**
+ * Every Latin word the element shows or announces once the page DATA is set
+ * aside — text, accessible names, titles, placeholders. Empty means no English
+ * chrome is left.
+ */
+function arabicOnly(element: HTMLElement, data: readonly string[]): string[] {
+  const strip = (text: string): string =>
+    data.reduce((rest, word) => rest.split(word).join(' '), text);
+  const texts = [element.textContent];
+  for (const node of [element, ...element.querySelectorAll('*')]) {
+    for (const attribute of ['aria-label', 'title', 'placeholder', 'alt']) {
+      const value = node.getAttribute(attribute);
+      if (value !== null) texts.push(value);
+    }
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+      texts.push(node.value === '' ? '' : ' ');
+    }
+  }
+  return texts.flatMap((text) => strip(text).match(/[A-Za-z][A-Za-z-]*/g) ?? []);
+}

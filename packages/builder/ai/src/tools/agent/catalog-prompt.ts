@@ -1,5 +1,7 @@
 import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, ELEMENT_RECIPE_IDS, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
 
+import { DATA_SHOW_AS } from '../../data-tools/data-show';
+import { scenePresetMenu } from './builtin/scene-preset';
 import { agentToolsForLane } from './registry';
 import { AGENT_TOOL_COMMAND, type AgentTool, type AgentToolLane } from './types';
 
@@ -20,11 +22,24 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // bare names (all four had signatures before), and those are inputs a model cannot guess (`subject`,
 // `heading?:'h1'|'h2'`, a verified family), so a bare name costs a refusal and a repair round. The
 // lane is part of the frozen, cached system[0]: +200 characters is ~50 cached tokens per edit.
+// data (2026-10-12): +150 in build and edit, measured: data.show keeps its signature and data line.
+// data (2026-10-12, charts and reports): build 1050 → 1270, edit 2050 → 2290, measured (1,269 and
+// 2,286): report.build's signature and data line (~185 characters) and seven more chart types in
+// data.show's `as` (+49), with every other tool keeping the shape it had (edit also absorbs the
+// `data-table` preset, +11). Below these, report.build drops out of the build lane entirely and
+// kit.section, fonts.set and image.set lose their signatures in edit.
+// i18n (2026-10-12): edit 2290 → 2460, measured (2,458): page.translate's signature and its texts
+// line (+171); below this palette.set or page.translate falls back to a bare name.
+// creative-power F (2026-10-12): edit 2460 → 3250 and section 1200 → 1976, measured (3,247 and
+// 1,973): scene.preset's signature and its preset line (the 30 ids by category, +789); every other
+// tool keeps the shape it had. Not in build: +789 does not fit its 1,270 (a 62% rise for one tool).
+// T230b (2026-10-12): edit 3250 → 3294, measured: nav.pages at its signature (+47). At 3,250 it
+// pushed kit.section and image.set down to bare names; every other tool keeps the shape it had.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
-  build: AGENT_TOOL_PROMPT_MAX_CHARS,
+  build: 1_270,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
-  section: 1_200,
-  edit: 1_900,
+  section: 1_976,
+  edit: 3_294,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -58,6 +73,16 @@ const DETAILS: Readonly<Record<string, string>> = {
   'element.insert': `element.insert preset:${ELEMENT_RECIPE_IDS.join('|')} content:{title?,text?,value?,label?,href?,items?:[{title,text?}]}; markup OR preset`,
   'media.add': `media.add kinds: gallery{layout?:${GALLERY_LAYOUTS.join('|')},images?:'catalog:<topic>'|[{src,alt}],count?} video{url,mode?:background} scene{scene:${CUSTOM_CODE_SCENES.join('|')},behind?:hero id} compare{images?} pricing{plans:[{name,a,b}]} map{address} lottie{src}`,
   'motion.add': `motion.add recipe: ${CUSTOM_CODE_TIMELINE_RECIPES.join('|')}`,
+  // data (2026-10-12)
+  'data.show': `data.show data:'Month,Sales\\nJan,120' (CSV/TSV/markdown, row 1 = headings) as?:${DATA_SHOW_AS.join('|')}; id refills a chart/table`,
+  // data (2026-10-12): the report's KPI cards come from the numeric columns unless named.
+  // report page (2026-10-14): 14 characters shorter ("KPIs", "last", "prior") to pay for report.page's
+  // bare name (+12) in both lanes; its inputs are taught by the data-viz skill.
+  'report.build': `report.build data like data.show → title, KPIs (last + change vs prior row; kpis?:['Revenue']), chart, table`,
+  // i18n (2026-10-12): the texts are the page's own words, all of them, or the tool refuses.
+  'page.translate': 'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
+  // creative-power F (2026-10-12): the catalogue's ids by category; the shared params, then each preset's own.
+  'scene.preset': `scene.preset ${scenePresetMenu()}; params: palette,seed,speed,density + its own; behind:id fills that region under its content, id swaps its scene`,
 };
 
 function details(tools: readonly AgentTool[]): readonly string[] {

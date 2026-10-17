@@ -31,7 +31,6 @@ import {
   type GenerateAiPlanOptions,
 } from '../plan/generate-plan';
 import type { SalvagedAiPlan } from '../plan/salvage-plan';
-import { AI_PLAN_WIRE_VERSION, estimateAiPlanWireRequestTokens } from '../provider/wire';
 import { readProviderUsage } from '../provider/usage';
 import type {
   AiEffectiveCommandPolicy,
@@ -41,114 +40,31 @@ import type {
   AiSkillRegistry,
 } from '../skills';
 import type {
-  AiAgentEvent,
   AiAgentRunResult,
   AiDirectEditReport,
   AiRunModelChoice,
   RunAiAgentOptions,
 } from './types';
+import { contextReadyReport, type OnContextReady, wireRequestTokens } from './context-report';
 import { classifyAiRunFailure } from './errors';
+import { excludedSkillIdsOf, excludingRegistry } from './excluded-skills';
+import { withSceneEdit } from './scene-edit-context';
+import { withinRunDeadline } from './run-deadline';
+import { creationAcceptance } from './creation-content';
+import {
+  assertRunActive,
+  createEventEmitter,
+  isCancellation,
+  mayEmitLiveProgress,
+  normalizeApplyMode,
+  normalizeCancellation,
+  type Emit,
+} from './run-events';
 // script-wiring additions
 import { scriptCrossPage, scriptCrossPageFollowUp, scriptPagesTouched } from '../script/cross-page';
 import { directScript } from '../script/direct-scripts';
 import { SCRIPT_TOOL_NAME } from '../script/types';
 // end script-wiring additions
-
-type EventPayload<T = AiAgentEvent> = T extends AiAgentEvent
-  ? Omit<T, 'runId' | 'seq' | 'at'>
-  : never;
-
-type Emit = (payload: EventPayload) => AiAgentEvent | undefined;
-
-const TERMINAL_EVENTS: ReadonlySet<AiAgentEvent['type']> = new Set([
-  'run.completed',
-  'run.cancelled',
-  'run.failed',
-]);
-
-function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
-}
-
-function normalizeCancellation(cause: unknown): Error {
-  if (cause instanceof Error && cause.name === 'AbortError') return cause;
-  const error = new Error(errorMessage(cause));
-  error.name = 'AbortError';
-  return error;
-}
-
-function supersededRunError(runId: string): Error {
-  const error = new Error(`AI run "${runId}" was superseded by a newer run.`);
-  error.name = 'AbortError';
-  return error;
-}
-
-function assertRunActive(
-  options: Pick<RunAiAgentOptions, 'isCurrentRun' | 'runId' | 'signal'>,
-): void {
-  if (options.signal?.aborted === true) options.signal.throwIfAborted();
-  if (options.isCurrentRun !== undefined) {
-    const current: unknown = options.isCurrentRun(options.runId);
-    if (current !== true) throw supersededRunError(options.runId);
-  }
-}
-
-function mayEmitLiveProgress(
-  options: Pick<RunAiAgentOptions, 'isCurrentRun' | 'runId' | 'signal'>,
-): boolean {
-  if (options.signal?.aborted === true) return false;
-  try {
-    if (options.isCurrentRun === undefined) return true;
-    const current: unknown = options.isCurrentRun(options.runId);
-    return current === true;
-  } catch {
-    // A broken lease port is surfaced at the next guarded run boundary. It
-    // must never let late provider narration escape in the meantime.
-    return false;
-  }
-}
-
-function normalizeApplyMode(value: unknown): 'never' | 'auto' {
-  if (value === undefined || value === 'never') return 'never';
-  if (value === 'auto') return 'auto';
-  throw new RangeError('apply must be either "never" or "auto".');
-}
-
-function isCancellation(cause: unknown, signal: AbortSignal | undefined): boolean {
-  return signal?.aborted === true || (cause instanceof Error && cause.name === 'AbortError');
-}
-
-/**
- * Every event is stamped once from the run's clock — one `clock.now()` per
- * event, as before — and an event that says where its plan came from
- * (`source`) also carries `elapsedMs` since `run.started`, measured between
- * those same stamps, so timing a run never adds a clock read.
- */
-function createEventEmitter(options: RunAiAgentOptions): Emit {
-  let seq = 0;
-  let terminal = false;
-  let startedAt: number | undefined;
-  return (payload) => {
-    if (terminal) return undefined;
-    const at = options.clock.now();
-    startedAt ??= at;
-    const event = Object.freeze({
-      ...payload,
-      ...(payload.source === undefined ? {} : { elapsedMs: Math.max(0, at - startedAt) }),
-      runId: options.runId,
-      seq,
-      at,
-    }) as AiAgentEvent;
-    seq += 1;
-    if (TERMINAL_EVENTS.has(event.type)) terminal = true;
-    try {
-      options.onEvent?.(event);
-    } catch {
-      // Observers are telemetry consumers; they cannot acquire run authority.
-    }
-    return event;
-  };
-}
 
 /**
  * The registry as a run with `autoSkills: false` sees it: every read passes
@@ -173,8 +89,10 @@ function explicitSkillsOnly(registry: AiSkillRegistry): AiSkillRegistry {
 
 function skillRegistryFor(options: RunAiAgentOptions): AiSkillRegistry | undefined {
   const registry = options.skillRegistry;
-  if (registry === undefined || options.autoSkills !== false) return registry;
-  return explicitSkillsOnly(registry);
+  if (registry === undefined) return registry;
+  // Switched off by the person (2026-10-14): no match, carried skill or dependency wakes them.
+  const excluding = excludingRegistry(registry, excludedSkillIdsOf(options));
+  return options.autoSkills !== false ? excluding : explicitSkillsOnly(excluding);
 }
 
 // ── What the run reads off the request before any provider is asked ─────────
@@ -281,6 +199,7 @@ function generationOptions(
       honest.
     */
     salvage: true,
+    acceptPlan: creationAcceptance(options, reading?.route),
     ...(onSalvage === undefined ? {} : { onSalvage }),
     provider,
     request: options.request,
@@ -289,14 +208,9 @@ function generationOptions(
     ...(options.contextProviders === undefined
       ? {}
       : { contextProviders: options.contextProviders }),
-    ...(options.additionalContextProviders === undefined
-      ? {}
-      : { additionalContextProviders: options.additionalContextProviders }),
     ...(options.history === undefined ? {} : { history: options.history }),
-    ...(skillRegistry === undefined ? {} : { skillRegistry }),
-    ...(options.selectedSkillIds === undefined
-      ? {}
-      : { selectedSkillIds: options.selectedSkillIds }),
+    // The run's registry, skills and providers; an edit of scene code adds its playbooks and brief.
+    ...withSceneEdit(options, reading, skillRegistry),
     ...(options.policy?.allowUntrustedSkills === undefined
       ? {}
       : { allowUntrustedSkills: options.policy.allowUntrustedSkills }),
@@ -348,7 +262,7 @@ function instrumentProvider(
   inner: AiPlanProvider,
   options: Pick<RunAiAgentOptions, 'isCurrentRun' | 'runId' | 'signal'>,
   emit: Emit,
-  onContext: (context: AssembledAiContext) => void,
+  onContext: OnContextReady,
   model: AiRunModelChoice | undefined,
   onRequestTokens: (tokens: number) => void,
 ): AiPlanProvider {
@@ -376,26 +290,20 @@ function instrumentProvider(
   const provider: AiPlanProvider = {
     async propose(request, context, live): Promise<AiPlan> {
       assertRunActive(options);
+      const tokens = wireRequestTokens(request, context, live);
       if (!contextSeen) {
         contextSeen = true;
-        onContext(context);
         emit({
           type: 'context.ready',
           fragmentCount: context.fragments.length,
           totalTokens: estimateAssembledAiContextTokens(context),
+          ...onContext(context, live?.history, tokens),
         });
       }
       assertRunActive(options);
       emit({ type: 'plan.proposing' });
       assertRunActive(options);
-      onRequestTokens(
-        estimateAiPlanWireRequestTokens({
-          version: AI_PLAN_WIRE_VERSION,
-          request,
-          context,
-          ...(live?.history === undefined ? {} : { history: live.history }),
-        }),
-      );
+      onRequestTokens(tokens);
       const plan = await inner.propose(request, context, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 1 });
@@ -410,15 +318,7 @@ function instrumentProvider(
       assertRunActive(options);
       emit({ type: 'plan.repairing', issues: issues.map(({ message }) => message) });
       assertRunActive(options);
-      onRequestTokens(
-        estimateAiPlanWireRequestTokens({
-          version: AI_PLAN_WIRE_VERSION,
-          request,
-          context,
-          ...(live?.history === undefined ? {} : { history: live.history }),
-          attempt: { plan, issues },
-        }),
-      );
+      onRequestTokens(wireRequestTokens(request, context, live, { plan, issues }));
       const repaired = await repair(request, context, plan, issues, measuredOptions(live));
       assertRunActive(options);
       emit({ type: 'plan.validating', attempt: 2 });
@@ -929,23 +829,41 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
   }
   const apply = normalizeApplyMode(options.apply);
   const emit = createEventEmitter(options);
-  const skillRegistry = skillRegistryFor(options);
-
   try {
     emit({ type: 'run.started', apply });
-    assertRunActive(options);
-    const reading = readRequest(options);
+    return await withinRunDeadline(options, (live) => runActiveAgent(live, apply, emit));
+  } catch (cause) {
+    if (isCancellation(cause, options.signal)) {
+      const cancellation = normalizeCancellation(
+        options.signal?.aborted === true ? options.signal.reason : cause,
+      );
+      emit({ type: 'run.cancelled', error: classifyAiRunFailure(cancellation) });
+      throw cancellation;
+    }
+    emit({ type: 'run.failed', error: classifyAiRunFailure(cause) });
+    throw cause;
+  }
+}
 
-    emit({ type: 'skills.resolving' });
-    assertRunActive(options);
-    const initialGenerationOptions = generationOptions(
-      options,
-      options.provider,
-      skillRegistry,
-      reading,
-    );
+async function runActiveAgent(
+  options: RunAiAgentOptions,
+  apply: 'never' | 'auto',
+  emit: Emit,
+): Promise<AiAgentRunResult> {
+  const skillRegistry = skillRegistryFor(options);
+  assertRunActive(options);
+  const reading = readRequest(options);
 
-    /*
+  emit({ type: 'skills.resolving' });
+  assertRunActive(options);
+  const initialGenerationOptions = generationOptions(
+    options,
+    options.provider,
+    skillRegistry,
+    reading,
+  );
+
+  /*
       Final test (2026-09-30): the first direct edit of a session took
       422–534 ms, 50–130 of them resolving skills a direct edit never reads.
       Skills touch a direct edit through one thing only — a restriction that
@@ -954,233 +872,225 @@ export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRun
       edit is tried before any skill is resolved. Its `skills.resolved` is
       the honest one: nothing activated.
     */
-    let policy: AiEffectiveCommandPolicy | undefined;
-    let policyFailure: { readonly cause: unknown } | undefined;
-    const policyIsSkillFree = skillsCannotNarrow(options, skillRegistry);
-    if (policyIsSkillFree) {
-      // Resolved ONCE (see below): this is the run's policy for both paths.
-      try {
-        policy = resolveAiPolicyForGeneration(initialGenerationOptions, undefined);
-      } catch (cause) {
-        policyFailure = { cause };
-      }
-      const direct = directRun(options, reading, policy, apply, emit, () => {
-        emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
-        assertRunActive(options);
-      });
-      if (direct !== undefined) return direct;
-      // script-wiring additions
-      const scriptCode = directScriptCode(options, reading, policy);
-      if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
-        const scripted = await directScriptRun(
-          options,
-          reading,
-          policy,
-          apply,
-          emit,
-          scriptCode,
-          () => {
-            emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
-            assertRunActive(options);
-          },
-        );
-        if (scripted !== undefined) return scripted;
-      }
-      // end script-wiring additions
+  let policy: AiEffectiveCommandPolicy | undefined;
+  let policyFailure: { readonly cause: unknown } | undefined;
+  const policyIsSkillFree = skillsCannotNarrow(options, skillRegistry);
+  if (policyIsSkillFree) {
+    // Resolved ONCE (see below): this is the run's policy for both paths.
+    try {
+      policy = resolveAiPolicyForGeneration(initialGenerationOptions, undefined);
+    } catch (cause) {
+      policyFailure = { cause };
     }
-
-    const skills: AiPreparedSkillContext | undefined =
-      prepareAiSkillsForGeneration(initialGenerationOptions);
-    emit({
-      type: 'skills.resolved',
-      activations: skills?.activations ?? [],
-      omitted: skills?.omitted ?? [],
-      totalTokens: skills?.totalTokens ?? 0,
+    const direct = directRun(options, reading, policy, apply, emit, () => {
+      emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
+      assertRunActive(options);
     });
-    assertRunActive(options);
+    if (direct !== undefined) return direct;
+    // script-wiring additions
+    const scriptCode = directScriptCode(options, reading, policy);
+    if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
+      const scripted = await directScriptRun(
+        options,
+        reading,
+        policy,
+        apply,
+        emit,
+        scriptCode,
+        () => {
+          emit({ type: 'skills.resolved', activations: [], omitted: [], totalTokens: 0 });
+          assertRunActive(options);
+        },
+      );
+      if (scripted !== undefined) return scripted;
+    }
+    // end script-wiring additions
+  }
 
-    /*
+  const skills: AiPreparedSkillContext | undefined =
+    prepareAiSkillsForGeneration(initialGenerationOptions);
+  emit({
+    type: 'skills.resolved',
+    activations: skills?.activations ?? [],
+    omitted: skills?.omitted ?? [],
+    totalTokens: skills?.totalTokens ?? 0,
+  });
+  assertRunActive(options);
+
+  /*
       The effective policy is resolved ONCE, here, and pins both paths: a
       direct edit is held to exactly the commands a model's plan would be
       (a Plan-mode skill that allows nothing leaves nothing to apply). A
       policy that cannot resolve fails where it always failed, after
       `context.gathering`.
     */
-    if (!policyIsSkillFree) {
-      try {
-        policy = resolveAiPolicyForGeneration(initialGenerationOptions, skills);
-      } catch (cause) {
-        policyFailure = { cause };
-      }
-
-      const direct = directRun(options, reading, policy, apply, emit);
-      if (direct !== undefined) return direct;
-      // script-wiring additions
-      const scriptCode = directScriptCode(options, reading, policy);
-      if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
-        const scripted = await directScriptRun(options, reading, policy, apply, emit, scriptCode);
-        if (scripted !== undefined) return scripted;
-      }
-      // end script-wiring additions
+  if (!policyIsSkillFree) {
+    try {
+      policy = resolveAiPolicyForGeneration(initialGenerationOptions, skills);
+    } catch (cause) {
+      policyFailure = { cause };
     }
 
-    emit({ type: 'context.gathering' });
-    assertRunActive(options);
-    if (policyFailure !== undefined || policy === undefined) {
-      throw policyFailure === undefined
-        ? new Error('The AI run has no command policy.')
-        : policyFailure.cause;
+    const direct = directRun(options, reading, policy, apply, emit);
+    if (direct !== undefined) return direct;
+    // script-wiring additions
+    const scriptCode = directScriptCode(options, reading, policy);
+    if (scriptCode !== undefined && reading !== undefined && policy !== undefined) {
+      const scripted = await directScriptRun(options, reading, policy, apply, emit, scriptCode);
+      if (scripted !== undefined) return scripted;
     }
-    let assembledContext: AssembledAiContext | undefined;
-    let requestTokens = 0;
-    const model = reading?.model;
-    const provider = instrumentProvider(
-      options.provider,
-      options,
-      emit,
-      (context) => {
-        assembledContext = context;
-      },
-      model,
-      (tokens) => {
-        requestTokens += tokens;
-      },
-    );
-    const preparedOptions = generationOptions(
-      options,
-      provider,
-      skillRegistry,
-      reading,
-      (text) => {
-        if (mayEmitLiveProgress(options) && text.trim().length > 0) {
-          emit({ type: 'plan.progress', text });
-        }
-      },
-      ({ kept, dropped }) => {
-        emit({ type: 'plan.salvaged', kept, dropped });
-      },
-    );
-    let plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
-    assertRunActive(options);
-    if (assembledContext === undefined) {
-      throw new Error('The AI provider was not given an assembled context.');
-    }
-    if (reading !== undefined && isInvisibleThemeOnlyPlan(plan, options.kernel)) {
-      plan = await repairInvisibleThemePlan(
-        preparedOptions,
-        assembledContext,
-        plan,
-        policy,
-        options.kernel,
-      );
-      assertRunActive(options);
-    }
-    const proposal = createAiValidatedProposal({
+    // end script-wiring additions
+  }
+
+  emit({ type: 'context.gathering' });
+  assertRunActive(options);
+  if (policyFailure !== undefined || policy === undefined) {
+    throw policyFailure === undefined
+      ? new Error('The AI run has no command policy.')
+      : policyFailure.cause;
+  }
+  let assembledContext: AssembledAiContext | undefined;
+  let requestTokens = 0;
+  const model = reading?.model;
+  const provider = instrumentProvider(
+    options.provider,
+    options,
+    emit,
+    (context, sent, tokens) => {
+      assembledContext = context;
+      return contextReadyReport(options, reading?.focus, tokens, sent);
+    },
+    model,
+    (tokens) => {
+      requestTokens += tokens;
+    },
+  );
+  const preparedOptions = generationOptions(
+    options,
+    provider,
+    skillRegistry,
+    reading,
+    (text) => {
+      if (mayEmitLiveProgress(options) && text.trim().length > 0) {
+        emit({ type: 'plan.progress', text });
+      }
+    },
+    ({ kept, dropped }) => {
+      emit({ type: 'plan.salvaged', kept, dropped });
+    },
+  );
+  let plan = await generateAiPlanWithPreparedSkills(preparedOptions, skills, policy);
+  assertRunActive(options);
+  if (assembledContext === undefined) {
+    throw new Error('The AI provider was not given an assembled context.');
+  }
+  if (reading !== undefined && isInvisibleThemeOnlyPlan(plan, options.kernel)) {
+    plan = await repairInvisibleThemePlan(
+      preparedOptions,
+      assembledContext,
       plan,
       policy,
-      skillActivations: skills?.activations ?? [],
-      context: assembledContext,
-    });
-    const origin = {
-      source: 'model' as const,
-      tokens: requestTokens,
-      ...(model === undefined ? {} : { model: model.model }),
-    };
-    const reported = {
-      ...origin,
-      ...(reading === undefined ? {} : { route: reading.route }),
-      ...(reading?.focus === undefined ? {} : { focus: reading.focus }),
-    };
+      options.kernel,
+    );
+    assertRunActive(options);
+  }
+  const proposal = createAiValidatedProposal({
+    plan,
+    policy,
+    skillActivations: skills?.activations ?? [],
+    context: assembledContext,
+  });
+  const origin = {
+    source: 'model' as const,
+    tokens: requestTokens,
+    ...(model === undefined ? {} : { model: model.model }),
+  };
+  const reported = {
+    ...origin,
+    ...(reading === undefined ? {} : { route: reading.route }),
+    ...(reading?.focus === undefined ? {} : { focus: reading.focus }),
+  };
 
-    // script-wiring additions
-    /*
+  // script-wiring additions
+  /*
       A script that also wrote other pages (DESIGN §A.9). A proposal rehearses
       ONE page, so a cross-page change is not proposed in part (follow-up F3):
       the run answers in words — how many pages, and that Auto lands it as one
       Undo — and offers the same request again as its follow-up.
     */
-    const crossPage = scriptCrossPage(plan);
-    if (apply === 'never' && crossPage.length > 0) {
-      const said = createAiValidatedProposal({
-        plan: {
-          rationale: scriptCrossPageFollowUp(
-            scriptPagesTouched(plan, crossPage),
-            runLanguage(options),
-          ),
-          commands: [],
-          followUp: options.request,
-        },
-        policy,
-        skillActivations: skills?.activations ?? [],
-        context: assembledContext,
-      });
-      emit({ type: 'plan.proposed', plan: said.plan, proposal: said, ...origin });
-      assertRunActive(options);
-      const done = emit({ type: 'run.completed', status: 'proposed', ...origin });
-      return Object.freeze({
-        runId: options.runId,
-        status: 'proposed',
-        proposal: said,
-        plan: said.plan,
-        context: assembledContext,
-        ...(skills === undefined ? {} : { skills }),
-        policy: said.policy,
-        ...reported,
-        elapsedMs: done?.elapsedMs ?? 0,
-      });
-    }
-    // end script-wiring additions
-
-    if (apply === 'never') {
-      emit({ type: 'plan.proposed', plan: proposal.plan, proposal, ...origin });
-      assertRunActive(options);
-      const done = emit({ type: 'run.completed', status: 'proposed', ...origin });
-      return Object.freeze({
-        runId: options.runId,
-        status: 'proposed',
-        proposal,
-        plan: proposal.plan,
-        context: assembledContext,
-        ...(skills === undefined ? {} : { skills }),
-        policy: proposal.policy,
-        ...reported,
-        elapsedMs: done?.elapsedMs ?? 0,
-      });
-    }
-
-    emit({ type: 'plan.applying' });
-    assertRunActive(options);
-    const applied = applyAiPlan({
-      kernel: options.kernel,
-      proposal,
-      validationPorts: options.validationPorts,
-      ...(options.label === undefined ? {} : { label: options.label }),
-      // script-wiring additions
-      ...(crossPage.length === 0
-        ? {}
-        : { crossPage, ...(options.site === undefined ? {} : { site: options.site }) }),
-      // end script-wiring additions
+  const crossPage = scriptCrossPage(plan);
+  if (apply === 'never' && crossPage.length > 0) {
+    const said = createAiValidatedProposal({
+      plan: {
+        rationale: scriptCrossPageFollowUp(
+          scriptPagesTouched(plan, crossPage),
+          runLanguage(options),
+        ),
+        commands: [],
+        followUp: options.request,
+      },
+      policy,
+      skillActivations: skills?.activations ?? [],
+      context: assembledContext,
     });
-    const done = emit({ type: 'run.completed', status: 'applied', ...origin });
+    emit({ type: 'plan.proposed', plan: said.plan, proposal: said, ...origin });
+    assertRunActive(options);
+    const done = emit({ type: 'run.completed', status: 'proposed', ...origin });
     return Object.freeze({
       runId: options.runId,
-      status: 'applied',
+      status: 'proposed',
+      proposal: said,
+      plan: said.plan,
+      context: assembledContext,
+      ...(skills === undefined ? {} : { skills }),
+      policy: said.policy,
+      ...reported,
+      elapsedMs: done?.elapsedMs ?? 0,
+    });
+  }
+  // end script-wiring additions
+
+  if (apply === 'never') {
+    emit({ type: 'plan.proposed', plan: proposal.plan, proposal, ...origin });
+    assertRunActive(options);
+    const done = emit({ type: 'run.completed', status: 'proposed', ...origin });
+    return Object.freeze({
+      runId: options.runId,
+      status: 'proposed',
       proposal,
       plan: proposal.plan,
       context: assembledContext,
       ...(skills === undefined ? {} : { skills }),
       policy: proposal.policy,
-      applied,
       ...reported,
       elapsedMs: done?.elapsedMs ?? 0,
     });
-  } catch (cause) {
-    if (isCancellation(cause, options.signal)) {
-      const cancellation = normalizeCancellation(cause);
-      emit({ type: 'run.cancelled', error: classifyAiRunFailure(cancellation) });
-      throw cancellation;
-    }
-    emit({ type: 'run.failed', error: classifyAiRunFailure(cause) });
-    throw cause;
   }
+
+  emit({ type: 'plan.applying' });
+  assertRunActive(options);
+  const applied = applyAiPlan({
+    kernel: options.kernel,
+    proposal,
+    validationPorts: options.validationPorts,
+    ...(options.label === undefined ? {} : { label: options.label }),
+    // script-wiring additions
+    ...(crossPage.length === 0
+      ? {}
+      : { crossPage, ...(options.site === undefined ? {} : { site: options.site }) }),
+    // end script-wiring additions
+  });
+  const done = emit({ type: 'run.completed', status: 'applied', ...origin });
+  return Object.freeze({
+    runId: options.runId,
+    status: 'applied',
+    proposal,
+    plan: proposal.plan,
+    context: assembledContext,
+    ...(skills === undefined ? {} : { skills }),
+    policy: proposal.policy,
+    applied,
+    ...reported,
+    elapsedMs: done?.elapsedMs ?? 0,
+  });
 }

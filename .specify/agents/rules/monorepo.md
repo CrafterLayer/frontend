@@ -129,6 +129,22 @@ Implementation tasks MUST be grouped by package ownership and dependency order. 
 agents may edit only path-disjoint scopes, and the primary agent integrates cross-package
 contract changes.
 
+## File Size and Module Splitting
+
+Owner rule (2026-10-12): keep the code split into focused modules; no very large files.
+
+- Source files (modules, components, hooks, stylesheets) stay at or under 500 lines; tests and
+  stories at or under 800. Generated, vendored and data-only files are exempt (`*.data.ts`,
+  `*-source.ts`, `*icon-names.ts`, `vendor/`, `generated/`).
+- `pnpm check:file-sizes` enforces it and runs inside `pnpm verify`. Files that were already over
+  the limit are listed in `packages/workspace-tools/file-size-baseline.json` with their size then:
+  they may shrink but never grow, and an entry that no longer applies must be removed. After a
+  split, tighten the baseline with
+  `node packages/workspace-tools/src/cli/check-file-sizes.mjs --write-baseline`.
+- When a change would push a file past its limit, split along the code's own seams first (a
+  component's model or pure helpers, one concern per stylesheet, one flow per module) and keep
+  behaviour identical; the split lands in its own commit with the owning tests green.
+
 ## Verification Order
 
 1. Changed-file format and static checks.

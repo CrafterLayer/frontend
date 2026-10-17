@@ -23,6 +23,11 @@ export {
   type LiveUtilities,
   type LiveUtilitiesOptions,
 } from './tailwind/live-utilities';
+// preview-fix (2026-10-12): custom regions' viewport heights, which the editor canvas pins per zoom.
+export {
+  CANVAS_VIEWPORT_HEIGHT_PROPERTY,
+  canvasViewportHeightUnits,
+} from './tailwind/viewport-units';
 
 export { resolveResponsiveProps, type RenderBreakpoint } from './resolve/responsive';
 export {
@@ -192,3 +197,25 @@ export {
   type StudioPreviewTrust,
 } from './studio/preview-document';
 // end pixi-studio:runtime-wiring additions
+// creative-power Phase 2 E (2026-10-12): run a scene section before it lands — the probe, its
+// browser runner (also handed to a Playwright page by the evals) and the report.
+export {
+  SCENE_PROBE_BUDGET_MS,
+  probeScene,
+  sceneProbePasses,
+  sceneProbeThumbnail,
+  type ProbeViewport,
+  type SceneProbeOptions,
+  type SceneProbePassRunner,
+  type SceneProbeSection,
+} from './studio/scene-probe';
+export { runSceneProbeFrame, type SceneProbeFrameArgs } from './studio/scene-probe-runner';
+export type {
+  SceneProbeControl,
+  SceneProbeFrameReport,
+  SceneProbeFrameResult,
+  SceneProbePass,
+  SceneProbePassReport,
+  SceneProbeReport,
+  SceneProbeThumbnail,
+} from './studio/scene-probe-report';

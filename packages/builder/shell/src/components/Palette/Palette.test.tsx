@@ -268,6 +268,22 @@ describe('Palette (006 contract §4)', () => {
           block('marquee', 'Marquee'),
           block('shimmerButton', 'Shimmer button'),
           block('dotPatternSurface', 'Dot pattern surface'),
+          block('table', 'Data table'),
+          block('chart', 'Data chart'),
+          block('report', 'Data report'),
+          block('comparisonTable', 'Plan comparison table'),
+          block('timeline', 'Milestones'),
+          block('menuSection', 'Menu'),
+          block('location', 'Location'),
+          block('countdown', 'Countdown'),
+          block('beforeAfter', 'Before and after'),
+          block('pullQuote', 'Pull quote'),
+          block('reviewSummary', 'Ratings'),
+          block('caseStudy', 'Customer story'),
+          block('jobsList', 'Open roles'),
+          block('downloadList', 'Files'),
+          block('appDownload', 'App promotion'),
+          block('fundraiser', 'Fundraising goal'),
         ],
       },
     });
@@ -304,6 +320,24 @@ describe('Palette (006 contract §4)', () => {
       ['Marquee', 'grid'],
       ['Shimmer Button', 'action'],
       ['Dot Pattern Surface', 'hero'],
+      ['Table', 'table'],
+      ['Chart', 'chart'],
+      ['Report', 'chart'],
+      // A comparison table keeps its plan-columns miniature, checked before `table`.
+      ['Comparison Table', 'pricing'],
+      ['Timeline', 'timeline'],
+      ['Menu', 'menu'],
+      ['Location', 'location'],
+      ['Countdown', 'countdown'],
+      // 2026-10-13: named before the testimonial words `review` and `quote` claim them.
+      ['Before & After', 'compare'],
+      ['Pull Quote', 'quote'],
+      ['Review Summary', 'rating'],
+      ['Case Study', 'story'],
+      ['Jobs', 'list'],
+      ['Downloads', 'list'],
+      ['App Download', 'app'],
+      ['Fundraiser', 'goal'],
     ] as const;
 
     for (const [name, diagram] of expectedDiagrams) {
@@ -341,6 +375,37 @@ describe('Palette (006 contract §4)', () => {
       'Dot Pattern Surface',
     ]) {
       expect(within(primaryRegion!).getByRole('button', { name })).toBeInTheDocument();
+    }
+
+    // Data blocks are content a person writes; the comparison table stays a marketing section.
+    const regionOf = (category: string) =>
+      document.getElementById(
+        screen.getByRole('button', { name: category }).getAttribute('aria-controls') ?? '',
+      )!;
+    for (const name of [
+      'Table',
+      'Chart',
+      'Report',
+      'Timeline',
+      'Menu',
+      'Location',
+      'Pull Quote',
+      'Jobs',
+      'Downloads',
+    ]) {
+      expect(within(regionOf('Content')).getByRole('button', { name })).toBeInTheDocument();
+    }
+    /* A menu section is content although its type names a "section"; a countdown is promotional. */
+    for (const name of [
+      'Comparison Table',
+      'Countdown',
+      'Before & After',
+      'Review Summary',
+      'Case Study',
+      'App Download',
+      'Fundraiser',
+    ]) {
+      expect(within(regionOf('Marketing')).getByRole('button', { name })).toBeInTheDocument();
     }
   });
 

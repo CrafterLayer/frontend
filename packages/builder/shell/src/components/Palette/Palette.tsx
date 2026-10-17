@@ -9,6 +9,8 @@ import '../../styles/visually-hidden.css';
 import './Palette.css';
 import { localBlockName } from '../../i18n/block-names';
 import { diagramForBlockType } from './diagrams';
+import { KNOWN_BLOCK_NAMES } from './known-block-names';
+import { categoryForBlock, normalizedBlockType } from './palette-categories';
 import { PALETTE_LABELS_EN, type PaletteCategory, type PaletteLabels } from './Palette.labels';
 // library-playground additions (2026-10-08): photo template cards, ordered by the page language.
 import {
@@ -28,84 +30,6 @@ const PALETTE_CATEGORIES = [
   'Marketing',
   'Primary',
 ] as const satisfies readonly PaletteCategory[];
-
-const KNOWN_BLOCK_NAMES: Readonly<Record<string, string>> = {
-  action: 'Action',
-  accordion: 'Accordion',
-  accordionitem: 'Accordion Item',
-  announcement: 'Announcement',
-  aurorabackground: 'Aurora Background',
-  banner: 'Banner',
-  bentogrid: 'Bento Grid',
-  badge: 'Badge',
-  breadcrumbs: 'Breadcrumbs',
-  bloggrid: 'Blog Grid',
-  button: 'Button',
-  card: 'Card',
-  carousel: 'Carousel',
-  columns: 'Columns',
-  container: 'Container',
-  contact: 'Contact',
-  contentsection: 'Content Section',
-  comparisontable: 'Comparison Table',
-  cloudshader: 'Cloud Shader',
-  cta: 'CTA',
-  divider: 'Divider',
-  dialog: 'Dialog',
-  dotpatternsurface: 'Dot Pattern Surface',
-  embed: 'Embed',
-  faq: 'FAQ',
-  feature: 'Feature',
-  features: 'Features',
-  footer: 'Footer',
-  form: 'Form',
-  formsection: 'Form Section',
-  gallery: 'Gallery',
-  grid: 'Grid',
-  heading: 'Heading',
-  hero: 'Hero',
-  image: 'Image',
-  logocloud: 'Logo Cloud',
-  marquee: 'Marquee',
-  media: 'Media',
-  navbar: 'Navigation',
-  navigation: 'Navigation',
-  page: 'Page',
-  pagefooter: 'Page Footer',
-  pageheader: 'Page Header',
-  paragraph: 'Paragraph',
-  pagination: 'Pagination',
-  processsteps: 'Process Steps',
-  portfoliogrid: 'Portfolio Grid',
-  productgrid: 'Product Grid',
-  progress: 'Progress',
-  promobanner: 'Promo Banner',
-  plan: 'Plan',
-  pricing: 'Pricing',
-  quote: 'Quote',
-  review: 'Review',
-  richtext: 'Rich Text',
-  row: 'Row',
-  section: 'Section',
-  separator: 'Separator',
-  shadcnalert: 'Alert',
-  shineborder: 'Shine Border',
-  shimmerbutton: 'Shimmer Button',
-  stats: 'Stats',
-  spacer: 'Spacer',
-  stack: 'Stack',
-  spotlightsurface: 'Spotlight Surface',
-  tabpanel: 'Tab Panel',
-  tabs: 'Tabs',
-  testimonial: 'Testimonial',
-  testimonials: 'Testimonials',
-  team: 'Team',
-  text: 'Text',
-  video: 'Video',
-  videosection: 'Video Section',
-  newsletter: 'Newsletter',
-  avatargroup: 'Avatar Group',
-};
 
 interface PaletteEntry {
   readonly category: PaletteCategory;
@@ -133,80 +57,6 @@ interface InsertionPlacement {
 }
 
 type PaletteView = 'blocks' | 'templates';
-
-function normalizedBlockType(type: string): string {
-  return type.replace(/[^a-zA-Z0-9]/g, '').toLocaleLowerCase();
-}
-
-function categoryForBlock(type: string): PaletteCategory {
-  const key = normalizedBlockType(type);
-
-  if (
-    key.includes('hero') ||
-    key.includes('feature') ||
-    key.includes('pricing') ||
-    key.includes('testimonial') ||
-    key.includes('cta') ||
-    key.includes('faq') ||
-    key.includes('navigation') ||
-    key.includes('navbar') ||
-    key.includes('footer') ||
-    key.includes('banner') ||
-    key.includes('announcement') ||
-    key.includes('logo') ||
-    key.includes('stats') ||
-    key.includes('bento') ||
-    key.includes('contentsection') ||
-    key.includes('process') ||
-    key.includes('newsletter') ||
-    key.includes('team') ||
-    key.includes('blog') ||
-    key.includes('contact') ||
-    key.includes('comparison') ||
-    key.includes('carousel') ||
-    key.includes('gallery') ||
-    key.includes('videosection') ||
-    key.includes('formsection') ||
-    key.includes('portfolio') ||
-    key.includes('productgrid')
-  ) {
-    return 'Marketing';
-  }
-  if (
-    key.includes('page') ||
-    key.includes('section') ||
-    key.includes('container') ||
-    key.includes('column') ||
-    key.includes('grid') ||
-    key.includes('row') ||
-    key.includes('stack') ||
-    key.includes('spacer') ||
-    key.includes('divider')
-  ) {
-    return 'Layout';
-  }
-  if (
-    key.includes('richtext') ||
-    key.includes('text') ||
-    key.includes('heading') ||
-    key.includes('paragraph') ||
-    key.includes('image') ||
-    key.includes('media') ||
-    key.includes('video') ||
-    key.includes('embed') ||
-    key.includes('form') ||
-    /*
-      A row of links is CONTENT — it is words a person writes. The marketing
-      group above claims `navbar` and `navigation` first, and it is checked
-      first, so a site's masthead nav stays where it was.
-    */
-    key.includes('link') ||
-    key.includes('nav')
-  ) {
-    return 'Content';
-  }
-  return 'Primary';
-}
 
 /**
  * The name on a palette tile.
@@ -305,6 +155,12 @@ export interface PaletteProps {
    */
   templateCards?: readonly TemplateCardInfo[] | undefined;
   // end library-playground additions
+  /**
+   * Draw the Blocks / Templates switch (default `true`). A host that already offers
+   * templates beside the palette (LibraryPanel's own Templates tab) turns it off, so the
+   * person never meets a row of tabs inside a row of tabs; the palette then shows blocks.
+   */
+  showViewTabs?: boolean | undefined;
 }
 
 /**
@@ -320,6 +176,7 @@ export function Palette({
   dragHandle,
   labels = PALETTE_LABELS_EN,
   templateCards,
+  showViewTabs = true,
 }: PaletteProps) {
   // end library-playground additions
   const blockNames = labels.blockNames;
@@ -540,23 +397,25 @@ export function Palette({
 
   return (
     <nav className="bldr-palette" aria-label={labels.palette}>
-      <div className="bldr-palette__tabs" role="tablist" aria-label={labels.tabs}>
-        {(['blocks', 'templates'] as const).map((candidate) => (
-          <button
-            key={candidate}
-            type="button"
-            role="tab"
-            className="bldr-palette__tab"
-            aria-selected={view === candidate}
-            onClick={() => {
-              setView(candidate);
-              setQuery('');
-            }}
-          >
-            {candidate === 'blocks' ? labels.blocksTab : labels.templatesTab(templates.length)}
-          </button>
-        ))}
-      </div>
+      {showViewTabs ? (
+        <div className="bldr-palette__tabs" role="tablist" aria-label={labels.tabs}>
+          {(['blocks', 'templates'] as const).map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              role="tab"
+              className="bldr-palette__tab"
+              aria-selected={view === candidate}
+              onClick={() => {
+                setView(candidate);
+                setQuery('');
+              }}
+            >
+              {candidate === 'blocks' ? labels.blocksTab : labels.templatesTab(templates.length)}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="bldr-palette__search">
         <label className="bldr-visually-hidden" htmlFor={searchId}>
           {view === 'blocks' ? labels.searchBlocks : labels.searchTemplates}

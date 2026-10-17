@@ -67,6 +67,50 @@ const PARENT_CONTEXT: Readonly<Record<string, string>> = {
 
 /* Gate-local cases for parts no default or example reaches (kept out of the AI examples). */
 const EXTRA_CASES: Readonly<Record<string, readonly GateCaseInput[]>> = {
+  chart: [
+    {
+      // Past eight slices a pie folds the smallest into `otherLabel`.
+      label: 'folded pie',
+      props: {
+        chartType: 'pie',
+        categories: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+        series: [{ name: 'Share', values: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] }],
+        showValues: true,
+        valuePrefix: '$',
+        valueSuffix: 'k',
+      },
+    },
+  ],
+  report: [
+    {
+      // A report's chart folds a pie past eight slices too; its numbers print with both affixes.
+      label: 'folded pie',
+      props: {
+        chartType: 'pie',
+        categories: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+        series: [{ name: 'Share', values: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] }],
+        kpis: [{ label: 'Largest', series: 0, measure: 'max' }],
+        showValues: true,
+        valuePrefix: '$',
+        valueSuffix: 'k',
+      },
+    },
+  ],
+  menuSection: [
+    {
+      label: 'photo',
+      props: {
+        heading: 'Menu',
+        currency: 'SAR',
+        categories: [
+          {
+            name: 'Mains',
+            items: [{ name: 'Kabsa', price: '45', imageSrc: '/assets/menu/kabsa.jpg', imageAlt: 'Kabsa' }],
+          },
+        ],
+      },
+    },
+  ],
   team: [
     {
       label: 'portrait',

@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BackgroundJobRowStories from './BackgroundJobRow.stories';
+
+<Meta of={BackgroundJobRowStories} />
+
+# BackgroundJobRow
+
+One background job in the jobs list (2026-10-12): its request, how many pages, when it was sent, its
+state, how far the batch has got, and the actions that make sense now.
+
+<Canvas of={BackgroundJobRowStories.InProgress} />
+
+## Purpose
+
+A batch answers over minutes, sometimes hours, while the person keeps working. The row tells them at
+a glance whether to wait, apply or retry, and offers exactly that. Applied, it holds the per-page
+results (BatchOutcomeList) under a disclosure.
+
+## When to use / not
+
+Inside BackgroundJobsDialog's list, one per job. It draws a record and calls back; the polling, the
+runner and the store are `useBackgroundJobs`'.
+
+## Props
+
+| prop                                           | type                       | default | notes                                              |
+| ---------------------------------------------- | -------------------------- | ------- | -------------------------------------------------- |
+| `locale`                                       | `Locale`                   | none    | `en` or `ar`                                       |
+| `job`                                          | `AiBatchJobRecord`         | none    | the stored record                                  |
+| `now`                                          | `number`                   | none    | when the list was read: "4 minutes ago" is from it |
+| `pages`                                        | `BatchPageOption[]`        | none    | for the results' titles                            |
+| `connected`                                    | `boolean`                  | none    | `false`: Refresh, Cancel and Apply wait            |
+| `busy`                                         | `boolean`                  | `false` | a call about this job is in flight                 |
+| `notice`                                       | `string`                   | none    | the last failed call, in the server's words        |
+| `retried`                                      | `readonly string[]`        | `[]`    | this job's pages already sent again live           |
+| `onRefresh`, `onCancel`, `onApply`, `onRemove` | `() => void`               | none    | the actions                                        |
+| `onRetryLive`                                  | `(pageId: string) => void` | none    | Retry live on one page                             |
+
+## States
+
+| state (tag)      | progress bar   | actions                                              |
+| ---------------- | -------------- | ---------------------------------------------------- |
+| In progress      | yes            | Refresh, Cancel job                                  |
+| Canceling        | yes            | Refresh                                              |
+| Ready to apply   | yes            | **Apply results**, Remove                            |
+| Canceled, Failed | yes (Graphite) | **Show pages** (lists them for a live retry), Remove |
+| Applied          | no             | Remove; Results (open when a page needs a retry)     |
+
+Stories: `InProgress`, `Ready`, `Applying`, `Applied`, `AppliedDark`, `Canceled`, `Failed`,
+`Notice`, `Offline`, `Remove`, `RightToLeft`, `AppliedRightToLeft`, `DarkRightToLeft`, `Narrow`.
+
+## Accessibility
+
+- An `article` named by its request (an `h4`); the time is a `<time datetime>`.
+- The bar is a `progressbar` with its count as `aria-valuetext` ("3 of 5 answered").
+- Waiting actions are `aria-disabled`, never `disabled`; Refresh is named for its job.
+- Remove asks in place (InlineConfirm, Alarm tone): focus goes to Keep; Esc keeps the job.
+- Results are a disclosure button with `aria-expanded` and `aria-controls`.
+- The last failed call is an `alert`.
+
+## RTL
+
+Logical properties only: the bar fills from the inline start, the tag sits at the inline end, the
+disclosure chevron points along the reading direction. Digits stay Latin; Arabic page counts agree
+with their number («صفحة واحدة», «صفحتان», «5 صفحات»).

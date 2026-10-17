@@ -6,7 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { createEditKernel } from '../testing/scripted-engine';
 import { initialBuildProgress, reduceBuildProgress } from './build-progress';
 import type { BuildTurn, EditTurn, Turn } from './turns';
-import { PENDING_REQUEST_ID, turnViewsOf, withPendingRequest, type TurnViewContext } from './turn-views';
+import {
+  PENDING_REQUEST_ID,
+  turnViewsOf,
+  withPendingRequest,
+  type TurnViewContext,
+} from './turn-views';
 import type { AgentCapabilities } from './view-types';
 
 const CAPABILITIES: AgentCapabilities = {
@@ -32,16 +37,48 @@ function context(patch: Partial<TurnViewContext> = {}): TurnViewContext {
 
 function builtWith(before: Record<string, string>): BuildTurn {
   const progress = [
-    { type: 'build.planned', runId: 'run-1', seq: 0, at: 0, direction: 'd', tasks: [{ id: 'selected-hero', title: 'Hero' }, { id: 'footer', title: 'Footer' }] },
+    {
+      type: 'build.planned',
+      runId: 'run-1',
+      seq: 0,
+      at: 0,
+      direction: 'd',
+      tasks: [
+        { id: 'selected-hero', title: 'Hero' },
+        { id: 'footer', title: 'Footer' },
+      ],
+    },
     {
       type: 'build.completed',
       runId: 'run-1',
       seq: 1,
       at: 1,
       tasks: [
-        { id: 'selected-hero', title: 'Hero', status: 'applied', attempts: 1, landing: { transactionId: 'tx-1', label: 'Assistant: 1/2 — Hero', before, after: { tree: 'H' } } },
+        {
+          id: 'selected-hero',
+          title: 'Hero',
+          status: 'applied',
+          attempts: 1,
+          landing: {
+            transactionId: 'tx-1',
+            label: 'Assistant: 1/2 — Hero',
+            before,
+            after: { tree: 'H' },
+          },
+        },
         // Written in full by the skeleton: nothing recorded from before it.
-        { id: 'footer', title: 'Footer', status: 'applied', attempts: 0, landing: { transactionId: 'tx-0', label: 'Assistant: page skeleton', before: {}, after: { tree: 'F' } } },
+        {
+          id: 'footer',
+          title: 'Footer',
+          status: 'applied',
+          attempts: 0,
+          landing: {
+            transactionId: 'tx-0',
+            label: 'Assistant: page skeleton',
+            before: {},
+            after: { tree: 'F' },
+          },
+        },
       ],
       applied: 2,
       skipped: 0,
@@ -61,11 +98,46 @@ function builtWith(before: Record<string, string>): BuildTurn {
 }
 
 describe('turnViewsOf', () => {
+  it('keeps Auto salvage counts visible alongside real changes and Undo', () => {
+    const edit: EditTurn = {
+      id: 'partial-auto',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      mode: 'auto',
+      changes: [{ kind: 'changed', label: 'Heading', before: 'Old', after: 'New' }],
+      transactionId: 'tx-partial',
+      elapsedMs: 30,
+      salvaged: { kept: 1, dropped: [{ step: 2, command: 'insertNode', reason: 'Refused' }] },
+    };
+    const [view] = turnViewsOf([edit], context());
+    expect(view?.kind).toBe('edit');
+    if (view?.kind !== 'edit') return;
+    expect(view.view.partial).toEqual({ kept: 1, total: 2 });
+    expect(view.view.changes).toEqual(edit.changes);
+    expect(view.view.undo?.kind).toBe('undo');
+  });
+
   it('offers row Undo only where there is an earlier version to put back', () => {
     const [view] = turnViewsOf([builtWith({ tree: '' })], context());
     expect(view?.kind).toBe('build');
     if (view?.kind !== 'build') return;
     expect(view.view.rows.map((row) => row.undo?.kind)).toEqual(['undo', undefined]);
+  });
+
+  it('shows the creative brief on a game or story build only, planned from its request', () => {
+    const plain = turnViewsOf([builtWith({ tree: '' })], context())[0];
+    expect(plain?.kind === 'build' && plain.view.brief).toBe(undefined);
+    const game: BuildTurn = {
+      ...builtWith({ tree: '' }),
+      request: 'A forest platformer game starring a fox named Rumi',
+      creative: true,
+    };
+    const [view] = turnViewsOf([game], context());
+    expect(view?.kind).toBe('build');
+    if (view?.kind !== 'build') return;
+    expect(view.view.brief?.genre).toBe('platformer');
+    expect(view.view.brief?.libs).toEqual(expect.arrayContaining(['tilemap', 'anim', 'fx']));
   });
 
   it('folds a build once a newer exchange starts, never for its own end note', () => {
@@ -126,9 +198,18 @@ describe('turnViewsOf', () => {
       transactionId: 'tx-9',
       elapsedMs: 1_000,
     };
-    const live = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: true, canRedo: false }) }))[0];
-    expect(live?.kind === 'edit' && live.view.undo).toEqual({ kind: 'undo', transactionId: 'tx-9' });
-    const buried = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: false }) }))[0];
+    const live = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: true, canRedo: false }) }),
+    )[0];
+    expect(live?.kind === 'edit' && live.view.undo).toEqual({
+      kind: 'undo',
+      transactionId: 'tx-9',
+    });
+    const buried = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: false }) }),
+    )[0];
     expect(buried?.kind).toBe('edit');
     expect(buried?.kind === 'edit' && buried.view.phase).toBe('done');
     expect(buried?.kind === 'edit' && 'undo' in buried.view).toBe(false);
@@ -145,7 +226,10 @@ describe('turnViewsOf', () => {
       outcome: { kind: 'refused', why: 'changedSince' },
       elapsedMs: 1_000,
     };
-    const [view] = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: true, canRedo: false }) }));
+    const [view] = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: true, canRedo: false }) }),
+    );
     expect(view?.kind === 'edit' && view.view.phase).toBe('done');
     expect(view?.kind === 'edit' && 'undo' in view.view).toBe(false);
   });
@@ -161,9 +245,18 @@ describe('turnViewsOf', () => {
       outcome: { kind: 'undone', transactionId: 'tx-10' },
       elapsedMs: 1_000,
     };
-    const redoable = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: true }) }))[0];
-    expect(redoable?.kind === 'edit' && redoable.view.undo).toEqual({ kind: 'redo', transactionId: 'tx-10' });
-    const gone = turnViewsOf([edit], context({ editHistory: () => ({ canUndo: false, canRedo: false }) }))[0];
+    const redoable = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: true }) }),
+    )[0];
+    expect(redoable?.kind === 'edit' && redoable.view.undo).toEqual({
+      kind: 'redo',
+      transactionId: 'tx-10',
+    });
+    const gone = turnViewsOf(
+      [edit],
+      context({ editHistory: () => ({ canUndo: false, canRedo: false }) }),
+    )[0];
     expect(gone?.kind === 'edit' && gone.view.phase).toBe('undone');
     expect(gone?.kind === 'edit' && 'undo' in gone.view).toBe(false);
   });
@@ -172,7 +265,7 @@ describe('turnViewsOf', () => {
 describe('withPendingRequest', () => {
   const document = createEditKernel().getDocument();
 
-  it('shows the request the clarify panel asks about as the person\'s bubble', () => {
+  it("shows the request the clarify panel asks about as the person's bubble", () => {
     const shown = withPendingRequest(
       [],
       { request: 'صفحة لعيادة أسنان', context: [{ kind: 'page' }] },

@@ -1,0 +1,80 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SkillEditorStories from './SkillEditor.stories';
+
+<Meta of={SkillEditorStories} />
+
+# SkillEditor
+
+Writing one of the person's skills (2026-10-12): its name, when to use it, the instructions, and how
+it turns on.
+
+<Canvas of={SkillEditorStories.Editing} />
+
+## Purpose
+
+A skill is instructions the Agent follows in every request, or when a request mentions its words.
+The editor holds a draft of one and hands it to the store on Save. The store judges it
+(`checkSkillDraft`); a refusal keeps the editor open and is said in one line above Save, so the
+person hears why before they fix it.
+
+## When to use / not
+
+SkillsTab draws it in place of the list for New skill and Edit. It never saves anything itself:
+`onSave` returns the store's answer. A pasted SKILL.md goes through SkillsTab's import field, not
+here.
+
+## Props
+
+| prop       | type                        | default | notes                                             |
+| ---------- | --------------------------- | ------- | ------------------------------------------------- |
+| `labels`   | `KnowledgeLabels`           | none    | `knowledgeLabels(locale)`                         |
+| `initial`  | `UserSkillDraft`            | none    | `EMPTY_SKILL_DRAFT` for a new skill, else the one |
+| `editing`  | `boolean`                   | `false` | the title says "Edit skill"                       |
+| `onSave`   | `(draft) => UserSkillWrite` | none    | a refusal's reason becomes the refusal line       |
+| `onCancel` | `() => void`                | none    |                                                   |
+
+The draft it saves has its words split on commas (Latin or Arabic), semicolons or new lines: "copy,
+headline، نبرة" is three words. The store trims the rest.
+
+## States
+
+| story                                                  | what it shows                                          |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| `New`                                                  | empty, turned on by its words, the words field showing |
+| `Editing`, `Dark`                                      | a kept skill under "Edit skill"                        |
+| `EveryRequest`                                         | used in every request: no words field                  |
+| `Refused`                                              | Save with no name: "Give the skill a name."            |
+| `RefusedBudget`                                        | the every-request budget, refused by the store         |
+| `Saved`                                                | typed and saved, its words split                       |
+| `RightToLeft`, `RefusedRightToLeft`, `DarkRightToLeft` | Arabic                                                 |
+
+## Anatomy
+
+```text
+New skill                                    title (Read 600)
+Name            [Brand voice            ]    each label above its field (Meta 500)
+When to use it  [Headlines, buttons …    ]
+Instructions                     0 / 6000    count at the inline end
+[                                       ]    resizable text area
+Use it   ◉ When a request mentions its words
+         ○ In every request
+Words that turn it on [copy, headline   ]    only for the word-triggered kind
+Separate with commas: copy, headline, نبرة   hint (Graphite)
+Give the skill a name.                       refusal line (Alarm), an alert
+[Save skill] Cancel
+```
+
+## Accessibility
+
+- A `form` named by its title; every field has a visible label. Name and Instructions are
+  `required`, but the form is `noValidate`: the browser's own bubble would block Save and speak the
+  browser's language, so the store's refusal line speaks instead, in the panel's language.
+- The refusal line is an `alert`, always in the DOM and empty until a refusal, so it is announced
+  when it fills.
+- The mode is a `fieldset` of two radios with a legend. The words field is described by its hint.
+- The count is drawn, not spoken (`aria-hidden`): the field's `maxLength` already bounds it.
+
+## RTL
+
+Logical properties only; the count sits at the inline end of the Instructions label and mirrors.

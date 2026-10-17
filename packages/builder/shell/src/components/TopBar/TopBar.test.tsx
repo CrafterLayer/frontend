@@ -152,6 +152,24 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: 'Publish options' })).toBeDisabled();
   });
 
+  it('draws Publish whole, without its split, when the host has no options', () => {
+    render(
+      <TopBar
+        productName="CraftKit"
+        onPublish={vi.fn()}
+        showPublishOptions={false}
+        publishDisabled
+        publishTitle="Nothing to publish yet"
+      />,
+    );
+    const publish = screen.getByRole('button', { name: 'Publish' });
+    expect(screen.queryByRole('button', { name: 'Publish options' })).toBeNull();
+    // Wired but not runnable now: disabled, and its title says why.
+    expect(publish).toBeDisabled();
+    expect(publish).toHaveAttribute('title', 'Nothing to publish yet');
+    expect(publish.parentElement?.children).toHaveLength(1);
+  });
+
   it('enables Publish exactly when a host wires it', async () => {
     const onPublish = vi.fn();
     render(<TopBar productName="CraftKit" onPublish={onPublish} />);
@@ -160,5 +178,18 @@ describe('TopBar', () => {
     expect(publish).toBeEnabled();
     await userEvent.setup().click(publish);
     expect(onPublish).toHaveBeenCalledTimes(1);
+  });
+
+  it('names each icon-only control and its shortcut in a tooltip, from the editor keymap', () => {
+    render(<TopBar productName="CraftKit" canUndo canRedo onUndo={vi.fn()} onRedo={vi.fn()} />);
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    expect(undo).toHaveAttribute('aria-keyshortcuts', 'Control+Z');
+    expect(undo).toHaveAttribute('data-bldr-tooltip', 'Undo · Ctrl Z');
+    const redo = screen.getByRole('button', { name: 'Redo' });
+    expect(redo).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+Z');
+    expect(redo).toHaveAttribute('data-bldr-tooltip', 'Redo · Ctrl Shift Z');
+    const tablet = screen.getByRole('radio', { name: 'Tablet' });
+    expect(tablet).toHaveAttribute('aria-keyshortcuts', 'Control+2');
+    expect(tablet).toHaveAttribute('data-bldr-tooltip', 'Tablet · Ctrl 2');
   });
 });

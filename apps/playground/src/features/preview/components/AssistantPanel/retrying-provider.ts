@@ -11,6 +11,11 @@ import {
   type AiPromptEnhancement,
   type AiProposeOptions,
   type AiProposePagePlanOptions,
+  type AiProposeSitePlanOptions,
+  type AiReviewSceneOptions,
+  type AiSceneReview,
+  type AiSceneReviewRequest,
+  type AiSitePlanProposal,
   type AssembledAiContext,
 } from '@craftkit/builder';
 
@@ -246,6 +251,8 @@ export function createRetryingAiPlanProvider(
   const innerForget = inner.forget?.bind(inner);
   const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
   const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
+  const innerProposeSitePlan = inner.proposeSitePlan?.bind(inner);
+  const innerReviewScene = inner.reviewScene?.bind(inner);
 
   const provider: AiPlanProvider = {
     propose(
@@ -300,6 +307,25 @@ export function createRetryingAiPlanProvider(
       live?: AiProposePagePlanOptions,
     ): Promise<AiPagePlanProposal> =>
       withRetries(live, () => innerProposePagePlan(request, context, live));
+  }
+  // A site plan (T230) travels the same wire as a proposal, and gets the same schedule.
+  if (innerProposeSitePlan !== undefined) {
+    provider.proposeSitePlan = (
+      request: string,
+      live?: AiProposeSitePlanOptions,
+    ): Promise<AiSitePlanProposal> => withRetries(live, () => innerProposeSitePlan(request, live));
+  }
+  /*
+    A scene review (visual self-review, 2026-10-13) is a short call a section waits on, so it
+    gets the enhancer's budget: one quick second try after a dropped connection or a 529, none
+    after a timeout. A build that never gets an answer simply reviews nothing.
+  */
+  if (innerReviewScene !== undefined) {
+    provider.reviewScene = (
+      request: AiSceneReviewRequest,
+      live?: AiReviewSceneOptions,
+    ): Promise<AiSceneReview> =>
+      withRetries(live, () => innerReviewScene(request, live), enhanceBudget);
   }
   if (innerEnhancePrompt !== undefined) {
     provider.enhancePrompt = (

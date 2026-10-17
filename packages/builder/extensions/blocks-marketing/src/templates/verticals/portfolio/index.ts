@@ -1,0 +1,1 @@
+export { portfolioTemplate } from './template';

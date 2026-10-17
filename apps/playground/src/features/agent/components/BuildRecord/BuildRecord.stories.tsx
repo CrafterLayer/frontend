@@ -394,6 +394,15 @@ export const DoneDark: Story = {
 };
 export const DoneRightToLeftDark: Story = arabic(buildDone('ar'), { theme: 'dark' });
 
+/** T230: one page of a site build names its page before its state. */
+export const SitePage: Story = {
+  args: { view: { ...buildBuilding('en'), page: 'About us' } },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('h3 bdi')).toHaveTextContent('About us');
+  },
+};
+export const SitePageRightToLeft: Story = arabic({ ...buildDone('ar'), page: 'من نحن' });
+
 /** Undo build confirms in place, focus on Cancel. */
 export const UndoBuildConfirming: Story = {
   args: { view: buildDone('en') },

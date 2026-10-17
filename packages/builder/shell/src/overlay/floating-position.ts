@@ -126,9 +126,14 @@ function usableRects(anchor: FloatingAnchor): FloatingBox[] {
   return rects.length > 0 ? rects : [anchor.box];
 }
 
+/** Default anchor-to-toolbar distance, in the units of `FloatingInput.size`. */
+export const FLOATING_GAP = 8;
+/** Default collision padding from the clip box edges, same units. */
+export const FLOATING_PADDING = 4;
+
 export function positionFloating(input: FloatingInput): FloatingPlacement {
-  const gap = input.gap ?? 8;
-  const padding = input.padding ?? 4;
+  const gap = input.gap ?? FLOATING_GAP;
+  const padding = input.padding ?? FLOATING_PADDING;
   const arrowSize = input.arrowSize ?? 0;
   const { size, frame, viewport, dir } = input;
   const scale =

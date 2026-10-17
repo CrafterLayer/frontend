@@ -449,12 +449,12 @@ describe('answer drafts', () => {
     expect(outcome.kind).toBe('plan');
   });
 
-  it('subscribes to neither text nor restart when nobody asked for drafts', async () => {
+  it('still observes text for cache readiness, with no restart observer when no drafts were asked for', async () => {
     const { client, subscribed } = draftingClient();
 
     await proposePlan(REQUEST, { client });
 
-    expect(subscribed).not.toContain('text');
+    expect(subscribed).toContain('text');
     expect(subscribed).not.toContain('restart');
   });
 });

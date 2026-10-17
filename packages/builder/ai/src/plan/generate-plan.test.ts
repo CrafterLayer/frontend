@@ -11,8 +11,9 @@ import {
 import { AiProviderError } from '../provider/errors';
 import { AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH } from '../provider/wire';
 import { createAiSkillRegistry } from '../skills';
-import type { AiPlan, AiPlanProvider, AiPlanValidationIssue } from '../types';
-import { generateAiPlan } from './generate-plan';
+import type { AiChatTurn, AiPlan, AiPlanProvider, AiPlanValidationIssue } from '../types';
+import { AiContextBudgetError, generateAiPlan } from './generate-plan';
+import { AI_HISTORY_ENTRY_MAX_CHARS } from './history-budget';
 import { AiPlanRejectedError } from './validate-plan';
 
 function planKernel() {
@@ -479,7 +480,64 @@ describe('generateAiPlan repair loop', () => {
     expect(proposed).toBe(false);
   });
 
-  it('rejects oversized conversation history before calling the proposal provider', async () => {
+  it('cuts an oversized history entry to fit the budget instead of refusing the request', async () => {
+    const sent: (readonly AiChatTurn[] | undefined)[] = [];
+
+    const plan = await generateAiPlan({
+      kernel: planKernel(),
+      provider: {
+        propose: (_request, _context, live) => {
+          sent.push(live?.history);
+          return Promise.resolve(goodPlan);
+        },
+      },
+      request: 'add copy',
+      history: [{ role: 'user', text: 'x'.repeat(100_000) }],
+      maxContextTokens: 10_000,
+      validationPorts: { clock: fixedClock(20), ids: seededIds('history-budget') },
+    });
+
+    expect(plan).toEqual(goodPlan);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toHaveLength(1);
+    expect(sent[0]?.[0]?.text).toHaveLength(AI_HISTORY_ENTRY_MAX_CHARS);
+    expect(sent[0]?.[0]?.text.endsWith('…')).toBe(true);
+  });
+
+  it('drops the oldest exchanges first, and the repair round carries the same fitted history', async () => {
+    const history: AiChatTurn[] = [
+      { role: 'user', text: `oldest ${'a'.repeat(20_000)}` },
+      { role: 'assistant', text: `answer ${'b'.repeat(20_000)}` },
+      { role: 'user', text: 'make it blue' },
+      { role: 'assistant', text: 'Made the hero blue.' },
+    ];
+    const proposed: (readonly AiChatTurn[] | undefined)[] = [];
+    const repaired: (readonly AiChatTurn[] | undefined)[] = [];
+
+    const plan = await generateAiPlan({
+      kernel: planKernel(),
+      provider: {
+        propose: (_request, _context, live) => {
+          proposed.push(live?.history);
+          return Promise.resolve(badPlan);
+        },
+        repair: (_request, _context, _plan, _issues, live) => {
+          repaired.push(live?.history);
+          return Promise.resolve(goodPlan);
+        },
+      },
+      request: 'add copy',
+      history,
+      maxContextTokens: 10_000,
+      validationPorts: { clock: fixedClock(20), ids: seededIds('history-drop') },
+    });
+
+    expect(plan).toEqual(goodPlan);
+    expect(proposed).toEqual([history.slice(2)]);
+    expect(repaired).toEqual([history.slice(2)]);
+  });
+
+  it('still refuses before any provider work when the page alone is over the budget', async () => {
     let proposed = false;
 
     await expect(
@@ -492,11 +550,17 @@ describe('generateAiPlan repair loop', () => {
           },
         },
         request: 'add copy',
-        history: [{ role: 'user', text: 'x'.repeat(100_000) }],
+        history: [
+          { role: 'user', text: 'hello' },
+          { role: 'assistant', text: 'Hi.' },
+        ],
+        contextProviders: [
+          { id: 'large', collect: () => ({ title: 'Large', body: 'x'.repeat(60_000) }) },
+        ],
         maxContextTokens: 10_000,
-        validationPorts: { clock: fixedClock(20), ids: seededIds('history-budget') },
+        validationPorts: { clock: fixedClock(20), ids: seededIds('page-budget') },
       }),
-    ).rejects.toThrow(/context.*budget/i);
+    ).rejects.toThrow(AiContextBudgetError);
 
     expect(proposed).toBe(false);
   });

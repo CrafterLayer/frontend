@@ -1,0 +1,38 @@
+/*
+  BuiltInSkillsList (2026-10-14): SkillRow-shaped rows under small group headings, the
+  filter and Reset in one wrapping line, and "Always on" in Graphite where a switch would be.
+*/
+
+.ck-agent-builtins__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+}
+
+.ck-agent-builtins__filter {
+  flex: 1 1 12rem;
+  inline-size: auto;
+  min-inline-size: 0;
+}
+
+.ck-agent-builtins__group {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+}
+
+.ck-agent-builtins__heading {
+  margin: 0;
+  padding-inline: var(--bldr-space-sm);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-builtins__always {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}

@@ -1,5 +1,8 @@
 # Tasks: Professional Builder and Agent
 
+Current scoped speed tasks SP-T1..5:
+[scene initialization and server latency](scene-speed-2026-10-13.md#tasks).
+
 **Input**: Design documents from `specs/workspace/014-professional-builder-agent/`
 
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/`,
@@ -561,29 +564,454 @@ Planning backlog only, recorded 2026-10-11. These tasks are **not started or app
 today**; completed PX work and historical release tasks stay unchanged. Follow the
 [roadmap in plan.md](plan.md#deferred-pixi-package-roadmap--next-session-2026-10-12).
 
-- [ ] T171 On an authorized continuation, amend scoped spec/acceptance scenarios, clarify the first
+- [x] T171 On an authorized continuation, amend scoped spec/acceptance scenarios, clarify the first
       slice and approve plan/tasks; recheck official versions/licenses, package ownership, catalog
-      pins, provenance and budgets before installing anything.
-- [ ] T172 Integrate Tilemap in the media-engine owner with bounded schema/API, a lazy
+      pins, provenance and budgets before installing anything. (2026-10-12: CE-001..007 in spec;
+      @pixi/tilemap 5.0.2 MIT peer pixi.js >=8.5, inkjs 2.4.0 MIT, catalog-pinned.)
+- [x] T172 Integrate Tilemap in the media-engine owner with bounded schema/API, a lazy
       single-Pixi-namespace asset, shared preview/export loader and a playable admitted-tileset
-      fixture; cover camera/input, limits and disposal.
-- [ ] T173 Integrate Inkjs with tool-side story compilation, bounded narrative execution,
-      accessible choices, variables/outcomes and validated versioned save/restore; preserve manual
-      chapters and verify preview/export plus malformed-data and step-limit behavior.
-- [ ] T174 Add AssetPack only to owning build tooling after the first runtime slices; generate
-      reproducible atlases/optimized images/manifests from approved assets and measure outputs;
-      preserve asset identities/licenses and keep tooling out of browser bundles.
-- [ ] T175 For each admitted slice, extend real Agent planning/writer/Retry/Finish teaching and
-      Arabic/English activation tests; extend deterministic and generated-runtime preview/export
-      browser fixtures, owner/consumer checks and bounded usage/quality evidence.
-- [ ] T176 Assess Layout only for a demonstrated in-canvas HUD need; verify Yoga/WASM load order,
-      responsive behavior and packaging before deciding on an adapter. Keep ordinary controls DOM.
-- [ ] T177 Assess Spine only after licensing and licensed skeleton/atlas assets are available;
-      verify editor/runtime version matching before approving any installation or integration.
-- [ ] T178 Independently review each actual increment, resolve findings, run scoped convergence
-      and update evidence/handoff. Record conditional deferrals and remaining live-eval/release
-      gates; do not claim all packages supported or all tasks complete from installation alone.
+      fixture; cover camera/input, limits and disposal. (Procedural tile styles stand in for
+      licensed tilesets; licensed textures are accepted through `tiles`.)
+- [x] T173 Integrate Inkjs with bounded narrative execution, accessible choices, variables/outcomes
+      and validated versioned save/restore; preserve manual chapters and verify preview/export plus
+      malformed-data and step-limit behavior. Deviation: compilation runs in the lazy `ink` asset,
+      because agent-authored scenes have no tool step (see plan).
+- [ ] T174 AssetPack deferred: its image pipeline requires the native `sharp` build that
+      `allowBuilds` disallows; revisit with an approved build-time owner and approved assets.
+- [x] T175 For each admitted slice, extend real Agent planning/writer/Retry/Finish teaching and
+      Arabic/English activation tests; extend deterministic and generated-runtime preview browser
+      fixtures, owner/consumer checks. (Live usage/quality evidence still needs authorized paid
+      evals.)
+- [ ] T176 Layout assessed and deferred: no demonstrated in-canvas HUD need; the dialogue box and
+      game controls stay accessible DOM.
+- [ ] T177 Spine assessed and deferred: runtime licence and licensed skeleton/atlas assets remain
+      unavailable; procedural rigs and sprite states cover character motion meanwhile.
+- [x] T178 Review the actual increment, resolve findings, run scoped checks and update
+      evidence/handoff; record deferrals and remaining live-eval/release gates.
+
+### Creative engines and creative agent — 2026-10-12
+
+- [x] T179 First-party `anim`, `fx` and `dialogue` Studio libraries with unit tests, generated
+      assets and budgets; schema `CK_LIBRARY_REFERENCE`; allowlists in kit/schema/renderer/AI.
+- [x] T180 Creative planner, story bible memory (validate/merge/learn/render), context providers and
+      build-lane brief injection with tests.
+- [x] T181 Skills `pixi-director`, `pixi-animation`, `pixi-effects`, `pixi-dialogue`,
+      `pixi-tile-worlds`, companion selection, budgets, executable examples; move Pixi skills to
+      `skills/creative/`.
+- [x] T182 Playground story bible store/hook, controller wiring, StoryBiblePanel with story, MDX,
+      CSS and behaviour tests; Arabic/English copy.
+- [x] T183 Real-Chromium fixture `test:creative-engines:browser` for the taught examples.
+
+Evidence:
+[verification-creative-engines-2026-10-12.md](verification-creative-engines-2026-10-12.md).
+
+### Studio Indigo chat redesign in code — 2026-10-12
+
+- [x] T184 AgentHeader word-status subtitle from `headerStatusKey`, inside the 44px header, never a
+      live region; copy `header.status.*` in both locales.
+- [x] T185 Free code as a labelled switch chip in ComposerToolbar's choices, described by on/off.
+- [x] T186 `CreativeStarters` in the empty thread with the free-code note and Turn on action;
+      `AgentIcon` glyphs `game`, `dialogue`, `moon`, `book`.
+- [x] T187 `CreativeBriefCard` in a creative build's lead (`BuildTurn.creative`,
+      `model/creative-brief.ts`), planner cast fix for «بطلها X اسمه Y», role ids as catalog words.
+- [x] T188 Fake controller free code and creative scenarios; AgentPanel stories; tests, component
+      contract and Storybook build.
+
+### Studio Indigo platform UX, command palette and feedback — 2026-10-12
+
+- [x] T189 Shell chrome: captioned dark rail, one primary Publish site, segmented workspace view,
+      icon-only pane toggles, shared rail measure for the phone overlay.
+- [x] T190 Arabic labels for the Pages workspace, site map, page menus, History and code panels.
+- [x] T191 `check:file-sizes` guard (source ≤ 500, tests ≤ 800, shrink-only baseline) in `verify`;
+      split App.css, App.tsx, the agent controller hook, the fake controller and large modules.
+- [x] T192 Add `cmdk` and `sonner` through the catalog (MIT, React 19 peers); Storybook pre-bundles.
+- [x] T193 `CommandPalette` (Ctrl/⌘ K, top-bar trigger, EN/AR, RTL) with the live editor command
+      list in `app/use-editor-commands.ts`.
+- [x] T194 `FeedbackToaster` + `notifyPublish`: publish narrated in one toast, Try again on failure.
+- [x] T195 Tests, stories, docs, component contract, file sizes, LTR/RTL screenshots.
+
+### Agent knowledge: skills, memory, checkpoints; canvas chrome; Table and Chart — 2026-10-12
+
+- [x] T196 Engine: `RunAiAgentOptions.hostSkillIds` (`agent/host-skills.ts`): a build's steps and a
+      page plan offer the host's skills first among their optional skills (never mandatory).
+- [x] T197 The person's own skills (`model/user-skills*.ts`, `skill-markdown.ts`): always-on or
+      word-triggered, SKILL.md import/export, an always-on budget, persisted per viewer.
+- [x] T198 Project memory (`model/project-memory.ts`): preferences and site facts sent to every run,
+      answers and plans included, as one reviewed `data` fragment.
+- [x] T199 Checkpoints (`model/checkpoints.ts`, `app/agent-checkpoints.ts`): the page is kept on the
+      vault shelf before every build and edit; Restore to before a request now works.
+- [x] T200 "Skills & memory" in the agent header: KnowledgePopover with Skills, Memory and
+      Checkpoints tabs (SkillsTab, SkillRow, SkillEditor, MemoryTab, CheckpointsTab), EN/AR, RTL.
+- [x] T201 Canvas floating chrome keeps its size under zoom (quick bar, action bar, text bubble).
+- [x] T202 Table and Chart blocks (accessible SVG charts, no new dependency).
+- [x] T203 The composer's `/` lists skills (own, then built-in) and pins up to three to the next
+      message as explicit skills; SKILL.md / SKILL.mdx upload and paste; starter templates; Arabic
+      accusative keywords in the engine matcher.
+
+### Agent tools, data, four blocks, Studio game libraries — 2026-10-12
+
+- [x] T204 Composer commands `/remember`, `/checkpoint`, `/skill` on the words before the slash
+      (`model/skill-slash.ts` `slashCommands`, `hooks/use-knowledge-ui.ts`), EN/AR, status line.
+- [x] T205 `data.show` agent tool (`ai/src/data-tools/`): CSV/TSV/markdown/rows → Chart or Table,
+      number reading, form choice, refill by id; lane catalog lines; skill `craftkit.data-viz`.
+- [x] T206 Zero-token data path: an instruction line over pasted rows is one `data.show` call.
+- [x] T207 Drop a data file on the agent panel (`hooks/use-data-drop.ts`); import a skill from a
+      link (`model/skill-link.ts`), fetched into the Import box to read before adding.
+- [x] T208 Blocks Timeline, MenuSection, Location, Countdown (+ `countdown-clock` pack); Arabic
+      names and property words; palette tiles; publish-through-Tailwind proof.
+- [x] T209 Block-parts gate for Chart, Timeline, Menu, Countdown; dark-section card ink fix.
+- [x] T210 Studio libraries `audio`, `gameai`, `hud` end to end, with skills and browser fixtures.
+- [x] T211 Context cost: `jsMeta` summarised by declaration, template `blockTypes` with the full
+      catalog only; none mode 13,183 → 11,794 wire tokens.
+- [x] T212 Repairs: AI vocabulary generator and its two missing utilities; stale test pins.
+- [x] T213 Inspector "Scene settings" for customCode `jsParams` from the `jsMeta.params` spec;
+      `jsMeta` hidden (field-kinds gate).
+- [x] T214 Default skills for every person (`CRAFTKIT_DEFAULT_SKILLS`): design intelligence from UI
+      UX Pro Max's data (29 kinds of business), landing patterns, UX rules, type and colour, forms,
+      natural Arabic, honest proof; Skills tab "Default skills" (switch, read, make my own), `/`
+      listing, host skills for builds.
 
 Order: T171 → T172 → T173 → T174, with T175/T178 applied to each admitted slice. T176/T177 are
 conditional assessments, not permission to automatically install Layout or Spine. No task above
 requires a paid provider call, commit, push or deployment without separate authorization.
+
+## Increment 2026-10-12 (b) — agent power, batches, creative production
+
+Requested (Arabic): Arabic and English everywhere; a modern compact agent chat; cache reads that are
+not 0; context handled like Claude's own agent chat; background batches AND smarter live workers;
+"high power" for stories, murals, games and websites; any package needed; 10/10.
+
+- [x] T215 `page.translate` registered (edit lane cap 2290 → 2460, measured); natural-copy default
+      skill teaches it. One language for the whole editor: the panel follows the editor locale
+      (VITE_AGENT_LOCALE pins), the editor defaults to the browser's Arabic/English preference.
+- [x] T216 Agent panel: one-row compact composer (workers/effort/mode/model chips, free code),
+      Skills & memory as a centred settings modal, telemetry only when reported, the shared column
+      pinned while Assistant shows; compact 44px rail tiles (the rail fits 760px).
+- [x] T217 Speed: entry chunk 1,520 → 870 kB gzip; Add page paints in ~30 ms at any page count (site
+      validation reuses untouched frozen pages; `isAssetRef` prefilter; memoised page list); page
+      ids skip every id the site holds (Add page after a reload was refused).
+- [x] T218 Prompt cache: one-hour breakpoints on rules, catalog, skills and the conversation;
+      same-prefix calls staggered behind the first stream (`cache-gate.ts`); the routing client
+      forwards the API's stream start.
+- [x] T219 Thinking off in the form each model takes (Opus/Sonnet 5.5 refuse `disabled`: every build
+      and «Improve» failed on `api:claude-*-5-5`); a failure after the stream began reaches the
+      client as its status (`error` frame), not as an invalid answer.
+- [x] T220 Context: history opens on a user turn; over budget the oldest exchanges go, then entries
+      are capped, before failing; Arabic counted at 2 chars/token; a context meter; the chip names
+      the sections the engine focused on.
+- [x] T221 Stories/games scale and stack the same in canvas, Preview and published (`--ck-vh`,
+      `ck.stage` follows its region); the free-code card teaches width-sized stages and `ck.scene`.
+- [x] T222 Message Batches: `/batch` routes (Messages API only), shared `plan-params` /
+      `plan-answer` / `plan-request` / `plan-errors`, `createRemoteBatchClient`,
+      `createAiBatchRunner` (one Undo per page, resumable apply).
+- [x] T223 Creative activation from GENRES (bedtime, picture book, fairy tale… AR/EN, business
+      negatives kept); every scene section gets the page's cast and setting; playbooks
+      `craftkit.pixi-physics`, `pixi-scroll-murals`, `pixi-page-shapes`; bedtime read-aloud; scene
+      writers keep thinking at medium with a 48k output budget.
+- [x] T224 Scene code checked before it lands (`check-scene.ts`: syntax, libs, DOM lookups, height,
+      lifecycle, guards, forbidden), one repair with "js line N"; the door refuses unparseable js;
+      scene writers start first and get 420 s.
+- [x] T225 The 30 curated scene presets: frozen catalogue, unit + Chromium tests, seven fixed;
+      `s.shader` promotes vertex-stage uniforms to highp; rough's reference corrected.
+- [x] T226 Single-run edits of a scene get its playbooks, the director and a creative brief.
+- [x] T227 Background jobs panel (start, list, poll, apply, retry live; EN/AR); `/batch` command.
+- [x] T228 Run-check-fix: probe each scene in an off-screen frame (errors, blank, coverage, hidden
+      controls; 1280 and 390, reduced motion, RTL) → one runtime repair; wired for free-code builds.
+      Its first finds fixed: the card's stage gets `width:100%`; the aurora shader links.
+- [x] T229 `scene.preset` agent tool over the catalogue; lane caps measured; server copy.
+- [x] T230 Real multi-page sites (up to 8 pages): `planAiSite` (server `task:'site-plan'`, else the
+      words), every page built at once under one run, one writers' pool (`createAiWriterPool`)
+      shared across pages, a record per page, per-page Undo.
+- [x] T230b Site pages linked in each page's header/footer menu (`nav.pages`, one transaction per
+      page, aria-current), slug addresses from Latin titles.
+- [x] T230c Language versions of a whole site: every built page (never the person's own) gets its
+      versions, each language's pages link each other under their translated names.
+- [ ] T230d Translations through the batch queue (half price, background) — not started.
+- [x] T239 Full regression sweep (builder-ai by area, schema, renderer, media-engines, editor, core,
+      shell, ai-server, playground: all green). Fixed on the way: the Pixi containment guard read a
+      test fixture as an import; core's site-door list lacked the script/sound commands; the history
+      merged two array-splicing steps, so Undo after a quick move out and back duplicated a node
+      (property suite seed -928950502, red on builder-core too).
+- [x] T231a Scene text translatable and editable: `s.lib.dialogue.fromDom` (lines in the tree, five
+      `data-ck-*` dialogue markers at the door); `page.translate` covers text jsParams.
+- [x] T231b The door admits the hooks scene code finds (21 playbook hooks + `data-scene-*`); it
+      dropped them all before, so written games lost their controls. check-scene names them.
+- [x] T231c Every scene writer sees the page's arc (craftkit:story-arc); a literal tile level whose
+      exit or pickups are walled off is sent back (`scene-level`, column and row).
+- [x] T237 Smarter live workers: the writers' pool halves on 429/503/529 and grows back one at a
+      time (AIMD), live in every page and site build (`congestionAwareProvider`).
+- [x] T238 Preset art: reaction-diffusion, coral, particle text, Mondrian, domain-warp, calligraphy,
+      aurora, girih, arabesque, magnetic grid and confetti look finished within seconds.
+- [x] T232 The agent looks at its scenes: the scene probe photographs each scene section (desktop
+      640×360 and the 390 px phone, SVG foreignObject, canvases as their current frame), and one
+      review per scene section (`POST /v1/scene/review`, the fastest model of the route, Messages
+      API only) turns up to five visible failures into `scene-visual` findings for its one repair.
+- [x] T242 Build lessons: a kept repair records what it fixed (one line each, at most six), and
+      every later writer of the same build reads them (`build-lessons.ts`); a scripted writer
+      repeating one mistake needed four repairs without lessons, one with.
+- [x] T233 People for stories and games: `s.lib.peeps` (Open Peeps, design CC0, through DiceBear
+      9.4.3, MIT), lazy `ck-lib-peeps.js` 111.3 kB gzip, no network; a name fixes the look, a mood
+      the face; dialogue portraits per mood; taught by the director, dialogue, story and game
+      playbooks and the planner. Kenney packs: not fetched (kenney.nl is outside this environment's
+      network policy) — allow it in the environment to add them.
+- [x] T241 Responsive scenes: `ck.scene({design})` draws in `s.world` at a design size the kit fits
+      to every region (letterbox in the theme surface, pointer in design units, `s.compact`,
+      `s.portrait`, `s.ui`); `zoom` with `libs:['viewport']` makes `s.world` a clamped pixi-viewport
+      camera that never traps the page. Game and story playbooks compose at 1280×720.
+- [ ] T234 CI: the workflow's root `playwright install` step and ~875 files failing
+      `prettier --check` (both pre-existing on builder-core) — owner's decision.
+- [x] T235 Page plans fit a long history with `fitAiPlanWireHistory` instead of failing on context
+      overflow.
+- [x] T236 The agent panel keeps one live region: `/` command answers speak through LiveStatus;
+      agent stories brought up to the compact chat (workers chip, cards, radius 16).
+- [x] T240 The cache doctor (ai-server `cache-doctor.ts`): every call that wrote the prompt cache
+      instead of reading it is named — first of its kind, expired, another model, thinking/effort
+      changed, rules/catalog/skills block changed, history changed — by comparing it with the
+      previous call of the same kind, and on `api:` slugs by the Messages API's own diagnosis
+      (`cache-diagnosis-2026-04-07`, previous_message_id; a refused beta is retried without it). The
+      reason reaches the server log and the run telemetry (EN/AR). A reproduction through the real
+      client, handler and prompt keeps the prefix byte-stable (`cache-prefix.integration`). Every
+      route reads the cache now: OpenRouter's `anthropic/` slugs keep the hour and the conversation
+      breakpoint (`openrouter-cache.ts`, back to five minutes for good only when OpenRouter refuses
+      the hour and accepts the old form); other vendors cache a stable prefix by themselves; the
+      prompt enhancer's rules are cached; batches and authored runs already were. The site plan's
+      rules (~450 tokens) stay under the API's 512-token floor.
+
+## Increment 2026-10-13 (b) — design round: templates, elements, Tailwind, builder UX, performance
+
+The owner asked (Arabic) for better designs and template designs, more elements, Tailwind packages
+that raise design quality, the whole builder's design and UX fixed, and better performance and code
+separation. Five bounded helpers, each verified in a clean worktree and committed on its own.
+
+- [x] T243 Six new templates (education, fitness, law firm, nonprofit, hotel and travel, personal
+      brand; EN + AR) and a rhythm pass on the nine (a dark section each, no three same tones in a
+      row, a distinct closing CTA), held by `design.test.ts`; every template file under 500 lines.
+      The agent is offered only the templates in the page's direction (`CompositionDef.dir`,
+      `template-context.ts`), so the list it pays for halved (30 → 15).
+- [x] T244 Eight new elements: beforeAfter, pullQuote, reviewSummary, caseStudy, jobsList,
+      downloadList, appDownload, fundraiser — full contract, tokens only, RTL, every word a part.
+- [x] T245 Tailwind plugins: @tailwindcss/typography, @tailwindcss/forms (class strategy) and
+      tw-animate-css, themed through the --t-* tokens and calm under reduced motion, on the canvas,
+      in preview, the export and the AI door; the design skills teach them within their ceilings.
+- [x] T246 Builder design pass: one panel system (spacing, surface, titles, search fields), Layers
+      that fit, the Inspector brought forward at narrow widths, guidance on an empty page and in
+      Help, translated Settings, undo/redo feedback, tooltips with shortcuts, a preview toolbar.
+- [x] T247 Code separation and first load: EditorCanvas.tsx 3,136 → 491 and AssistantPanel.tsx 1,942
+      → 446 lines (tests split with every assertion kept); vendor chunks; entry 913.6 → 625.7 KB
+      gzip. The theme gate is green again (two runtime-written tokens declared).
+- [x] T248 First-load JS back under its 1,151 KB budget: the page templates load on demand
+      (`@craftkit/builder-blocks-marketing/templates`, `loadMarketingTemplates`,
+      playground-templates.ts — idle preload once the canvas is live, at once when the Templates tab
+      or "Start from a template" asks); initial JS 1,181 → 1,080 KB gzip, entry 544 KB.
+- [x] T249 The agent remembers its conversation and the cache reads it (conversation-memory.ts): up
+      to 40 messages whole, a window that steps 16 at once with a digest of what it left behind,
+      builds and plans named by their sections, and the skills a conversation woke carried into its
+      next runs (`carriedSkillIds`). Measured over 48 turns through the real client and server: the
+      full prefix read on 39 turns instead of 3.
+- [x] T250 Particle presets on `s.lib.emitter` (fire, smoke, sparkles, snow, rain, confetti, magic,
+      bubbles, leaves, petals, fireworks, dust, embers; `spawn`/`burst`, procedural atlas,
+      palette-aware, RTL wind, reduced motion as a still frame) and `s.lib.physics.world(s)`
+      (Matter.js: walls, linked displays, pointer drag in design units, calm settle, dispose).
+      Emitter budget 12,000 → 17,400 B gzip (measured 16,545 + 5%); physics 29,424 of 29,500.
+
+## Increment 2026-10-13 (c) — ready scripts and Pixi packages, to lower the agent's cost
+
+The owner asked (Arabic) for the packages that strengthen PixiJS results, and for ready-made scripts
+for the things the agent does often, so each costs it less. What the agent used to write as code it
+now names: a preset id and params, a `data-ck-behavior` value, a library call.
+
+- [x] T251 Two lazy Studio libraries: `s.lib.procgen` (rot-js 2.2.1, BSD-3-Clause; 11,745 of 12,400
+      B gzip — seeded dungeon, cave and maze maps, every one connected, RTL-mirrored start, path,
+      fov, scatter, tilemap rows) and `s.lib.gif` (gifuct-js 2.1.2, MIT; 7,480 of 7,900 B — bounded
+      GIF sprites on the scene's tick, still under reduced motion). Rejected with reasons in the
+      media-engines README: @pixi/gif, @pixi/layout + yoga-layout, poisson-disk-sampling.
+- [x] T252 Six ready website behaviours (back-to-top, read-more, scroll-spy, typed-words, filter,
+      dismiss): audited renderer packs shipped only to the pages that name them, a vocabulary the
+      door owns (`site-behavior-vocabulary.ts`), a site-behaviors playbook, and a Chromium test of a
+      published page by keyboard, LTR/RTL, with and without motion, under a strict CSP. All-packs
+      budget 23,000 → 27,000 B gzip.
+- [x] T253 The free-code card names the ready behaviours instead of teaching a hand-written count-up
+      (the card is 193 characters shorter on every free-code request, and the model no longer writes
+      ~400 characters of script for a counter); a test holds each name to the enum.
+- [x] T254 Fixes the new tests found: a stored `hidden` attribute rendered visible (React drops a
+      falsy `hidden`; it is now a boolean attribute); a sticky header could not stick on a published
+      page (its region now sticks with it, proven by the Chromium test failing without the rule);
+      `copy-text` now says "Copied" / «تم النسخ» politely to screen readers.
+- [x] T255 Eleven ready kits on `scene.preset` (game: arcade, platformer, runner, breakout, memory,
+      quiz, snake, catch; story: picture-book, visual-novel, scroll-story): a kit lands as its own
+      section in the page's language, its words in the tree, palette/seed/speed/density and its own
+      params; keyboard only with focus, on-screen controls, pause, polite status, reduced motion as
+      manual steps, RTL. One call costs ~24–84 tokens against ~3k–7k written (58,234 → 394 typical
+      over the eleven). Played in Chromium (15 kit tests, 42 preset tests).
+
+## Increment 2026-10-13 (d) — murals that land, cheaper reviews and batches, ready repairs
+
+The owner reported (Arabic) that murals failed on time and no PixiJS mural landed, and asked for
+strong cost work: Batches with prompt caching, the visual review, mural libraries, free art packs
+and ready scripts for what the agent does again and again.
+
+- [x] T256 Murals no longer time out (b1b3da8, 3a1a5ed): a mural writer wrote its whole scene by
+      hand and a write still running at its 420 s deadline was thrown away, the retry repeating it.
+      Scene writers are now shown the ready backdrops that fit their brief and place one with
+      `@preset:<id>` (the build puts the tested code in, a repair round sees the name); a writer
+      whose first attempt failed places one; own code is asked to stay under 9,000 characters. A new
+      mural in an edit gets the same short list for one `scene.preset` step. Games and stories keep
+      their kits.
+- [x] T257 Review and batch economy (0a396d7): tested scene code (a preset or kit byte for byte)
+      skips the model's review; a verdict is reused by a hash of what the pictures were drawn from
+      (9 paid reviews → 2 in the fixture); the review's pretend breakpoint is gone (its shared
+      prefix is ~360 tokens, under every model's minimum; `minCacheableTokens`); reviews can ride
+      `/batch`; batch items keep their live one-hour breakpoints, and a batch whose 3+ items share a
+      cacheable prefix is warmed by one live `max_tokens: 0` call first.
+- [x] T258 Ready repairs and scripts (a75fb33): `tidySection` repairs 30 of the checker's 62 kinds
+      of slip in code before the check (headings, anchors, action links, raw colours, contrast,
+      scene height, libs, params, motion guard, cleanup), each kept only when the check finds
+      strictly fewer issues — four of five repair rounds avoided in a scripted page; `section.ops`
+      tone and space with zero-token readings in English and Arabic.
+- [x] T259 Mural libraries and art (1fc0518): `s.lib.noise` (simplex-noise), `s.lib.geom`
+      (d3-contour, polybooljs), `s.lib.hex` (Kenney's Hexagon Pack, CC0, from npm — kenney.nl is
+      blocked here); six one-call murals (set-d); PRESETS FIRST in the mural playbook. Rejected with
+      reasons: d3-delaunay and clippers (Unlicense dependency), fastnoise-lite, bezier-js, Game
+      Icons (CC BY), palettes.
+
+## Phase 10: Convergence — scene speed increment, 2026-10-13
+
+- [x] T260 Resolve the final independent review of SP-001..004, repair accepted findings, and record
+      the verdict for SP-T5. Local independent review and repairs are complete. After automatic
+      approval review rejected the external CLI action, the user explicitly instructed “لا، اكتفِ
+      بالمراجعة المحلية” on 2026-10-13. The enforced external runtime review is waived for this
+      increment under the scoped exception in plan.md; it was not executed and no CLI pass is
+      claimed. Do not retry the declined action without new user authorization. Native independent
+      review and local implementation checks passed; see `verification-scene-speed-2026-10-13.md`.
+
+## Authorized reliability and visual follow-up — 2026-10-13
+
+User selected speed/reliability plus open visual repairs (“1+2”). Requirements and plan:
+[SP-005..007](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13).
+
+- [x] T261 [P] Enforce section deadline settlement for non-cooperative providers in Builder AI;
+      preserve cancellation/timeout semantics and add helper plus real-build regressions.
+- [x] T262 [P] Forward CLI output caps and per-call effort to cold/warm processes in AI server;
+      separate warm generation shapes, remove avoidable cache waits/retries, retain known legacy API
+      compatibility, and verify using fake CLI children/providers.
+- [x] T263 [P] Export the marketing owner stylesheet through public marketing/Builder entries and
+      compose it into Playground static publishing; verify dark slabs and comparison rules.
+- [x] T264 Integrate T261..263, perform independent local review, repair findings, run focused
+      owner/consumer checks and record results/limits in the shared handoff. The user's local-only
+      review instruction remains in effect; do not launch the declined external reviewer.
+
+Evidence: [follow-up verification](verification-reliability-visual-2026-10-13.md), including final
+Chromium probes and current-catalog offline JSON measurement. Existing release tasks remain
+separate.
+
+## Empty-canvas incident and request-skills repair — 2026-10-13
+
+Requirements and bounded plan:
+[SP-008..011](scene-speed-2026-10-13.md#authorized-empty-canvas-and-request-skills-repair--2026-10-13).
+
+- [x] T265 [P] Bound complete edit/page-planning lifetimes and reject metadata-only scene creation
+      through ordinary validation, the existing one repair, and salvage; preserve metadata edits.
+- [x] T266 [P] Bound full server generation/streams/fallback and avoid stacked provider retries.
+- [x] T267 [P] Bind optional skill selection inline to each prompt, remove persistent chips and the
+      three-selection limit, disclose Auto salvage and advance real application progress.
+- [x] T268 Route explicit creative creation on empty pages through builds despite later modifiers;
+      integrate enabled automatic creative skills without weakening token/trust/ownership limits.
+- [x] T269 Review independently, repair findings, verify exact failures plus scoped consumer/gates,
+      and record local results and limits in shared continuity.
+
+## Phase 11: Convergence — request-skills continuation, 2026-10-14
+
+- [x] T270 Preserve the captured prior semantic brief when revising a pending page plan after a
+      skill rename/name collision, while keeping explicit choices limited to the current request;
+      add a real-controller regression, independent review and affected checks per SP-011 (partial).
+
+Evidence:
+[empty-canvas and request-skills verification](verification-empty-canvas-skills-2026-10-13.md),
+including final convergence, independent review, browser checks and live-provider limits.
+
+## Increment 2026-10-13 (f, libraries) — more mural libraries
+
+Merge reconciliation (2026-10-14): upstream library tasks `T261` (`7cf96bd`) and `T262` (`e0b682d`)
+are recorded as `T271` and `T272` here. `T261..T270` above retain their existing scene-plan and
+verification references. Both library tasks retain their completed status and original commit
+history.
+
+- [x] T271 FastNoiseLite 1.1.1 and Bezier.js 6.1.4 (7cf96bd), on the owner's word: neither npm
+      tarball carries a LICENSE file, so both are COPIED verbatim under `media-engines/vendor/` with
+      their upstream MIT licences and PROVENANCE.md (sha256 pinned by tests) and listed as
+      `vendored`, like webgl-noise and zzfx — the licence audit is unchanged. `s.lib.noise` 1.1.0
+      gains perlin / value / value-cubic / opensimplex2 / opensimplex2s; `s.lib.geom` 1.1.0 gains
+      `curve()` with offsets and tapered outlines.
+- [x] T272 culori, lindenmayer, d3-shape and simplify-js (e0b682d), installed through the catalog:
+      `s.lib.color` (OKLCH ramps, harmonies, contrast, readable ink), `s.lib.lsys` (seeded L-system
+      growth, capped), `s.lib.geom` 1.2.0 (splines, arcs, pie, simplify), and four set-E murals
+      (botanical-garden, gradient-waves, arc-rings, arabesque-scroll), offered to build writers as
+      ready scenes. 7b7614b aligns one stale ai-server assertion with efea3b7's always-on `text`
+      listener.
+
+## Increment 2026-10-14 (h) — analytical report pages
+
+- [x] T273 Excel and JSON on the agent panel (dc41055): a dropped `.xlsx` is read in the tab by
+      `model/xlsx-rows.ts` (fflate unzip, MIT, lazy chunk; the browser's XML parser) — first
+      sheet, shared/inline strings, numbers without float noise, percentages, ISO dates (1900 and
+      1904) — and goes into the draft as CSV under the instruction line. Bounded: each inflated
+      part capped, 5,000 rows x 40 columns, 2 MB file, 20 KB of rows; a damaged workbook gets an
+      "unreadable" refusal (EN/AR). `.json` files are taken as they are.
+- [x] T274 `report.page` and the deterministic analysis engine (6b7e7d3): `data-tools/analysis/`
+      computes every figure (totals, averages, median/spread, change, growth, CAGR, shares, trend
+      with R² and a worded projection, outliers, correlations, group-by, pivot, profit/margin,
+      attainment, budget remaining) and ranks EN/AR findings. One call (~47 tokens) appends a
+      stats header with up to four key-stat cards, charts chosen from the analysis, a findings
+      list, and interactive summary and data tables (sortable by column kind, sticky header,
+      search and pages past ten rows). `readDataText` reads JSON; the zero-token path routes
+      "detailed report / dashboard page / analyse" and the Arabic wording to it; data-viz 1.2.0
+      teaches it. ai-server `handler.test.ts` "answers a unary page plan…" fails on dc41055 with
+      or without this change (it expects a `restart` subscription the handler no longer makes);
+      left for the owner.
+- [x] T275 Brand logos, cartoon characters and illustrations (d0272af): verified catalogs generated
+      by `scripts/build-art-catalog.mjs` into `packages/builder/ai/src/art-catalog/` — Simple Icons
+      16.33.0 (3,335 brands, trademark note), DiceBear 9.x styles needing no credit (CC0 or free for
+      commercial use; CC BY styles refused), Fluent Emoji Flat (MIT) — hotlinked https like the
+      photo catalog, loaded lazily (62 KB gzip chunk; +640 B first load). The model writes
+      `logo:` / `character:` / `illustration:` specs in media.add, kit slots, part.image and
+      image.set; LogoCloud items take a logo; testimonials kits an avatar; the section check admits
+      verified art. Open: the Testimonials block has no image field; the edit lane sees the ART
+      teaching only when the host selects photo-direction (playground `features/agent` skill
+      code); cdn.simpleicons.org serves the latest release, not the pin.
+- [x] T276 A mural ships no explanation card or Next/Restart buttons unless asked (696a1a6): the
+      creative brief gave every kind the game/story accessibility lines (controls and story text
+      in the DOM, manual navigation, dialogue choices); a scene now gets its own
+      (`creative/creative-accessibility.ts`), a request naming a mural stays a mural even when it
+      tells a story (no dialogue box), and the mural playbook says no UI unless asked.
+- [x] T277 Mural scale on every screen (e58ce1c), on the owner's word "use pixi-viewport": measured
+      in Chromium, the region was right everywhere; the picture was laid out in CSS pixels (3.3x
+      zoomed in on a phone). All set-A/D/E murals compose once at 1280x720 in `s.world` with
+      `design:{…,fit:'cover',zoom:true}` + `libs:['viewport']`; playbook, core SIZE line and the
+      free-code card (and server copy) teach it. Saved pages keep their stored code. Open: the
+      phone's 3:4 init region crops to the middle; `scene-initializer.ts` could keep 16:9 with copy
+      below (proposed diff in the session, not applied).
+- [x] T278 Skills chosen from the request in every lane (67c6be6, 4c12b89; owner-approved wiring):
+      `skills/request-skills.ts` (host, page-plan, section, edit lanes), new auto skills
+      `craftkit.art-names` (logo/character/illustration specs) and `craftkit.logo-design` (an
+      original SVG mark + wordmark), dialect folding («سويلي», «اعمل لي»), keyword fixes,
+      `excludedSkillIds`; the page plan sheds the request's skills before its own; writers get
+      their own section's skills instead of the page's matched defaults. Open: the kit
+      header/footer `brand` slot is text-only (no SVG mark); «صمم لي شعار لمقهى» on a blank page
+      routes as a page build; per-person switches for built-ins need a UI.
+- [x] T279 Built-in skill switches (ce010ba): a "Built-in skills" group in the Skills tab (grouped,
+      filter, reset, EN/AR, RTL, stories), stored per viewer as `ck-agent-builtin-skills:v1`, and
+      `excludedSkillIds` respected in the edit lane, host ids, page plan, scaffold, writers and scene
+      pins; engine-required skills stay on; a /skill pick wins. Open: `ALWAYS_ON_SKILL_IDS` in the
+      playground mirrors the engine's `ENGINE_REQUIRED_SKILL_IDS`.
+- [x] T280 Illustrated mural stories (e82d670): `s.lib.anim` timelines gain from/fromTo, stagger,
+      labels, relative positions, seek/progress/time (scroll scrub); GSAP stays out (licence). Set F:
+      desert-caravan, fishing-village, seed-to-forest, souq-morning — painted panoramas on one
+      labelled timeline, no UI, loop or scrub; playbooks and planner teach the mural-story form.
+- [x] T281 Any mural on demand (818758a, 37961b6): `s.lib.mural` composes a mural from a 1-3k
+      character spec (moods, time arc, five parallax layers, 61 illustrated items, a cast and 3-5
+      beats on one anim timeline; loop/scrub/still; never throws, warns). Nine bespoke fixtures
+      (reef, space, Ramadan night, Japanese garden, winter village, Amman skyline, fairy forest,
+      farm, harbour) run in a browser suite. Playbooks teach COMPOSE FIRST; the planner and the
+      writer's ready-scene lines send a pictured mural no preset closely matches to the kit (owner
+      approved the scene-ready.ts / check-scene.ts lines). Open: a retry still falls back to ready
+      scenes; thin people/animals; one tint for every layer; the kit is 24.7 kB gzip.

@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-11",
+  "updatedAt": "2026-10-14",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-pixi-telemetry-verified-release-open",
+    "phase": "professional-builder-agent-014-empty-canvas-skills-locally-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
-    "gitBranch": "builder-core",
+    "gitBranch": "ccr-9f53a999-qdbfom",
     "gitCommitCount": 44
   },
   "technologyBaseline": {
@@ -47,10 +47,7 @@
     },
     "builderKernel": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-schema",
-        "@craftkit/builder-core"
-      ],
+      "packages": ["@craftkit/builder-schema", "@craftkit/builder-core"],
       "dependencies": "zod-4.4.3, immer-11.1.18, zustand-5.0.15 (vanilla), nanoid-6.0.1, fast-check-4.9.0",
       "mode": "internal-packages (src exports, no build step)",
       "boundaryEnforcement": "workspace-tools validate-builder-boundaries (ADR 0003)",
@@ -72,36 +69,28 @@
     },
     "builderShell": {
       "status": "implemented-inspector-devices-preview",
-      "packages": [
-        "@craftkit/builder-shell"
-      ],
+      "packages": ["@craftkit/builder-shell"],
       "scope": "B2a read-only canvas + B2b drag editing + B3a editing surface: schema-generated Inspector (zero panel code per block; guarded one-dispatch commits; structural group labeling; per-def lazy field-type cache with containment and R8 focus lock), default field library (draft discipline: external writes always win), DeviceBar + bucketForWidth (768/1024 half-open, drafts commit on blur/Enter only), EditorCanvas frameWidth+breakpoint (frame shell shares origin with overlay), PreviewMode (publish-safe path, zero-tx round trip, modal-surface Escape, view-state dir override).",
       "performanceLaw": "merge gates count (0 content re-renders, observer-attributed updates); wall-clock budgets belong to uncontended evidence runs only",
       "chromeTheming": "shell-owned --bldr-* custom properties with inline fallbacks, independent of the document --t-* theme"
     },
     "builderRichText": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-richtext"
-      ],
+      "packages": ["@craftkit/builder-richtext"],
       "dependencies": "@tiptap/{react,starter-kit,core,pm} 3.30.3 (exact catalog pins)",
       "containment": "BUILDER_CONTAINED_DEPENDENCY validator rule (all sections + npm aliases + the workspace ROOT manifest) plus a discovery-derived import-specifier graph test",
       "readPath": "zero-dependency RichText renderer — canvas, preview, and static output never load the engine"
     },
     "builderTransforms": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-transforms"
-      ],
+      "packages": ["@craftkit/builder-transforms"],
       "dependencies": "none at runtime; fast-check (catalog) as a devDependency for the round-trip proof",
       "law": "parse(project(d)) reproduces d for arbitrary registry-generated documents; second-print idempotence; a NON-VACUOUS gate kills a parser that returns [] forever. 1,000 cases per law, fixed seeds, merge-blocking.",
       "domainAlignment": "MAX_JSON_DEPTH = 128 and the reserved-key refusal (__proto__/constructor/prototype, doc/reserved-node-id) exist so everything a document may HOLD can also be WRITTEN through the patch door — otherwise the round-trip law is quietly false. The strict scanner keeps 256 as an unreachable parser margin."
     },
     "builderCodeView": {
       "status": "implemented",
-      "packages": [
-        "@craftkit/builder-code-view"
-      ],
+      "packages": ["@craftkit/builder-code-view"],
       "dependencies": "none — native <textarea>, no CodeMirror/Monaco; a handwritten typed postMessage protocol, not Comlink (ProjectionDef holds FUNCTIONS, which cannot be structured-cloned)",
       "offThread": "SC-005 proven twice: STATICALLY the main-thread modules cannot import the codec at all, and DYNAMICALLY a typing burst invokes it zero times in the render realm. Counted, never timed.",
       "payPerUse": "two entrypoints: the production entry reaches ./worker dynamically or as types only; ./testing carries the loopback and raw client so unopened sessions load no worker plumbing."
@@ -122,23 +111,10 @@
     "version": "1.0.1",
     "root": ".specify",
     "defaultIntegration": "codex",
-    "installedIntegrations": [
-      "claude",
-      "codex",
-      "cursor-agent"
-    ],
-    "extensions": [
-      "agent-context@1.0.0",
-      "workspace@1.4.1",
-      "routing-performance@1.0.0"
-    ],
-    "presets": [
-      "react-monorepo-quality@1.0.3"
-    ],
-    "workflows": [
-      "speckit@1.0.0",
-      "professional-sdd@1.5.0"
-    ],
+    "installedIntegrations": ["claude", "codex", "cursor-agent"],
+    "extensions": ["agent-context@1.0.0", "workspace@1.4.1", "routing-performance@1.0.0"],
+    "presets": ["react-monorepo-quality@1.0.3"],
+    "workflows": ["speckit@1.0.0", "professional-sdd@1.5.0"],
     "professionalWorkflowSteps": 24,
     "reviewerProfile": {
       "integration": "codex",
@@ -151,11 +127,7 @@
       "coordinator": "initiating integration; Codex by project default",
       "worker": "native Codex workers for Codex runs; official codex@openai-codex plugin jobs backed by the Codex app server when Claude coordinates",
       "operation": "speckit.workspace.delegate",
-      "modes": [
-        "auto",
-        "required",
-        "off"
-      ],
+      "modes": ["auto", "required", "off"],
       "routingPolicy": {
         "codexInitiated": "stay in Codex; never invoke Claude unless the current user explicitly requests Claude",
         "claudeInitiated": "Claude may call Codex through the official plugin for bounded approved work",
@@ -227,15 +199,21 @@
     ]
   },
   "currentWork": {
-    "status": "idle-pixi-telemetry-locally-verified-feature-014-release-open",
-    "scope": "builder-ai provider/agent usage and creative skills; ai-server usage/progress transport; Playground Agent telemetry/short-panel scroll; media-engines scene kit 1.1.0; schema CK reference; renderer generated kit; Evals creative browser fixture; existing shared Storybook catalog",
+    "status": "empty-canvas-and-request-skills-locally-complete-release-open",
+    "scope": "Builder AI edit/page-planning lifetime, scene creation validation, intent and automatic skills; AI server complete call lifetime; existing Playground inline request skills, stable queue/continuation/Retry snapshots, partial records and progress; SP-008..011/T265..270",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "completedTasks": "T165-T170 checked with verification-pixi-telemetry-2026-10-11.md; PX-001..005 locally verified. Prior BQ T160-T164, CHAT T154-T159 and QF T148-T153 evidence remain separate. Historical feature 014 tasks were not bulk-checked.",
-    "nextUncompletedTask": "T045",
-    "blocked": {
-      "liveEvals": "Release visual ratings require three independent raters; live provider/cost results require actual configured provider runs. Do not fabricate quality or speed evidence."
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/scene-speed-2026-10-13.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-empty-canvas-skills-2026-10-13.md",
+    "completedTasks": "SP-T1..9 locally complete; T260 accepted local review, and authorized follow-up T261..264 complete. Prior verification artifacts retained. Follow-up: Builder 18 files/186 tests, server 10/154, publishing 6/22, marketing 2/30, independent Builder 3/28; final Chromium 8/8. Five owner/consumer types, scoped lint/format, both production builds, first-load budgets and workspace/boundary/size gates passed. Independent findings for dated legacy models and aliased published documents repaired; final local reviews clean. Current catalog 28 presets/1400 offline runs, 98.08% fewer JSON characters; no live generation measurement. SP-T10..14/T265..270 are locally complete. Final primary: intent/creative 20 files / 2493 tests, engine 13 / 174, UI 7 / 100 then T270 2 / 27; server full 47 / 759. Worker UI 15 / 238 then final T270 2 / 41; independent server 27, intent 48, engine 110, skills 31 plus T270 2. Four owner/consumer types, scoped lint/format, server/Playground builds, full Storybook build and 4 story files / 113 browser tests passed. Request-skills Chromium 2/2: five inline choices, seven automatic creative skills, zero chips/overflow/leaks. Workspace 37, components 259, file sizes 4381, boundaries 5579 files / 37 packages, graph 37 / 185 and final load budgets passed. One medium convergence gap (pending-plan rename metadata) was repaired as T270; final scoped convergence has no remaining gap.",
+    "nextUncompletedTask": "Older feature014 release gates; no remaining T265..270 implementation/local verification task.",
+    "reviewDecision": {
+      "date": "2026-10-13",
+      "userInstruction": "لا، اكتفِ بالمراجعة المحلية",
+      "result": "Local independent review accepted for this increment. After automatic approval review rejected the external CLI action, the user declined it. The enforced external runtime review is waived only for this scope; it was not run and no CLI pass is claimed.",
+      "exceptionPlan": "specs/workspace/014-professional-builder-agent/plan.md"
     },
-    "nextAction": "No requested PX task remains. See verification-pixi-telemetry-2026-10-11.md: real generated-runtime game/story/mural 4 Chromium matrices, live chat 10 variants, Storybook 6 plays/full static build, Playground/server builds, AI 92 and UI 70 final regressions, media 60 and renderer 34 tests, owner/consumer types, workspace36/component222/boundary4506 contracts and fresh independent review/scoped convergence passed. Creative skills reach actual planning, scene-writing and successor contexts; free-code opt-in, ordinary kit writers, budgets and public API boundaries remain intact. Usage is measured/unknown, retries have distinct receipts, 65th-attempt overflow remains unknown after reload. Existing create-scene lint debt and bundle warnings remain; do not claim full pnpm verify, all-game support or live-model speed/quality/cost. On a newly authorized continuation inspect T045/T122; representative paid evals require separate authorization. All new work is unstaged; preserve unrelated direction-set.ts/nav-sync.ts user edits. Task-owned local server5194 was stopped. No package installs, paid calls, staging, commits, pushes or deployment."
+    "verificationLimits": "Earlier artifacts remain historical scoped evidence. Local real-kernel/controller/fake-SDK reproductions verify false empty-canvas completion, non-cooperative deadlines, stalled streams and request-skill identity repairs. Original provider traces, live generation latency/billing and representative bespoke visual quality were not measured. Static scene witnesses do not prove pixels; complete multi-step builds are not promised within an edit deadline. Providers that ignore abort may continue remotely. No external CLI/full professional-sdd runtime, paid generation, dependency install, saved-data migration, commit, push or deployment.",
+    "nextAction": "No further requested implementation/local checks for this bounded increment. Preserve all prior diffs and data; refresh the local UI for a new request. Older release and live-model evaluation gates remain separate and the local-only review preference persists."
   },
   "qualityGates": {
     "governanceConfigured": true,

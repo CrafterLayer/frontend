@@ -1,0 +1,174 @@
+/*
+  The "Skills & memory" place's shared parts (2026-10-12): the intro line, a field with its
+  label above, a text area, a quiet button and the Accent one, the refusal line and a row
+  list. Imported by every tab so each renders the same alone (a story) as in the popover.
+  Builder tokens only; logical properties only.
+*/
+
+.ck-agent-kn-intro {
+  margin: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-wrap: pretty;
+}
+
+.ck-agent-kn-field {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  min-inline-size: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-kn-hint {
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-regular);
+}
+
+.ck-agent-kn-input,
+.ck-agent-kn-textarea,
+.ck-agent-kn-select {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-sm);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  color: var(--bldr-panel-text);
+  font: inherit;
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-kn-textarea {
+  min-block-size: calc(4 * var(--bldr-control-md));
+  resize: vertical;
+}
+
+.ck-agent-kn-textarea--mono {
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-meta);
+}
+
+.ck-agent-kn-input::placeholder,
+.ck-agent-kn-textarea::placeholder {
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-kn-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-md);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-md);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-kn-button:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-kn-button[data-variant='primary'] {
+  border-color: var(--bldr-accent);
+  background-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-kn-button[data-variant='primary']:hover {
+  background-color: var(--bldr-accent-strong);
+}
+
+.ck-agent-kn-button[data-variant='quiet'] {
+  border-color: transparent;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-kn-button:disabled,
+.ck-agent-kn-button[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ck-agent-kn-input:focus-visible,
+.ck-agent-kn-textarea:focus-visible,
+.ck-agent-kn-select:focus-visible,
+.ck-agent-kn-button:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-kn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-kn-refusal {
+  margin: 0;
+  color: var(--bldr-danger);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-kn-status {
+  margin: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-kn-status:empty {
+  display: none;
+}
+
+.ck-agent-kn-list {
+  display: grid;
+  gap: var(--bldr-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-kn-empty {
+  margin: 0;
+  padding-block: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  text-align: center;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-kn-button,
+  .ck-agent-kn-input,
+  .ck-agent-kn-select {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-kn-button {
+    transition: none;
+  }
+}

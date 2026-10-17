@@ -1,5 +1,26 @@
 import { editorCatalogue } from '@craftkit/builder';
 
+import {
+  CODE_VIEW_SHOWCASE_LABELS_AR,
+  CODE_VIEW_SHOWCASE_LABELS_EN,
+  type CodeViewShowcaseLabels,
+} from '../features/preview/components/CodeViewShowcase';
+import {
+  HISTORY_PANEL_LABELS_AR,
+  HISTORY_PANEL_LABELS_EN,
+  type HistoryPanelLabels,
+} from '../features/preview/components/HistoryPanel';
+import {
+  CODE_WORKSPACE_LABELS_AR,
+  CODE_WORKSPACE_LABELS_EN,
+  type CodeWorkspaceLabels,
+} from '../features/preview/code-workspace.labels';
+import {
+  PAGE_WORKSPACE_LABELS_AR,
+  PAGE_WORKSPACE_LABELS_EN,
+  type PageWorkspaceLabels,
+} from '../features/preview/page-workspace.labels';
+
 /** The editor UI's language. The page's own language is the document's business. */
 export type EditorLocale = 'en' | 'ar';
 
@@ -19,12 +40,15 @@ export interface EditorLocaleStore {
 }
 
 /**
- * The language the editor opens in: the one this viewer chose last, else the
- * environment's. A private window or blocked storage throws; the env decides then.
+ * The language the editor opens in: the one this viewer chose last, else the one the
+ * environment pins, else the browser's first Arabic or English preference (2026-10-12: a
+ * global product greets an Arabic browser in Arabic), else English. A private window or
+ * blocked storage throws; the rest decide then.
  */
 export function initialEditorLocale(
   env: Readonly<Record<string, unknown>>,
   store: () => EditorLocaleStore,
+  browserLanguages: readonly string[] = [],
 ): EditorLocale {
   try {
     const stored = store().getItem(EDITOR_LOCALE_KEY);
@@ -32,7 +56,13 @@ export function initialEditorLocale(
   } catch {
     // No memory in this window; the environment's language applies.
   }
-  return editorLocaleFromEnv(env);
+  const pinned = env['VITE_EDITOR_LOCALE'];
+  if (typeof pinned === 'string' && pinned.trim() !== '') return editorLocaleFromEnv(env);
+  for (const tag of browserLanguages) {
+    const primary = tag.trim().toLowerCase().split('-')[0];
+    if (primary === 'ar' || primary === 'en') return primary;
+  }
+  return 'en';
 }
 
 /** Remembers the chosen language for the next visit; a window without storage forgets it. */
@@ -151,6 +181,8 @@ const CHROME_LABELS_EN: ChromeLabels = {
     setDocMeta: 'page settings',
     applyPatches: 'code edit',
     setSiteDirection: 'page direction',
+    duplicatePage: 'duplicate page',
+    languageVersions: 'language versions',
     setDesignToken: 'design token',
     setDesignSystem: 'design system',
     setSharedRegion: 'header or footer',
@@ -230,6 +262,8 @@ const CHROME_LABELS_AR: ChromeLabels = {
     setDocMeta: 'إعدادات الصفحة',
     applyPatches: 'تعديل من الشيفرة',
     setSiteDirection: 'اتجاه الصفحة',
+    duplicatePage: 'تكرار صفحة',
+    languageVersions: 'نسخ اللغات',
     setDesignToken: 'متغيّر تصميم',
     setDesignSystem: 'نظام التصميم',
     setSharedRegion: 'الترويسة أو التذييل',
@@ -258,13 +292,36 @@ export const CHROME_LABELS: Readonly<Record<EditorLocale, ChromeLabels>> = {
   ar: CHROME_LABELS_AR,
 };
 
+/** The playground's own panels (pages, restore points, source, code view), by locale. */
+export interface PanelLabels {
+  readonly pageWorkspace: PageWorkspaceLabels;
+  readonly historyPanel: HistoryPanelLabels;
+  readonly codeWorkspace: CodeWorkspaceLabels;
+  readonly codeViewShowcase: CodeViewShowcaseLabels;
+}
+
+export const PANEL_LABELS: Readonly<Record<EditorLocale, PanelLabels>> = {
+  en: {
+    pageWorkspace: PAGE_WORKSPACE_LABELS_EN,
+    historyPanel: HISTORY_PANEL_LABELS_EN,
+    codeWorkspace: CODE_WORKSPACE_LABELS_EN,
+    codeViewShowcase: CODE_VIEW_SHOWCASE_LABELS_EN,
+  },
+  ar: {
+    pageWorkspace: PAGE_WORKSPACE_LABELS_AR,
+    historyPanel: HISTORY_PANEL_LABELS_AR,
+    codeWorkspace: CODE_WORKSPACE_LABELS_AR,
+    codeViewShowcase: CODE_VIEW_SHOWCASE_LABELS_AR,
+  },
+};
+
 /**
  * Every editor surface's labels for one locale: the shell's typed catalogue
  * (`editorCatalogue`, one door for every surface's EN/AR set) plus this app's
- * own chrome. DESIGN §0.3: defaults live beside each component; the host picks.
+ * own chrome and panels. DESIGN §0.3: defaults live beside each component; the host picks.
  */
 export function editorLabels(locale: EditorLocale) {
-  return { ...editorCatalogue(locale), chrome: CHROME_LABELS[locale] };
+  return { ...editorCatalogue(locale), chrome: CHROME_LABELS[locale], ...PANEL_LABELS[locale] };
 }
 
 export type EditorLabels = ReturnType<typeof editorLabels>;

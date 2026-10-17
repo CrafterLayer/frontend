@@ -3,7 +3,6 @@ import type { AiContextProvider, NodeId } from '@craftkit/builder-schema';
 
 import {
   assembleAiContext,
-  resolveAiCompositionPolicy,
   type AiCompositionPolicy,
   type AssembleAiContextOptions,
 } from '../context';
@@ -23,7 +22,6 @@ import { isAiProviderError } from '../provider/errors';
 import {
   AI_PLAN_WIRE_VERSION,
   boundAiPlanWireInvalidOutputMessage,
-  estimateAiPlanWireRequestTokens,
   type AiPlanWireAttempt,
   type AiPlanWireRequest,
 } from '../provider/wire';
@@ -45,19 +43,24 @@ import type {
   AiValidationPorts,
   AssembledAiContext,
 } from '../types';
-import { normalizeAiPlanTrees, readAiPlanTreeMarkup } from './normalize-plan';
-import { expandAgentTools } from '../tools/agent/expand';
+import { loadArtCatalog, planNamesArt } from '../art-catalog/load';
+import { withHistoryInBudget } from './history-budget';
 import type { AgentToolLane } from '../tools/agent/types';
-import { expandTreeEdits } from './tree-edits';
-import { salvageAiPlan, type SalvagedAiPlan } from './salvage-plan';
-import { AiPlanRejectedError, validateAiPlan } from './validate-plan';
+import type { SalvagedAiPlan } from './salvage-plan';
+import {
+  isPlanShaped,
+  judgedCandidate,
+  salvageOrReject,
+  type AiPlanAcceptanceOptions,
+} from './judge-plan';
+import { AiPlanRejectedError } from './validate-plan';
 // script-wiring additions
-import { attachScriptCrossPage, planHasScriptStep } from '../script/cross-page';
+import { attachScriptCrossPage, crossPageOnlyPlan, planHasScriptStep } from '../script/cross-page';
 import type { ScriptExpansion, ScriptRunReport, ScriptSite } from '../script/expand-scripts';
 import { SCRIPT_TOOL_NAME, type ScriptRunner } from '../script/types';
 // end script-wiring additions
 
-export interface GenerateAiPlanOptions {
+export interface GenerateAiPlanOptions extends AiPlanAcceptanceOptions {
   kernel: BuilderKernel;
   provider: AiPlanProvider;
   request: string;
@@ -87,7 +90,7 @@ export interface GenerateAiPlanOptions {
   allowUntrustedSkills?: boolean;
   maxActiveSkills?: number;
   maxSkillTokens?: number;
-  /** Hard bound over the complete serialized provider context. */
+  /** Hard bound over the whole wire request; history gives way first (history-budget.ts). */
   maxContextTokens?: number;
   /**
    * agent-tools: sample values from the plan's facts ledger. Tool steps are
@@ -145,18 +148,7 @@ export interface GenerateAiPlanOptions {
 
 export const DEFAULT_AI_CONTEXT_TOKEN_BUDGET = 64_000;
 
-export class AiContextBudgetError extends Error {
-  override readonly name = 'AiContextBudgetError';
-
-  constructor(
-    readonly estimatedTokens: number,
-    readonly maxTokens: number,
-  ) {
-    super(
-      `AI context budget exceeded: estimated ${String(estimatedTokens)} tokens, maximum ${String(maxTokens)}.`,
-    );
-  }
-}
+export { AiContextBudgetError } from './history-budget';
 
 /**
  * @internal Shared with `outlineAiPlan`, which needs the same live channel —
@@ -411,13 +403,6 @@ function wireRequest(
   };
 }
 
-function assertWireRequestBudget(request: AiPlanWireRequest, maxTokens: number): void {
-  const estimatedTokens = estimateAiPlanWireRequestTokens(request);
-  if (estimatedTokens > maxTokens) {
-    throw new AiContextBudgetError(estimatedTokens, maxTokens);
-  }
-}
-
 function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
   return {
     plan: { rationale: '', commands: [] },
@@ -427,55 +412,6 @@ function invalidOutputRepairAttempt(message: string): AiPlanWireAttempt {
         message: boundAiPlanWireInvalidOutputMessage(message),
       },
     ],
-  };
-}
-
-/**
- * A provider's answer with what could never render removed, when the host
- * enforces the utility vocabulary — the same condition under which the door
- * would otherwise refuse the whole plan for it. See `normalizeAiPlanTrees`.
- * Trees written as markup are read either way: markup is only a spelling,
- * and the context asks for it on every run (see `readAiPlanTreeMarkup`).
- */
-function normalizedCandidate(candidate: unknown, options: GenerateAiPlanOptions): unknown {
-  const composition = resolveAiCompositionPolicy(options.composition);
-  if (!composition.enforceUtilityVocabulary) return readAiPlanTreeMarkup(candidate);
-  const blockTypes = options.kernel.context.registry.blocks().map(({ schema }) => schema.type);
-  return normalizeAiPlanTrees(candidate, composition.colourPolicy, blockTypes).plan;
-}
-
-/**
- * A provider's answer made ready for the door, and the door's verdict on it:
- * `editTree` steps expanded against the live page (tree-edits.ts), the trees
- * normalized, then validated. An edit that could not be expanded is its own
- * verdict — its reason is exactly what the repair round needs.
- */
-function judgedCandidate(
-  raw: unknown,
-  options: GenerateAiPlanOptions,
-  policy: AiEffectiveCommandPolicy,
-): { readonly candidate: unknown; readonly result: AiPlanValidationResult } {
-  // agent-tools additions: tool steps expand first, then editTree, so both read earlier steps.
-  const tools = expandAgentTools(raw, options.kernel, {
-    ...(options.sampleValues === undefined ? {} : { sampleValues: options.sampleValues }),
-    ...(options.toolLanes === undefined ? {} : { lanes: options.toolLanes }),
-  });
-  const expanded = expandTreeEdits(tools.plan, options.kernel);
-  const issues = [...tools.issues, ...expanded.issues];
-  // end agent-tools additions
-  const candidate = normalizedCandidate(expanded.plan, options);
-  if (issues.length > 0) {
-    return { candidate, result: { ok: false, issues } };
-  }
-  return {
-    candidate,
-    result: validateAiPlan(
-      candidate,
-      options.kernel,
-      options.validationPorts,
-      policy,
-      resolveAiCompositionPolicy(options.composition),
-    ),
   };
 }
 
@@ -498,28 +434,6 @@ function firstScriptStep(raw: unknown): number {
 }
 
 /**
- * A script whose every write lands on OTHER pages leaves the open page with no
- * command, which the door refuses as an empty plan. Its words still stand:
- * the other pages' steps were door-validated on their own lenses during
- * expansion, and `applyAiPlan` re-validates them before the one site write.
- */
-function crossPageOnlyPlan(expanded: unknown): AiPlan | undefined {
-  if (typeof expanded !== 'object' || expanded === null) return undefined;
-  const { rationale, commands, followUp } = expanded as {
-    rationale?: unknown;
-    commands?: unknown;
-    followUp?: unknown;
-  };
-  if (!Array.isArray(commands) || commands.length > 0) return undefined;
-  const reason = typeof rationale === 'string' && rationale.trim() !== '' ? rationale : 'Script';
-  return Object.freeze({
-    rationale: reason,
-    commands: Object.freeze([]),
-    ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
-  });
-}
-
-/**
  * `judgedCandidate`, with every `script.run` step run first (agent-script
  * DESIGN §A.1/§A.7). A plan without one goes straight through — same object,
  * nothing imported. Otherwise the script runs in the sandbox, its queued
@@ -537,6 +451,8 @@ async function judgedScriptedCandidate(
   options: GenerateAiPlanOptions,
   policy: AiEffectiveCommandPolicy,
 ): Promise<{ readonly candidate: unknown; readonly result: AiPlanValidationResult }> {
+  // art catalog (2026-10-14): an answer naming 'logo:…', 'character:…' or 'illustration:…' loads the art first.
+  if (planNamesArt(raw)) await loadArtCatalog().catch(() => undefined);
   if (!planHasScriptStep(raw)) return judgedCandidate(raw, options, policy);
   let expansion: ScriptExpansion;
   try {
@@ -618,13 +534,14 @@ async function repairAiPlanOnce(
   maxContextTokens: number,
 ): Promise<RepairOutcome> {
   throwIfAborted(options.signal);
-  assertWireRequestBudget(wireRequest(options, context, attempt), maxContextTokens);
-  const raw = await repair(options.request, context, attempt.plan, attempt.issues, live);
+  const sent = withHistoryInBudget(live, wireRequest(options, context, attempt), maxContextTokens);
+  const raw = await repair(options.request, context, attempt.plan, attempt.issues, sent);
   throwIfAborted(options.signal);
   // script-wiring additions
-  const { candidate, result: repaired } = planHasScriptStep(raw)
-    ? await judgedScriptedCandidate(raw, options, policy)
-    : judgedCandidate(raw, options, policy);
+  const { candidate, result: repaired } =
+    planHasScriptStep(raw) || planNamesArt(raw)
+      ? await judgedScriptedCandidate(raw, options, policy)
+      : judgedCandidate(raw, options, policy);
   // end script-wiring additions
   if (!repaired.ok) return { ok: false, candidate, issues: repaired.issues };
   return { ok: true, plan: repaired.plan };
@@ -688,20 +605,22 @@ export async function generateAiPlan(options: GenerateAiPlanOptions): Promise<Ai
  * The runner uses this to emit resolution events without resolving twice.
  */
 export async function generateAiPlanWithPreparedSkills(
-  options: GenerateAiPlanOptions,
+  given: GenerateAiPlanOptions,
   skills: AiPreparedSkillContext | undefined,
   policy: AiEffectiveCommandPolicy,
 ): Promise<AiPlan> {
-  throwIfAborted(options.signal);
-  const context = assembleAiContext(
-    options.kernel.context,
-    contextOptions(options, skills, policy),
-  );
-  const maxContextTokens = options.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
+  throwIfAborted(given.signal);
+  const context = assembleAiContext(given.kernel.context, contextOptions(given, skills, policy));
+  const maxContextTokens = given.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
   if (!Number.isSafeInteger(maxContextTokens) || maxContextTokens <= 0) {
     throw new RangeError('maxContextTokens must be a positive safe integer.');
   }
-  assertWireRequestBudget(wireRequest(options, context), maxContextTokens);
+  /*
+    Over the budget the oldest of the conversation gives way first, never the page, the
+    selection, the skills or the request (history-budget.ts); every call below, repairs
+    included, carries what is left.
+  */
+  const options = withHistoryInBudget(given, wireRequest(given, context), maxContextTokens);
   const live = liveOptions(options);
   const repair = options.provider.repair?.bind(options.provider);
   let raw: unknown;
@@ -735,9 +654,10 @@ export async function generateAiPlanWithPreparedSkills(
   }
   throwIfAborted(options.signal);
   // script-wiring additions
-  const { candidate, result: first } = planHasScriptStep(raw)
-    ? await judgedScriptedCandidate(raw, options, policy)
-    : judgedCandidate(raw, options, policy);
+  const { candidate, result: first } =
+    planHasScriptStep(raw) || planNamesArt(raw)
+      ? await judgedScriptedCandidate(raw, options, policy)
+      : judgedCandidate(raw, options, policy);
   // end script-wiring additions
   if (first.ok) return first.plan;
   /*
@@ -769,44 +689,4 @@ export async function generateAiPlanWithPreparedSkills(
     follows, because a repair can also make things worse.
   */
   return salvageOrReject(options, policy, [repaired.candidate, candidate], repaired.issues);
-}
-
-/**
- * The third rung: keep whatever part of the answer the door will accept.
- *
- * Opt-in, and deliberately so. `generateAiPlan` is the primitive that promises
- * a plan or an error, and a caller that asked for a plan and silently received
- * a smaller one would have no way to know. `runAiAgent` turns it on and reports
- * what was dropped, which is where a person can actually be told.
- */
-function salvageOrReject(
-  options: GenerateAiPlanOptions,
-  policy: AiEffectiveCommandPolicy,
-  candidates: readonly unknown[],
-  issues: readonly AiPlanValidationIssue[],
-): AiPlan {
-  if (options.salvage !== true) throw new AiPlanRejectedError(issues);
-  for (const candidate of candidates) {
-    if (!isPlanShaped(candidate)) continue;
-    const salvaged = salvageAiPlan(
-      candidate,
-      options.kernel,
-      options.validationPorts,
-      policy,
-      resolveAiCompositionPolicy(options.composition),
-    );
-    if (salvaged === undefined) continue;
-    options.onSalvage?.(salvaged);
-    return salvaged.plan;
-  }
-  throw new AiPlanRejectedError(issues);
-}
-
-function isPlanShaped(candidate: unknown): candidate is AiPlan {
-  return (
-    typeof candidate === 'object' &&
-    candidate !== null &&
-    'rationale' in candidate &&
-    'commands' in candidate
-  );
 }

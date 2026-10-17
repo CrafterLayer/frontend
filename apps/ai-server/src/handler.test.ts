@@ -970,10 +970,10 @@ describe('the page-plan task', () => {
   it('refuses a task it does not know with a terminal 400, rather than answering a plan', async () => {
     const handle = createHandler({ client: fakeClient(planAnswer()) });
 
-    const response = await handle(post(wireBody({ task: 'site-plan' })));
+    const response = await handle(post(wireBody({ task: 'poem' })));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Unknown task "site-plan".' });
+    expect(await response.json()).toEqual({ error: 'Unknown task "poem".' });
   });
 
   it('plans at the backend default effort, even when a section-writer skill is pinned', async () => {
@@ -1811,6 +1811,6 @@ describe('page-plan drafts', () => {
       rationale: PAGE_PLAN_EXAMPLE.rationale,
       pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
     });
-    expect(live.subscribed).not.toContain('text');
+    expect(live.subscribed).toContain('restart'); // Cache/progress subscription; the response is JSON.
   });
 });

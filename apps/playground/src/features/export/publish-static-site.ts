@@ -7,6 +7,7 @@ import {
   type ExportStaticSiteOptions,
   type StaticSitePageInput,
 } from '@craftkit/builder';
+import { marketingSectionStylesheet } from '@craftkit/builder/marketing-styles';
 
 /**
  * Publish the site's kernel (customCode / block) pages as a static website.
@@ -90,11 +91,18 @@ export function staticSiteOptions(
     blocks: deps.blocks,
     theme: themeFromDesignSystem(site.designSystem),
     compileCss: deps.compileCss,
+    // The rendered-class callback runs once per page, including shared regions.
+    // Its context stays correct even when pages reuse the same document object.
+    compileClasses: async (classNames) => {
+      const names = [...classNames];
+      return [await deps.compileClasses?.(names), marketingSectionStylesheet(names)]
+        .filter(Boolean)
+        .join('\n');
+    },
     // Pictures: block images and tree `/ck-assets/<id>` references publish what the canvas shows.
     assets: site.assets,
     // The site design library: palette variables, fonts, named styles, motion settings.
     ...(site.library === undefined ? {} : { library: site.library }),
-    ...(deps.compileClasses === undefined ? {} : { compileClasses: deps.compileClasses }),
     ...(origin === undefined || origin === '' ? {} : { origin }),
     ...(deps.now === undefined ? {} : { now: deps.now }),
   };

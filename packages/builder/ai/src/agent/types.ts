@@ -3,7 +3,8 @@ import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider, ClockPort, JsonValue, NodeId } from '@craftkit/builder-schema';
 
 import type { AiCompositionPolicy } from '../context/composition-policy';
-
+import type { AiHostSkillOptions } from './host-skills';
+import type { AiRunDeadlineOptions } from './run-deadline';
 import type { AppliedAiPlan } from '../plan/apply-plan';
 import type { AiValidatedProposal } from '../plan/validated-proposal';
 import type { IntentTarget } from '../intent';
@@ -21,7 +22,10 @@ import type { AiPlanSite } from '../script/cross-page';
 import type { ScriptRunReport, ScriptSite } from '../script/expand-scripts';
 import type { ScriptRunner } from '../script/types';
 // end script-wiring additions
+import type { AiContextReadyDetails } from './context-report';
 import type { AiRunFailure } from './errors';
+import type { AiBuildSceneOptions } from './scene-review';
+import type { AiBuildWriterOptions } from './writer-pool';
 import type { PagePlan, PagePlanIssue, SectionCheckIssue } from './page-plan/types';
 import type {
   AiCommandPolicy,
@@ -47,7 +51,7 @@ export interface AiAgentPolicy extends AiCommandPolicy {
   allowUntrustedSkills: boolean;
 }
 
-export interface RunAiAgentOptions {
+export interface RunAiAgentOptions extends AiHostSkillOptions, AiRunDeadlineOptions {
   runId: string;
   clock: ClockPort;
   kernel: BuilderKernel;
@@ -86,7 +90,6 @@ export interface RunAiAgentOptions {
   composition?: AiCompositionPolicy;
   apply?: 'never' | 'auto';
   label?: string;
-  signal?: AbortSignal;
   /**
    * Synchronous host lease check. Once a newer run owns the surface/session,
    * return false for this run id so no stale cached/provider result can apply.
@@ -137,11 +140,7 @@ export type AiAgentEvent =
       totalTokens: number;
     })
   | (AiAgentEventBase & { type: 'context.gathering' })
-  | (AiAgentEventBase & {
-      type: 'context.ready';
-      fragmentCount: number;
-      totalTokens: number;
-    })
+  | (AiAgentEventBase & AiContextReadyDetails & { type: 'context.ready' })
   | (AiAgentEventBase & { type: 'plan.proposing' })
   | (AiAgentEventBase & { type: 'plan.progress'; text: string })
   | (AiAgentEventBase & { type: 'provider.usage'; attemptId: string; usage: AiProviderUsage })
@@ -202,9 +201,9 @@ export type AiBuildTaskStatus = 'applied' | 'skipped' | 'not-started';
 
 /**
  * The props a section writer owns on its region: `tree` and `css`, and — only
- * in a build that turned free code mode on (`RunAiBuildOptions.freeCode`) — `js`.
+ * in a build that turned free code mode on — `js` and its `jsMeta`/`jsParams`.
  */
-export type AiBuildSectionKey = 'tree' | 'css' | 'js';
+export type AiBuildSectionKey = 'tree' | 'css' | 'js' | 'jsMeta' | 'jsParams';
 
 /** A region's writer-owned props at one moment, keyed by prop; a prop the node lacks is absent. */
 export type AiBuildSectionValues = Readonly<Partial<Record<AiBuildSectionKey, JsonValue>>>;
@@ -461,14 +460,17 @@ export type AiBuildOwnEvent =
 export type AiBuildEvent = AiAgentEvent | AiBuildOwnEvent;
 
 /**
- * `apply`, `label` and `onEvent` are owned by the orchestrator: a build decides
- * when each step writes (see `apply` and `onPlanned` below), labels every step
- * itself, and widens the observer to the events above. Everything else is
- * forwarded to each step verbatim — except `signal`, which a section writer
- * receives chained with its own deadline, and `selectedSkillIds`, which the
- * build names per step.
+ * `apply`, `label` and `onEvent` are owned by the orchestrator: a build decides when each step
+ * writes (see `apply` and `onPlanned` below), labels every step itself, and widens the observer
+ * to the events above. Everything else is forwarded to each step verbatim — except `signal`,
+ * which a section writer receives chained with its own deadline, and `selectedSkillIds`, which
+ * the build names per step. Writers' options: writer-pool.ts; scenes' options: scene-review.ts.
  */
-export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'> {
+export interface RunAiBuildOptions
+  extends
+    Omit<RunAiAgentOptions, 'apply' | 'label' | 'onEvent'>,
+    AiBuildWriterOptions,
+    AiBuildSceneOptions {
   /**
    * Whether this build may WRITE.
    *
@@ -492,9 +494,8 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
   /** Per-section ceiling; only that section's run is aborted. Default 240_000. */
   taskTimeoutMs?: number;
   /**
-   * Whole-build ceiling. No section starts (and no retry, and no check
-   * repair) once it is spent; a section already being written still finishes
-   * and lands. Default 900_000.
+   * Whole-build ceiling. No section starts (and no retry, and no check repair) once it is spent; a
+   * section already being written still finishes and lands. Default 900_000.
    *
    * It measures WORK: planning and writing count, the time a person spends
    * answering `onPlanned` does not (E2) — a careful reader of the plan card
@@ -505,23 +506,10 @@ export interface RunAiBuildOptions extends Omit<RunAiAgentOptions, 'apply' | 'la
    */
   buildBudgetMs?: number;
   /**
-   * How many sections are WRITTEN at once. When omitted, automatic mode runs
-   * one writer per section that needs one, capped at 8
-   * (`MAX_AI_BUILD_AUTO_FILL_CONCURRENCY`, 2026-10-05: six writers in a pool
-   * of four cost ≈ 7 s live, and a streamed plan staggers their starts
-   * anyway). Pass `1` to restore strictly sequential work.
-   *
-   * Only the writing overlaps, and it is bounded by this number alone: a slow
-   * section never holds back the writers behind it. Sections still LAND one
-   * after another in page order, so the transaction log reads top to bottom.
-   */
-  fillConcurrency?: number;
-  /**
-   * Asked once, with the sections the skeleton WOULD create, BEFORE anything is
-   * written. Answer `'build'` and the approved skeleton lands, then every
-   * section is filled; answer `'stop'` (or stop the signal while the question
-   * is open) and the build ends with the document exactly as it was — outcome
-   * `'signal'`, no task, the list in `plannedTasks`.
+   * Asked once, with the sections the skeleton WOULD create, BEFORE anything is written. Answer
+   * `'build'` and the approved skeleton lands, then every section is filled; answer `'stop'` (or
+   * stop the signal while the question is open) and the build ends with the document exactly as it
+   * was — outcome `'signal'`, no task, the list in `plannedTasks`.
    *
    * It exists because the approval a person actually wants is on the LIST — "you
    * understood me, go" — not on each of eight sections in turn. Absent, the
@@ -804,6 +792,15 @@ export interface RunAiAgentOptions {
    * unrelated and unchanged. Equivalent to `composition.freeCode`.
    */
   freeCode?: boolean;
+  /**
+   * The project's story bible (creative agent, 2026-10-12): characters, approved assets,
+   * locations and canon, loaded per build and validated by `readCreativeMemory`. A creative
+   * scene writer's planner brief takes its cast from here so every section keeps the same
+   * names and colours. Hosts that also want the full bible in context add
+   * `createCreativeMemoryContextProvider` to `additionalContextProviders`. Absent: briefs are
+   * planned from the request alone.
+   */
+  creativeMemory?: () => unknown;
   /**
    * The facts ledger's sample values (a page build's writers): tool steps are
    * expanded with them, so no SEO tool writes one as data. Forwarded to

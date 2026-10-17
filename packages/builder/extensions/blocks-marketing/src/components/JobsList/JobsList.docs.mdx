@@ -1,0 +1,47 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as JobsListStories from './JobsList.stories';
+
+<Meta of={JobsListStories} />
+
+# Jobs List
+
+A careers page's open positions. Each position is a row (or a card) with its title, team, location
+and type, and the whole row links to the posting. When nothing is open the section says so and can
+still point to an open application. No other block holds structured roles — a Table would lose the
+links, a Features grid the meta.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Open positions", edited in place), `body`.
+- `jobs`: up to thirty `{ title, team?, location?, type?, href? }`; safe links only.
+- `applyLabel = 'Apply'`: the affordance beside every linked position — one part, edited once.
+- `emptyMessage`: shown instead of the list when `jobs` is empty.
+- An optional action (`actionLabel` + `actionHref`, e.g. a `mailto:` open application).
+- `layout: 'rows' | 'cards' = 'rows'`, and the shared section props.
+
+## Accessibility and direction
+
+The positions are a `<ul>`; each title is an `h3` whose link names the position, and on the
+published page that link is stretched over the whole row (`after:absolute after:inset-0`), with the
+focus ring drawn around the row (`has-focus-visible:`). On the canvas the stretch is left out, so
+the team, location and type stay clickable as parts. The "Apply" affordance and its arrow are
+`aria-hidden` — the link already says where it goes; the arrow is mirrored under RTL. The meta icons
+(briefcase, pin, clock from the project's lucide set) are decoration beside the words.
+
+## Parts
+
+| name           | kind | bind                                        | label (en / ar)                                 |
+| -------------- | ---- | ------------------------------------------- | ----------------------------------------------- |
+| `eyebrow`      | text | `eyebrow`                                   | Eyebrow / الشارة                                |
+| `heading`      | text | `heading`                                   | Heading / العنوان                               |
+| `body`         | text | `body`                                      | Body / الوصف (multiline)                        |
+| `jobs`         | list | `jobs`                                      | Positions / الوظائف                             |
+| `job`          | item | `jobs.*`                                    | Position / الوظيفة                              |
+| `job.title`    | link | `{ text: jobs.*.title, href: jobs.*.href }` | Job title / المسمى الوظيفي                      |
+| `job.team`     | text | `jobs.*.team`                               | Team / الفريق                                   |
+| `job.location` | text | `jobs.*.location`                           | Location / الموقع                               |
+| `job.type`     | text | `jobs.*.type`                               | Job type / نوع الدوام                           |
+| `applyLabel`   | text | `applyLabel`                                | Apply label / نص التقديم                        |
+| `emptyMessage` | text | `emptyMessage`                              | No-openings message / رسالة عدم وجود شواغر (ml) |
+| `action`       | link | `{ text: actionLabel, href: actionHref }`   | Button / الزر                                   |

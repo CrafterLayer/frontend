@@ -1,7 +1,7 @@
 /**
  * The v2 conversation model (SPEC §7.4 `AssistantPanel.turns.ts` row): the kept helpers
- * (`highestIdSuffix`, `historyOf`, `withUniqueTurnIds`), the revive rules, and the
- * storage read. Revival is where the old panel lied most: a spinner nothing would ever
+ * (`highestIdSuffix`, `withUniqueTurnIds`; `historyOf` is in conversation-memory.test), the
+ * revive rules, and the storage read. Revival is where the old panel lied most: a spinner nothing would ever
  * resolve, an Undo whose kernel history died with the tab, an Apply with no authority
  * behind it. Every rule below is one of those, closed.
  */
@@ -14,7 +14,6 @@ import type { BuildProgress, BuildTask } from './build-progress';
 import type { BuildRecordInput, ErrorRecordInput, SectionOutcome } from './run-view';
 import {
   answerFromPlan,
-  historyOf,
   highestIdSuffix,
   outcomeKeyOf,
   reviveState,
@@ -184,74 +183,6 @@ describe('withUniqueTurnIds', () => {
       { id: 'turn-3', kind: 'end', key: 'interrupted' },
     ];
     expect(withUniqueTurnIds([session(turns)])[0]?.turns).toEqual(turns);
-  });
-});
-
-describe('historyOf', () => {
-  it("gives the model the person's words and the assistant's own, in order", () => {
-    const turns: readonly Turn[] = [
-      { id: 't1', kind: 'user', text: 'A dental clinic page', context: [{ kind: 'page' }] },
-      build({ id: 't2', status: 'settled' }),
-      { id: 't3', kind: 'user', text: 'Plan a café page', context: [] },
-      {
-        id: 't4',
-        kind: 'page-plan',
-        status: 'ready',
-        subject: 'A café',
-        direction: { mood: 'Warm and roasted.' },
-        sections: [{ key: 's1', title: 'Hero' }],
-        note: 'mayDiffer',
-        editable: false,
-      },
-      {
-        id: 't5',
-        kind: 'step-plan',
-        status: 'ready',
-        steps: [{ key: 'step-1', text: 'Group the services' }],
-        text: 'Group the services into pairs.',
-        dropped: 0,
-      },
-      { id: 't6', kind: 'answer', text: 'The hero uses the accent colour.' },
-      { id: 't7', kind: 'proposal', status: 'ready', plan, changes: [] },
-      {
-        id: 't8',
-        kind: 'edit',
-        origin: 'request',
-        status: 'done',
-        changes: [],
-        summary: 'Made the hero dark.',
-      },
-      {
-        id: 't9',
-        kind: 'error',
-        failure,
-        pageState: { kind: 'unchanged' },
-      },
-      { id: 't10', kind: 'end', key: 'planDiscarded' },
-    ];
-    expect(historyOf(turns)).toEqual([
-      { role: 'user', text: 'A dental clinic page' },
-      { role: 'assistant', text: 'Calm, clinical, teal.' },
-      { role: 'user', text: 'Plan a café page' },
-      { role: 'assistant', text: 'Warm and roasted.' },
-      { role: 'assistant', text: 'Group the services into pairs.' },
-      { role: 'assistant', text: 'The hero uses the accent colour.' },
-      { role: 'assistant', text: 'Make the header sticky.' },
-      { role: 'assistant', text: 'Made the hero dark.' },
-      { role: 'assistant', text: 'The assistant server answered with status 429.' },
-    ]);
-  });
-
-  it('keeps the newest 12 and never sends an empty line', () => {
-    const turns: Turn[] = [];
-    for (let i = 1; i <= 20; i += 1) {
-      turns.push({ id: `u${String(i)}`, kind: 'user', text: `request ${String(i)}`, context: [] });
-    }
-    turns.push(build({ id: 'b', progress: progress([], { direction: '' }) }));
-    const history = historyOf(turns);
-    expect(history).toHaveLength(12);
-    expect(history[0]?.text).toBe('request 9');
-    expect(history.at(-1)?.text).toBe('request 20');
   });
 });
 

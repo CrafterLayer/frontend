@@ -1,15 +1,22 @@
+import { THEME_PICKER_LABELS_EN, type ThemePickerLabels } from './ThemePicker.labels';
+
 export type ThemeName = 'light' | 'dark';
 
 export interface ThemePickerProps {
   value: ThemeName;
   onChange: (next: ThemeName) => void;
+  labels?: ThemePickerLabels | undefined;
 }
 
 /** Radio pair switching the preview theme — recolors the frame live (FR-008). */
-export function ThemePicker({ value, onChange }: ThemePickerProps) {
+export function ThemePicker({
+  value,
+  onChange,
+  labels = THEME_PICKER_LABELS_EN,
+}: ThemePickerProps) {
   return (
     <fieldset>
-      <legend>Theme</legend>
+      <legend>{labels.legend}</legend>
       {(['light', 'dark'] as const).map((name) => (
         <label key={name}>
           <input
@@ -21,7 +28,7 @@ export function ThemePicker({ value, onChange }: ThemePickerProps) {
               onChange(name);
             }}
           />
-          {name}
+          {labels.choices[name]}
         </label>
       ))}
     </fieldset>

@@ -91,20 +91,26 @@ describe('UserMessage', () => {
 });
 
 describe('UserMessage.css', () => {
-  it('is a Tint bubble, radius 12 with a 4px tail corner at the inline end', () => {
-    expect(CSS).toMatch(/background-color:\s*var\(--bldr-surface-tint\)/);
-    expect(CSS).toMatch(/border-radius:\s*var\(--bldr-radius-xl\)/);
+  it('is an Accent-soft bubble, radius 16 with a 4px tail corner at the inline end', () => {
+    expect(CSS).toMatch(/background-color:\s*var\(--bldr-accent-soft\)/);
+    expect(CSS).toMatch(
+      /border-radius:\s*calc\(var\(--bldr-radius-xl\) \+ var\(--bldr-space-xs\)\)/,
+    );
     expect(CSS).toMatch(/border-end-end-radius:\s*var\(--bldr-radius-xs\)/);
     expect(CSS).toMatch(/justify-items:\s*end/);
   });
 
   it('is at most 85% wide, 80% from 400px', () => {
     expect(CSS).toMatch(/max-inline-size:\s*85%/);
-    expect(CSS).toMatch(/@container agent \(min-width: 400px\) \{\s*\.ck-agent-message__bubble \{\s*max-inline-size: 80%;/);
+    expect(CSS).toMatch(
+      /@container agent \(min-width: 400px\) \{\s*\.ck-agent-message__bubble \{\s*max-inline-size: 80%;/,
+    );
   });
 
   it('writes the context line in Graphite, never Slate on the Tint', () => {
-    expect(CSS).toMatch(/\.ck-agent-message__context \{[^}]*color:\s*var\(--bldr-panel-text-soft\)/);
+    expect(CSS).toMatch(
+      /\.ck-agent-message__context \{[^}]*color:\s*var\(--bldr-panel-text-soft\)/,
+    );
   });
 
   it('uses logical properties only', () => {

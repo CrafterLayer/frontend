@@ -209,6 +209,57 @@ export const ICONS = {
     mirror: false,
   },
 
+  /* ── Creative starters and the creative brief (creative agent, 2026-10-12) ── */
+
+  /** A game: a controller's body, its cross pad and two buttons. Never mirrors. */
+  game: {
+    shapes: (
+      <>
+        <rect x="2" y="4.75" width="12" height="7" rx="3" />
+        <path d="M5.25 7v2.5M4 8.25h2.5" />
+        {[dot(10.25, 7.5), dot(11.75, 9.25)]}
+      </>
+    ),
+    mirror: false,
+  },
+  /** A story with dialogue: two speech balloons. Never mirrors (the tails are not a direction). */
+  dialogue: {
+    shapes: (
+      <>
+        <path d="M2.75 3.5h6.5a1 1 0 0 1 1 1v3.25a1 1 0 0 1-1 1H5.5L3.5 10.5V8.75h-.75a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" />
+        <path d="M12.25 6.5h.75a1 1 0 0 1 1 1v3.25a1 1 0 0 1-1 1h-.5v1.75l-2-1.75H8.25" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** A bedtime story: a crescent moon. */
+  moon: {
+    shapes: <path d="M12.75 9.75A5.25 5.25 0 1 1 6.25 3.25a4.25 4.25 0 0 0 6.5 6.5z" />,
+    mirror: false,
+  },
+  /** The creative brief: a bound book with a ribbon line. */
+  book: {
+    shapes: (
+      <>
+        <path d="M3.25 12.75V3.75a1 1 0 0 1 1-1h8.5v8.5h-8.5a1 1 0 0 0-1 1.5" />
+        <path d="M3.25 12.75a1 1 0 0 0 1 .5h8.5v-2" />
+        <path d="M6 5.75h4" />
+      </>
+    ),
+    mirror: false,
+  },
+
+  /** Skills & memory: what the Agent knows (2026-10-12). A spark and a plus. */
+  skills: {
+    shapes: (
+      <>
+        <path d="M6.75 2.75 7.9 5.6l2.85 1.15L7.9 7.9 6.75 10.75 5.6 7.9 2.75 6.75 5.6 5.6Z" />
+        <path d="M11.75 9.5v3.75M9.88 11.38h3.75" />
+      </>
+    ),
+    mirror: false,
+  },
+
   /* ── Conversations and the phone sheet ──────────────────────────────────── */
 
   /** Search conversations. */
@@ -243,6 +294,58 @@ export const ICONS = {
   backToChat: {
     shapes: <path d="M3.25 3h9.5M8 13.25v-7M4.75 9.5 8 6.25l3.25 3.25" />,
     mirror: true,
+  },
+  // agent-panel redesign (2026-10-12): the compact composer chips and the settings modal.
+  /** Mode: how the next request may touch the page (Lucide `zap`). */
+  bolt: { shapes: <path d="M8.75 2.25 3.5 9h4l-.5 4.75L12.5 7h-4l.25-4.75Z" />, mirror: false },
+  /** Model: who writes the request (Lucide `cpu`). */
+  cpu: {
+    shapes: (
+      <>
+        <rect x="4" y="4" width="8" height="8" rx="1.25" />
+        <path d="M6.5 6.5h3v3h-3zM6.5 2v2M9.5 2v2M6.5 12v2M9.5 12v2M2 6.5h2M2 9.5h2M12 6.5h2M12 9.5h2" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** Effort: how long the model may think (Lucide `gauge`). */
+  gauge: {
+    shapes: (
+      <>
+        <path d="M2.75 11.25a5.25 5.25 0 1 1 10.5 0" />
+        <path d="M8 11.25 10.5 7" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** Workers: sections built side by side (Lucide `users`). */
+  users: {
+    shapes: (
+      <>
+        <circle cx="6" cy="5.5" r="2.25" />
+        <path d="M2.25 13a3.75 3.75 0 0 1 7.5 0" />
+        <path d="M10.5 3.5a2.25 2.25 0 0 1 0 4.25M11.5 9.6A3.75 3.75 0 0 1 13.75 13" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** Background jobs (2026-10-12): pages stacked, sent as one batch (Lucide `layers`). */
+  layers: {
+    shapes: (
+      <>
+        <path d="M8 2.5 13.5 5.25 8 8 2.5 5.25Z" />
+        <path d="M2.5 8 8 10.75 13.5 8" />
+        <path d="M2.5 10.75 8 13.5l5.5-2.75" />
+      </>
+    ),
+    mirror: false,
+  },
+  /** Settings: the knowledge modal's general section (Lucide `settings-2`). */
+  sliders: {
+    shapes: (
+      <path d="M10.5 4.5h-7M12.5 11.5h-7M9 4.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M4 11.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0" />
+    ),
+    mirror: false,
   },
 } as const satisfies Readonly<Record<string, IconDefinition>>;
 

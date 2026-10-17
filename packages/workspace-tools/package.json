@@ -11,11 +11,13 @@
     ".": "./src/index.mjs",
     "./components": "./src/components/validate-components.mjs",
     "./workspace": "./src/workspace/validate-workspace.mjs",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./files": "./src/files/validate-file-sizes.mjs"
   },
   "bin": {
     "craftkit-check-components": "./src/cli/check-components.mjs",
-    "craftkit-check-workspace": "./src/cli/check-workspace.mjs"
+    "craftkit-check-workspace": "./src/cli/check-workspace.mjs",
+    "craftkit-check-file-sizes": "./src/cli/check-file-sizes.mjs"
   },
   "scripts": {
     "build": "node --check src/index.mjs",

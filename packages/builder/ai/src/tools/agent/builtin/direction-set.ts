@@ -1,4 +1,8 @@
-import { isLucideIconName, unknownUtilityClasses } from '@craftkit/builder-schema';
+import {
+  hasLanguageVersions,
+  isLucideIconName,
+  unknownUtilityClasses,
+} from '@craftkit/builder-schema';
 
 import { VERIFIED_FONT_FAMILIES } from '../../../skills/verified-fonts';
 import { readPageKit, writePageKit } from '../page-kit';
@@ -147,7 +151,10 @@ function run(input: DirectionSetInput, context: AgentToolContext): AgentToolRun 
   const dir = input.dir ?? directionOf(input.lang);
   const steps: AgentToolStep[] = [];
   const flips = dir !== context.locale.dir;
-  if (kernel.getDocument().dir !== dir) steps.push({ command: 'setDocMeta', args: { dir } });
+  // A page in a language set turns by its own `lang` (languageSetDirection); a site keeps one dir.
+  const inSet = hasLanguageVersions(context.readProp(rootId, 'seo'));
+  if (kernel.getDocument().dir !== dir && !inSet)
+    steps.push({ command: 'setDocMeta', args: { dir } });
   if (declaresProp(kernel, rootId, 'lang') && context.readProp(rootId, 'lang') !== input.lang) {
     steps.push(setProp(rootId, 'lang', input.lang));
   }

@@ -1,6 +1,7 @@
 import type { BuilderDocument } from '@craftkit/builder';
 
 import type { BuildTask } from './build-progress';
+import { creativeBriefView } from './creative-brief';
 import { draftFromEnginePagePlan, planDraftOf, planFields } from './page-plan-draft';
 import { initialRunProgress } from './run-progress';
 import {
@@ -169,9 +170,13 @@ export function buildTurnView(
   // Remove empty needs the placeholders the skeleton laid; a build that never recorded
   // them (v1 data) cannot tell an empty region from one written by hand, so it offers none.
   const canRemove = turn.placeholders !== undefined;
+  const removable = canRemove ? view : { ...view, actions: { ...view.actions, removeEmpty: 0 } };
+  // T230: one page of a site build names its page in the record's head.
+  const paged = turn.page === undefined ? removable : { ...removable, page: turn.page };
   return {
     kind: 'build',
-    view: canRemove ? view : { ...view, actions: { ...view.actions, removeEmpty: 0 } },
+    // creative agent (2026-10-12): a game or story build shows the brief its writers read.
+    view: turn.creative === true ? { ...paged, brief: creativeBriefView(turn.request) } : paged,
   };
 }
 
@@ -224,7 +229,13 @@ export function editTurnView(turn: EditTurn, context: TurnViewContext): EditReco
     ...(undone === undefined ? {} : { undone }),
     laterPageChanges: false,
   };
-  const view = editRecordView(input, context);
+  const dropped = turn.salvaged?.dropped.length ?? 0;
+  const view = {
+    ...editRecordView(input, context),
+    ...(turn.salvaged !== undefined && dropped > 0
+      ? { partial: { kept: turn.salvaged.kept, total: turn.salvaged.kept + dropped } }
+      : {}),
+  };
   // Redo is a kernel redo too: once something else landed, it would redo nothing true.
   const redoGone = view.undo?.kind === 'redo' && history !== undefined && !history.canRedo;
   if ((buried && view.undo?.kind === 'undo') || redoGone) {

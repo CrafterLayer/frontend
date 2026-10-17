@@ -1,0 +1,58 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BatchOutcomeListStories from './BatchOutcomeList.stories';
+
+<Meta of={BatchOutcomeListStories} />
+
+# BatchOutcomeList
+
+A background job's results, page by page (2026-10-12): what landed, and why the rest did not, with
+"Retry live" for every page that may still be done now.
+
+<Canvas of={BatchOutcomeListStories.Default} />
+
+## Purpose
+
+Applying a job lands every answer through the live door, page by page. Some pages land (each as its
+own transaction, so one Undo takes one page back); others do not, for reasons the person can act on.
+This list says which, and offers the one useful next step: the same request on that page as an
+ordinary live run of the panel.
+
+## When to use / not
+
+Inside BackgroundJobRow, under its Results disclosure. It shows results; it does not apply, poll or
+retry anything itself (`onRetryLive` does).
+
+## Props
+
+| prop          | type                         | default | notes                                                 |
+| ------------- | ---------------------------- | ------- | ----------------------------------------------------- |
+| `locale`      | `Locale`                     | none    | `en` or `ar`                                          |
+| `results`     | `readonly JobPageResult[]`   | none    | `jobResults(record)`: pages never sent, then outcomes |
+| `pages`       | `readonly BatchPageOption[]` | none    | for titles; a page the site lost shows its id         |
+| `retried`     | `readonly string[]`          | `[]`    | pages already sent again: "Sent to the chat"          |
+| `onRetryLive` | `(pageId: string) => void`   | none    | absent: no page offers Retry live                     |
+| `usage`       | `JobUsage`                   | none    | `jobUsage(record)`: tokens, cache reads and writes    |
+
+## Outcomes
+
+| status     | glyph       | the line under the title                              | Retry live |
+| ---------- | ----------- | ----------------------------------------------------- | ---------- |
+| `applied`  | Indigo disc | "One Undo takes this page back." or "Applied in part" | no         |
+| `refused`  | dashed ring | the model's own sentence                              | yes        |
+| `invalid`  | Alarm disc  | why the answer could not be read                      | yes        |
+| `rejected` | Alarm disc  | the door's first two issues, then "And N more."       | yes        |
+| `error`    | Alarm disc  | the reason, and "It may work if sent again." when so  | yes        |
+| `skipped`  | dashed ring | why the page was never sent                           | yes        |
+| `missing`  | dashed ring | none: the page is gone                                | no         |
+
+## Accessibility
+
+- A list; each row's Retry live is named for its page ("Retry “Contact” live").
+- The glyph is decoration (`aria-hidden`); the outcome is said in words.
+- The server's and the door's sentences keep their own direction (`dir="auto"`).
+
+## RTL
+
+Logical properties only: the glyph at the inline start, Retry live at the inline end. Arabic labels;
+the model's and the door's sentences may be English and read left to right inside them.

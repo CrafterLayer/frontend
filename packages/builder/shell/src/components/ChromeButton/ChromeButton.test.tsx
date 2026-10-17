@@ -111,4 +111,23 @@ describe('ChromeButton', () => {
       expect(CSS_SOURCE).toContain(`var(--bldr-${token})`);
     }
   });
+
+  it('draws a tooltip without changing the accessible name, and none when there is no text', () => {
+    const { rerender } = render(
+      <ChromeButton variant="icon" aria-label="Undo" tooltip="Undo · Ctrl Z">
+        <span aria-hidden="true">↶</span>
+      </ChromeButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Undo' });
+    expect(button).toHaveAttribute('data-bldr-tooltip', 'Undo · Ctrl Z');
+
+    rerender(
+      <ChromeButton variant="icon" aria-label="Undo" tooltip="">
+        <span aria-hidden="true">↶</span>
+      </ChromeButton>,
+    );
+    expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveAttribute('data-bldr-tooltip');
+    // The hint shows on keyboard focus as well as on hover.
+    expect(CSS_SOURCE).toMatch(/\[data-bldr-tooltip\]:focus-visible::after/u);
+  });
 });

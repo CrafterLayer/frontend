@@ -531,6 +531,185 @@ shipped as `assets/ck-scene.js` only on pages with `data-ck-scene`. Owner: packa
 
 - bundled dependency licences: see scene-source.ts banner
 
+## Studio game libraries — audio, game AI, HUD (2026-10-12)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-audio.js`, `ck-lib-gameai.js` and `ck-lib-hud.js`
+(generated `packages/builder/renderer/src/engines/studio/<key>-source.ts`), shipped only on pages
+whose code names the key. `scripts/build-studio-engines.mjs` audits each bundled package's
+`LICENSE` text against its declared licence and carries every notice in the asset's banner.
+
+| Package       | Version | Licence  | Asset              |
+| ------------- | ------- | -------- | ------------------ |
+| @pixi/sound   | 6.0.1   | MIT      | `ck-lib-audio.js`  |
+| zzfx          | 1.3.2   | MIT      | `ck-lib-audio.js`  |
+| yuka          | 0.7.8   | MIT      | `ck-lib-gameai.js` |
+| @pixi/ui      | 2.3.2   | MIT      | `ck-lib-hud.js`    |
+| tweedle.js    | 2.1.0   | MIT      | `ck-lib-hud.js`    |
+| typed-signals | 2.5.0   | CC0-1.0  | `ck-lib-hud.js`    |
+
+`@types/yuka` 0.7.4 (MIT) is a dev dependency for types only and ships nowhere.
+
+## Studio character art — Open Peeps through DiceBear (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy asset `assets/ck-lib-peeps.js` (generated
+`packages/builder/renderer/src/engines/studio/peeps-source.ts`, 111.3 kB gzip, budget 116.9 kB),
+shipped only on pages whose code names the `peeps` key (`ck.scene({ libs: ['peeps'] })`). Nothing
+is fetched at run time: the 48 hair styles, 30 faces, accessories and facial hair are SVG path data
+inside the bundle. `scripts/build-studio-engines.mjs` audits both packages' `LICENSE` text against
+the declared licence and carries both whole in the asset's banner; each drawn SVG also carries
+DiceBear's RDF metadata (title, creator, source and licence URL of the design).
+
+| Package              | Version | Licence                                      | Asset             |
+| -------------------- | ------- | -------------------------------------------- | ----------------- |
+| @dicebear/core       | 9.4.3   | MIT (c) 2024 Florian Körner                  | `ck-lib-peeps.js` |
+| @dicebear/open-peeps | 9.4.3   | code MIT; design **CC0 1.0** (Pablo Stanley) | `ck-lib-peeps.js` |
+
+Read on 2026-10-13 from the installed tarballs: `@dicebear/core/LICENSE` is the MIT text;
+`@dicebear/open-peeps/LICENSE` opens with "# Design — Applies to all design files in this package.
+Source: Open Peeps (https://www.openpeeps.com/) · Designer: Pablo Stanley · License: CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/)" and then gives the MIT text for the code; its
+`package.json` declares MIT and its README credits "Open Peeps by Pablo Stanley, licensed under
+CC0 1.0. / Remix of the original." The style's `meta` (`lib/index.js`) says the same: title
+"Open Peeps", creator "Pablo Stanley", license `{ name: 'CC0 1.0', url: …/publicdomain/zero/1.0/ }`.
+`@types/json-schema` (MIT, a type-only dependency of core) ships nowhere. 9.4.3 (2026-07-05) is the
+v9 LTS that `@dicebear/open-peeps` peers on; the older 9.2.4 lacks 9.4's XML escaping of colour and
+rotate options. Texts: THIRD_PARTY_LICENSES.md. Kenney packs were not used (kenney.nl is not reachable
+from this environment).
+
+## Studio procedural maps and animated GIFs — rot.js, gifuct-js (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-procgen.js` (generated
+`packages/builder/renderer/src/engines/studio/procgen-source.ts`, 11.7 kB gzip, budget 12.4 kB) and
+`assets/ck-lib-gif.js` (`gif-source.ts`, 7.5 kB gzip, budget 7.9 kB), shipped only on pages whose
+code names `procgen` or `gif`. `scripts/build-studio-engines.mjs` audits each bundled package's
+`LICENSE` text against its declared licence and carries the texts in the asset's banner. Neither
+asset evaluates code, compiles WebAssembly or bundles Pixi.
+
+| Package                 | Version | Licence                                       | Asset               |
+| ----------------------- | ------- | --------------------------------------------- | ------------------- |
+| rot-js                  | 2.2.1   | **BSD-3-Clause** (c) 2012-now() Ondrej Zara   | `ck-lib-procgen.js` |
+| gifuct-js               | 2.1.2   | MIT (c) 2015 Matt Way                         | `ck-lib-gif.js`     |
+| js-binary-schema-parser | 2.0.3   | MIT (c) 2015 Matt Way (gifuct-js's parser)    | `ck-lib-gif.js`     |
+
+Read on 2026-10-13 from the installed tarballs: `rot-js/license.txt` is the three-clause BSD text
+("Neither the name of Ondrej Zara…"), `package.json` declares `BSD-3-Clause`; its `lib/rng.js` (in
+the bundle) notes "This code is an implementation of Alea algorithm; (C) 2010 Johannes Baagøe. Alea
+is licensed according to the MIT License" — that notice is reproduced in THIRD_PARTY_LICENSES.md.
+Only `lib/rng.js`, six `lib/map/*` generators and `lib/fov/precise-shadowcasting.js` are imported.
+`gifuct-js/LICENSE` and `js-binary-schema-parser/LICENSE` are the MIT text, both "Copyright (c)
+2015 Matt Way"; gifuct-js 2.1.2 is the version pixi.js 8.22.0 itself depends on (for
+`pixi.js/gif`), so the lockfile gained no new package for it. rot-js 2.2.1 was published
+2024-11-13.
+
+Evaluated and **not admitted** (2026-10-13), each read from its installed tarball:
+
+| Package                   | Version | Licence (as read)                          | Why not                                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | ------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| @pixi/gif                 | 3.0.1   | MIT (c) 2021 Matt Karl, LLC                | Its entry calls `extensions.add` for a `.gif` Assets loader on the page's one Pixi namespace; frames step on `Ticker.shared`; every frame's pixels kept with no bound; it would have to be Pixi-bound; it copies gifuct-js and js-binary-schema-parser into `lib/external/` without their notice. Superseded by `pixi.js/gif`, whose modules import Pixi internals by path (a second Pixi copy if bundled). Replaced by `s.lib.gif` on the same decoder. |
+| @pixi/layout + yoga-layout | 3.2.1 + 3.2.1 | MIT (c) 2025 PixiJS + MIT (`package.json` only: the yoga-layout tarball has **no LICENSE file**, which the build's audit refuses) | 59.8 kB gzip (Yoga's base64 WebAssembly is 127 kB of the 152 kB raw bundle). In Chromium the 71.7 kB module compiles under the preview CSP only because `'unsafe-eval'` is present; it is refused without `'unsafe-eval'`/`'wasm-unsafe-eval'`. Mixes `layout` into Container/Text/ViewContainer prototypes page-wide; its `LayoutSystem` must be registered before `app.init`, while Studio opens the stage as libraries load. Canvas menus stay DOM. |
+| poisson-disk-sampling     | 2.3.1   | MIT (c) 2015 Kevin Chapelier (+ moore MIT) | 2.8 kB gzip for what the kit's own seeded `s.poisson(w, h, r, max?)` already does.                                                                                                                                                                                                                                                  |
+
+## Studio mural libraries and hex art — d3-contour, polybooljs, Kenney Hexagon Pack (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, and
+bundled into the lazy assets `assets/ck-lib-geom.js` (generated
+`packages/builder/renderer/src/engines/studio/geom-source.ts`, 10.5 kB gzip, budget 11.0 kB),
+`assets/ck-lib-noise.js` (`noise-source.ts`, 4.4 kB, budget 4.6 kB; simplex-noise 4.0.3 is already in
+the catalog for the kit, nothing new) and `assets/ck-lib-hex.js` (`hex-source.ts`, 75.6 kB, budget
+79.4 kB), shipped only on pages whose code names `geom`, `noise` or `hex`.
+`scripts/build-studio-engines.mjs` audits each bundled package's licence text against its declared
+licence; the hex art reaches the bundle through a generated module, so its notice is audited from
+`packages/builder/extensions/media-engines/vendor/kenney-hexagon-pack/LICENSE` (Kenney's notice
+followed by the CC0 1.0 legal code it links to; `PROVENANCE.json` beside it). No asset evaluates
+code, fetches or bundles Pixi.
+
+| Package                | Version | Licence                                              | Asset                         |
+| ---------------------- | ------- | ---------------------------------------------------- | ----------------------------- |
+| d3-contour             | 4.0.2   | ISC (c) 2012-2023 Mike Bostock                       | `ck-lib-geom.js`              |
+| d3-array               | 3.2.4   | ISC (c) 2010-2023 Mike Bostock (d3-contour's dep)    | `ck-lib-geom.js`              |
+| internmap              | 2.0.3   | ISC (c) 2021 Mike Bostock (d3-array's dep)           | none (0 bytes in the bundle)  |
+| polybooljs             | 1.2.2   | MIT (c) 2016 Sean Connelly                           | `ck-lib-geom.js`              |
+| kenney-hexagon-pack    | 1.0.0   | **CC0 1.0** (art; `package.json` says "CC0 1.0")     | `ck-lib-hex.js` (28 tiles)    |
+
+Read on 2026-10-13 from each tarball (extracted as data into a scratch directory, no script run):
+`d3-contour/LICENSE` and `d3-array/LICENSE` are the ISC text; `polybooljs/LICENSE` the MIT text, and
+its `index.js` assigns `window.PolyBool` when a window exists, so only its five `lib/` algorithm
+modules are imported. `kenney-hexagon-pack` (published 2019-08-05 by Lukas Bach, repository
+lukasbach/kenney-hexagon-pack) holds Kenney's unmodified sprite sheets (TexturePacker Starling XML,
+120 × 140 tiles) and Kenney's standard `License.txt` ("License (Creative Commons Zero, CC0) … Credit
+(Kenney or www.kenney.nl) would be nice but is not mandatory"); its terrain sheet XML and licence are
+identical to the GitHub repository read through raw.githubusercontent.com (kenney.nl itself is not
+reachable from this environment). Credit is given anyway: `s.lib.hex.credit` reads "Hexagon Pack by
+Kenney (www.kenney.nl), CC0 1.0". The package is a devDependency (23 MB unpacked, 1,301 files) read
+only by `scripts/build-hex-atlas.mjs`, which packs 20 terrain tiles and 8 buildings (military
+tiles and the stereotyped `western_indians` tile left out) into one 67.6 kB lossless WebP.
+
+**Vendored as copies on the owner's word** (2026-10-13), because neither npm tarball carries a
+LICENSE file and the engine build's licence audit admits an installed package only with one:
+
+| Package        | Version | Licence                                                          | Copied to                                   | Used by                                       |
+| -------------- | ------- | ---------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------- |
+| fastnoise-lite | 1.1.1   | MIT — package.json, the source header, the repository's LICENSE  | `media-engines/vendor/fastnoise-lite/`      | `s.lib.noise` types perlin, value, value-cubic, opensimplex2, opensimplex2s (`ck-lib-noise.js`, 21.1 kB) |
+| bezier-js      | 6.1.4   | MIT — package.json and the repository's LICENSE.md               | `media-engines/vendor/bezier-js/` (its `src/`) | `s.lib.geom.curve` (`ck-lib-geom.js`, 19.5 kB) |
+
+Each folder holds the verbatim files (sha256 in its PROVENANCE.md, pinned by the unit tests), the
+upstream licence and our own `.d.ts`; `scripts/studio-engine-targets.mjs` lists each LICENSE under
+its target's `vendored`, so the asset banner carries the notice. Upgrading is a manual replace.
+
+Evaluated and **not admitted** (2026-10-13), each read from its tarball or registry entry:
+
+| Package                         | Version  | Licence (as read)                     | Why not                                                                                                                                                                        |
+| ------------------------------- | -------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| d3-delaunay (+ delaunator 5)    | 6.0.4    | ISC; delaunator → robust-predicates   | The kit's own `s.delaunay` already gives triangles, Voronoi cells and `find`; delaunator 5 depends on robust-predicates (**Unlicense**, outside the licence list).           |
+| polygon-clipping                | 0.15.7   | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
+| martinez-polygon-clipping       | 0.9.0    | MIT; → robust-predicates (Unlicense)  | Unlicense dependency.                                                                                                                                                          |
+| @velipso/polybool               | 2.0.11   | 0BSD (+ tslib 0BSD)                   | 8.9 kB gzip for the booleans polybooljs's modules give in 3.5 kB; 0BSD is not yet in the build's audited list.                                                               |
+| chromotome / nice-color-palettes | 1.21.4 / 4.0.0 | MIT                           | Curated palettes, but the page palette (`s.palette`) wins, and the `palette` param already takes up to six colours of the person's own.                                       |
+| @iconify-json/game-icons        | 1.2.4    | **CC BY 3.0**                         | Attribution on every page that shows an icon, which an agent-built page cannot guarantee; this policy admits no CC BY art. `@icongo/gi` 1.2.0 relabels the same icons "MIT" (unclear licence). |
+| @anabis/kenney-space-kit-mirror | 2.0.0    | CC0-1.0                               | Kenney's Space Kit is 3-D models, not 2-D art for Pixi; "unofficial mirror".                                                                                                 |
+| hexagonopolis-assets            | 1.0.0    | ISC (registry entry)                  | Read from its registry entry only: "Assets for the webbased game Hexagonopolis", art declared ISC with no stated source; not admitted without clear provenance.               |
+
+## Studio mural libraries 2 — culori, lindenmayer, d3-shape, simplify-js (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog into `@craftkit/builder-media-engines` only, on
+the owner's request (in Arabic) for more libraries that make murals richer with less code; the
+primary vetted each one first. Bundled into the lazy assets `assets/ck-lib-color.js` (generated
+`packages/builder/renderer/src/engines/studio/color-source.ts`, 10.4 kB gzip, budget 11.0 kB),
+`assets/ck-lib-lsys.js` (`lsys-source.ts`, 7.3 kB, budget 7.7 kB) and `assets/ck-lib-geom.js`
+(`geom-source.ts`, now 26.6 kB, budget 28.0 kB), shipped only on pages whose code names `color`,
+`lsys` or `geom`. `scripts/build-studio-engines.mjs` audited each package's licence text against
+its declared licence, unchanged; no asset evaluates code, fetches or bundles Pixi.
+
+| Package     | Version | Licence                                                  | Asset              |
+| ----------- | ------- | -------------------------------------------------------- | ------------------ |
+| culori      | 4.0.2   | MIT (c) 2018 Dan Burzo (`culori/fn` only)                | `ck-lib-color.js`  |
+| lindenmayer | 1.5.4   | MIT (c) 2015-2016 Tom Brewe                              | `ck-lib-lsys.js`   |
+| d3-shape    | 3.2.0   | ISC (c) 2010-2022 Mike Bostock                           | `ck-lib-geom.js`   |
+| d3-path     | 3.1.0   | ISC (c) 2015-2022 Mike Bostock (d3-shape's dependency)   | `ck-lib-geom.js`   |
+| simplify-js | 1.2.4   | **BSD-2-Clause** (c) 2017 Vladimir Agafonkin             | `ck-lib-geom.js`   |
+
+Read on 2026-10-13 from each tarball (`npm pack`, extracted as data into its own scratch
+directory, no script run): every one ships a `LICENSE` file whose text matches its declared
+licence; culori 4.0.2 was published 2025-06-27 (already in the catalog for the shell's ramp editor
+and `@types/culori` 4.0.1, now also a media-engines devDependency), lindenmayer 1.5.4 2020-06-12,
+d3-shape 3.2.0 2022-12-20 (d3-path 3.1.0 2022-12-19), simplify-js 1.2.4 2020-02-03. None has a
+runtime dependency beyond d3-path. Notes from reading the code:
+
+- culori's `prepare` script (`git config core.hooksPath`) is a development hook; pnpm does not run
+  it for a registry install. Only `culori/fn` is imported: it registers no colour space by itself,
+  so the asset carries exactly the four modes `libs/color/color.ts` registers.
+- lindenmayer picks weighted successors with `Math.random`; `s.lib.lsys` never hands it any (a
+  stochastic rule reaches it as a function drawing from the scene's seeded generator), so that
+  path is dead code in the asset. It has no global side effects.
+- simplify-js is a UMD file: under esbuild's CommonJS wrapper it takes the `module.exports`
+  branch; a page that defined an AMD `define` would make it register there instead, in which case
+  `G.simplify` returns its input unchanged rather than throwing (CraftKit pages load no AMD loader).
+- d3-shape's line and arc draw into a path context of our own, so d3-path's `Path` (string
+  output) is bundled but never called.
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are
@@ -545,3 +724,44 @@ our own serialised code. Each adapting site names its idea source in a comment.
 | [img-comparison-slider](https://github.com/sneas/img-comparison-slider) | 8.0.7 | MIT (c) 2019 Dmytro Snisarenko | Before/after compare driven by a native range input, clipped with `clip-path` | `packs/compare.ts` |
 
 <!-- end media-motion engine-timeline additions -->
+
+<!-- tailwind-plugins additions (2026-10-13) -->
+
+## Tailwind plugins — prose, form fields and entrances for generated pages (2026-10-13)
+
+**Installed, not vendored**, from the pnpm catalog. Each licence was read from the installed
+tarball's own LICENSE file (not only `package.json`) on 2026-10-13; texts in
+THIRD_PARTY_LICENSES.md. Each pin is the latest release and more than two weeks old.
+
+| Package                 | Version | Published  | Licence (tarball LICENSE)       | Installed into                      |
+| ----------------------- | ------- | ---------- | ------------------------------- | ----------------------------------- |
+| tw-animate-css          | 1.4.0   | 2025-09-24 | MIT (c) 2025 Wombosvideo        | builder-renderer                    |
+| @tailwindcss/typography | 0.5.20  | 2026-06-08 | MIT (c) Tailwind Labs, Inc.     | builder-renderer, builder-code-runtime (playground and storybook already listed it) |
+| @tailwindcss/forms      | 0.5.11  | 2025-12-17 | MIT (c) Tailwind Labs, Inc.     | builder-renderer, builder-code-runtime |
+| mini-svg-data-uri       | 1.4.4   | —          | MIT (c) 2018 Taylor Hunt        | (forms' dependency)                 |
+| postcss-selector-parser | 6.0.10  | —          | MIT (c) Ben Briggs              | (typography's dependency, already in the graph) |
+
+How they reach a page (generator: `packages/builder/renderer/src/tailwind/plugin-bridge.ts`):
+
+- **Animate layer** (`tailwind-animate.css`: `@import 'tw-animate-css'`, the slide step bound to
+  `--t-space-unit`, and `animation: none` on every enter/exit class under
+  `prefers-reduced-motion: reduce`) — behind the editor's Tailwind door, so in every static sheet,
+  and in the in-page compiler and the export.
+- **Content layer** (`tailwind-content.css`: typography, and forms with `strategy: 'class'` so no
+  input is reset globally, both re-pointed at the `--t-*` tokens) — generated per page by the
+  in-page compiler (canvas, preview, the AI door's oracle) and by `compileFor` (export), not by
+  the static sheet: one `prose` is ~20 KB of CSS and the static scan would ship it on every
+  editor load (measured +3 to +5 KB gzip against a first-load CSS budget with 1.85 KB to spare).
+- The in-page compiler loads both plugins through a closed `loadModule` (`compiler-loaders.ts`)
+  in a lazy chunk (115 KB minified / 26.7 KB gzip, beside Tailwind's own 74 KB gzip).
+- `tw-animate-css` exports its stylesheet only under the `style` condition, which a script
+  bundler does not resolve, so the in-page compiler reads a byte-for-byte copy:
+  `packages/builder/renderer/src/tailwind/tw-animate-source.ts` (sha256
+  `6035b41301945cd65eb233b4653965e3c235338faae51b0f55676d591daaef23`, 14,880 B), held equal to the
+  installed tarball by `tw-animate-source.test.ts` (`UPDATE_TAILWIND_CSS=1` regenerates it).
+- Code projects (`@craftkit/builder-code-runtime`) compile with typography and forms as trusted
+  plugins (still refusing any authored `@plugin`), in Tailwind's own palette since a code project
+  wears no site tokens; tw-animate is left out there — a code project animates with the managed
+  `motion/react` its lock allows.
+
+<!-- end tailwind-plugins additions -->

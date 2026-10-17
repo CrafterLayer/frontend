@@ -240,3 +240,15 @@
   background-color: var(--bldr-accent-strong);
   color: var(--bldr-accent-text);
 }
+
+/* Publish without its split half is one whole primary button (Studio Indigo, 2026-10-12). */
+.bldr-topbar__publish-main:only-child {
+  border-radius: var(--bldr-radius-md);
+}
+
+.bldr-topbar__publish-main:disabled,
+.bldr-topbar__publish-main:disabled:hover {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+  cursor: not-allowed;
+}

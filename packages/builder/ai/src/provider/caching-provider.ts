@@ -10,13 +10,16 @@ import type {
   AiPromptEnhancement,
   AiProposeOptions,
   AiProposePagePlanOptions,
+  AiProposeSitePlanOptions,
+  AiSitePlanProposal,
   AssembledAiContext,
 } from '../types';
 import { canonicalJsonStringify } from '../internal/canonical-json';
+import type { AiSceneReview } from './scene-review-wire';
 import { CACHED_PROVIDER_USAGE, notifyProviderUsage } from './usage';
 
 export interface CachingAiPlanProviderOptions {
-  /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite). */
+  /** Entries kept before the oldest is evicted — per kind of answer (plan, page plan, rewrite, verdict). */
   capacity?: number;
 }
 
@@ -138,9 +141,9 @@ async function remembered<T>(
  * because a repair exists precisely because the cached shape of an answer was
  * wrong.
  *
- * The optional capabilities are mirrored exactly: `proposePagePlan` and
- * `enhancePrompt` exist on the decorator only when the inner provider has
- * them, because their ABSENCE is a signal — the build falls back to its
+ * The optional capabilities are mirrored exactly: `proposePagePlan`, `proposeSitePlan`,
+ * `reviewScene` and `enhancePrompt` exist on the decorator only when the
+ * inner provider has them, because their ABSENCE is a signal — the build falls back to its
  * scaffold without `proposePagePlan`, and the panel hides Improve without
  * `enhancePrompt`. A decorator that dropped them made the page-plan path
  * unreachable from the playground (engine wave-2 verifier, 2026-09-28); one
@@ -158,6 +161,8 @@ export function createCachingAiPlanProvider(
   const innerRepair = inner.repair?.bind(inner);
   const innerProposePagePlan = inner.proposePagePlan?.bind(inner);
   const innerEnhancePrompt = inner.enhancePrompt?.bind(inner);
+  const innerProposeSitePlan = inner.proposeSitePlan?.bind(inner);
+  const innerReviewScene = inner.reviewScene?.bind(inner);
 
   const provider: AiPlanProvider = {
     // async, so a key that cannot be computed rejects like every other failure.
@@ -241,6 +246,47 @@ export function createCachingAiPlanProvider(
           notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
         },
       );
+    };
+  }
+  if (innerProposeSitePlan !== undefined) {
+    const sitePlans = lruMemory<AiSitePlanProposal>(capacity);
+    // A site plan (T230) reads only the words and the conversation: they are its key.
+    provider.proposeSitePlan = async (
+      request: string,
+      live?: AiProposeSitePlanOptions,
+    ): Promise<AiSitePlanProposal> =>
+      remembered(
+        sitePlans,
+        canonicalJsonStringify({ history: live?.history ?? [], request, task: 'site-plan' }),
+        live?.signal,
+        () => innerProposeSitePlan(request, live),
+        () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        },
+      );
+  }
+  if (innerReviewScene !== undefined) {
+    const verdicts = lruMemory<AiSceneReview>(capacity);
+    /*
+      A scene review (2026-10-13) is remembered by what its pictures were drawn from, never by
+      the pictures: a running scene is never drawn the same twice, and a key of 200 KB of base64
+      would buy nothing. A build names the source (`sourceKey`, agent/scene-review-economy.ts),
+      so the same section looked at again — a regenerate, a rebuild after an undo, an identical
+      re-run — reuses the verdict at no cost; a review without one passes through. Only a verdict
+      is kept: a refusal or a failure throws before it gets here. Its absence stays a signal —
+      a build reviews nothing without it.
+    */
+    provider.reviewScene = async (request, live) => {
+      const ask = () => innerReviewScene(request, live);
+      if (request.sourceKey !== undefined) {
+        return remembered(verdicts, request.sourceKey, live?.signal, ask, () => {
+          notifyProviderUsage(live?.onUsage, CACHED_PROVIDER_USAGE);
+        });
+      }
+      throwIfAborted(live?.signal);
+      const review = await ask();
+      throwIfAborted(live?.signal);
+      return review;
     };
   }
   if (innerEnhancePrompt !== undefined) {

@@ -26,23 +26,37 @@ region and the resize separator. It adds no copy of its own; the region is named
 
 ## Props
 
-| prop            | type                          | default | notes                                                                |
-| --------------- | ----------------------------- | ------- | -------------------------------------------------------------------- |
-| `controller`    | `AgentController`             | none    | state and every action                                               |
-| `visible`       | `boolean`                     | `true`  | hidden keeps it mounted, pauses the ticker; the pill speaks for it   |
-| `width`         | `number`                      | 320     | px, clamped to 288 to 480; uncontrolled when left out                |
-| `onWidthChange` | `(width) => void`             | none    | the separator moved; the host resizes its column                     |
-| `presentation`  | `'auto' \| 'dock' \| 'sheet'` | `auto`  | `auto`: the sheet below 600px on a coarse pointer                    |
-| `onClose`       | `() => void`                  | none    | the sheet's `[×]` or Esc: the host hides the panel                   |
-| `returnFocus`   | `() => HTMLElement \| null`   | none    | the rail's agent button, focused when the sheet closes               |
-| `pillContainer` | `Element \| null`             | none    | an element in the status bar the pill is portalled into while hidden |
-| `onOpen`        | `() => void`                  | none    | the pill was activated                                               |
-| `tooltipDelay`  | `number`                      | 500     | tests pass 0                                                         |
+| prop            | type                          | default | notes                                                                 |
+| --------------- | ----------------------------- | ------- | --------------------------------------------------------------------- |
+| `controller`    | `AgentController`             | none    | state and every action                                                |
+| `knowledge`     | `AgentKnowledgeView`          | none    | given: the header's "Skills & memory" and the composer's `/` commands |
+| `jobs`          | `BackgroundJobsView`          | none    | given: the header's "Background jobs" and the composer's `/batch`     |
+| `visible`       | `boolean`                     | `true`  | hidden keeps it mounted, pauses the ticker; the pill speaks for it    |
+| `width`         | `number`                      | 320     | px, clamped to 288 to 480; uncontrolled when left out                 |
+| `onWidthChange` | `(width) => void`             | none    | the separator moved; the host resizes its column                      |
+| `presentation`  | `'auto' \| 'dock' \| 'sheet'` | `auto`  | `auto`: the sheet below 600px on a coarse pointer                     |
+| `onClose`       | `() => void`                  | none    | the sheet's `[×]` or Esc: the host hides the panel                    |
+| `returnFocus`   | `() => HTMLElement \| null`   | none    | the rail's agent button, focused when the sheet closes                |
+| `pillContainer` | `Element \| null`             | none    | an element in the status bar the pill is portalled into while hidden  |
+| `onOpen`        | `() => void`                  | none    | the pill was activated                                                |
+| `tooltipDelay`  | `number`                      | 500     | tests pass 0                                                          |
 
 `LiveAgentPanel` takes every `UseAgentControllerOptions` field (`kernel`, `locale`, `provider`,
 `providerKind`, `addPage`, `selection`, `editModel`, `editEffort`, `models`, `model`,
 `onSelectModel`, `onPreview`, `onViewAsCode`, `onOpenPageHistory`, …) beside these, plus
-`onSiteSeam` for the Site destination's run lease.
+`onSiteSeam` for the Site destination's run lease and `backgroundJobs` (the host's batch client,
+site and job store), from which it builds `jobs` with `useBackgroundJobs`.
+
+## Background jobs
+
+With `jobs`, the header draws "Background jobs" after "Skills & memory" and the panel mounts
+BackgroundJobsDialog: the list of jobs and the form that starts one (one request, the same on
+several pages, sent as one batch at half price). The composer reaches the form two ways:
+`/batch <request>` sent (the request is taken out of the composer, never run live) and "Run in the
+background" picked from the `/` list (the words before the slash). The list's "Run on several pages"
+starts from the composer's draft. A page's Retry live closes the dialog, shows that page and sends
+the job's request as the panel's own run. The jobs dialog, Skills & memory and Conversations close
+one another.
 
 ## States
 
@@ -75,6 +89,14 @@ clip its popups or controls.
     LiveStatus             the one live region, mounted for the panel's life
   PanelSeparator           role=separator, 8px hit area on the edge toward the canvas
 ```
+
+## Dropping data
+
+A .csv, .tsv, .md or .txt file dragged over the panel shows a dashed hint ("Drop a CSV, TSV or
+Markdown table to chart it"). Dropped, its rows go into the draft under "Chart this:" (or under the
+person's own words), the line the zero-token chart path reads. Sent as it is, the rows become a
+Chart or Table block with no model (`data.show`). Any other file, or one over 20 KB, is refused in
+the same place for three seconds, and no dropped file ever opens in the tab (`useDataDrop`).
 
 ## Accessibility
 

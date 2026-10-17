@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { isLucideIconName, utilityVocabulary } from '@craftkit/builder-schema';
 
+import { SCENE_PRESETS } from '../scene-presets/catalog';
+import { PIXI_CREATIVE_SKILL_IDS } from './creative/creative-skill-ids.test-util';
 import {
   CRAFTKIT_AI_SKILL_DEFINITIONS,
   createCraftkitAiSkillRegistry,
@@ -97,6 +99,7 @@ describe('Craftkit built-in AI skills', () => {
     ).toEqual([
       'craftkit.accessibility-review',
       'craftkit.arabic-rtl',
+      'craftkit.art-names',
       'craftkit.build-fill',
       'craftkit.build-scaffold',
       // Industry page types (2026-09-28): each replaces page-composition for its trade.
@@ -105,31 +108,29 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.copywriting',
       'craftkit.craft-manual',
       'craftkit.cv-page',
+      'craftkit.data-viz',
       // design-code additions (2026-09-28): explicit, for section writers and the page plan.
       'craftkit.design-code',
-      // end design-code additions
       'craftkit.design-direction',
       'craftkit.design-tokens',
       // Explicit, for the skeleton pass only: the look decided from a checked menu.
       'craftkit.direction-deck',
+      'craftkit.logo-design',
       'craftkit.menu-page',
       'craftkit.motion',
       'craftkit.occasion-page',
       'craftkit.page-composition',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
-      'craftkit.pixi-games',
-      'craftkit.pixi-murals',
-      'craftkit.pixi-stories',
+      // creative agent and game libraries (2026-10-12): playbooks, engines and the director.
+      ...PIXI_CREATIVE_SKILL_IDS,
       // pixi-skills additions (2026-10-10): PixiJS v8 for free-code scene scripts.
       'craftkit.pixi-v8-core',
       'craftkit.pixi-v8-effects',
       'craftkit.pixi-v8-graphics',
       'craftkit.pixi-v8-interaction-perf',
       'craftkit.pixi-v8-text-assets',
-      // end pixi-skills additions
-      // Plan mode: explicit-only, and the only built-in whose command
-      // restriction is the EMPTY set.
+      // Plan mode: explicit-only, the only built-in whose command restriction is the EMPTY set.
       'craftkit.plan-mode',
       'craftkit.precise-edit',
       'craftkit.property-page',
@@ -180,8 +181,7 @@ describe('Craftkit built-in AI skills', () => {
       /** Skills left out, as `id:code`; none unless listed. */
       readonly omitted?: readonly string[];
     }
-    // Every Arabic request carries the RTL skill: activation is by script, not
-    // by which imperative the writer happened to use. English requests never do.
+    // Every Arabic request carries the RTL skill (by script, not verb); English ones never do.
     const rows: readonly Row[] = [
       {
         request: 'صمم لي صفحة سيرة ذاتية',
@@ -472,7 +472,7 @@ describe('Craftkit built-in AI skills', () => {
         for (const match of text.matchAll(
           /\b(?:arrow|chevron|circle|badge|graduation|map)-[a-z-]+\b/gu,
         )) {
-          candidates.add(match[0]);
+          if (!SCENE_PRESETS.some(({ id }) => id === match[0])) candidates.add(match[0]);
         }
         expect([...candidates].filter((name) => !isLucideIconName(name))).toEqual([]);
       },

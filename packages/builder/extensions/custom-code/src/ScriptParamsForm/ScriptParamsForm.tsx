@@ -5,7 +5,6 @@ import {
   paramDefaults,
   paramsDiffFromDefaults,
   SCRIPT_PARAM_GROUP_LABELS,
-  SCRIPT_PARAM_GROUPS,
   validateParamValues,
   type Bilingual,
   type CustomCodeJsParams,
@@ -14,6 +13,7 @@ import {
 } from '@craftkit/builder-schema';
 
 import { scriptParamsFormStrings, type ScriptParamsFormStrings } from './ScriptParamsForm.labels';
+import { formatNumber, hex6, paramRuns, pick, same } from './ScriptParamsForm.utils';
 
 import './ScriptParamsForm.css';
 
@@ -64,34 +64,6 @@ const STEP_KEYS: ReadonlySet<string> = new Set([
   'End',
 ]);
 
-function pick(text: Bilingual, arabic: boolean): string {
-  return arabic ? text.ar : text.en;
-}
-
-function same(a: ScriptParamValue | undefined, b: ScriptParamValue | undefined): boolean {
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((entry, index) => entry === b[index]);
-  }
-  return a === b;
-}
-
-function hex6(value: string): string {
-  // <input type=color> takes #rrggbb only.
-  const clean = value.trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/u.test(clean)) return clean;
-  if (/^#[0-9a-f]{3,4}$/u.test(clean)) {
-    return `#${clean.charAt(1).repeat(2)}${clean.charAt(2).repeat(2)}${clean.charAt(3).repeat(2)}`;
-  }
-  if (/^#[0-9a-f]{8}$/u.test(clean)) return clean.slice(0, 7);
-  return '#000000';
-}
-
-function formatNumber(value: number, step: number | undefined): string {
-  if (step === undefined || step >= 1) return String(Math.round(value * 1e6) / 1e6);
-  const digits = Math.min(6, Math.max(0, Math.ceil(-Math.log10(step))));
-  return String(Number(value.toFixed(digits)));
-}
-
 function ResetIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
@@ -109,9 +81,9 @@ function ResetIcon() {
 
 /**
  * The controls for a script's params (pixi-studio DESIGN.md §D.2): one control
- * per param, grouped (Look, Motion, Interaction, Sound) with bilingual labels
- * and help. Used by the Inspector (`CustomCodeParamsField`) and the Script
- * Studio.
+ * per param in SPEC order, consecutive params of a group (Look, Motion,
+ * Interaction, Sound) under its legend, with bilingual labels and help. Used
+ * by the Inspector (`CustomCodeParamsField`) and the Script Studio.
  *
  * Every gesture is ONE commit — one Undo entry. A slider drag previews live
  * (`commit: false`) and commits once on release; a keyboard step commits on
@@ -199,10 +171,7 @@ export default function ScriptParamsForm({
     if (event.key === 'Enter' && pending(key)) commit(key);
   };
 
-  const groups = SCRIPT_PARAM_GROUPS.map((group) => ({
-    group,
-    params: spec.filter((entry) => (entry.group ?? 'look') === group),
-  })).filter((entry) => entry.params.length > 0);
+  const groups = paramRuns(spec);
 
   if (spec.length === 0) {
     return (
@@ -711,7 +680,7 @@ export default function ScriptParamsForm({
       aria-label={strings.formLabel}
     >
       {groups.map(({ group, params }) => (
-        <fieldset key={group} className="bldr-spf__group" disabled={disabled}>
+        <fieldset key={params[0]?.key ?? group} className="bldr-spf__group" disabled={disabled}>
           <legend className="bldr-spf__legend">
             {pick(SCRIPT_PARAM_GROUP_LABELS[group], arabic)}
           </legend>

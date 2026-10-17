@@ -101,6 +101,16 @@ export function expandShader(fragment: string, extra: Readonly<Record<string, Un
     },
   );
 
+  /*
+    The vertex stage's uniforms are highp, and a fragment that declares one at its default
+    (mediump) precision fails to link: "precision differs", a blank canvas (2026-10-12, the
+    preset browser test found four presets dead of it). Promote every such declaration.
+  */
+  body = body.replace(
+    /\buniform\s+(?:(?:lowp|mediump|highp)\s+)?vec4\s+(uInputSize|uOutputFrame|uOutputTexture)\b/gu,
+    'uniform highp vec4 $1',
+  );
+
   const wanted: [string, string][] = [
     ['vTextureCoord', 'in vec2 vTextureCoord;'],
     ['vUv', 'in vec2 vUv;'],

@@ -28,7 +28,32 @@ import { fnv1a64 } from '../studio/contract';
 import { exportStaticSite } from './export-static-site';
 
 vi.mock('../engines/studio/loaders', () => {
-  const keys = ['kit', 'filters', 'emitter', 'physics', 'brush', 'rough', 'viewport'];
+  const keys = [
+    'kit',
+    'filters',
+    'emitter',
+    'physics',
+    'brush',
+    'rough',
+    'viewport',
+    'anim',
+    'fx',
+    'dialogue',
+    'ink',
+    'tilemap',
+    'audio',
+    'gameai',
+    'hud',
+    'peeps',
+    'procgen',
+    'gif',
+    'noise',
+    'geom',
+    'hex',
+    'color',
+    'lsys',
+    'mural',
+  ];
   const loaders: Record<string, () => Promise<string>> = {
     sound: () => Promise.resolve('/* ck-sound stand-in */'),
   };
@@ -169,6 +194,31 @@ describe('Pixi Studio export (§G)', () => {
     expect(html).toContain(
       '<link rel="ck-engine" href="assets/ck-lib-kit.js" data-ck-engine="lib-kit">',
     );
+  });
+
+  it('game libraries (2026-10-12) ship as their own lazy assets, never the sound engine', async () => {
+    const js =
+      "const s = await ck.scene({ libs: ['tilemap', 'gameai', 'audio', 'hud'] }); s.lib.audio.create(s).sfx('coin');";
+    const { paths, file } = await exportPages([page([{ type: 'code', props: { js } }])]);
+    expect(studioAssets(paths)).toEqual([
+      'assets/ck-pixi.js',
+      'assets/ck-lib-kit.js',
+      'assets/ck-lib-tilemap.js',
+      'assets/ck-lib-audio.js',
+      'assets/ck-lib-gameai.js',
+      'assets/ck-lib-hud.js',
+    ]);
+    expect(file('assets/ck-lib-audio.js')?.content).toBe('/* ck-lib-audio stand-in */');
+    const html = file('index.html')?.content ?? '';
+    expect(html).toContain(
+      '<link rel="ck-engine" href="assets/ck-lib-gameai.js" data-ck-engine="lib-gameai">',
+    );
+    expect(html).not.toContain('data-ck-engine="sound"');
+    // Game AI is plain JavaScript: on its own it needs no Pixi at all.
+    const ai = await exportPages([
+      page([{ type: 'code', props: { js: "await ck.use('gameai');" } }]),
+    ]);
+    expect(studioAssets(ai.paths)).toEqual(['assets/ck-lib-gameai.js']);
   });
 
   it('ships each library once for the whole site, and only on the pages that name it', async () => {

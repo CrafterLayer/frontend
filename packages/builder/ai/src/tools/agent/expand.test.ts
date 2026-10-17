@@ -82,13 +82,17 @@ describe('agentToolPrompt', () => {
       'image.set {id,find:src,subject,aspect?,alt}',
       "kit.section {id,kit,slots,heading?:'h1'|'h2'}",
       'palette.set {colors:[{name,value}]',
+      'page.translate {lang,texts:',
+      'scene.preset {preset,after?|into?|behind?:id,params?:{key:value},id?}',
+      'scene.preset mural:flow-field-silk|',
     ]) expect(prompt).toContain(line);
   });
   // Recipe guidance keeps edit/section bounded while retaining existing signatures.
   it('stays within its lane cap and shows one example step', () => {
-    expect(agentToolPromptMaxChars('edit')).toBe(1_900);
-    expect(agentToolPromptMaxChars('section')).toBe(1_200);
-    for (const lane of ['build', 'seo'] as const) expect(agentToolPromptMaxChars(lane)).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
+    expect(agentToolPromptMaxChars('edit')).toBe(3_294);
+    expect(agentToolPromptMaxChars('section')).toBe(1_976);
+    expect(agentToolPromptMaxChars('build')).toBe(1_270);
+    expect(agentToolPromptMaxChars('seo')).toBe(AGENT_TOOL_PROMPT_MAX_CHARS);
     for (const lane of AGENT_TOOL_LANES) {
       const prompt = agentToolPrompt(lane);
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));

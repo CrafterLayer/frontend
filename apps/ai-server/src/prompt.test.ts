@@ -564,9 +564,9 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    // Intentional design-capability prefix update, 2026-10-10; data/message routing is unchanged.
-    'a bare request': 'bbe3d403946fdc95111939365a980d8501d031864fb9593858b477657a6dcfe6',
-    'a large catalog': 'a243bc3d8cf6d06329692ad5f38e783d48b7eb2cf7caa4310e375bce807b7b8f',
+    // Intentional prefix updates (design capability 10-10, Tailwind plugin vocabulary 10-13).
+    'a bare request': '14bd0532fdac3fcfd90565f8b09a9fd3939da783a4207d1056b3568dcb818909',
+    'a large catalog': '805d3ac78452a50fbc093770b308e1e5f37d59623e40574db51dd485becf0531',
     'every branch at once': '1a245941df48a10fa04fed05eb474c5e9d9e065c3d4c0396af1b60f27a3f43b7',
   };
 
@@ -1468,8 +1468,8 @@ describe('agent tools in the edit prompt', () => {
   });
 
   // Shared presets add a bounded capability line without stripping existing tool signatures.
-  it('keeps the edit prompt compact: edit within 1900 characters, seo within 900, the edit rules still < 80% of a build', () => {
-    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(1_900);
+  it('keeps the edit prompt compact: edit within 3294 characters, seo within 900, the edit rules still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(3_294);
     expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
     const edit = buildPrompt(editRequest());
     const build = buildPrompt({

@@ -2,6 +2,7 @@ import {
   buildSeoHead,
   encodeRoute,
   extractSeoContent,
+  languageSetDirection,
   pageSeoSchema,
   robotsTxt,
   sitemapXml,
@@ -310,8 +311,7 @@ const ENGINE_ORDER: readonly PageEngine[] = [
   'scene',
   'lottie',
   'pixi',
-  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries after pixi (each
-  // binds to its namespace), then the sound engine — `assets/ck-lib-<key>.js`, `assets/ck-sound.js`.
+  // pixi-studio:runtime-wiring additions (2026-10-10): the add-on libraries after pixi (each binds to its namespace), then the sound engine — `assets/ck-lib-<key>.js`, `assets/ck-sound.js`.
   ...STUDIO_LIB_KEYS.map((key): PageEngine => `lib-${key}`),
   'sound',
   // end pixi-studio:runtime-wiring additions
@@ -592,7 +592,7 @@ export async function exportStaticSite(
       file,
       route,
       lang: languageOf(input.document),
-      dir: input.document.dir,
+      dir: languageSetDirection(props) ?? input.document.dir, // a language version reads in its own
       body,
       fonts: [...libraryCss.fonts, ...fonts.filter((url) => !libraryCss.fonts.includes(url))],
       css,

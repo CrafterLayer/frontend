@@ -1,0 +1,59 @@
+/*
+  ContextMeter (2026-10-12): the latest request's estimated size against its budget, beside
+  the context chips. Quiet: Meta type in Slate, a 2px bar on the progress track, both in
+  the warning token past 80%. It sits at the row's inline end, so it never pushes a chip
+  onto a second line before it has to.
+*/
+
+.ck-agent-meter {
+  display: inline-grid;
+  align-content: center;
+  justify-items: stretch;
+  row-gap: var(--bldr-space-2xs);
+  block-size: var(--bldr-control-sm);
+  margin-inline-start: auto;
+  font-family: var(--bldr-font);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.ck-agent-meter__figure {
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-agent-meter__track {
+  display: block;
+  block-size: var(--bldr-space-2xs);
+  overflow: hidden;
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-progress-track);
+}
+
+.ck-agent-meter__fill {
+  display: block;
+  block-size: 100%;
+  max-inline-size: 100%;
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-meter[data-level='warning'] {
+  color: var(--bldr-warning);
+}
+
+.ck-agent-meter[data-level='warning'] .ck-agent-meter__fill {
+  background-color: var(--bldr-warning);
+}
+
+@media (forced-colors: active) {
+  .ck-agent-meter__track {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-meter__fill {
+    background-color: CanvasText;
+  }
+}

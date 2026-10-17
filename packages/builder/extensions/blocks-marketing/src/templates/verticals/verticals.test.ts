@@ -22,13 +22,28 @@ import type { TemplateLang } from '../types';
 import { VERTICAL_DEFINITIONS } from './index';
 
 /*
-  templates-verticals (agent-script DESIGN §B.1–§B.3): five vertical
-  templates, each in English and Arabic, checked against the quality bar as
-  data. Rendering at 390–1440 px in light and dark is the end-of-program
+  templates-verticals (agent-script DESIGN §B.1–§B.3): eleven vertical
+  templates — the first five plus the six sector templates — each in English
+  and Arabic, checked against the quality bar as data. Rendering at 390–1440 px in light and dark is the end-of-program
   capture's job; this file proves what can be proven without a browser.
 */
 
-const VERTICAL_IDS = ['restaurant', 'clinic', 'portfolio-cv', 'real-estate', 'events'];
+const VERTICAL_IDS = [
+  'restaurant',
+  'clinic',
+  'portfolio-cv',
+  'real-estate',
+  'events',
+  'education',
+  'fitness',
+  'law-firm',
+  'nonprofit',
+  'hotel-travel',
+  'personal-brand',
+];
+
+/** The sector templates' own photo topics, mirrored from the shared catalog. */
+const SECTOR_TOPICS = ['fitness', 'nonprofit', 'hotel'];
 
 const compositions: readonly CompositionDef[] = VERTICAL_DEFINITIONS.flatMap((definition) => [
   definition.build('en'),
@@ -111,6 +126,86 @@ const OUTLINES: Record<string, readonly string[]> = {
     'promoBanner',
     'pageFooter',
   ],
+  education: [
+    'pageHeader',
+    'hero',
+    'logoCloud',
+    'productGrid',
+    'processSteps',
+    'stats',
+    'team',
+    'testimonials',
+    'faq',
+    'formSection',
+    'pageFooter',
+  ],
+  fitness: [
+    'pageHeader',
+    'hero',
+    'stats',
+    'bento-grid',
+    'processSteps',
+    'team',
+    'pricing',
+    'testimonials',
+    'faq',
+    'promoBanner',
+    'pageFooter',
+  ],
+  'law-firm': [
+    'pageHeader',
+    'hero',
+    'content-section',
+    'features',
+    'bento-grid',
+    'processSteps',
+    'team',
+    'testimonials',
+    'faq',
+    'formSection',
+    'pageFooter',
+  ],
+  nonprofit: [
+    'announcementBar',
+    'pageHeader',
+    'hero',
+    'stats',
+    'features',
+    'processSteps',
+    'pricing',
+    'gallery',
+    'testimonials',
+    'faq',
+    'promoBanner',
+    'pageFooter',
+  ],
+  'hotel-travel': [
+    'pageHeader',
+    'hero',
+    'productGrid',
+    'features',
+    'gallery',
+    'content-section',
+    'testimonials',
+    'location',
+    'faq',
+    'promoBanner',
+    'pageFooter',
+  ],
+  'personal-brand': [
+    'pageHeader',
+    'hero',
+    'logoCloud',
+    'content-section',
+    'stats',
+    'pricing',
+    'processSteps',
+    'testimonials',
+    'blogGrid',
+    'faq',
+    'contact',
+    'pageFooter',
+  ],
 };
 
 /**
@@ -162,16 +257,52 @@ const COPY_KEY =
   /(label|title|heading|body|eyebrow|text|note|message|placeholder|caption|privacy|prefix|suffix|headline)$/iu;
 
 /** Currency each priced list is written in. */
-const PRICED: readonly { readonly id: string; readonly type: string; readonly currency: Currency }[] = [
+const PRICED: readonly {
+  readonly id: string;
+  readonly type: string;
+  readonly currency: Currency;
+}[] = [
   { id: 'restaurant', type: 'productGrid', currency: 'JOD' },
   { id: 'real-estate', type: 'productGrid', currency: 'AED' },
   { id: 'events', type: 'pricingPlan', currency: 'SAR' },
+  { id: 'education', type: 'productGrid', currency: 'JOD' },
+  { id: 'fitness', type: 'pricingPlan', currency: 'SAR' },
+  { id: 'nonprofit', type: 'pricingPlan', currency: 'JOD' },
+  { id: 'hotel-travel', type: 'productGrid', currency: 'JOD' },
+  { id: 'personal-brand', type: 'pricingPlan', currency: 'AED' },
 ];
 
 const baseIdOf = (composition: CompositionDef) => composition.id.replace(/-ar$/u, '');
 
+/** Priced plans: `count` cards, each with a perk list and an action, one featured. */
+function expectPlans(composition: CompositionDef, count: number, where: string): Node[] {
+  const plans = nodesOfType(composition, 'pricingPlan');
+  expect(plans, where).toHaveLength(count);
+  for (const plan of plans) {
+    const children = (plan.slots?.['default'] ?? []).map((id) => composition.nodes[id]?.type);
+    expect(children, `${where}/${plan.id}`).toEqual(['richText', 'cta']);
+    expect(text(plan.props['periodLabel']).length, `${where}/${plan.id}`).toBeGreaterThan(0);
+  }
+  const featured = plans.filter((plan) => plan.props['emphasis'] === 'featured');
+  expect(featured, where).toHaveLength(1);
+  expect(text(featured[0]?.props['badge']).length, where).toBeGreaterThan(0);
+  return plans;
+}
+
+/** A product grid of priced items whose description has `parts` "·"-separated parts. */
+function expectDescribedItems(node: Node | undefined, count: number, parts: number, where: string) {
+  const items = list(node?.props['products']);
+  expect(items, where).toHaveLength(count);
+  for (const item of items) {
+    expect(text(item['description']).split('·'), where).toHaveLength(parts);
+  }
+  return items;
+}
+
+const BENTO_SIZES = ['featured', 'tall', 'small', 'wide'];
+
 describe('vertical templates (DESIGN §B.3)', () => {
-  it('ships 10 compositions — five verticals, each with an Arabic twin — after the core eight', () => {
+  it('ships 22 compositions — eleven verticals, each with an Arabic twin — after the core eight', () => {
     expect(compositions.map((composition) => composition.id)).toEqual(
       VERTICAL_IDS.flatMap((id) => [id, `${id}-ar`]),
     );
@@ -201,7 +332,8 @@ describe('vertical templates (DESIGN §B.3)', () => {
       for (const [key, node] of Object.entries(composition.nodes)) expect(node.id).toBe(key);
       const prefix = composition.nodes[composition.rootId]?.id.replace(/-root$/u, '') ?? '';
       expect(prefix, composition.id).toMatch(new RegExp(`-${langOf(composition)}$`, 'u'));
-      for (const id of Object.keys(composition.nodes)) expect(id.startsWith(`${prefix}-`), id).toBe(true);
+      for (const id of Object.keys(composition.nodes))
+        expect(id.startsWith(`${prefix}-`), id).toBe(true);
     }
   });
 
@@ -210,9 +342,10 @@ describe('vertical templates (DESIGN §B.3)', () => {
       const types = sectionTypes(composition);
       expect(types, composition.id).toEqual(OUTLINES[baseIdOf(composition)]);
       const headerAt = types.indexOf('pageHeader');
-      expect(headerAt === 0 || (headerAt === 1 && types[0] === 'announcementBar'), composition.id).toBe(
-        true,
-      );
+      expect(
+        headerAt === 0 || (headerAt === 1 && types[0] === 'announcementBar'),
+        composition.id,
+      ).toBe(true);
       expect(types.at(-1), composition.id).toBe('pageFooter');
     }
   });
@@ -262,12 +395,38 @@ describe('vertical templates (DESIGN §B.3)', () => {
   });
 
   it('records every vertical photo as verified on the list date, with alt text in both languages', () => {
-    for (const topic of ['restaurant', 'clinic', 'portfolio', 'realestate', 'events', 'portraits']) {
+    for (const topic of [
+      'restaurant',
+      'clinic',
+      'portfolio',
+      'realestate',
+      'events',
+      'portraits',
+    ]) {
       const photos = TEMPLATE_PHOTOS[topic] ?? [];
       expect(photos.length, topic).toBeGreaterThan(0);
       for (const entry of photos) {
-        expect(entry.src, topic).toMatch(/^https:\/\/images\.(unsplash|pexels)\.com\/.+[?&]w=1600(?:&|$)/u);
+        expect(entry.src, topic).toMatch(
+          /^https:\/\/images\.(unsplash|pexels)\.com\/.+[?&]w=1600(?:&|$)/u,
+        );
         expect(entry.verifiedAt, entry.src).toBe('2026-10-08');
+        expect(arabicLetters(entry.alt.en), entry.src).toBe(0);
+        expect(latinWords(entry.alt.ar), entry.src).toEqual([]);
+        expect(arabicLetters(entry.alt.ar), entry.src).toBeGreaterThan(5);
+      }
+    }
+  });
+
+  it('mirrors the sector photos from the shared catalog, with its date and alt text in both languages', () => {
+    for (const topic of SECTOR_TOPICS) {
+      const photos = TEMPLATE_PHOTOS[topic] ?? [];
+      expect(photos.length, topic).toBeGreaterThan(0);
+      for (const entry of photos) {
+        // The catalog's Pexels addresses, never rebuilt from an id.
+        expect(entry.src, topic).toMatch(
+          /^https:\/\/images\.pexels\.com\/photos\/(\d+)\/pexels-photo-\1\.jpeg\?auto=compress&cs=tinysrgb&w=1600$/u,
+        );
+        expect(entry.verifiedAt, entry.src).toBe('2026-09-28');
         expect(arabicLetters(entry.alt.en), entry.src).toBe(0);
         expect(latinWords(entry.alt.ar), entry.src).toEqual([]);
         expect(arabicLetters(entry.alt.ar), entry.src).toBeGreaterThan(5);
@@ -303,14 +462,16 @@ describe('vertical templates (DESIGN §B.3)', () => {
       const first = (type: string) => nodesOfType(composition, type)[0];
       switch (baseIdOf(composition)) {
         case 'restaurant': {
-          expect(list(first('productGrid')?.props['products']).length, where).toBeGreaterThanOrEqual(8);
+          expect(
+            list(first('productGrid')?.props['products']).length,
+            where,
+          ).toBeGreaterThanOrEqual(8);
           expect(list(first('gallery')?.props['items']), where).toHaveLength(6);
           expect(first('gallery')?.props['layout'], where).toBe('editorial');
-          expect(list(first('bento-grid')?.props['items']).map((item) => item['size']), where).toEqual([
-            'featured',
-            'small',
-            'small',
-          ]);
+          expect(
+            list(first('bento-grid')?.props['items']).map((item) => item['size']),
+            where,
+          ).toEqual(['featured', 'small', 'small']);
           break;
         }
         case 'clinic': {
@@ -345,16 +506,125 @@ describe('vertical templates (DESIGN §B.3)', () => {
           expect(list(first('stats')?.props['items']), where).toHaveLength(3);
           const agenda = list(first('processSteps')?.props['steps']);
           expect(agenda, where).toHaveLength(6);
-          expect(agenda.every((step) => typeof step['meta'] === 'string'), where).toBe(true);
+          expect(
+            agenda.every((step) => typeof step['meta'] === 'string'),
+            where,
+          ).toBe(true);
           expect(list(first('team')?.props['members']), where).toHaveLength(4);
           const plans = nodesOfType(composition, 'pricingPlan');
           expect(plans, where).toHaveLength(3);
           for (const plan of plans) {
-            const children = (plan.slots?.['default'] ?? []).map((id) => composition.nodes[id]?.type);
+            const children = (plan.slots?.['default'] ?? []).map(
+              (id) => composition.nodes[id]?.type,
+            );
             expect(children, `${where}/${plan.id}`).toContain('cta');
           }
-          expect(plans.filter((plan) => plan.props['emphasis'] === 'featured'), where).toHaveLength(1);
+          expect(
+            plans.filter((plan) => plan.props['emphasis'] === 'featured'),
+            where,
+          ).toHaveLength(1);
           expect(list(first('gallery')?.props['items']), where).toHaveLength(6);
+          break;
+        }
+        case 'education': {
+          expect(list(first('logoCloud')?.props['items']), where).toHaveLength(6);
+          const courses = expectDescribedItems(first('productGrid'), 6, 4, where);
+          expect(list(first('processSteps')?.props['steps']), where).toHaveLength(4);
+          expect(list(first('stats')?.props['items']), where).toHaveLength(4);
+          expect(list(first('team')?.props['members']), where).toHaveLength(4);
+          // The admissions form offers exactly the courses the page sells.
+          const course = list(first('formSection')?.props['fields']).find(
+            (field) => field['name'] === 'course',
+          );
+          expect(
+            list(course?.['options']).map((option) => option['label']),
+            where,
+          ).toEqual(courses.map((item) => item['name']));
+          break;
+        }
+        case 'fitness': {
+          expect(first('hero')?.props['tone'], where).toBe('dark');
+          expect(list(first('stats')?.props['items']), where).toHaveLength(4);
+          const programmes = list(first('bento-grid')?.props['items']);
+          expect(
+            programmes.map((item) => item['size']),
+            where,
+          ).toEqual(BENTO_SIZES);
+          expect(
+            programmes.every((item) => text(item['metric']).length > 0),
+            where,
+          ).toBe(true);
+          expect(list(first('processSteps')?.props['steps']), where).toHaveLength(3);
+          expect(list(first('team')?.props['members']), where).toHaveLength(4);
+          expectPlans(composition, 3, where);
+          expect(first('promoBanner')?.props['panelStyle'], where).toBe('accent');
+          break;
+        }
+        case 'law-firm': {
+          expect(first('hero')?.props['tone'], where).toBe('dark');
+          expect(first('hero')?.props['fontFamily'], where).toBe('serif');
+          expect(list(first('content-section')?.props['highlights']), where).toHaveLength(4);
+          expect(list(first('features')?.props['items']), where).toHaveLength(6);
+          const results = list(first('bento-grid')?.props['items']);
+          expect(
+            results.map((item) => item['size']),
+            where,
+          ).toEqual(BENTO_SIZES);
+          expect(
+            results.every((item) => /\d/u.test(text(item['metric']))),
+            where,
+          ).toBe(true);
+          expect(list(first('processSteps')?.props['steps']), where).toHaveLength(4);
+          expect(first('team')?.props['variant'], where).toBe('editorial');
+          expect(list(first('team')?.props['members']), where).toHaveLength(4);
+          const form = first('formSection');
+          expect(form?.props['tone'], where).toBe('dark');
+          const fields = list(form?.props['fields']);
+          const matter = fields.find((field) => field['name'] === 'matter');
+          expect(list(matter?.['options']), where).toHaveLength(6);
+          expect(fields.at(-1)?.['type'], where).toBe('checkbox');
+          break;
+        }
+        case 'nonprofit': {
+          expect(list(first('stats')?.props['items']), where).toHaveLength(4);
+          expect(list(first('features')?.props['items']), where).toHaveLength(4);
+          expect(list(first('processSteps')?.props['steps']), where).toHaveLength(3);
+          const plans = expectPlans(composition, 3, where);
+          const monthly = plans.find((plan) => plan.props['emphasis'] === 'featured');
+          expect(monthly?.props['period'], where).toBe('month');
+          expect(list(first('gallery')?.props['items']), where).toHaveLength(6);
+          expect(first('gallery')?.props['layout'], where).toBe('editorial');
+          break;
+        }
+        case 'hotel-travel': {
+          const rooms = expectDescribedItems(first('productGrid'), 6, 4, where);
+          // "size · guests · view · feature": the size is always a number.
+          for (const room of rooms) expect(text(room['description']), where).toMatch(/^\d/u);
+          expect(list(first('features')?.props['items']), where).toHaveLength(6);
+          const gallery = first('gallery');
+          expect(gallery?.props['tone'], where).toBe('dark');
+          expect(list(gallery?.props['items']), where).toHaveLength(6);
+          const location = first('location');
+          expect(list(location?.props['hours']).length, where).toBeGreaterThanOrEqual(3);
+          expect(typeof location?.props['latitude'], where).toBe('number');
+          expect(typeof location?.props['phone'], where).toBe('string');
+          expect(list(first('promoBanner')?.props['actions']), where).toHaveLength(2);
+          break;
+        }
+        case 'personal-brand': {
+          const heroMedia = composition.nodes[`personal-${langOf(composition)}-hero-image`];
+          expect(heroMedia?.props['ratio'], where).toBe('portrait');
+          expect(list(first('logoCloud')?.props['items']), where).toHaveLength(6);
+          expect(list(first('stats')?.props['items']), where).toHaveLength(3);
+          expectPlans(composition, 3, where);
+          expect(list(first('processSteps')?.props['steps']), where).toHaveLength(4);
+          const posts = list(first('blogGrid')?.props['posts']);
+          expect(posts, where).toHaveLength(3);
+          expect(
+            posts.filter((post) => post['featured'] === true),
+            where,
+          ).toHaveLength(1);
+          expect(first('contact')?.props['showForm'], where).toBe(true);
           break;
         }
         default:
@@ -428,7 +698,8 @@ describe('vertical templates (DESIGN §B.3)', () => {
         if (node.type === 'processSteps' && node.props['layout'] === 'vertical') continue;
         const steps = COLUMN_STEPS[node.type]?.[text(node.props['columns'])];
         expect(steps, `${where} columns ${text(node.props['columns'])}`).toBeDefined();
-        for (const step of steps ?? []) expect(items.length % step, `${where} @${String(step)}`).toBe(0);
+        for (const step of steps ?? [])
+          expect(items.length % step, `${where} @${String(step)}`).toBe(0);
       }
     }
   });
@@ -452,6 +723,12 @@ describe('vertical template cards', () => {
     'portfolio-cv': 'portfolio',
     'real-estate': 'realestate',
     events: 'events',
+    education: 'education',
+    fitness: 'fitness',
+    'law-firm': 'legal',
+    nonprofit: 'nonprofit',
+    'hotel-travel': 'hospitality',
+    'personal-brand': 'personal',
   };
 
   const cards = marketingTemplateCatalog.filter((card) =>
@@ -468,7 +745,9 @@ describe('vertical template cards', () => {
       const composition = compositions.find((entry) => entry.id === card.id);
       expect(card.category, card.id).toBe(CATEGORIES[card.id.replace(/-ar$/u, '')]);
       expect(card.lang, card.id).toBe(card.id.endsWith('-ar') ? 'ar' : 'en');
-      expect(card.sections, card.id).toBe(composition === undefined ? -1 : sectionTypes(composition).length);
+      expect(card.sections, card.id).toBe(
+        composition === undefined ? -1 : sectionTypes(composition).length,
+      );
       for (const text of [card.name.en, card.name.ar, card.description.en, card.description.ar]) {
         expect(text.length, card.id).toBeGreaterThan(0);
         expect(text.length, `${card.id}: ${text}`).toBeLessThanOrEqual(120);

@@ -104,9 +104,51 @@ token to authored code.
 | `CRAFTKIT_AI_MAX_TOKENS`          | `32000`                        | Output ceiling per answer. Raise it for models that can write more; the OpenRouter backend clamps each request to the chosen model's own limit, so a high value is safe.                                                                                                               |
 | `CRAFTKIT_AI_OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter only. A proxy goes here.                                                                                                                                                                                                                                                    |
 | `CRAFTKIT_AI_TOKEN`               | —                              | When set, every request must carry `Authorization: Bearer <token>`. Set it for anything but localhost.                                                                                                                                                                                 |
-| `CRAFTKIT_AI_CLI_EFFORT`          | CLI default                    | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Passed as `--effort`; unset means the flag is omitted entirely, so an inherited `CLAUDE_EFFORT` cannot decide it. The reasoning **text** is redacted on this path, so effort buys plan quality, not narration.                  |
-| `CRAFTKIT_AI_CLI_TIMEOUT_MS`      | `600000`                       | CLI backend only (`CRAFTKIT_AI_BACKEND=cli`). Whole-run cap. A full-page plan is 15–25k output tokens and the CLI writes ~80 a second, so three to five minutes is normal; a cap near two minutes kills every real plan mid-generation.                                                |
+| `CRAFTKIT_AI_CLI_EFFORT`          | CLI default                    | CLI backend only. `low`/`medium`/`high`/`xhigh`/`max`. Explicit per-call effort wins through `--effort`, the child environment and inline settings; unset retains CLI defaults. The reasoning **text** is redacted on this path.                                                       |
+| `CRAFTKIT_AI_CALL_TIMEOUT_MS`     | `240000`                       | Complete `/plan` generation-call deadline, including cache waiting, streamed output, SDK activity and routing fallback. Positive integer milliseconds; invalid values fail startup. Raise explicitly for longer creative work.                                                         |
+| `CRAFTKIT_AI_CLI_TIMEOUT_MS`      | `600000`                       | CLI process backstop, also used by hybrid `cli:` routes and fallback. The complete call deadline or caller cancellation can stop a run earlier. Raising this setting alone does not extend `/plan`'s call deadline.                                                                    |
 | `CRAFTKIT_AI_ALLOWED_ORIGINS`     | loopback, any port             | Comma-separated browser origins (`https://app.example.com`). An explicit list replaces the loopback default. A browser request from any other origin is refused with 403 before the model is called; requests with no `Origin` (curl, servers) are unaffected.                         |
+
+## Generation-call lifetime
+
+Each `/plan` request has one deadline for its complete answer, including a repair request sent by
+the editor. Cache waiting, consumption of the SSE body and an OpenRouter-to-CLI fallback all spend
+that same call budget. A provider that ignores abort cannot keep the HTTP response pending: the
+server settles the call, discards late results and suppresses late answer, progress and usage
+callbacks. Server expiration returns `504` (an `error` frame followed by one terminal `result` for
+SSE); user Stop remains cancellation (`499`). Cancelling an SSE reader also aborts its generation.
+
+`CRAFTKIT_AI_CALL_TIMEOUT_MS` defaults to four minutes. `HandlerOptions.callTimeoutMs` provides the
+same explicit override for embedded servers. This bounds `/plan` only; background batches, prompt
+enhancement, visual review and authored runs retain their own lifecycle policies. A shorter caller
+deadline wins. The editor separately shares one cumulative edit budget across proposal and repair;
+the server cannot correlate separate POST requests into one edit.
+
+The deadline changes elapsed-time limits, not creative output capacity or reasoning effort. Deep and
+bespoke requests keep their existing parameters; deployments needing longer work must set an
+explicit call timeout, and a CLI process cap can still end a call earlier. Generation requests set
+SDK `maxRetries: 0` because the app owns proposal/repair retries; SDK retries for batch management
+remain unchanged. Fake providers and injected SDK SSE/fetch tests cover these boundaries without
+live generation. Aborting a non-cooperative provider cannot forcibly stop its remote compute.
+
+## Background batches
+
+The agent's big jobs (the same request on every page of a site) go through the Message Batches API
+at half price, answered within 24 hours. `batch-routes.ts` has the contract; builder-ai's
+`createAiBatchRunner` drives it.
+
+- `POST /batch` accepts `{ "version": 1, "model"?: string, "items": [{ "id", "request" }] }`: 1 to
+  100 items, each an ordinary `/plan` body held to `/plan`'s checks and sent as exactly the request
+  `/plan` would stream for it (one-hour cache breakpoints included). Answers the batch's state.
+- `GET /batch/:id` answers `{ version, id, status, counts, createdAt, endedAt, expiresAt }`;
+  `POST /batch/:id/cancel` stops it.
+- `GET /batch/:id/results` (`409` until `status` is `ended`) answers one entry per item, keyed by
+  id: `{ id, body, usage }` where `body` is exactly what `/plan` would have answered, or
+  `{ id, error: { type, message } }` for an item that errored, expired or was cancelled.
+
+Only the Messages API batches: the `sdk` backend with `ANTHROPIC_API_KEY`, or `api:` models beside
+OpenRouter. On the `cli` backend, or OpenRouter with no `api:` model or key, `/batch` answers `501`
+naming what is missing; an item whose model only the CLI or OpenRouter serves answers `409`.
 
 ## Concurrency
 
@@ -116,7 +158,7 @@ There is no request cap here, on purpose. A page-sized request in the playground
 for four to six sections, five for seven to nine, six at most. On the CLI backend every in-flight
 request is one `claude` process, so the busiest moment of a twelve-section page is six processes on
 this machine; the pool's own ceiling is the only limiter this server relies on. A cancelled request
-— the person pressed Stop, or a section ran past its 240 s budget — reaches the child: the handler
+— the person pressed Stop, or a section ran past its own deadline — reaches the child: the handler
 passes `request.signal` through and `cli-client.ts` kills the whole process group, so an abandoned
 section stops billing.
 
@@ -124,6 +166,58 @@ Do not put the old `scripts/ai-plan-bridge.mjs` on this port for a build. Its
 `AI_BRIDGE_MAX_CONCURRENT` defaults to 1 (hard ceiling 4) and answers the rest with 429, so every
 parallel section beyond the first is retried once and then skipped — a build that looks slower and
 emptier for no reason visible in the panel.
+
+## Ready-scene initialization
+
+A mural writer can return one `setProp` command with `js: "@preset:<id>"`. Builder AI completes the
+responsive region locally with the tested scene, contract title and required copy, applicable
+primary action, and declared scene metadata/settings. Authored tree/CSS and custom scene code stay
+authored. This uses the existing backdrop catalog; games and stories retain their own scene path.
+
+The compact initialization-only brief carries an exact standalone
+`SCENE INITIALIZATION v1: <id>|<id>...` line with one to four offered ids. `/plan` applies its fast
+policy only when Free code is on and the call carries both `craftkit.build-fill` and a Pixi skill.
+General `READY SCENES` advice does not qualify. This lane uses low effort, compatible thinking-off
+behavior, and an 8,192-token output ceiling. An explicit `high`, `xhigh`, or `max` request retains
+its effort and ordinary scene output capacity. Bespoke scenes keep reasoning at medium or the higher
+section budget, with the default 48,000-token scene ceiling; larger deployment ceilings are
+preserved for those calls.
+
+CLI routes and their OpenRouter fallback forward explicit output caps through
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS` and explicit effort through `CLAUDE_CODE_EFFORT_LEVEL`, both in the
+child environment and inline settings. Warm processes are reused only with the same output cap,
+effort, thinking mode and system prompt. Missing caps retain CLI defaults; invalid caps fail before
+spawning. The CLI clamps the output limit to its model's capacity. Known legacy Messages API models
+that reject effort, including Haiku/Sonnet 4.5, omit that field while retaining initialization's
+disabled thinking and 8,192-token ceiling. These policies are covered by fake processes and API
+requests; they are not live provider timing evidence. The supported CLI environment controls are
+documented in [Claude Code's environment reference](https://code.claude.com/docs/en/env-vars).
+
+On OpenRouter, initialization sends `reasoning.enabled: false` for supported Claude lines or a model
+that declares `reasoning.mandatory: false`. Known always-thinking Claude 5.5/Fable/Mythos lines,
+mandatory models, and unknown models retain low effort. General and deep calls retain their existing
+mapping. This follows the
+[OpenRouter reasoning contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens);
+the output ceiling remains subject to the selected model's own capacity.
+
+Same-prefix followers wait only for the remaining part of their first writer's 15-second cache
+window. OpenRouter retries a refused hour-long cache form only when the error identifies cache
+control or its TTL; unrelated model, reasoning, output-limit and schema errors return immediately.
+
+Writer deadlines belong to `runAiBuild`, not the server's token ceiling: an eligible backdrop
+attempt defaults to three minutes, an initialization-only attempt to 90 seconds, ordinary sections
+to four minutes, and game/story or other non-backdrop scenes to seven minutes. An explicit caller
+`taskTimeoutMs` overrides these defaults, including the initialization cap.
+
+Run the offline initializer measurement from the workspace root:
+
+```bash
+pnpm --filter @craftkit/builder-ai benchmark:scene-init
+```
+
+The recorded fixture covers 22 ready scenes and 1,100 local initialization runs, with 98.25% fewer
+JSON payload characters for compact answers. It measures local CPU and exact serialized characters;
+it does not measure provider tokens, billing, live generation latency, or rendered visual quality.
 
 ## What it does with a request
 
@@ -160,12 +254,17 @@ otherwise.
 **Watch `cachedShare` in the log line.** Near zero means something got into the prefix that changes
 per request, and the catalog is being paid for every time.
 
+Same-prefix cold calls are staggered until the first call emits actual backend stream activity or
+answer text. SDK stream events, CLI message/content events, and OpenRouter delta frames can release
+the gate; a timer's "Waiting for the model to start" narration cannot. A failure releases waiting
+siblings without claiming warmth, and waits remain bounded by 15 seconds and cancellation. Actual
+provider cache-read usage remains the evidence that the provider reused its cache.
+
 ## Streaming
 
-The client advertises `text/event-stream`; when it does, `status` frames carry Claude's own
-reasoning summary and exactly one `result` frame ends the stream. The narration is the model's
-actual consideration rather than an invented spinner — a plan takes tens of seconds, and a silent
-wait that long reads as a hang.
+The client advertises `text/event-stream`; when it does, `status` frames report progress and exactly
+one `result` frame ends the stream. Backends may also produce timed waiting narration while the
+model is silent; those updates keep progress observable but never establish cache readiness.
 
 A client disconnect aborts the Claude request. Nothing keeps generating a plan nobody will read.
 

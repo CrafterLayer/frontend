@@ -107,10 +107,24 @@ describe('the app frame must not reach into the page being edited', () => {
   // Comments are stripped first: a rule's own explanation often quotes the
   // very pattern the gate forbids, and a gate that reads prose is not reading
   // the stylesheet.
-  const appCss = readFileSync(join(process.cwd(), 'src', 'app', 'App.css'), 'utf8').replaceAll(
-    /\/\*[\s\S]*?\*\//g,
-    '',
-  );
+  // App.css is an ordered index of `@import`s (split by region, 2026-10-12); the gate
+  // reads the stylesheets it imports, in cascade order, as the one sheet they make.
+  const appCssIndex = readFileSync(join(process.cwd(), 'src', 'app', 'App.css'), 'utf8');
+  const appCss = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)]
+    .map((match) => readFileSync(join(process.cwd(), 'src', 'app', match[1] ?? ''), 'utf8'))
+    .join('\n')
+    .replaceAll(/\/\*[\s\S]*?\*\//g, '');
+
+  it('keeps App.css an index of region stylesheets, none of them over 500 lines', () => {
+    const imports = [...appCssIndex.matchAll(/@import\s+'([^']+)';/g)].map((m) => m[1] ?? '');
+    expect(imports.length).toBeGreaterThan(5);
+    const bare = appCssIndex.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/@import[^;]+;/g, '');
+    expect(bare.trim()).toBe('');
+    for (const path of imports) {
+      const text = readFileSync(join(process.cwd(), 'src', 'app', path), 'utf8');
+      expect(text.split('\n').length, path).toBeLessThanOrEqual(501);
+    }
+  });
 
   const globalBlocks = (selector: RegExp): string[] =>
     [...appCss.matchAll(/(^|\n)([^@{}\n][^{}]*)\{([^}]*)\}/g)]
@@ -128,12 +142,6 @@ describe('the app frame must not reach into the page being edited', () => {
     expect(scoped.some((body) => body.includes('overflow: hidden'))).toBe(true);
   });
 
-  // Measured in Chromium: every control the SHELL owns sits at exactly 44px
-  // (`--bldr-hit-target-min`), while the harness's own controls came in at
-  // 13-27px — a 22px button fails WCAG 2.2 SC 2.5.8, and a 13px checkbox is a
-  // thing to aim at. jsdom cannot measure a box, so this gate holds the
-  // narrower line it CAN hold: the harness sizes its controls from the token
-  // and never from a literal that would drift away from it.
   /*
     Measured in Chromium against the dev server: wrapping AssistantPanel in
     `.pg-rail-panel` (to keep it mounted across rail destinations) put an
@@ -146,18 +154,18 @@ describe('the app frame must not reach into the page being edited', () => {
     have a rule, and that rule must give it a definite height.
   */
   it('gives every panel-column wrapper a definite height, or the panel inside collapses', () => {
-    const appTsx = readFileSync(join(process.cwd(), 'src', 'app', 'App.tsx'), 'utf8');
-    const wrappers = [...appTsx.matchAll(/className="(pg-[a-z-]*panel)"/g)].map(
-      (match) => match[1] ?? '',
-    );
+    const source = ['App.tsx', 'assistant-rail-panel.tsx', 'rail-section-panel.tsx']
+      .map((file) => readFileSync(join(process.cwd(), 'src', 'app', file), 'utf8'))
+      .join('\n');
+    const wrappers = [...source.matchAll(/className="(pg-[a-z-]*panel)"/g)].map((m) => m[1] ?? '');
 
-    // Non-vacuous: both wrappers exist today, and a rename that lost one would
-    // otherwise turn this gate into a no-op.
+    // Non-vacuous: both wrappers exist today (App.tsx, assistant-rail-panel.tsx), and a
+    // rename that lost one would otherwise turn this gate into a no-op.
     expect(wrappers).toContain('pg-rail-panel');
     expect(wrappers).toContain('pg-boot-panel');
     for (const wrapper of wrappers) {
       const rules = globalBlocks(new RegExp(`\\.${wrapper}\\s*(,|$)`));
-      expect(rules, `.${wrapper} has no rule in App.css`).not.toHaveLength(0);
+      expect(rules, `.${wrapper} has no rule in the app stylesheets`).not.toHaveLength(0);
       expect(
         rules.some((body) => /block-size:\s*100%/.test(body)),
         `.${wrapper} never sets block-size: 100%`,
@@ -165,15 +173,13 @@ describe('the app frame must not reach into the page being edited', () => {
     }
   });
 
-  it('sizes every harness control from the hit-target token', () => {
-    const harness = globalBlocks(/\.pg-settings/);
-    const sizing = harness.flatMap((body) => [...body.matchAll(/min-block-size:\s*([^;]+);/g)]);
-
-    // Non-vacuous: a file that had stopped sizing its controls at all would
-    // otherwise sail through, and that is the state this gate was written for.
-    expect(sizing.length).toBeGreaterThanOrEqual(2);
-    for (const declaration of sizing) {
-      expect(declaration[1]?.trim()).toBe('var(--bldr-hit-target-min)');
+  // UX pass (2026-10-13): 32px like every panel control (all ≥ 28px, WCAG 2.5.8 asks 24).
+  it('sizes every harness control from a chrome control token, never a literal', () => {
+    const css = globalBlocks(/\.pg-settings/).join('\n');
+    const sizing = [...css.matchAll(/min-block-size:\s*([^;]+);/g)].map((m) => m[1]?.trim());
+    expect(sizing.length).toBeGreaterThanOrEqual(2); // non-vacuous: controls are sized at all
+    for (const value of sizing) {
+      expect(value).toMatch(/^var\(--bldr-(control-height|control-lg|hit-target-min)\)$/u);
     }
   });
 });
@@ -453,7 +459,9 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(screen.queryByRole('combobox', { name: 'Fixture' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'Edit mode' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Harness' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+    // The real publish is the bar's one primary action, whole, with no options half.
+    expect(screen.getByRole('button', { name: 'Publish site' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Publish options' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));
@@ -586,7 +594,9 @@ describe('US4 — the playground proves it end-to-end', () => {
     expect(await screen.findByRole('region', { name: 'Design system' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Styles' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Symbols' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Import & export design system' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Import & export design system' }),
+    ).toBeInTheDocument();
 
     // History: the labelled steps sit beside the vault's restore points.
     await user.click(screen.getByRole('button', { name: 'History' }));
@@ -852,7 +862,9 @@ describe('scenario 9 (B3c) — inline editing, the bubble, and the action bar in
       if (surface !== null) {
         surface.textContent = 'Edited in place';
         surface.dispatchEvent(new Event('input', { bubbles: true }));
-        surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        surface.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        );
       }
     });
     await waitFor(() => {
@@ -1003,20 +1015,18 @@ describe('scenario 10 (B4) — code view and the canvas in lockstep', () => {
 });
 
 describe('the agent panel (SPEC §8 WP-20)', () => {
-  it('mounts the v2 panel by default: one name, in Arabic, and none of the v1 header', async () => {
+  it('mounts the v2 panel by default, in the editor language, and none of the v1 header', async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Assistant' }));
 
-    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
-    expect(panel).toHaveAttribute('lang', 'ar');
-    expect(panel).toHaveAttribute('dir', 'rtl');
-    // The v1 header's English "Agent" name and its status line are gone with it.
-    expect(screen.queryByRole('heading', { name: 'Agent' })).toBeNull();
-    expect(screen.queryByText('Abu Ghadab')).toBeNull();
+    const panel = await screen.findByRole('region', { name: 'Abu Ghadab' });
+    expect(panel).toHaveAttribute('lang', 'en');
+    expect(panel).toHaveAttribute('dir', 'ltr');
+    expect(screen.queryByRole('heading', { name: 'Agent' })).toBeNull(); // the v1 header's name
     // One separator on the panel's edge: the agent's own, not the shell's as well.
     expect(screen.getAllByRole('separator')).toHaveLength(1);
-    expect(screen.getByRole('separator')).toHaveAccessibleName('تغيير عرض اللوحة');
+    expect(screen.getByRole('separator')).toHaveAccessibleName('Resize the panel');
   });
 
   /*
@@ -1066,7 +1076,7 @@ describe('the agent panel (SPEC §8 WP-20)', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Assistant' }));
-    const panel = await screen.findByRole('region', { name: 'أبو غضب' });
+    const panel = await screen.findByRole('region', { name: 'Abu Ghadab' });
 
     await user.click(screen.getByRole('button', { name: 'Layers' }));
     // Hidden, not unmounted: the same element, still in the document.

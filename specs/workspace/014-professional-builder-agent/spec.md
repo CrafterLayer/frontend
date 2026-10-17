@@ -6,6 +6,11 @@
 
 **Status**: Approved for implementation
 
+Current scoped speed increment: [scene initialization and server latency](scene-speed-2026-10-13.md)
+(SP-001..004), authorized by the user's 2026-10-13 request. Authorized continuation:
+[deadline/CLI reliability and published marketing styles](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13)
+(SP-005..007), selected by the user as “1+2” on 2026-10-13.
+
 **Monorepo Scope**: Workspace, cross-cutting. Extends the site model, editing kernel, canvas,
 code-editing surface, AI generation, local persistence, evaluation application, and preview/export
 runtime. The approved 2026-10-10 increment adds Frontend dashboards and workflows; generated
@@ -411,6 +416,37 @@ execution, or permission for paid model calls during verification.
   viewport, filters and sound when sufficient. Record deterministic/browser evidence and fresh
   independent review, separately from live-model quality and feature 014 release.
 
+## Approved creative engines and creative agent increment — 2026-10-12
+
+The user asked (2026-10-12, Arabic) to complete full PixiJS support for stories, add strong
+libraries for expansion, and strengthen the Agent with a creative planner, character and asset
+memory, effect, animation, story and dialogue engines, plus design and project-section organization.
+This executes the deferred package roadmap's runtime slices. It is not all of upstream Pixi, a game
+engine replacement, a backend, unrestricted package execution, or paid model calls during
+verification.
+
+- CE-001: Admit `@pixi/tilemap` and `inkjs` as separate lazy Studio assets in the media-engine owner
+  with licence audit, exact catalog pins and measured budgets; add first-party `anim`, `fx` and
+  `dialogue` assets. One Pixi namespace; nothing in editor or ordinary page bundles; preview and
+  static export load them only when a region names their key literally.
+- CE-002: Engines are bounded and safe for model-authored code: no eval in dialogue conditions,
+  validated story graphs and saves, step/loop limits, capped particles/tweens/tiles/ink source,
+  owned teardown, reduced-motion and editor behaviour, no window/document listeners.
+- CE-003: Stories keep meaning in accessible DOM: speaker, live line, numbered native choice
+  buttons, transcript, Arabic/English labels and whole-word Arabic reveal.
+- CE-004: The Agent gains a deterministic creative planner (genre, libraries, mechanics, beats,
+  setting effects, rig states, cast) delivered as a data fragment to creative scene writers only,
+  and a validated, bounded character & asset memory (story bible) that learns from scenes the Agent
+  wrote without executing them and is read by every build.
+- CE-005: New Arabic/English skills teach the actual engine APIs with executable examples; a matched
+  game/story/mural playbook brings its engine companions within writer budgets; ordinary business
+  pages activate none of them.
+- CE-006: The playground persists the story bible per browser, teaches it after builds and applied
+  edits, sends it to runs, and shows an accessible StoryBiblePanel (component contract complete).
+- CE-007: Organize the creative skills into `skills/creative/` and the creative domain into
+  `src/creative/`; document the libraries, decisions and verification. AssetPack, Layout and Spine
+  remain assessed-and-deferred with recorded reasons.
+
 ## Approved baseline quality repair — 2026-10-10
 
 The user authorizes repairing the old Inspector MDX build error and ScriptParamsForm's missing
@@ -448,3 +484,10 @@ stay.
 - QF-005: Local deterministic and browser evidence is separate from paid-provider output quality,
   blind human design scores and production readiness. No global/professional certification is
   implied.
+
+## Authorized empty-canvas and request-skills repair — 2026-10-13
+
+The owner's screenshots and automatic skill request authorize SP-008..011 in
+[the canonical scene increment](scene-speed-2026-10-13.md#authorized-empty-canvas-and-request-skills-repair--2026-10-13):
+cumulative edit/server deadlines, meaningful creative creation before success, accurate partial
+completion and progress, empty-page creative routing, and automatic/prompt-local skills.

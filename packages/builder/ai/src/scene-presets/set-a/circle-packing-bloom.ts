@@ -13,7 +13,7 @@ export const CIRCLE_PACKING_BLOOM = definePreset({
     ar: 'مئات الدوائر المتراصّة حافةً بحافة تتفتّح باتجاه القراءة ثم تتنفّس، بأسلوب مصمت أو حلقي أو نقطي، وتنتفخ تحت المؤشر.',
   },
   tags: ['generative', 'geometric', 'interactive', 'bold', 'hero'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 5, interactive: true }),
     range('minR', 'Smallest radius', 'أصغر نصف قطر', 4, 2, 20, 1, 'look'),
@@ -35,10 +35,10 @@ export const CIRCLE_PACKING_BLOOM = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:5,speed:1,density:1,interactive:true,minR:4,maxR:64,gap:3,breathe:0.5,fillStyle:'solid'});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette;
 const bg=new PIXI.Graphics(),g=new PIXI.Graphics();
-s.stage.addChild(bg,g);
+s.world.addChild(bg,g);
 const tones=[C.colors[4],C.colors[0],C.colors[1],C.muted,C.text];
 let W=1,H=1,cs=[],maxD=1;
 
@@ -70,8 +70,7 @@ function pack(w,h){
   for(const c of cs){c.d=Math.hypot(c.x-ox,(c.y-H/2)*0.6);maxD=Math.max(maxD,c.d);}
 }
 function ease(k){const c=1.70158;k-=1;return 1+k*k*((c+1)*k+c);}
-pack(s.width,s.height);
-s.onResize(pack);
+pack(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?60:time.t*p.speed;
   const on=p.interactive&&s.pointer.inside&&!s.reducedMotion;

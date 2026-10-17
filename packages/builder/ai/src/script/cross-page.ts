@@ -114,3 +114,25 @@ export function scriptCrossPageFollowUp(pages: number, language: 'ar' | 'en'): s
     ? `هذا التعديل يشمل ${arabicPages(pages)} من الموقع، والمعاينة تعرض صفحة واحدة فقط، لذلك لم يُقترح شيء. بدّل إلى الوضع التلقائي وأعد الطلب ليُطبَّق على كل الصفحات دفعة واحدة، وتراجع واحد يلغيه.`
     : `This change spans ${String(pages)} pages of the site, and a proposal can only rehearse one page, so nothing was proposed. Switch to Auto and send it again to apply it to every page at once; one Undo reverts it.`;
 }
+
+/**
+ * A script whose every write lands on OTHER pages leaves the open page with no
+ * command, which the door refuses as an empty plan. Its words still stand:
+ * the other pages' steps were door-validated on their own lenses during
+ * expansion, and `applyAiPlan` re-validates them before the one site write.
+ */
+export function crossPageOnlyPlan(expanded: unknown): AiPlan | undefined {
+  if (typeof expanded !== 'object' || expanded === null) return undefined;
+  const { rationale, commands, followUp } = expanded as {
+    rationale?: unknown;
+    commands?: unknown;
+    followUp?: unknown;
+  };
+  if (!Array.isArray(commands) || commands.length > 0) return undefined;
+  const reason = typeof rationale === 'string' && rationale.trim() !== '' ? rationale : 'Script';
+  return Object.freeze({
+    rationale: reason,
+    commands: Object.freeze([]),
+    ...(typeof followUp === 'string' && followUp.trim() !== '' ? { followUp } : {}),
+  });
+}

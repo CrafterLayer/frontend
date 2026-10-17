@@ -51,6 +51,11 @@
   white-space: nowrap;
 }
 
+/* A focused scope names its sections ("Focused: Pricing (+ outline)"): room for a name. */
+.ck-agent-chip[data-focused] .ck-agent-chip__label {
+  max-inline-size: 32ch;
+}
+
 /* The block is gone: struck through, and the line under the chip says why. */
 .ck-agent-chip[data-stale] .ck-agent-chip__label {
   text-decoration-line: line-through;

@@ -13,4 +13,18 @@ describe('ThemePicker', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: 'dark' }));
     expect(onChange).toHaveBeenCalledWith('dark');
   });
+
+  it('speaks the editor language when given its words', async () => {
+    const onChange = vi.fn();
+    render(
+      <ThemePicker
+        value="light"
+        onChange={onChange}
+        labels={{ legend: 'سمة الصفحة', choices: { light: 'فاتحة', dark: 'داكنة' } }}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'سمة الصفحة' })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('radio', { name: 'داكنة' }));
+    expect(onChange).toHaveBeenCalledWith('dark');
+  });
 });

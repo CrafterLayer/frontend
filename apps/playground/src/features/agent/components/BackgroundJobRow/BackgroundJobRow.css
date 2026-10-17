@@ -1,0 +1,192 @@
+/*
+  BackgroundJobRow (2026-10-12): one job, separated from the next by a hairline.
+
+    Translate every page into French           [In progress]   request in Ink; state tag
+    5 pages   2 minutes ago                                      Meta, Graphite
+    ▓▓▓▓▓▓▓▓▓▓░░░░░░░  3 of 5 answered                           a 4px bar on the track
+    [Refresh] Cancel job
+    ▸ Results                                                    when a page has an outcome
+
+  The tag is a pill: Accent wash for Ready, Success for Applied, Alarm for Failed, Graphite
+  otherwise. Builder tokens only; logical properties only; the bar fills from the inline start.
+*/
+
+.ck-agent-job {
+  display: grid;
+  gap: var(--bldr-space-sm);
+  min-inline-size: 0;
+  padding-block: var(--bldr-space-xl);
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+}
+
+.ck-agent-job__head {
+  display: flex;
+  align-items: start;
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.ck-agent-job__request {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.ck-agent-job__phase {
+  flex: none;
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+  white-space: nowrap;
+}
+
+.ck-agent-job__phase[data-phase='ready'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-job__phase[data-phase='applied'] {
+  background-color: var(--bldr-success-soft);
+  color: var(--bldr-success);
+}
+
+.ck-agent-job__phase[data-phase='failed'] {
+  background-color: var(--bldr-danger-soft);
+  color: var(--bldr-danger);
+}
+
+.ck-agent-job__meta,
+.ck-agent-job__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-xs) var(--bldr-space-md);
+  margin: 0;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-job__model {
+  font-family: var(--bldr-font-mono);
+}
+
+.ck-agent-job__progress {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-job__bar {
+  overflow: hidden;
+  block-size: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-progress-track);
+}
+
+.ck-agent-job__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background-color: var(--bldr-accent);
+  transition: inline-size var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-job[data-phase='failed'] .ck-agent-job__fill,
+.ck-agent-job[data-phase='canceled'] .ck-agent-job__fill {
+  background-color: var(--bldr-panel-muted);
+}
+
+.ck-agent-job__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-job__actions .ck-agent-confirm {
+  flex: 1 1 100%;
+}
+
+.ck-agent-job__results {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-job__disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--bldr-space-xs);
+  min-block-size: var(--bldr-control-sm);
+  margin: 0;
+  padding-inline: var(--bldr-space-xs);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+/* The panel's disclosure glyph: it turns down when open (transform), then the RTL mirror
+   (scale) leaves it pointing down, in both directions. */
+.ck-agent-job__chevron {
+  transition: transform var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-job__disclosure[aria-expanded='true'] .ck-agent-job__chevron {
+  transform: rotate(90deg);
+}
+
+.ck-agent-job__disclosure:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-job__disclosure:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-job__disclosure {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-job__fill,
+  .ck-agent-job__chevron {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-job__phase {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-job__bar {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-job__fill {
+    background-color: Highlight;
+  }
+}

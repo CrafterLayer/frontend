@@ -13,6 +13,7 @@
     "./script-node": "./src/script/node.ts"
   },
   "scripts": {
+    "benchmark:scene-init": "node scripts/measure-scene-init.mjs",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",

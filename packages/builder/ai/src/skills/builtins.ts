@@ -5,23 +5,26 @@ import { PAGE_INTENTS } from './industry/shared';
 import { PROPERTY_PAGE_SKILL } from './industry/property-page';
 import { SHOP_PAGE_SKILL } from './industry/shop-page';
 import { PHOTO_DIRECTION_SKILL } from './photo-direction';
+import { ART_SKILLS } from './art-names';
+import { DATA_VIZ_SKILL } from './data-viz';
+import { MOTION_SKILL } from './motion';
 import { createAiSkillRegistry } from './registry';
-import { PIXI_CREATIVE_SKILLS } from './pixi-creative';
+import { CREATIVE_ENGINE_SKILLS } from './creative/creative-engines';
+import { PIXI_CREATIVE_SKILLS } from './creative/pixi-creative';
 import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
 import { DESIGN_CODE_SKILL } from './design-code';
-import { DESIGN_QUALITY_TEACHING } from './design-libraries';
-// end design-code additions
-// pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see PIXI_SOURCES.md.
+import { DESIGN_QUALITY_TEACHING, TAILWIND_PLUGIN_TEACHING } from './design-libraries';
+import { SITE_BEHAVIOR_TEACHING } from './site-behaviors';
+// pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see creative/PIXI_SOURCES.md.
 import {
   PIXI_V8_CORE_SKILL,
   PIXI_V8_EFFECTS_SKILL,
   PIXI_V8_GRAPHICS_SKILL,
   PIXI_V8_INTERACTION_PERF_SKILL,
   PIXI_V8_TEXT_ASSETS_SKILL,
-} from './pixi-v8';
-// end pixi-skills additions
+} from './creative/pixi-v8';
 
 function freezeData(value: unknown): void {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return;
@@ -121,7 +124,7 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.4.0',
+  version: '3.6.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
@@ -134,7 +137,7 @@ THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finishe
 SHELL BY ROLE — the request states this region's ROLE; follow it, whatever the section's number. HERO: the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one; an active archetype's own opening (a CV header, an occasion card) replaces this shell. CHROME: the site header, navigation or footer its title names — a header holds the brand, links to the page's section ids and one action; a footer holds a brand column, link columns and the copyright line; no h1, no h2 of its own, no hero shell. BAND: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
 FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a business fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros). A person's own facts (a CV's employers and dates, an invitation's names and date) are never invented: they stay bracketed and listed in followUp, as the copywriting rules say.
 SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
-${DESIGN_QUALITY_TEACHING}`,
+${DESIGN_QUALITY_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}\n${SITE_BEHAVIOR_TEACHING}`,
   references: {
     'checks/fill.md':
       "One setProp on the named region's tree, plus one for its css only when the tree uses ck- classes; the shell its ROLE names — the hero holds the page's one h1, a band keeps its h2 text, chrome carries neither; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched; no other region's content repeated; no bracketed placeholder for a business fact — samples are realistic and listed in followUp; only a person's own facts stay bracketed.",
@@ -390,6 +393,10 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
       'موقع كامل',
       'موقع متكامل',
       'صفحة تعريفية',
+      // Loanwords (2026-10-14): «اعملي لاندنج بيج».
+      'لاندنج',
+      'لاندنغ',
+      'لاندينج',
     ],
   },
   tags: ['composition', 'design', 'page'],
@@ -410,11 +417,7 @@ RHYTHM: ground, card and band from the direction's palette; one dark band beside
   },
 });
 
-/**
- * Arabic and RTL depth beyond the manual's floor. The matcher cannot detect
- * Arabic script, so the Arabic imperatives ("صمم لي", "أنشئ لي", ...) stand in
- * as proxies for "this request is in Arabic" alongside explicit RTL phrases.
- */
+/** Arabic and RTL depth beyond the manual's floor: Arabic script or the English asks. */
 const ARABIC_RTL: AiSkillDefinitionV1 = builtin({
   schemaVersion: 1,
   id: 'craftkit.arabic-rtl',
@@ -740,7 +743,7 @@ const DESIGN_TOKENS: AiSkillDefinitionV1 = builtin({
   name: 'Tokens, components and variants',
   description:
     'Build the repeated thing once: role tokens before palette before ck- classes, one base class with variants, and the Tailwind config features that do not exist here.',
-  version: '1.3.0',
+  version: '1.4.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 48,
@@ -766,7 +769,7 @@ const DESIGN_TOKENS: AiSkillDefinitionV1 = builtin({
   },
   tags: ['components', 'design', 'system', 'tokens'],
   instructions: `Build the repeated thing once, then reuse it verbatim — a system, not twenty hand-styled boxes.
-THREE LAYERS, in this order. 1 ROLE, the site's own: bg-surface, bg-surface-inverse, text-text, text-text-muted, text-text-inverse, bg-accent, text-accent, text-accent-text, border-text/10 — these resolve through var(--t-*) and re-theme with the site, so a page that follows the site theme builds everything structural from them. 2 PALETTE, fixed hues (slate-900, indigo-600, emerald-500…): a page with its own palette uses these instead, everywhere; they never re-theme. 3 COMPONENT, this page only: a ck- class in the region's css, or in pageCss when two regions share it.
+THREE LAYERS, in this order. 1 ROLE, the site's own: bg-surface, bg-surface-inverse, text-text, text-text-muted, text-text-inverse, bg-accent, text-accent, text-accent-text, border-text/10 — these resolve through var(--t-*) and re-theme with the site, so a page that follows the site theme builds everything structural from them. 2 PALETTE, fixed hues (slate-900, indigo-600, emerald-500…): a page with its own palette uses these instead, everywhere; they never re-theme. 3 COMPONENT, this page only: a ck- class in the region's css, or in pageCss when two regions share it — after the plugin classes that already wear the roles: prose for long text, form-input / form-select / form-checkbox for fields, animate-in for an entrance.
 NOT AVAILABLE HERE — never emit: @theme, @apply, tailwind.config, @custom-variant, or the dark: variant. Which utility classes this page can generate is stated in the context; a class it cannot generate is removed before the page is written.
 COMPONENT LADDER, one class per rung. BASE .ck-card{border-radius:var(--t-radius-lg);background:#fff} holds everything shared. VARIANT .ck-card--quiet / .ck-card--loud declares only what differs. SIZE is utilities on the element (p-4, p-6 md:p-8), never a second base class. STATE comes last: :hover, :focus-visible, [aria-current], [data-state]. A variant that redefines the base is a second component — rename it.
 REUSE: the same role gets the same treatment everywhere — one radius for cards, one for actions, one rest shadow, one hover step. Repeat the className string byte-for-byte rather than inventing a near-miss; a card that differs by one shade reads as a bug, not as variety.
@@ -827,60 +830,6 @@ ARABIC: Modern Standard Arabic; one address form (أنتَ or أنتم); «،» 
 });
 
 /**
- * Restrained motion the renderer can actually run: transition utilities,
- * keyframes in pageCss, reduced-motion guards. Auto on animation verbs;
- * "animate" reaches "animated" and "animating" through the matcher's endings.
- */
-const MOTION: AiSkillDefinitionV1 = builtin({
-  schemaVersion: 1,
-  id: 'craftkit.motion',
-  name: 'Motion and interaction',
-  description:
-    'Restrained motion the renderer can run: transition and hover utilities, keyframes in pageCss, reduced-motion guards, CSS-only lift, reveal and marquee.',
-  version: '1.4.0',
-  source: 'builtin',
-  trust: 'builtin',
-  priority: 45,
-  activation: {
-    mode: 'auto',
-    keywords: [
-      'animate',
-      'animation',
-      'motion',
-      'hover effect',
-      'parallax',
-      'keyframe',
-      'transition',
-      'scroll reveal',
-      'marquee',
-      'gsap',
-      'تحريك',
-      'متحرك',
-      'حركة',
-      'حركات',
-      'أنيميشن',
-      'تأثيرات',
-    ],
-  },
-  tags: ['animation', 'interaction', 'motion'],
-  instructions: `Motion budget: at most two moving things per screen, and nothing moves that the visitor did not cause except one ambient element.
-TIMING: micro interactions transition-colors duration-200 ease-out; card lift duration-300; entrance reveal 0.6s ease-out; ambient loops 8s to 20s linear infinite.
-HOVER on cards: transition duration-300 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none; hover:scale-105 for media. A lift tied to the site shadow token: class ck-lift with css .ck-lift:hover{transform:translateY(-4px);box-shadow:var(--t-shadow-elevated)}.
-KEYFRAMES live in pageCss on the page root (they pass scoping unchanged and are declared once): @keyframes ck-fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}. Apply from the region css: .ck-fade-up{animation:ck-fade-up .6s ease-out both}; stagger with .ck-d1{animation-delay:.1s} .ck-d2{animation-delay:.2s} .ck-d3{animation-delay:.3s}.
-GUARD every animated rule in the same sheet: @media (prefers-reduced-motion:reduce){.ck-fade-up,.ck-marquee-track{animation:none}}.
-SCROLL REVEAL without JavaScript: @supports (animation-timeline: view()){.ck-fade-up{animation-timeline:view();animation-range:entry 0% entry 40%}}; elsewhere it plays on load.
-MARQUEE: prefer the marquee block when present; otherwise div overflow-hidden > div ck-marquee-track flex gap-12 whitespace-nowrap with the items duplicated once, css .ck-marquee-track{animation:ck-marquee 20s linear infinite} and keyframes translateX(0) to translateX(-50%) in pageCss.
-HOVER REVEALS: group on the card and group-hover:translate-x-1 on its arrow; for a reveal, .ck-card .ck-meta{opacity:0;transition:opacity .2s} .ck-card:hover .ck-meta{opacity:1}.
-PARALLAX: in css, background-attachment:fixed on a background-image region only inside @media (min-width:768px); phones get a static image.
-Never animate layout (width, height, margin); animate transform and opacity only.
-GSAP, SCROLL REVEALS AND TIMELINES go through the motion tool, never through attributes you write: {"command":"tool","args":{"name":"motion.add","input":{"id":"<region id>","recipe":"stagger-in"}}}, one step per section (recipes: fade-in, slide-in, stagger-in, split-reveal, parallax-depth, scrub-scale). Never write data-ck-motion or data-ck-timeline yourself, and never put "attributes" inside "set".`,
-  references: {
-    'checks/motion.md':
-      "At most two moving things per screen; keyframes in pageCss, applied from region css; prefers-reduced-motion guard present; transform/opacity only; a hover lift moves transform and shadow one step, never layout; group-hover only on a card's own children; no pulsing glow or blob.",
-  },
-});
-
-/**
  * Landmarks, heading order, naming, contrast pairs, motion and language rules
  * for assistive tech. Auto on accessibility vocabulary; "high-contrast" is
  * the words "high contrast", and "inaccessible" — a hit the substring matcher
@@ -892,7 +841,7 @@ const ACCESSIBILITY: AiSkillDefinitionV1 = builtin({
   name: 'Accessible structure and contrast',
   description:
     'Landmarks, heading order, link and image naming, icon labelling, contrast pairs, motion and language rules for assistive tech.',
-  version: '2.1.0',
+  version: '2.2.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 40,
@@ -926,8 +875,8 @@ HEADINGS: one h1 on the whole page (read every region already in the document); 
 NAMES: img alt = what it shows in ≤12 words, alt='' only for pure decoration; icon label only when it stands alone (role=img), omitted when text beside it says the same (aria-hidden), never both; aria-label on section/nav is a short noun phrase in the page language; no aria-label on div/span/p (ignored or harmful).
 LINKS AND BUTTONS: link text names the destination ("See pricing", never "click here"); <a href> for anything with a destination; <button> only for an affordance the host will wire later — it does nothing yet, say so in followUp; target='_blank' only when the text says it opens elsewhere; clickable areas at least py-3 px-4.
 CONTRAST: body text text-text or palette 700+ on 50/100 surfaces; text-text-muted only at ≥text-sm and never over an {accent} fill or a photo; on bg-surface-inverse use text-text-inverse; white text only on palette 600+; never 300/400 palette text on white; never grey text on a gradient. State is never colour alone: pair it with an icon (circle-check, circle-alert) or a word.
-MOTION: animate-* only on decoration; motion-reduce:transform-none on anything moved by transform; hover:scale-* on cards only, never on text; no animate-ping/bounce beside text people read.
-LANGUAGE: page prop lang set ('ar', 'en'); dir matches it; no text-justify; leading-relaxed in paragraphs; max-w-prose for reading columns.`,
+MOTION: animate-spin/ping/pulse/bounce only on decoration; an animate-in entrance ends at rest and carries motion-reduce:animate-none; motion-reduce:transform-none on anything moved by transform; hover:scale-* on cards only, never on text; no animate-ping/bounce beside text people read.
+LANGUAGE: page prop lang set ('ar', 'en'); dir matches it; no text-justify; leading-relaxed in paragraphs; max-w-prose for reading columns, or prose around long text.`,
   references: {
     'checks/accessibility.md':
       'No nested main; one h1, no skipped levels; alt on every img; icon label xor neighbouring text; aria-label only on section/nav/article; link text names destination; contrast pairs from the table; motion-reduce on transforms; lang and dir set.',
@@ -1013,7 +962,7 @@ const UI_UX_PRO: AiSkillDefinitionV1 = builtin({
   name: 'Delivery-quality UI review',
   description:
     'The polish checklist: pointer and touch affordances, reading type, contrast both ways, focus and feedback, container discipline, restrained motion.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 38,
@@ -1035,7 +984,7 @@ const UI_UX_PRO: AiSkillDefinitionV1 = builtin({
   tags: ['quality', 'review', 'ux'],
   instructions: `Polish is a checklist, not a feeling — run it before calling a page finished.
 POINTER AND TOUCH: every clickable card or row carries cursor-pointer, and an interactive thing with no hover change reads as dead. Hover moves colour, border or shadow (transition-colors duration-200 ease-out), never a size that shoves its neighbours. Keep a tap target near h-12 w-12 even when the mark drawn inside it is smaller.
-TYPE FOR READING: paragraphs at text-base or larger on phones — text-sm belongs to eyebrows and captions, never body — with leading-relaxed and a measure of roughly 65-75 characters (max-w-prose on a prose column). One h1 per page; a bigger heading is text-4xl md:text-6xl, never a smaller tag dressed up.
+TYPE FOR READING: paragraphs at text-base or larger on phones — text-sm belongs to eyebrows and captions, never body — with leading-relaxed and a measure of roughly 65-75 characters (max-w-prose on a column; class prose sets it for long text and styles its headings, lists and quotes in the site's colours). One h1 per page; a bigger heading is text-4xl md:text-6xl, never a smaller tag dressed up.
 CONTRAST BOTH WAYS: secondary copy stops at text-text-muted and goes no lighter, and body text holds 4.5:1 against whatever sits behind it. A translucent panel needs real fill (bg-surface opacity-80, not opacity-10) and a border that survives a light background (border-2, not a hairline).
 STATE AND FEEDBACK: never remove the focus outline, because keyboard users navigate by it; an action drawn as a mark with no words needs a label so it is announced; an error message belongs beside its own field, not stacked at the top of the page.
 LAYOUT DISCIPLINE: one container width for the whole page (max-w-6xl), not a new one per section. Content under a fixed bar needs padding past that bar's height, and a floating bar sits inset from the edges (top-4 start-4 end-4) rather than glued to them. Read the page at 375, 768, 1024 and 1440 wide: nothing scrolls sideways, nothing hides under a bar.
@@ -1144,21 +1093,19 @@ const MENU_PAGE = builtin(MENU_PAGE_SKILL);
 const PROPERTY_PAGE = builtin(PROPERTY_PAGE_SKILL);
 const CLINIC_PAGE = builtin(CLINIC_PAGE_SKILL);
 const SHOP_PAGE = builtin(SHOP_PAGE_SKILL);
+const DATA_VIZ = builtin(DATA_VIZ_SKILL);
+// everyday site behaviours (2026-10-13): the motion skill moved to its own module (motion.ts).
+const MOTION = builtin(MOTION_SKILL);
 // design-code additions (2026-09-28): explicit, for section writers and the page plan.
 const DESIGN_CODE = builtin(DESIGN_CODE_SKILL);
-// end design-code additions
 // pixi-skills additions (2026-10-10): free-code scene scripts in PixiJS v8; the core is every other one's dependency.
 const PIXI_V8_CORE = builtin(PIXI_V8_CORE_SKILL);
 const PIXI_V8_GRAPHICS = builtin(PIXI_V8_GRAPHICS_SKILL);
 const PIXI_V8_TEXT_ASSETS = builtin(PIXI_V8_TEXT_ASSETS_SKILL);
 const PIXI_V8_EFFECTS = builtin(PIXI_V8_EFFECTS_SKILL);
 const PIXI_V8_INTERACTION_PERF = builtin(PIXI_V8_INTERACTION_PERF_SKILL);
-// end pixi-skills additions
 
-/**
- * Reviewed, data-only defaults, ordered by priority descending. Hosts opt in
- * by constructing this registry; the registry itself re-sorts by id.
- */
+/** Reviewed, data-only defaults by priority, descending (the registry re-sorts by id); hosts opt in. */
 export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Object.freeze([
   PLAN_MODE,
   PRECISE_EDIT,
@@ -1169,7 +1116,6 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   SECTION_VARIANTS,
   // design-code additions (2026-09-28): priority 91, between section-variants and cv-page.
   DESIGN_CODE,
-  // end design-code additions
   CV_PAGE,
   MENU_PAGE,
   PROPERTY_PAGE,
@@ -1183,10 +1129,15 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   VISUAL_DIRECTION,
   DESIGN_DIRECTION,
   DESIGN_TOKENS,
+  // art (2026-10-14): logo-design and art-names, priority 47.
+  ...ART_SKILLS.map(builtin),
+  DATA_VIZ,
   COPYWRITING,
   MOTION,
   SCROLL_CINEMATIC,
   ...PIXI_CREATIVE_SKILLS.map(builtin),
+  // creative agent (2026-10-12): director, animation, effects, dialogue/Ink and tile worlds; priority 44.
+  ...CREATIVE_ENGINE_SKILLS.map(builtin),
   // pixi-skills additions (2026-10-10): priorities 43-41, between scroll-cinematic and accessibility.
   PIXI_V8_CORE,
   PIXI_V8_GRAPHICS,

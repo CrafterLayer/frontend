@@ -334,10 +334,14 @@ export type PagePlanValidationResult =
 
 // ── what the checker and the neighbour summary read ──────────────────────────
 
-/** A section's writer-owned props as they landed (the region's `tree` and `css`). */
+/** A section's writer-owned props as they landed (the region's `tree`, `css` and scene). */
 export interface LandedSection {
   readonly tree: JsonValue;
   readonly css?: string;
+  /** The region's page code (free code mode): the scene `checkScene` reads. */
+  readonly js?: string;
+  /** The values the region hands `ck.params` (`data-ck-params`), when it has any. */
+  readonly jsParams?: JsonValue;
 }
 
 /** Landed sections, keyed by `SectionContract.key`. A key absent here has not landed. */
@@ -356,6 +360,14 @@ export type LandedSections = ReadonlyMap<string, LandedSection>;
  * - `must-say`: a `mustSay` claim is missing.
  * - `repeats`: a `mustNotRepeat` claim appears.
  * - `foreign-font`: a font family other than the plan's two.
+ * - `scene-*` (check-scene.ts, the region's `js`): `syntax`, a `lib` it uses
+ *   but does not list, a `dom` lookup the tree cannot answer, no region
+ *   `height`, a missing `cleanup`, a missing reduced-motion or editor `guard`,
+ *   a `forbidden` construct (its own Application, an import, a CDN), split
+ *   Arabic `text`, `params` the code never reads.
+ * - `scene-runtime`, `scene-blank`, `scene-layout`, `scene-control` (scene-probe.ts,
+ *   creative-power Phase 2 E): what RUNNING the scene found — it threw or froze, drew nothing,
+ *   left the region or the screen, or hid or never wired its controls.
  */
 export type SectionCheckCode =
   | 'raw-colour'
@@ -367,7 +379,24 @@ export type SectionCheckCode =
   | 'contrast'
   | 'must-say'
   | 'repeats'
-  | 'foreign-font';
+  | 'foreign-font'
+  | 'scene-syntax'
+  | 'scene-lib'
+  | 'scene-dom'
+  | 'scene-height'
+  | 'scene-cleanup'
+  | 'scene-guard'
+  | 'scene-forbidden'
+  | 'scene-text'
+  | 'scene-params'
+  | 'scene-runtime'
+  | 'scene-blank'
+  | 'scene-layout'
+  | 'scene-control'
+  // T231c (2026-10-12): a literal level whose exit or pickups the player cannot reach.
+  | 'scene-level'
+  // 2026-10-13: what the model SAW wrong in a picture of the rendered scene (scene-review.ts).
+  | 'scene-visual';
 
 export interface SectionCheckIssue {
   readonly code: SectionCheckCode;

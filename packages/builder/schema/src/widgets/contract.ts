@@ -1,5 +1,5 @@
 import type { JsonValue } from '../json/json-value';
-import type { Node, NodeId, Surface } from '../document/types';
+import type { ContentDirection, Node, NodeId, Surface } from '../document/types';
 
 /**
  * JSON-Schema-subset descriptor (itself pure JSON). Database rows can never hold
@@ -20,6 +20,8 @@ export interface CompositionDef extends DeclarativeSubTree {
   name: string;
   version: number;
   surfaces?: Surface[];
+  /** The direction its content is written in; a page of the other direction is not offered it. */
+  dir?: ContentDirection;
 }
 
 export const SKIN_STATES = Object.freeze(['loading', 'empty', 'error', 'success'] as const);

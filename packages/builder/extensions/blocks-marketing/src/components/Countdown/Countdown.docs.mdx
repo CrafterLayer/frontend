@@ -1,0 +1,69 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as CountdownStories from './Countdown.stories';
+
+<Meta of={CountdownStories} />
+
+# Countdown
+
+A launch or event countdown. The published page says WHEN in plain text, so it is right without
+JavaScript; where scripts run, a days / hours / minutes / seconds counter ticks beside it, and once
+the moment passes the section says so.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Doors open soon", edited in place), `body`, an optional action
+  (`actionLabel` + `actionHref`, safe schemes only).
+- `target`: an ISO 8601 date-time **with its UTC offset** — `2027-03-01T10:00:00+03:00` or
+  `…T07:00:00Z`. The door refuses a target without an offset and a day that does not exist (31
+  February).
+- `timezoneLabel` (e.g. "Riyadh time", «بتوقيت الرياض») and `dateLanguage: 'en' | 'ar' = 'en'`.
+- `startsLabel = 'Starts'`, `endedMessage`, the four unit labels, `showSeconds = true`,
+  `remainingLabel = 'Time left'` (the screen-reader summary's lead-in).
+- `variant: 'cards' | 'minimal' = 'cards'`, plus the shared section props.
+
+## Static text, live counter
+
+The date line — "Starts Monday 1 March 2027 at 10:00 · Riyadh time" — prints the wall-clock time
+**as written in the target**, formatted in UTC from its parts, so the server that publishes the page
+and the phone that reads it agree. It sits in a `<time datetime>`.
+
+- **Live** (the canvas, Preview, Storybook): React ticks the counter every second; every minute,
+  with the seconds unit hidden, under `prefers-reduced-motion`; and on the editing canvas, where
+  nothing should move while a person designs.
+- **Published**: the page never hydrates, so the section carries
+  `data-ck-behavior="countdown-clock"` with the target, the language and the summary's lead-in, and
+  a hidden clock. The `countdown-clock` behaviour pack (renderer `behaviors/packs/countdown.ts`,
+  shipped only to pages that carry the marker) reveals the clock, ticks with the same rules, and at
+  zero hides the clock and the date line and shows the ended message. A target the pack cannot parse
+  leaves the static view as it is. (It is not the core runtime's `countdown`, a single text clock
+  for free code.)
+
+## Accessibility and direction
+
+The digits are `aria-hidden` and never announced. A visually hidden `aria-live="polite"` summary
+says only the largest unit — "Time left: 12 Days", then hours, then minutes in steps of five — so a
+screen reader is told once a day, once an hour, or every five minutes, never every second. The ended
+message sits in a `role="status"` and is revealed when the moment comes. Arabic pages print
+Arabic-Indic digits; the units follow the page direction, days first at the inline start.
+
+## Parts
+
+| name            | kind | bind                                      | label (en / ar)                |
+| --------------- | ---- | ----------------------------------------- | ------------------------------ |
+| `eyebrow`       | text | `eyebrow`                                 | Eyebrow / الشارة               |
+| `heading`       | text | `heading`                                 | Heading / العنوان              |
+| `body`          | text | `body`                                    | Body / الوصف                   |
+| `startsLabel`   | text | `startsLabel`                             | Date lead-in / تمهيد التاريخ   |
+| `timezoneLabel` | text | `timezoneLabel`                           | Time zone / المنطقة الزمنية    |
+| `daysLabel`     | text | `daysLabel`                               | Days label / تسمية الأيام      |
+| `hoursLabel`    | text | `hoursLabel`                              | Hours label / تسمية الساعات    |
+| `minutesLabel`  | text | `minutesLabel`                            | Minutes label / تسمية الدقائق  |
+| `secondsLabel`  | text | `secondsLabel`                            | Seconds label / تسمية الثواني  |
+| `endedMessage`  | text | `endedMessage`                            | Ended message / رسالة الانتهاء |
+| `action`        | link | `{ text: actionLabel, href: actionHref }` | Button / الزر                  |
+
+The ended message is a part from the start, hidden until the moment passes (edit it in the Inspector
+before then). The target is a date-time, not text to edit in place, so it stays an Inspector row. On
+the canvas the polite summary stays empty: it repeats the unit labels, and there it would be a
+second, unbound copy of them.

@@ -44,9 +44,18 @@
   margin-inline-end: var(--bldr-space-xs);
 }
 
-/* One line. The name is short in both scripts; it never shares its line with a status. */
-.ck-agent-header__name {
+/*
+  The name and, when AgentPanel passes one, the status line under it: 20 + 16 = 36px inside
+  the 44px header, so the header never grows. Each keeps its own line and truncates.
+*/
+.ck-agent-header__titles {
+  display: grid;
   flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/* The name is short in both scripts; it never shares its line with the status. */
+.ck-agent-header__name {
   min-inline-size: 0;
   margin: 0;
   overflow: hidden;
@@ -58,11 +67,51 @@
   white-space: nowrap;
 }
 
+/* Meta in Slate: a word or three, glanced at, never read aloud (not a live region). */
+.ck-agent-header__status {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-regular);
+  line-height: var(--bldr-line-height-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ck-agent-header__actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--bldr-space-xs);
+}
+
+/*
+  Background jobs (2026-10-12): a 6px dot at the button's block-start, inline-end corner while
+  answers wait to be applied (Ink) or a batch is still answering (Graphite). The button's hint
+  says which; the dot only draws the eye. Never Indigo: the header does not paint the accent.
+*/
+.ck-agent-header__jobs {
+  position: relative;
+  display: inline-flex;
+}
+
+.ck-agent-header__jobs[data-badge]::after {
+  position: absolute;
+  inset-block-start: var(--bldr-space-2xs);
+  inset-inline-end: var(--bldr-space-2xs);
+  inline-size: calc(var(--bldr-space-xs) + var(--bldr-space-2xs));
+  block-size: calc(var(--bldr-space-xs) + var(--bldr-space-2xs));
+  border: var(--bldr-border-hairline) solid var(--bldr-panel);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-muted);
+  content: '';
+  pointer-events: none;
+}
+
+.ck-agent-header__jobs[data-badge='ready']::after {
+  background-color: var(--bldr-panel-text);
 }
 
 /* A panel under 320px narrows the thread's gutter to 12px; the face follows it. */
@@ -113,5 +162,9 @@
 @media (forced-colors: active) {
   .ck-agent-header[data-scrolled] {
     border-block-end: var(--bldr-border-hairline) solid CanvasText;
+  }
+
+  .ck-agent-header__jobs[data-badge]::after {
+    background-color: Highlight;
   }
 }

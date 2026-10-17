@@ -13,7 +13,7 @@ export type TemplateLang = 'en' | 'ar';
 
 export const TEMPLATE_LANGS: readonly TemplateLang[] = ['en', 'ar'];
 
-/** What a template is for. The core four plus the verticals package's five. */
+/** What a template is for. The core four plus the verticals' eleven. */
 export type TemplateCategory =
   | 'saas'
   | 'agency'
@@ -23,7 +23,13 @@ export type TemplateCategory =
   | 'clinic'
   | 'portfolio'
   | 'realestate'
-  | 'events';
+  | 'events'
+  | 'education'
+  | 'fitness'
+  | 'legal'
+  | 'nonprofit'
+  | 'hospitality'
+  | 'personal';
 
 /** Copy that exists in both languages: a card's name and description. */
 export interface BilingualText {

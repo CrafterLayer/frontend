@@ -122,28 +122,37 @@ export const sharedRegionSchema: z.ZodType<SharedRegion> = z.strictObject({
   document: siteNestedDocumentSchema,
 });
 
+/*
+  The site envelope's members, one schema each. Named (2026-10-12) so
+  `validateSite` can parse a site member by member with THESE schemas — an
+  unchanged frozen page is not parsed again (site-validation-memo.ts) — instead
+  of restating them; `builderSiteSchema` below stays the one whole-site parse.
+  Package-internal: not re-exported from the index.
+*/
+export const builderSiteShape = {
+  siteVersion: z.number().int().nonnegative(),
+  dir: z.enum(['ltr', 'rtl']),
+  pages: z.array(sitePageSchema),
+  sharedRegions: z.record(sharedRegionIdSchema, sharedRegionSchema),
+  designSystem: designSystemSchema,
+  assets: z.record(z.string(), assetEntrySchema),
+  codeProjects: z
+    .record(
+      z
+        .string()
+        .min(1)
+        .refine(
+          (key) => !['__proto__', 'prototype', 'constructor'].includes(key),
+          'Reserved project identity.',
+        ),
+      codeProjectSchema,
+    )
+    .optional(),
+  library: siteLibrarySchema.optional(),
+};
+
 export const builderSiteSchema: z.ZodType<BuilderSite> = z
-  .strictObject({
-    siteVersion: z.number().int().nonnegative(),
-    dir: z.enum(['ltr', 'rtl']),
-    pages: z.array(sitePageSchema),
-    sharedRegions: z.record(sharedRegionIdSchema, sharedRegionSchema),
-    designSystem: designSystemSchema,
-    assets: z.record(z.string(), assetEntrySchema),
-    codeProjects: z
-      .record(
-        z
-          .string()
-          .min(1)
-          .refine(
-            (key) => !['__proto__', 'prototype', 'constructor'].includes(key),
-            'Reserved project identity.',
-          ),
-        codeProjectSchema,
-      )
-      .optional(),
-    library: siteLibrarySchema.optional(),
-  })
+  .strictObject(builderSiteShape)
   .transform(({ codeProjects, library, ...site }): BuilderSite => ({
     ...site,
     ...(codeProjects === undefined ? {} : { codeProjects }),

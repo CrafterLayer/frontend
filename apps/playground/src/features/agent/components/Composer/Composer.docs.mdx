@@ -28,13 +28,13 @@ does not change with them.
 
 ## Props
 
-| prop           | type                                             | default | notes                                                                                                    |
-| -------------- | ------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------- |
-| `view`         | `ComposerView` (a slice of `AgentViewState`)     | none    | `locale`, `draft`, `chips`, `mention`, `mode`, `model`, `send`, `run`, `queue`, `enhancement`, `clarify` |
-| `actions`      | `ComposerActions` (a slice of `AgentController`) | none    | the panel passes the controller as is                                                                    |
-| `awaitingPlan` | `boolean`                                        | `false` | a page plan waits in the thread: the empty box asks for a change to it                                   |
-| `inputRef`     | `Ref<HTMLTextAreaElement>`                       | none    | the panel's own focus destinations (a suggestion fills and focuses it)                                   |
-| `className`    | `string`                                         | none    | appended to `ck-agent-composer`                                                                          |
+| prop           | type                                             | default | notes                                                                                                                    |
+| -------------- | ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `view`         | `ComposerView` (a slice of `AgentViewState`)     | none    | `locale`, `draft`, `chips`, `contextMeter`, `mention`, `mode`, `model`, `send`, `run`, `queue`, `enhancement`, `clarify` |
+| `actions`      | `ComposerActions` (a slice of `AgentController`) | none    | the panel passes the controller as is                                                                                    |
+| `awaitingPlan` | `boolean`                                        | `false` | a page plan waits in the thread: the empty box asks for a change to it                                                   |
+| `inputRef`     | `Ref<HTMLTextAreaElement>`                       | none    | the panel's own focus destinations (a suggestion fills and focuses it)                                                   |
+| `className`    | `string`                                         | none    | appended to `ck-agent-composer`                                                                                          |
 
 `useComposerFixture` (in `testing/wp-14-composer-fixtures.ts`) moves a `ComposerView` the way the
 controller does; every story and the behaviour test drive the Composer through it.
@@ -64,8 +64,13 @@ controller does; every story and the behaviour test drive the Composer through i
 From the top: the RunBar (while a run is live, over a Hairline); a paused queued request and the
 clarifying questions, each its own section over a Hairline; then the writing area, stacked at 4px:
 QueueHeader (the live queued request heads its own text), EnhanceNote, the context row of 28px
-chips, the textarea (Input type, 2 to 6 lines, then it scrolls, gutter reserved so the words never
+chips, the textarea (Input type, 1 to 8 lines, then it scrolls, gutter reserved so the words never
 reflow) and ComposerToolbar. The `@` list (MentionMenu) floats 8px above the whole card.
+
+The context row ends with the ContextMeter once a request was measured in the conversation
+(`contextMeter`): the latest request's estimated size against its budget, warning past 80%. While
+the box is empty, the scope chip names the sections that request was focused on ("Focused: Pricing
+(+ outline)") instead of "Whole page".
 
 Writing rows size to their content rather than stretching: an empty draft keeps its two-line
 minimum. The fallback measures from a cleared height, so deleting a long draft shrinks it again.

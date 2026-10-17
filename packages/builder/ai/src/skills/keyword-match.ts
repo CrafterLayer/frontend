@@ -37,18 +37,42 @@ function fold(text: string): string {
   return normalizeIntentText(text).normalize('NFD').replace(LATIN_MARKS, '').normalize('NFC');
 }
 
+/*
+  The dialect "for me" (2026-10-14). «سويلي لعبة» is «سوي لي لعبة» written as one word, and
+  the router's tokenizer peels only the possessive ي from it — «سويل», no word at all — so
+  «سوي لعبة» never matched. A token ending in «لي» is also read without it when three letters
+  stay («سويلي» → «سوي», «صمملي» → «صمم»); a reading that is no keyword's word costs nothing.
+*/
+const DATIVE_SUFFIX = 'لي';
+const MIN_DATIVE_STEM = 3;
+
+function withDativeReading(token: IntentToken): IntentToken {
+  const stem = token.raw.slice(0, -DATIVE_SUFFIX.length);
+  if (
+    !token.arabic ||
+    !token.raw.endsWith(DATIVE_SUFFIX) ||
+    stem.length < MIN_DATIVE_STEM ||
+    token.readings.some((reading) => reading.stem === stem)
+  ) {
+    return token;
+  }
+  return { ...token, readings: [...token.readings, { stem, definite: false }] };
+}
+
 /** The request as words, read once per `prepare`. */
 export function readRequestWords(request: string): readonly IntentToken[] {
-  return tokenize(fold(request));
+  return tokenize(fold(request)).map(withDativeReading);
 }
 
 /*
   The endings a keyword's last word may carry. English: plurals, the past and
   the -ing form, the agent and specialist nouns ("barbers", "orthodontist",
   "pediatrician"). Arabic: the feminine and nisba endings ("فريدة", "عقاري",
-  "عقارية") — not the plural ات, which reaches different words as often
-  ("ذكرى" → "ذكريات" memories, "رحلة" → "رحلات" trips); plurals a keyword
-  needs are listed as keywords.
+  "عقارية"), and the indefinite accusative's alif once its tanween is folded
+  away ("أضف مخططًا" holds "مخطط", "صمّم شعارًا" holds "شعار"; 2026-10-12) — not
+  the plural ات, which reaches different words as often ("ذكرى" → "ذكريات"
+  memories, "رحلة" → "رحلات" trips); plurals a keyword needs are listed as
+  keywords.
 */
 const LATIN_ENDINGS = [
   's',
@@ -65,7 +89,7 @@ const LATIN_ENDINGS = [
   'ics',
 ];
 const LATIN_Y_ENDINGS = ['ies', 'ied', 'ian', 'ians', 'ist', 'ists'];
-const ARABIC_ENDINGS = ['ه', 'ي', 'يه'];
+const ARABIC_ENDINGS = ['ه', 'ي', 'يه', 'ا'];
 
 /*
   A Latin keyword word shorter than this takes no endings. Two or three
@@ -143,6 +167,33 @@ function wordMatches(token: IntentToken, word: KeywordWord): boolean {
   );
 }
 
+/*
+  The same "for me" as its own word: «اعمل لي لعبة» holds «اعمل لعبة». Between two words of a
+  keyword the request may carry one «لي» or «لنا» the keyword does not; a keyword that names
+  it («صمم لي») still matches it as a word.
+*/
+const DATIVE_WORDS: ReadonlySet<string> = new Set(['لي', 'لنا']);
+
+function matchesFrom(
+  words: readonly IntentToken[],
+  keyword: CompiledKeyword,
+  start: number,
+): boolean {
+  let at = start;
+  for (const [offset, word] of keyword.entries()) {
+    const token = words[at];
+    if (token === undefined) return false;
+    if (!wordMatches(token, word)) {
+      const next = words[at + 1];
+      if (offset === 0 || !DATIVE_WORDS.has(token.raw) || next === undefined) return false;
+      if (!wordMatches(next, word)) return false;
+      at += 1;
+    }
+    at += 1;
+  }
+  return true;
+}
+
 /**
  * Whether the request holds the keyword as consecutive whole words.
  * Punctuation between them does not matter: "UI/UX" holds "ui ux".
@@ -153,14 +204,7 @@ export function requestHasKeyword(
 ): boolean {
   if (keyword.length === 0) return false;
   for (let start = 0; start + keyword.length <= words.length; start += 1) {
-    if (
-      keyword.every((word, offset) => {
-        const token = words[start + offset];
-        return token !== undefined && wordMatches(token, word);
-      })
-    ) {
-      return true;
-    }
+    if (matchesFrom(words, keyword, start)) return true;
   }
   return false;
 }

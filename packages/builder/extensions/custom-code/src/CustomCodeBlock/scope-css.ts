@@ -22,6 +22,7 @@
  * branch rather than a rewrite.
  */
 
+import { canvasViewportHeightUnits } from '@craftkit/builder-renderer';
 import {
   CUSTOM_CSS_FONT_IMPORT,
   findCssRejection,
@@ -147,7 +148,12 @@ export function scopeCustomCodeCss(
     every rule, which scoping the rest and prepending honours.
   */
   const imports = trimmed.match(CUSTOM_CSS_FONT_IMPORT) ?? [];
-  const body = trimmed.replace(CUSTOM_CSS_FONT_IMPORT, '').trim();
+  /*
+    preview-fix (2026-10-12): viewport heights read through `--ck-vh`, which only the editor canvas
+    sets (to its zoom-1 viewport), so `min-height: 70vh` is the same on the canvas at any zoom as in
+    Preview and on the published page, where the fallback is the real `vh`.
+  */
+  const body = canvasViewportHeightUnits(trimmed.replace(CUSTOM_CSS_FONT_IMPORT, '').trim());
   const scoped = scopeRules(body, `[data-ck="${cssAttributeValue(hostId)}"]`, 0);
   const output = `${imports.join('')}${scoped}`;
   return output === '' ? undefined : output;

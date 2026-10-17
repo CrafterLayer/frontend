@@ -732,7 +732,14 @@ describe('P1-12 — section writers run with an explicit skill set', () => {
     return { result, calls: recorded.calls };
   }
 
-  it('gives an English fill only the fill skills, however many page skills the request matched', async () => {
+  // 2026-10-14: a writer also gets its OWN section's skills (request-skills.ts), never the page's.
+  function extras(call: ProviderCall | undefined, fill: readonly string[]): string[] {
+    expect(skillsOf(call)).toEqual(expect.arrayContaining([...fill]));
+    return skillsOf(call).filter((id) => !fill.includes(id));
+  }
+  const FILL = ['craftkit.build-fill', 'craftkit.copywriting', 'craftkit.craft-manual'];
+
+  it('gives an English fill the fill skills plus its own section’s, never the page’s matched set', async () => {
     const { calls, result } = await build(
       'Create a landing page for a SaaS analytics tool with pricing, testimonials and FAQ',
       registryWithout(),
@@ -740,13 +747,8 @@ describe('P1-12 — section writers run with an explicit skill set', () => {
     expect(result.applied).toBe(FOUR.length);
     // The scaffold still gets the page-level expertise its request matched.
     expect(skillsOf(calls[0])).toContain('craftkit.page-composition');
-    for (const call of calls.slice(1)) {
-      expect(skillsOf(call)).toEqual([
-        'craftkit.build-fill',
-        'craftkit.copywriting',
-        'craftkit.craft-manual',
-      ]);
-    }
+    const added = calls.slice(1).flatMap((call) => extras(call, FILL));
+    expect(new Set(added)).toEqual(new Set(['craftkit.conversion-recipes']));
   });
 
   it('adds the Arabic skill to every fill of an Arabic page', async () => {
@@ -755,12 +757,9 @@ describe('P1-12 — section writers run with an explicit skill set', () => {
       registryWithout(),
     );
     for (const call of calls.slice(1)) {
-      expect(skillsOf(call)).toEqual([
-        'craftkit.arabic-rtl',
-        'craftkit.build-fill',
-        'craftkit.copywriting',
-        'craftkit.craft-manual',
-      ]);
+      const added = extras(call, ['craftkit.arabic-rtl', ...FILL]);
+      expect(added.length).toBeLessThanOrEqual(2);
+      expect(added).not.toContain('craftkit.menu-page');
     }
   });
 
@@ -768,15 +767,8 @@ describe('P1-12 — section writers run with an explicit skill set', () => {
     const { calls } = await build('Create a landing page for a bakery', registryWith());
     expect(skillsOf(calls[0])).toContain('craftkit.direction-deck');
     expect(skillsOf(calls[0])).toContain('craftkit.build-scaffold');
-    for (const call of calls.slice(1)) {
-      expect(skillsOf(call)).toEqual([
-        'craftkit.build-fill',
-        'craftkit.copywriting',
-        'craftkit.craft-manual',
-        'craftkit.photo-direction',
-        'craftkit.section-variants',
-      ]);
-    }
+    const fill = [...FILL, 'craftkit.photo-direction', 'craftkit.section-variants'];
+    for (const call of calls.slice(1)) expect(extras(call, fill).length).toBeLessThanOrEqual(2);
   });
 });
 

@@ -12,6 +12,10 @@ import {
 
 import { useTransactionCount } from '../../use-transaction-count';
 import {
+  CODE_VIEW_SHOWCASE_LABELS_EN,
+  type CodeViewShowcaseLabels,
+} from './CodeViewShowcase.labels';
+import {
   createCodeViewKernelAdapter,
   type CodeViewKernelAdapterHandle,
 } from './create-code-view-kernel-adapter';
@@ -22,6 +26,8 @@ export interface CodeViewShowcaseProps {
   workerClient?: TransformWorkerClient | undefined;
   /** Keeps the scenario deterministic without changing the panel's production default. */
   debounceMs?: number | undefined;
+  /** Every string the showcase shows; English unless the host passes its locale's set. */
+  labels?: CodeViewShowcaseLabels | undefined;
 }
 
 interface PanelSession {
@@ -31,10 +37,8 @@ interface PanelSession {
   readonly ownsClient: boolean;
 }
 
-function causeMessage(cause: unknown): string {
-  return cause instanceof Error && cause.message.length > 0
-    ? cause.message
-    : 'The code view could not be opened.';
+function causeMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }
 
 /**
@@ -42,7 +46,12 @@ function causeMessage(cause: unknown): string {
  * panel only when requested, edit through its worker road, then watch one
  * transaction and one exact undo stay in lockstep.
  */
-export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewShowcaseProps) {
+export function CodeViewShowcase({
+  kernel,
+  workerClient,
+  debounceMs,
+  labels = CODE_VIEW_SHOWCASE_LABELS_EN,
+}: CodeViewShowcaseProps) {
   const transactionCount = useTransactionCount(kernel);
   const [session, setSession] = useState<PanelSession | null>(null);
   const [opening, setOpening] = useState(false);
@@ -93,7 +102,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
     try {
       const contribution = kernel.context.registry.panel('code-view');
       if (contribution === undefined) {
-        throw new Error('The code-view panel contribution is not registered.');
+        throw new Error(labels.notRegistered);
       }
 
       const loaded = await contribution.load();
@@ -118,7 +127,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
     } catch (cause: unknown) {
       createdAdapter?.dispose();
       createdClient?.terminate();
-      setOpenError(causeMessage(cause));
+      setOpenError(causeMessage(cause, labels.openFailed));
     } finally {
       if (mountedRef.current) {
         setOpening(false);
@@ -134,7 +143,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
 
   return (
     <section
-      aria-label="Code view showcase"
+      aria-label={labels.region}
       /*
         Fills the region it is placed in, and divides THAT — it used to be a
         column of intrinsic heights, so with the panel open it measured 991px
@@ -159,9 +168,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
           padding: '10px 16px',
         }}
       >
-        <p style={{ flex: '1 1 360px', fontSize: '0.875rem', margin: 0 }}>
-          Select a block · open code view · edit its JSON · watch one transaction · undo exactly
-        </p>
+        <p style={{ flex: '1 1 360px', fontSize: '0.875rem', margin: 0 }}>{labels.steps}</p>
         {/*
           ONE control that persists across both states. Swapping the trigger for
           a status span on open destroyed the focused element, dropping a
@@ -180,7 +187,7 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
             }
           }}
         >
-          {opening ? 'Opening code view…' : session === null ? 'Open code view' : 'Close code view'}
+          {opening ? labels.opening : session === null ? labels.open : labels.close}
         </button>
         <button
           type="button"
@@ -188,9 +195,9 @@ export function CodeViewShowcase({ kernel, workerClient, debounceMs }: CodeViewS
             kernel.undo();
           }}
         >
-          Undo code edit
+          {labels.undo}
         </button>
-        <output aria-label="Transactions" data-testid="pg-tx-count">
+        <output aria-label={labels.transactions} data-testid="pg-tx-count">
           {transactionCount}
         </output>
       </div>

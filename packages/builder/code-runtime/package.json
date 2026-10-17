@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@craftkit/builder-schema": "workspace:*",
+    "@tailwindcss/forms": "catalog:",
+    "@tailwindcss/typography": "catalog:",
     "esbuild": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:"

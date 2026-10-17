@@ -68,4 +68,5 @@ export {
   normalizeLinkText,
   type VagueLinkTextLang,
 } from './link-text';
+export { hasLanguageVersions, languageSetDirection } from './page-direction';
 export { isRtlLang, normalizeArabic } from './text';

@@ -152,8 +152,8 @@ export function createEditKernel(): BuilderKernel {
   });
 }
 
-/** An empty page a scaffold build lays regions into. */
-export function createBuildKernel(): BuilderKernel {
+/** An empty page a scaffold build lays regions into; a site's pages each take their own `seed`. */
+export function createBuildKernel(seed = 'agent-build'): BuilderKernel {
   return createBuilder({
     document: {
       schemaVersion: 1,
@@ -163,7 +163,7 @@ export function createBuildKernel(): BuilderKernel {
       nodes: { root: { id: 'root', type: 'buildPage', props: {}, slots: { default: [] } } },
     },
     extensions: [BUILD_VOCABULARY],
-    ports: { clock: fixedClock(0), ids: seededIds('agent-build') },
+    ports: { clock: fixedClock(0), ids: seededIds(seed) },
   });
 }
 

@@ -11,6 +11,7 @@ import { fixedClock, seededIds } from '@craftkit/builder/testing';
 
 import { catalogPolicyFor } from './components/AssistantPanel/catalogPolicyFor';
 import { createPlaygroundKernel, type PlaygroundFixture } from './create-playground-kernel';
+import { loadPlaygroundTemplates } from './playground-templates';
 
 const REQUEST = 'Change the page direction to RTL.';
 const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
@@ -26,8 +27,13 @@ const DUPLICATED_BUILTIN_FRAGMENT_SOURCES = new Set([
   offering half the catalog.
 */
 // 56 since 9521efa (2026-10-05) registered the symbol-instance block beside customCode.
-const LANDING_BLOCK_COUNT = 56;
-const LANDING_NODE_COUNT = 27;
+// 56 → 62 on 2026-10-12: table, chart, timeline, menuSection, location and countdown.
+// 62 → 63 on 2026-10-12: report (one dataset as KPI cards, a chart and a table).
+// 63 → 71 on 2026-10-13: beforeAfter, pullQuote, reviewSummary, caseStudy, jobsList,
+// downloadList, appDownload and fundraiser.
+const LANDING_BLOCK_COUNT = 71;
+// 27 → 28 since c4fee26 (2026-10-09), which gave the landing one more node.
+const LANDING_NODE_COUNT = 28;
 /*
   The FULL catalog is what the panel sends the offline provider, and it sends
   it with that path's own budget (catalogPolicyFor.ts): 55 blocks no longer
@@ -36,9 +42,12 @@ const LANDING_NODE_COUNT = 27;
   path sends no catalog and keeps the default (ai-context-cost.test.ts).
 */
 const FULL_CATALOG = catalogPolicyFor('offline', []);
-const FULL_CATALOG_BUDGET = FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
+const FULL_CATALOG_BUDGET =
+  FULL_CATALOG.policy?.maxContextTokens ?? DEFAULT_AI_CONTEXT_TOKEN_BUDGET;
 
 async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'empty'>) {
+  // A ready agent has its templates: they load on demand (2026-10-13), so this waits for them.
+  await loadPlaygroundTemplates();
   const kernel = createPlaygroundKernel({ fixture });
   let providerCalls = 0;
   let completeWireTokens = 0;
@@ -57,13 +66,19 @@ async function probeFixture(fixture: Extract<PlaygroundFixture, 'landing' | 'emp
         .filter((source) => DUPLICATED_BUILTIN_FRAGMENT_SOURCES.has(source));
 
       expect(context.blocks).toHaveLength(kernel.context.registry.blocks('site').length);
-      expect(context.templates).toHaveLength(4);
+      // Only the templates written in the page's direction are offered (template-context.ts).
+      const { dir } = kernel.getDocument();
+      const offered = kernel.context.registry
+        .compositions('site')
+        .filter((entry) => entry.dir === undefined || entry.dir === dir);
+      expect(context.templates).toHaveLength(offered.length);
+      expect(offered.length).toBeLessThan(kernel.context.registry.compositions('site').length);
       expect(context.document.nodes).toHaveLength(Object.keys(kernel.getDocument().nodes).length);
       if (fixture === 'landing') {
         expect(context.blocks).toHaveLength(LANDING_BLOCK_COUNT);
         expect(context.document.nodes).toHaveLength(LANDING_NODE_COUNT);
         expect(context.document.nodes.find(({ id }) => id === 'hero')?.responsive).toEqual({
-          mobile: { align: 'start', motion: { reveal: 'none' } },
+          mobile: { align: 'start', motion: { reveal: 'none' }, gutter: 'md' },
         });
       }
       expect(context.commands?.some(({ name }) => name === 'setDocMeta')).toBe(true);

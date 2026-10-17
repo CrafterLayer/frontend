@@ -170,6 +170,7 @@ interface PlanCall {
   readonly context: AssembledAiContext;
   readonly attempt: AiPagePlanAttempt | undefined;
   readonly signal: AbortSignal | undefined;
+  readonly history?: readonly { readonly role: string; readonly text: string }[] | undefined;
 }
 
 function planner(answer: (call: PlanCall, index: number) => PagePlanCandidate | Promise<never>) {
@@ -181,7 +182,13 @@ function planner(answer: (call: PlanCall, index: number) => PagePlanCandidate | 
       return Promise.reject(new Error('a page plan never asks for commands'));
     },
     async proposePagePlan(request, context, live) {
-      const call = { request, context, attempt: live?.attempt, signal: live?.signal };
+      const call = {
+        request,
+        context,
+        attempt: live?.attempt,
+        signal: live?.signal,
+        history: live?.history,
+      };
       calls.push(call);
       const pagePlan = await answer(call, calls.length - 1);
       return { pagePlan, rationale: 'A warm roastery page.' };
@@ -260,9 +267,12 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     expect(calls[1]?.attempt?.issues.some(({ path }) => path.startsWith('tokens.onAccent'))).toBe(
       true,
     );
+    // Each call announces itself (`proposing`, attempt 1 then 2) around the repair.
     expect(events.map(({ type }) => type)).toEqual([
       'page-plan.started',
+      'page-plan.proposing',
       'page-plan.repairing',
+      'page-plan.proposing',
       'page-plan.ready',
     ]);
     expect(events.every(({ runId }) => runId === 'plan-1')).toBe(true);
@@ -486,6 +496,29 @@ function untargeted(live: BuilderKernel, provider: AiPlanProvider) {
     skillRegistry: createCraftkitAiSkillRegistry(),
   };
 }
+
+describe('planAiPage — a long conversation (2026-10-12)', () => {
+  it('drops the oldest exchanges to fit the budget instead of failing the plan', async () => {
+    const { provider, calls } = planner(() => cafe());
+    const { options: planOptions } = options(provider);
+    const long = 'ق'.repeat(40_000);
+    const history = [
+      { role: 'user' as const, text: `first ${long}` },
+      { role: 'assistant' as const, text: `answered ${long}` },
+      { role: 'user' as const, text: 'make it warmer' },
+      { role: 'assistant' as const, text: 'Warmer now.' },
+    ];
+    const result = await planAiPage(REQUEST, {
+      ...planOptions,
+      history,
+      policy: { maxContextTokens: 30_000 },
+    });
+
+    if (!('plan' in result)) throw new Error(result.error.message);
+    // The newest exchange is what the plan was asked with; the oversized first one is gone.
+    expect(calls[0]?.history).toEqual(history.slice(2));
+  });
+});
 
 describe('designMarkupFor — the design markup a brief names is only what the door admits', () => {
   it('names nothing the vocabulary does not have', () => {

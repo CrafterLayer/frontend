@@ -6,12 +6,16 @@ const QUOTE_ITEM = {
   name: text(60, true),
   role: text(80),
   initials: text(3),
+  image: image(),
 } as const;
 
 /** A monogram: the initials in an accent disc (no stock faces: a portrait the request did not give is a stranger). */
 const MONOGRAM = `<span class='ck-accent-fill flex size-12 shrink-0 items-center justify-center rounded-full font-bold'>{{item.initials}}</span>`;
 
-const PERSON = `<figcaption class='mt-auto flex items-center gap-3 pt-6'>{{#item.initials}}${MONOGRAM}{{/item.initials}}<div><p class='font-semibold'>{{item.name}}</p>{{#item.role}}<p class='ck-muted text-sm'>{{item.role}}</p>{{/item.role}}</div></figcaption>`;
+/** The person's own picture, or (art catalog, 2026-10-14) a cartoon 'character:<style>:<seed>'; else the monogram. */
+const AVATAR = `{{#item.image}}<img class='ck-surface size-12 shrink-0 rounded-full object-cover' src='{{item.image.src}}' alt='{{item.image.alt}}'/>{{/item.image}}{{^item.image}}{{#item.initials}}${MONOGRAM}{{/item.initials}}{{/item.image}}`;
+
+const PERSON = `<figcaption class='mt-auto flex items-center gap-3 pt-6'>${AVATAR}<div><p class='font-semibold'>{{item.name}}</p>{{#item.role}}<p class='ck-muted text-sm'>{{item.role}}</p>{{/item.role}}</div></figcaption>`;
 
 export const PROOF_KITS: readonly SectionKit[] = [
   {
@@ -60,7 +64,7 @@ export const PROOF_KITS: readonly SectionKit[] = [
         {{#items}}<figure class='mt-8'>
           <icon name='quote' class='ck-accent-ink mx-auto' size='44'/>
           <blockquote class='ck-display mt-6 text-2xl font-medium leading-snug text-balance md:text-4xl'>{{item.quote}}</blockquote>
-          <figcaption class='mt-10 flex items-center justify-center gap-3'>{{#item.initials}}${MONOGRAM}{{/item.initials}}<div class='text-start'><p class='font-semibold'>{{item.name}}</p>{{#item.role}}<p class='ck-muted text-sm'>{{item.role}}</p>{{/item.role}}</div></figcaption>
+          <figcaption class='mt-10 flex items-center justify-center gap-3'>${AVATAR}<div class='text-start'><p class='font-semibold'>{{item.name}}</p>{{#item.role}}<p class='ck-muted text-sm'>{{item.role}}</p>{{/item.role}}</div></figcaption>
         </figure>{{/items}}
       </div>
     </section>`,

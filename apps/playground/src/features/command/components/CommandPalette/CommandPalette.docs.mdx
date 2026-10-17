@@ -1,0 +1,73 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CommandPaletteStories from './CommandPalette.stories';
+
+<Meta of={CommandPaletteStories} />
+
+# CommandPalette
+
+One searchable list of every place and action in the editor, opened with **Ctrl K** (**⌘ K** on
+Apple platforms) or the search field at the start of the top bar's action band.
+
+<Canvas of={CommandPaletteStories.Open} />
+
+## Purpose
+
+A no-code builder has many destinations (eleven rail sections, three devices, two workspace views,
+every page) and a handful of consequential actions (publish, preview, undo). The palette puts all of
+them one shortcut away, and it teaches the editor while it does: every row says where it goes, shows
+its shortcut when it has one, marks the current place, and stays listed (disabled) when it cannot
+run now.
+
+## When to use / not
+
+Use it for anything a person might want to _reach_: a section, a page, a device, the language, a
+global action. Do not use it for actions on the selected element (those belong to the element's
+quick bar and the Inspector), and do not hide anything in it that has no other way in: the palette
+is a shortcut, never the only door.
+
+## Props
+
+| prop           | type                      | default | notes                                           |
+| -------------- | ------------------------- | ------- | ----------------------------------------------- |
+| `open`         | `boolean`                 | none    | controlled                                      |
+| `onOpenChange` | `(open: boolean) => void` | none    | the trigger, Escape, the veil and every row     |
+| `commands`     | `readonly CommandItem[]`  | none    | built by the host each render (`command-model`) |
+| `labels`       | `CommandPaletteLabels`    | English | `COMMAND_PALETTE_LABELS_AR` for Arabic          |
+| `dir`          | `'ltr' \| 'rtl'`          | `'ltr'` | the editor's direction                          |
+| `shortcut`     | `string`                  | none    | drawn in the trigger's key cap                  |
+| `showTrigger`  | `boolean`                 | `true`  | the dialog works without it                     |
+
+A `CommandItem` is `{ id, group, label, keywords?, hint?, disabled?, current?, run }`. Groups are
+shown in a fixed order: Actions, Go to, View, Pages, Language, Help; an empty group is dropped. The
+editor builds its list in `app/use-editor-commands.ts`, and each row also answers to its name in the
+other language («نشر» finds Publish site).
+
+## States
+
+| story             | what it shows                                                    |
+| ----------------- | ---------------------------------------------------------------- |
+| `Open`            | every group; the current place chip; a disabled row still listed |
+| `Filtered`        | typing narrows the list, across languages                        |
+| `NoMatch`         | the empty state says what to try instead                         |
+| `Trigger`         | closed: the top bar's search field with its key cap              |
+| `OpenRightToLeft` | the Arabic editor, right to left                                 |
+
+## Anatomy
+
+The trigger is a sunken pill: the search glyph, "Search and commands" and the shortcut in a key cap
+(below 1200px the words go and stay its accessible name; on a phone only the glyph stays). The
+dialog floats 12vh from the top, 640px wide, on the Panel with a Hairline edge, the 12px radius and
+the overlay elevation, over a Rail-tinted veil. A 48px search row, then the grouped list (40px rows,
+44px on a coarse pointer; the active row in the Accent wash), then a footer of key hints.
+
+## Accessibility
+
+- A Radix Dialog with a spoken title ("Command palette"); focus is trapped and returns to the
+  trigger on close.
+- cmdk gives the input `role="combobox"` and the rows `role="option"`; arrow keys move, Enter runs,
+  the list loops.
+- A disabled row is `aria-disabled` and does not run; it stays listed so the action is learnable.
+- Choosing a row closes the palette first, then runs, so focus lands where the action leads.
+- Ctrl/⌘ K toggles the palette from anywhere in the editor document (`aria-keyshortcuts` on the
+  trigger).

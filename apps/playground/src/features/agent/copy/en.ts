@@ -13,6 +13,7 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { EnEntry, Key } from './keys';
+import { EDIT_RESULT_EN } from './edit-results';
 
 export const en = {
   /* §4.2 AgentHeader and the phone sheet */
@@ -20,6 +21,14 @@ export const en = {
   'header.conversations': 'Conversations',
   'header.new': 'New conversation',
   'header.new.busy': 'Available when the current work ends',
+  // (added) the header's status subtitle (Studio Indigo redesign, 2026-10-12).
+  'header.status.ready': 'Ready',
+  'header.status.readyFreeCode': 'Ready, free code on',
+  'header.status.thinking': 'Thinking it through',
+  'header.status.building': 'Building the page',
+  'header.status.editing': 'Changing the page',
+  'header.status.stopping': 'Stopping',
+  'header.status.review': 'Waiting for your decision',
   'sheet.close': 'Close',
   'sheet.showPage': 'Show the page',
   'sheet.backToChat': 'Back to the chat',
@@ -29,7 +38,7 @@ export const en = {
   'workers.option': { one: '{n} worker', other: '{n} workers' },
   'workers.hint': 'Independent build tasks run together; single-target edits use one worker.',
   'tasks.label': 'Build tasks',
-  'tasks.coordinator': 'One coordinator · ordered checks',
+  'tasks.coordinator': 'One coordinator, ordered checks',
   'tasks.active': '{n} active',
   'tasks.pool': 'Up to {n} workers',
   'tasks.queued': '{n} queued',
@@ -39,14 +48,14 @@ export const en = {
   'tasks.progress': '{n} of {total} tasks applied',
   'telemetry.activity': 'Live activity',
   'telemetry.planning': 'Planning the layout…',
-  'telemetry.usage': 'Reported tokens · not estimates',
+  'telemetry.usage': 'Reported tokens, not estimates',
   'telemetry.input': 'Input',
   'telemetry.output': 'Output',
   'telemetry.cacheRead': 'Cache read',
   'telemetry.cacheWrite': 'Cache write',
   'telemetry.unknown': 'Not reported',
-  'telemetry.cached': 'Cached replies · no new model charge: {n}',
-  'telemetry.cost': 'Reported cost (USD)',
+  'telemetry.cached': 'Cached replies, no new model charge: {n}',
+  'telemetry.cost': 'Reported cost in US dollars',
 
   /* §4.3 visible status: at most 24 characters before interpolation */
   'run.understanding': 'Reading your request…',
@@ -201,6 +210,25 @@ export const en = {
   'facts.toggle': 'Sample details to replace ({n})',
   'facts.intro': 'These were written as examples. Replace them before publishing.',
   'facts.item': '“{sample}” in {section}',
+  // creative agent (2026-10-12) (added): StoryBiblePanel.
+  'bible.toggle': 'Story bible ({n})',
+  'bible.intro':
+    'Characters, assets and facts the Agent keeps the same in every scene. It learns them from the games and stories it writes.',
+  'bible.empty': 'Nothing yet. Build a game or story with free code on, or add a character.',
+  'bible.characters': 'Characters',
+  'bible.assets': 'Approved assets',
+  'bible.locations': 'Places',
+  'bible.facts': 'Canon',
+  'bible.remove': 'Remove {name}',
+  'bible.addCharacter': 'Add a character',
+  'bible.name': 'Name',
+  'bible.role': 'Role',
+  'bible.color': 'Colour',
+  'bible.addFact': 'Add a fact the story must keep',
+  'bible.fact': 'Fact',
+  'bible.add': 'Add',
+  'bible.clear': 'Clear the bible',
+  'bible.clearConfirm': 'Confirm: clear everything',
   'footer.undoBuild': 'Undo build',
   'footer.redoBuild': 'Redo build',
   'footer.finishRest': 'Finish the rest ({n})',
@@ -453,6 +481,43 @@ export const en = {
   'freeCode.button': 'Free code',
   'freeCode.on': 'On: the agent may write JavaScript and full PixiJS scenes',
   'freeCode.off': 'Turn on so the agent can write JavaScript and custom PixiJS scenes',
+  // (added) creative agent (2026-10-12): creative starters and the creative brief.
+  'creative.title': 'Games and interactive stories',
+  'creative.badge': 'New',
+  'creative.game': 'Platformer game',
+  'creative.game.detail': 'Levels, a hero, stars to collect',
+  'creative.game.prompt':
+    'A forest platformer game starring a fox named Rumi who collects three stars and avoids lava',
+  'creative.story': 'Story with choices',
+  'creative.story.detail': 'Characters, dialogue, endings',
+  'creative.story.prompt':
+    'A visual novel where Lina meets a talking robot in an old library, with choices that change the ending',
+  'creative.bedtime': 'Bedtime story',
+  'creative.bedtime.detail': 'Calm pages, gentle motion',
+  'creative.bedtime.prompt':
+    'An interactive story for kids at bedtime: a little cloud looks for the moon among gentle stars',
+  'creative.needsFreeCode':
+    'Games and stories need free code: the Agent writes the scene in JavaScript.',
+  'creative.enableFreeCode': 'Turn on free code',
+  'creative.freeCodeOn':
+    'Free code is on. The Agent writes the scene, its characters and its effects.',
+  'brief.title': 'Creative brief',
+  'brief.caption': 'Planned before writing',
+  'brief.genre': 'Kind',
+  'brief.libs': 'Libraries',
+  'brief.effects': 'Effects',
+  'brief.cast': 'Characters',
+  'brief.role.hero': 'Lead',
+  'brief.role.supporting': 'Supporting',
+  'brief.genre.platformer': 'Platformer game',
+  'brief.genre.maze-adventure': 'Maze adventure',
+  'brief.genre.arcade': 'Arcade game',
+  'brief.genre.puzzle': 'Puzzle game',
+  'brief.genre.physics-toy': 'Physics toy',
+  'brief.genre.visual-novel': 'Visual novel',
+  'brief.genre.picture-book': 'Picture book',
+  'brief.genre.chapter-story': 'Story in chapters',
+  'brief.genre.mural': 'Animated scene',
   send: 'Send',
   queue: 'Queue as next',
   queued: 'Queued',
@@ -579,12 +644,7 @@ export const en = {
   // a direction without fonts, or without swatches, says only what it has.
   'direction.aria.colors': 'Style: {mood}. Colours: {colors}.',
   'direction.aria.fonts': 'Style: {mood}. Fonts: {fonts}.',
-  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
-  // edit with no target to name (`edit.title.runningPage` is the running one).
-  'edit.title.donePage': 'Page updated',
-  'edit.title.noChangePage': 'No change to the page',
-  // (added) §4.13: the page-wide twin of `proposal.applied`.
-  'proposal.appliedPage': 'Proposal applied',
+  ...EDIT_RESULT_EN,
 
   // WP-13-decisions additions
   // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control

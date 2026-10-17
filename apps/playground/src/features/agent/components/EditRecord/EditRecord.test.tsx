@@ -69,6 +69,29 @@ function glyphOf(container: HTMLElement): string | null {
 }
 
 describe('EditRecord: titles', () => {
+  it('discloses dropped steps even when accepted steps leave the page unchanged', () => {
+    renderEdit({ ...editNoChange('en'), partial: { kept: 1, total: 2 } });
+    expect(screen.getByText(t('en', 'edit.partial', { kept: 1, total: 2 }))).toBeInTheDocument();
+    expect(screen.queryByText(t('en', 'edit.noChange'))).toBeNull();
+    expect(screen.getByText(t('en', 'edit.pageUnchanged'))).toBeInTheDocument();
+  });
+
+  it.each(['en', 'ar'] as const)(
+    'discloses partial Auto application in %s and keeps Undo',
+    (locale) => {
+      const view = { ...editPageWide(locale, 'done'), partial: { kept: 2, total: 3 } };
+      renderEdit(view, locale);
+      expect(
+        screen.getByRole('heading', { name: t(locale, 'edit.title.partialPage') }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(t(locale, 'edit.partial', { kept: 2, total: 3 })),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: t(locale, 'edit.undo') })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: t(locale, 'edit.title.donePage') })).toBeNull();
+    },
+  );
+
   it.each([
     ['running', editRunning('en'), 'Editing Hero', 'working'],
     ['done', editDone('en'), 'Hero updated', 'landed'],
@@ -76,19 +99,27 @@ describe('EditRecord: titles', () => {
     ['stopped', editStopped('en'), 'Change stopped', 'absent'],
     ['undone', editUndone('en'), 'This change was undone', 'absent'],
     ['applied', editApplied('en'), 'Applied: FAQ', 'landed'],
-  ] as const)('%s: says the state in words, glyph by what reached the page', (_, view, title, glyph) => {
-    const { container } = renderEdit(view);
-    expect(screen.getByRole('article', { name: title })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: title })).toHaveAttribute('tabindex', '-1');
-    expect(glyphOf(container)).toBe(glyph);
-  });
+  ] as const)(
+    '%s: says the state in words, glyph by what reached the page',
+    (_, view, title, glyph) => {
+      const { container } = renderEdit(view);
+      expect(screen.getByRole('article', { name: title })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: title })).toHaveAttribute(
+        'tabindex',
+        '-1',
+      );
+      expect(glyphOf(container)).toBe(glyph);
+    },
+  );
 
   it('names the page when there is no target', () => {
     const running = renderEdit(editPageWide('en', 'running'));
     expect(screen.getByRole('heading', { name: 'Editing the page' })).toBeInTheDocument();
     running.unmount();
     renderEdit(editPageWide('en', 'done'));
-    expect(screen.getByRole('heading', { name: t('en', 'edit.title.donePage') })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: t('en', 'edit.title.donePage') }),
+    ).toBeInTheDocument();
   });
 
   it('isolates the target in <bdi>, in the locale’s quotes', () => {

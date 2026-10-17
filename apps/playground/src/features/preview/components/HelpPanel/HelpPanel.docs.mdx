@@ -1,0 +1,42 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as HelpPanelStories from './HelpPanel.stories';
+
+<Meta of={HelpPanelStories} />
+
+# HelpPanel
+
+The rail's **Help** destination. It replaced a one-line note that pointed at Storybook — a fact
+about the repository, not help for someone building a page. It now explains how a page gets made in
+four steps and opens the two tools that make the editor faster.
+
+## Usage
+
+```tsx
+<HelpPanel
+  onOpenShortcuts={() => chrome.setShortcutsOpen(true)}
+  onOpenCommands={() => setPaletteOpen(true)}
+  commandsShortcut={paletteShortcutLabel(navigator.userAgent)}
+  labels={helpPanelLabels(editorLocale)}
+/>
+```
+
+## API
+
+- `onOpenShortcuts: () => void` — opens the keyboard shortcuts dialog.
+- `onOpenCommands: () => void` — opens the command palette.
+- `commandsShortcut: string` — the palette's key as the platform writes it (`Ctrl K`, `⌘ K`).
+- `labels?: HelpPanelLabels` — English by default; `HELP_PANEL_LABELS_AR` for Arabic.
+
+## Variants
+
+- **Default** — English.
+- **Arabic** — right to left; the step numbers and keys mirror with the text.
+- **ApplePlatform** — the palette key reads `⌘ K`.
+
+## Accessibility
+
+- A `region` named by its title, with two labelled sub-regions (steps, tools).
+- The steps are an ordered list; the numbers are drawn by CSS counters, so they are not read twice.
+- Each tool is a native button that carries its key in `aria-keyshortcuts`; the visible `kbd` is
+  decorative for assistive technology.

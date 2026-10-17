@@ -580,6 +580,7 @@ export function LibraryPanel({
             dragHandle={dragHandle}
             labels={labels.palette}
             templateCards={templateCards} /* library-playground additions (2026-10-08) */
+            showViewTabs={false} /* Studio Indigo (2026-10-12): Templates is the Library's own tab */
           />
         </Tabs.Content>
         <Tabs.Content value="saved" className="bldr-library__panel">

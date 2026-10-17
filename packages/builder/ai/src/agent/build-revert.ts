@@ -39,7 +39,13 @@ const SECTION_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css']
  * default snapshot — a region carries it as '' in every ordinary build — but a
  * landing that recorded it is compared and put back like the others.
  */
-const WRITTEN_KEYS: readonly AiBuildSectionKey[] = Object.freeze(['tree', 'css', 'js']);
+const WRITTEN_KEYS: readonly AiBuildSectionKey[] = Object.freeze([
+  'tree',
+  'css',
+  'js',
+  'jsMeta',
+  'jsParams',
+]);
 
 export type AiBuildRevertErrorCode = 'not-landed' | 'region-missing' | 'changed-since';
 
@@ -70,7 +76,8 @@ export function readSectionValues(
   const values: Partial<Record<AiBuildSectionKey, JsonValue>> = {};
   if (props === undefined) return Object.freeze(values);
   for (const key of keys) {
-    const value = props[key];
+    // Empty settings clear an optional preset reference/override on forward revert.
+    const value = props[key] ?? (key === 'jsMeta' || key === 'jsParams' ? {} : undefined);
     if (value !== undefined) values[key] = value;
   }
   return Object.freeze(values);

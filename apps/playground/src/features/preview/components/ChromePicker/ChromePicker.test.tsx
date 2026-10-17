@@ -32,4 +32,20 @@ describe('ChromePicker', () => {
     expect(chromeThemeFor('light')).toBe('light');
     expect(chromeThemeFor('dark')).toBe('dark');
   });
+
+  it('speaks the editor language when given its words', () => {
+    render(
+      <ChromePicker
+        value="dark"
+        onChange={vi.fn()}
+        labels={{
+          legend: 'المظهر',
+          choices: { system: 'النظام', light: 'فاتح', dark: 'داكن' },
+          optionName: (choice) => `المحرر: ${choice}`,
+        }}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'المظهر' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'المحرر: داكن' })).toBeChecked();
+  });
 });

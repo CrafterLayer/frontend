@@ -162,6 +162,7 @@ const compositionSchema = z.strictObject({
   name: z.string().min(1),
   version: z.number().int().nonnegative(),
   surfaces: z.array(z.string().min(1)).optional(),
+  dir: z.enum(['ltr', 'rtl']).optional(),
   rootId: z.string().min(1),
   nodes: z.record(z.string(), subTreeNodeSchema),
 });

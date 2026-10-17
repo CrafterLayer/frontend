@@ -77,7 +77,7 @@ export interface PromptEnhancerHandle {
   readonly available: boolean;
   readonly view: EnhancementView;
   /** Rewrite the draft; the rewritten text, or null when it failed or was cancelled. */
-  readonly improve: (input: EnhanceInput) => Promise<string | null>;
+  readonly improve: (input: EnhanceInput, selectionPrefix?: string) => Promise<string | null>;
   /** The person's own text from before the last Improve (the view goes idle), or null. */
   readonly restore: () => string | null;
   /** The draft changed: an Improve's Restore, or a failure note, goes. */
@@ -141,7 +141,7 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
   }, []);
 
   const improve = useCallback(
-    async (input: EnhanceInput): Promise<string | null> => {
+    async (input: EnhanceInput, selectionPrefix = ''): Promise<string | null> => {
       if (port === null || input.text.trim() === '') return null;
       inflight.current?.abort();
       const controller = new AbortController();
@@ -161,14 +161,15 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
           setView({ status: 'failed', reason: 'unknown' });
           return null;
         }
-        memory.current = { original: input.text, rewritten };
+        const draft = `${selectionPrefix}${rewritten}`;
+        memory.current = { original: `${selectionPrefix}${input.text}`, rewritten: draft };
         setView({
           status: 'enhanced',
           understood: result.understood,
           changes: result.changes,
           canRestore: rewritten !== input.text.trim(),
         });
-        return rewritten;
+        return draft;
       } catch (cause: unknown) {
         if (controller.signal.aborted) return null;
         setView(failureOf(cause));
@@ -200,7 +201,10 @@ export function usePromptEnhancer(options: UsePromptEnhancerOptions): PromptEnha
   const ask = useCallback(
     async (
       input: EnhanceInput,
-      askOptions: { readonly busy?: boolean | undefined; readonly signal?: AbortSignal | undefined } = {},
+      askOptions: {
+        readonly busy?: boolean | undefined;
+        readonly signal?: AbortSignal | undefined;
+      } = {},
     ): Promise<EnhanceResult> => {
       if (port === null) throw new Error('No enhancer is available for this provider.');
       if (askOptions.busy === true) setView({ status: 'enhancing' });

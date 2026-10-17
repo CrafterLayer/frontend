@@ -4,7 +4,9 @@
  * "before", the second "after".
  *
  * It appends a native `input[type=range]` (0–100, value 50) labelled
- * «قبل / بعد» or "Before / after", whose `aria-valuetext` reads the position
+ * «قبل / بعد» or "Before / after" — or the container's `data-ck-compare-label`
+ * and `data-ck-compare-start` (0–100) when it carries them, as the
+ * Before/After block does — whose `aria-valuetext` reads the position
  * as a percentage in the page's digits, and writes the position to the
  * container as `--ck-compare` (`50%`). `WIDGETS_PACK_CSS` clips the after
  * image with `clip-path: inset()` from the INLINE START — the left under LTR,
@@ -72,9 +74,13 @@ export function mountCompare(
     range.min = '0';
     range.max = '100';
     range.step = '1';
-    range.value = '50';
+    // blocks (2026-10-13): a Before/After block names its slider and its start position.
+    const start = Number(el.getAttribute('data-ck-compare-start'));
+    const fromBlock = el.hasAttribute('data-ck-compare-start') && start >= 0 && start <= 100;
+    range.value = fromBlock ? String(start) : '50';
     range.setAttribute('data-ck-compare-range', '');
-    range.setAttribute('aria-label', arabic ? 'قبل / بعد' : 'Before / after');
+    const named = el.getAttribute('data-ck-compare-label');
+    range.setAttribute('aria-label', named ?? (arabic ? 'قبل / بعد' : 'Before / after'));
     if (!interactive) {
       range.tabIndex = -1;
       range.style.pointerEvents = 'none';

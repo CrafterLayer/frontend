@@ -1,0 +1,61 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as BeforeAfterStories from './BeforeAfter.stories';
+
+<Meta of={BeforeAfterStories} />
+
+# Before / After
+
+Two photos of one subject, stacked in one frame, with a divider a person drags to compare them: a
+renovation, a dental or skin treatment, a cleaning service, a photo retouch. Nothing else in the
+catalog does this — a Gallery shows photos side by side, an Image shows one.
+
+## Content model
+
+- `eyebrow`, `heading` (default "See the difference", edited in place), `body`.
+- `beforeSrc` / `beforeAlt`, `afterSrc` / `afterAlt`: safe sources only (root-relative, http(s), or
+  a raster data URL). Until both are chosen the frame draws two token-coloured placeholders.
+- `beforeLabel = 'Before'`, `afterLabel = 'After'` (the corner badges), `showLabels = true`,
+  `caption` (a `<figcaption>`).
+- `start: 0–100 = 50` — where the divider starts;
+  `aspect: 'wide' | 'landscape' | 'square' | 'portrait' = 'landscape'` (square and portrait frames
+  cap their width so they never tower).
+- `sliderLabel = 'Drag to compare before and after'`: the slider's accessible name (Accessibility,
+  advanced tab).
+- The shared section props: `align`, `tone`, `spacing`, `width`, colour roles, motion, typography,
+  gutter, custom classes and `partStyles`.
+
+## Live and published
+
+- **Live** (the canvas, Preview, Storybook): React renders a native `input type="range"`, invisible
+  and spanning the frame, so a drag anywhere moves the divider; a decorative handle follows it and
+  shows the focus ring. On the editing canvas the range is inert (`tabindex="-1"`, no pointer
+  events), so a click selects the photo or the label instead.
+- **Published**: the page never hydrates, so the frame carries `data-ck-behavior="compare"` with
+  `data-ck-compare-label` and `data-ck-compare-start`, and its two `img` children are exactly what
+  the renderer's existing `compare` pack expects. The pack appends the same native range, draws the
+  divider line and its own 40px thumb, and moves `--ck-compare`; no new script ships, and the block
+  draws no second line beside the pack's. Without script the frame shows the static split at
+  `start`.
+
+## Accessibility and direction
+
+The control is a real slider: arrow keys, Home / End and Page keys work, and its value is read as a
+percentage (`aria-valuetext`). Both photos keep their alt text; a photo with none is named by its
+corner label. The divider sits `--ck-compare` from the **inline start**, and the after photo is
+clipped with `clip-path: inset()` from the left in LTR and from the right in RTL (`rtl:` utility) —
+so "before" is always on the inline-start side, where a native range (which mirrors under RTL) has
+its minimum. The labels mirror with it: before at `start-3`, after at `end-3`.
+
+## Parts
+
+| name          | kind  | bind                                 | label (en / ar)          |
+| ------------- | ----- | ------------------------------------ | ------------------------ |
+| `eyebrow`     | text  | `eyebrow`                            | Eyebrow / الشارة         |
+| `heading`     | text  | `heading`                            | Heading / العنوان        |
+| `body`        | text  | `body`                               | Body / الوصف (multiline) |
+| `beforeImage` | image | `{ src: beforeSrc, alt: beforeAlt }` | Before photo / صورة قبل  |
+| `afterImage`  | image | `{ src: afterSrc, alt: afterAlt }`   | After photo / صورة بعد   |
+| `beforeLabel` | text  | `beforeLabel`                        | Before label / تسمية قبل |
+| `afterLabel`  | text  | `afterLabel`                         | After label / تسمية بعد  |
+| `caption`     | text  | `caption`                            | Caption / التعليق        |

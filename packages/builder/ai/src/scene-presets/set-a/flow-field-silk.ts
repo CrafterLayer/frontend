@@ -13,7 +13,7 @@ export const FLOW_FIELD_SILK = definePreset({
     ar: 'آلاف الجسيمات تتبع حقل ضجيج ثابت البذرة فتنسج خيوطاً حريرية تتلاشى ببطء، ويحرّك المؤشر دوّامة ناعمة.',
   },
   tags: ['generative', 'particles', 'calm', 'background', 'hero', 'loop'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 7, interactive: true }),
     range('particles', 'Particles', 'عدد الجسيمات', 2400, 500, 6000, 100, 'look'),
@@ -24,11 +24,11 @@ export const FLOW_FIELD_SILK = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:7,speed:1,density:1,interactive:true,particles:2400,noiseScale:0.0022,curl:0.6,trailFade:0.96,strokeWidth:1.2});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette,R=s.app.renderer;
 const bg=new PIXI.Graphics(),view=new PIXI.Sprite(),ink=new PIXI.Graphics(),fade=new PIXI.Graphics();
 fade.blendMode='erase';
-s.stage.addChild(bg,view);
+s.world.addChild(bg,view);
 const cols=C.colors,N=s.count(p.particles);
 let W=1,H=1,rt=null,P=[],fresh=true;
 
@@ -75,8 +75,7 @@ function trace(steps,alpha){
   R.render({container:ink,target:rt,clear:true});
 }
 
-layout(s.width,s.height);
-s.onResize(layout);
+layout(1280,720);
 s.tick(function(time){
   if(fresh){fresh=false;trace(s.reducedMotion?64:28,s.reducedMotion?0.42:0.3);}
   if(s.reducedMotion)return;

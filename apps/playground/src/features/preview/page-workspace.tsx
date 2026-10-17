@@ -1,13 +1,5 @@
-import {
-  ChromeButton,
-  projectSitemap,
-  type BuilderSiteKernel,
-  type JsonValue,
-  type SiteGroupStep,
-  type SitePage,
-  type SitemapPageProjection,
-} from '@craftkit/builder';
-import { useCallback, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { ChromeButton, projectSitemap, type BuilderSiteKernel } from '@craftkit/builder';
+import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import {
   PageActionsMenu,
@@ -15,6 +7,18 @@ import {
   type PageMenuAction,
 } from './components/PageActionsMenu';
 import { SiteMap } from './components/SiteMap';
+import {
+  firstReplacement,
+  firstReplacementTitle,
+  inboundLinkCounts,
+  nextPageAddress,
+  pageNumber,
+  pageSettingsSteps,
+  settingsFor,
+  sharedSummary,
+  type PageSettingsDraft,
+} from './page-workspace.model';
+import { PAGE_WORKSPACE_LABELS_EN, type PageWorkspaceLabels } from './page-workspace.labels';
 import './page-workspace.css';
 
 export type PageWorkspaceView = 'list' | 'map';
@@ -25,20 +29,11 @@ export interface PageWorkspaceProps {
   readonly view?: PageWorkspaceView | undefined;
   readonly initialView?: PageWorkspaceView | undefined;
   readonly onViewChange?: ((view: PageWorkspaceView) => void) | undefined;
-}
-
-interface PageSettingsDraft {
-  readonly pageId: string;
-  readonly title: string;
-  readonly address: string;
-  readonly purpose: string;
-  readonly audience: string;
-  readonly direction: 'ltr' | 'rtl';
-  readonly supportsSeo: boolean;
-  readonly seoTitle: string;
-  readonly seoDescription: string;
-  readonly seoImage: string;
-  readonly noIndex: boolean;
+  /**
+   * Every string the workspace (and its site map and page menus) shows; English
+   * by default, the host passes the editor locale's set.
+   */
+  readonly labels?: PageWorkspaceLabels | undefined;
 }
 
 /** One state and command surface for the page list, visual map, routes, SEO, share, and direction. */
@@ -48,6 +43,7 @@ export function PageWorkspace({
   view: controlledView,
   initialView = 'list',
   onViewChange,
+  labels = PAGE_WORKSPACE_LABELS_EN,
 }: PageWorkspaceProps) {
   const subscribe = useCallback(
     (listener: () => void) => siteKernel.subscribe(listener),
@@ -61,7 +57,18 @@ export function PageWorkspace({
   const view = controlledView ?? localView;
   const [settings, setSettings] = useState<PageSettingsDraft | null>(null);
   const [status, setStatus] = useState('');
-  const projection = projectSitemap(site, { thumbnailByPageId });
+  /*
+    Derived per SITE, not per render (2026-10-12). The workspace re-renders on
+    every host render — a save-state change, a page switch — and both of these
+    walk every node of every page; on a 20-page site they were most of the time
+    "Add page" took to paint. A new page is a new site, so they still follow
+    every change.
+  */
+  const projection = useMemo(
+    () => projectSitemap(site, { thumbnailByPageId }),
+    [site, thumbnailByPageId],
+  );
+  const inboundLinks = useMemo(() => inboundLinkCounts(site), [site]);
 
   const changeView = useCallback(
     (nextView: PageWorkspaceView): void => {
@@ -71,16 +78,19 @@ export function PageWorkspace({
     [controlledView, onViewChange],
   );
 
-  const run = useCallback((change: () => void, success: string): boolean => {
-    try {
-      change();
-      setStatus(success);
-      return true;
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'That page change was refused.');
-      return false;
-    }
-  }, []);
+  const run = useCallback(
+    (change: () => void, success: string): boolean => {
+      try {
+        change();
+        setStatus(success);
+        return true;
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : labels.refused);
+        return false;
+      }
+    },
+    [labels],
+  );
 
   const openSettings = useCallback(
     (pageId: string) => {
@@ -111,7 +121,7 @@ export function PageWorkspace({
           if (
             !run(() => {
               siteKernel.dispatch('duplicatePage', { pageId });
-            }, `Duplicated ${page.title}.`)
+            }, labels.duplicated(page.title))
           )
             return;
           const duplicate = siteKernel
@@ -123,26 +133,26 @@ export function PageWorkspace({
         case 'move-up':
           run(() => {
             siteKernel.dispatch('reorderPage', { pageId, toIndex: pageIndex - 1 });
-          }, `Moved ${page.title} up.`);
+          }, labels.movedUp(page.title));
           return;
         case 'move-down':
           run(() => {
             siteKernel.dispatch('reorderPage', { pageId, toIndex: pageIndex + 1 });
-          }, `Moved ${page.title} down.`);
+          }, labels.movedDown(page.title));
           return;
         case 'make-home':
           run(() => {
             siteKernel.dispatch('setHomePage', { pageId });
-          }, `${page.title} is now home.`);
+          }, labels.madeHome(page.title));
           return;
         case 'clear':
           run(() => {
             siteKernel.dispatch('clearPage', { pageId });
-          }, `Cleared ${page.title}.`);
+          }, labels.cleared(page.title));
           return;
       }
     },
-    [openSettings, run, site.pages, siteKernel],
+    [labels, openSettings, run, site.pages, siteKernel],
   );
 
   const remove = useCallback(
@@ -159,12 +169,12 @@ export function PageWorkspace({
       if (
         run(() => {
           siteKernel.dispatch('removePage', args);
-        }, `Deleted ${page.title}.`)
+        }, labels.deleted(page.title))
       ) {
         if (settings?.pageId === request.pageId) setSettings(null);
       }
     },
-    [run, settings?.pageId, site.pages, siteKernel],
+    [labels, run, settings?.pageId, site.pages, siteKernel],
   );
 
   const addPage = useCallback(() => {
@@ -172,13 +182,16 @@ export function PageWorkspace({
     const before = new Set(site.pages.map((page) => page.id));
     if (
       !run(() => {
-        siteKernel.dispatch('addPage', { address, title: titleForAddress(address) });
-      }, 'Added a page.')
+        siteKernel.dispatch('addPage', {
+          address,
+          title: labels.newPageTitle(pageNumber(address)),
+        });
+      }, labels.added)
     )
       return;
     const created = siteKernel.getSite().pages.find((page) => !before.has(page.id));
     if (created !== undefined) siteKernel.setCurrentPage(created.id);
-  }, [run, site.pages, siteKernel]);
+  }, [labels, run, site.pages, siteKernel]);
 
   const reorder = useCallback(
     (pageId: string, toIndex: number) => {
@@ -186,9 +199,9 @@ export function PageWorkspace({
       if (page === undefined) return;
       run(() => {
         siteKernel.dispatch('reorderPage', { pageId, toIndex });
-      }, `Moved ${page.title}.`);
+      }, labels.moved(page.title));
     },
-    [run, site.pages, siteKernel],
+    [labels, run, site.pages, siteKernel],
   );
 
   const actionsByPageId = Object.fromEntries(
@@ -198,13 +211,14 @@ export function PageWorkspace({
         key={page.id}
         page={page}
         pageCount={projection.pages.length}
-        inboundLinkCount={countInboundLinks(site, page.id)}
+        inboundLinkCount={inboundLinks.get(page.id) ?? 0}
         replacementHomePageId={page.isHome ? firstReplacement(site.pages, page.id) : undefined}
         replacementHomeTitle={page.isHome ? firstReplacementTitle(site.pages, page.id) : undefined}
         canMoveUp={page.index > 0}
         canMoveDown={page.index < projection.pages.length - 1}
         onAction={action}
         onDelete={remove}
+        labels={labels.pageActions}
       />,
     ]),
   );
@@ -214,39 +228,37 @@ export function PageWorkspace({
     const pageIndex = site.pages.findIndex((page) => page.id === settings.pageId);
     const page = site.pages[pageIndex];
     if (page === undefined) {
-      setStatus('That page no longer exists. Reopen its settings.');
+      setStatus(labels.pageGone);
       setSettings(null);
       return;
     }
     const steps = pageSettingsSteps(site.dir, page, pageIndex, settings);
     if (steps.length === 0) {
-      setStatus('Page settings are already up to date.');
+      setStatus(labels.upToDate);
       setSettings(null);
       return;
     }
     if (
       run(() => {
         siteKernel.dispatchGroup(steps, { author: 'user', label: 'updatePageSettings' });
-      }, `Saved ${settings.title}. One undo restores every field.`)
+      }, labels.saved(settings.title))
     ) {
       setSettings(null);
     }
   };
 
   return (
-    <section className="pg-page-workspace" aria-label="Page workspace">
+    <section className="pg-page-workspace" aria-label={labels.region}>
       <header className="pg-page-workspace__header">
         <div>
-          <h2>Pages</h2>
-          <p>
-            {site.pages.length} page{site.pages.length === 1 ? '' : 's'} · one shared history
-          </p>
+          <h2>{labels.title}</h2>
+          <p>{labels.summary(site.pages.length)}</p>
         </div>
         <ChromeButton variant="primary" size="sm" onClick={addPage}>
-          Add page
+          {labels.addPage}
         </ChromeButton>
       </header>
-      <div className="pg-page-workspace__switch" role="group" aria-label="Page view">
+      <div className="pg-page-workspace__switch" role="group" aria-label={labels.viewGroup}>
         <ChromeButton
           variant="toggle"
           size="sm"
@@ -255,7 +267,7 @@ export function PageWorkspace({
             changeView('list');
           }}
         >
-          List
+          {labels.listView}
         </ChromeButton>
         <ChromeButton
           variant="toggle"
@@ -265,7 +277,7 @@ export function PageWorkspace({
             changeView('map');
           }}
         >
-          Sitemap
+          {labels.mapView}
         </ChromeButton>
       </div>
       <output className="pg-page-workspace__status" aria-live="polite">
@@ -273,7 +285,7 @@ export function PageWorkspace({
       </output>
 
       {view === 'list' ? (
-        <ol className="pg-page-workspace__list" aria-label="Site pages">
+        <ol className="pg-page-workspace__list" aria-label={labels.pageList}>
           {projection.pages.map((page) => (
             <li key={page.id} data-current={currentPageId === page.id ? '' : undefined}>
               <button
@@ -287,9 +299,9 @@ export function PageWorkspace({
                 <span>{page.title}</span>
                 <small>
                   {page.address}
-                  {page.isHome ? ' · Home' : ''}
+                  {page.isHome ? ` · ${labels.home}` : ''}
                 </small>
-                <small>{sharedSummary(page)}</small>
+                <small>{sharedSummary(page, labels)}</small>
               </button>
               {actionsByPageId[page.id]}
             </li>
@@ -304,13 +316,14 @@ export function PageWorkspace({
           }}
           onReorder={reorder}
           actionsByPageId={actionsByPageId}
+          labels={labels.siteMap}
         />
       )}
 
       {settings === null ? null : (
         <form
           className="pg-page-workspace__settings"
-          aria-label={`Settings for ${settings.title}`}
+          aria-label={labels.settingsFor(settings.title)}
           onSubmit={(event) => {
             event.preventDefault();
             saveSettings();
@@ -318,8 +331,8 @@ export function PageWorkspace({
         >
           <header>
             <div>
-              <h3>Page settings</h3>
-              <p>Route, search metadata, sharing, and content direction.</p>
+              <h3>{labels.settingsTitle}</h3>
+              <p>{labels.settingsIntro}</p>
             </div>
             <ChromeButton
               size="sm"
@@ -327,11 +340,11 @@ export function PageWorkspace({
                 setSettings(null);
               }}
             >
-              Close
+              {labels.close}
             </ChromeButton>
           </header>
           <label>
-            Page title
+            {labels.pageTitle}
             <input
               value={settings.title}
               onChange={(event) => {
@@ -340,7 +353,7 @@ export function PageWorkspace({
             />
           </label>
           <label>
-            Route
+            {labels.route}
             <input
               value={settings.address}
               disabled={settings.address === '/'}
@@ -350,7 +363,7 @@ export function PageWorkspace({
             />
           </label>
           <label>
-            Purpose
+            {labels.purpose}
             <textarea
               rows={2}
               value={settings.purpose}
@@ -360,7 +373,7 @@ export function PageWorkspace({
             />
           </label>
           <label>
-            Audience
+            {labels.audience}
             <input
               value={settings.audience}
               onChange={(event) => {
@@ -369,9 +382,9 @@ export function PageWorkspace({
             />
           </label>
           <fieldset disabled={!settings.supportsSeo}>
-            <legend>SEO and sharing</legend>
+            <legend>{labels.seoLegend}</legend>
             <label>
-              SEO title
+              {labels.seoTitle}
               <input
                 value={settings.seoTitle}
                 onChange={(event) => {
@@ -380,7 +393,7 @@ export function PageWorkspace({
               />
             </label>
             <label>
-              SEO description
+              {labels.seoDescription}
               <textarea
                 rows={2}
                 value={settings.seoDescription}
@@ -390,7 +403,7 @@ export function PageWorkspace({
               />
             </label>
             <label>
-              SEO and share image
+              {labels.seoImage}
               <input
                 value={settings.seoImage}
                 onChange={(event) => {
@@ -406,178 +419,34 @@ export function PageWorkspace({
                   setSettings({ ...settings, noIndex: event.currentTarget.checked });
                 }}
               />
-              Hide from search engines
+              {labels.noIndex}
             </label>
             <label>
-              Social title
+              {labels.socialTitle}
               <input disabled value={settings.seoTitle} />
             </label>
-            <p>
-              Social title follows the stored SEO title. Separate Open Graph fields are not
-              available in the current project schema.
-            </p>
+            <p>{labels.socialNote}</p>
           </fieldset>
           {!settings.supportsSeo ? (
-            <p className="pg-page-workspace__note">
-              Stored SEO fields are available for authored code pages. This page keeps its purpose
-              and audience without claiming separate SEO storage.
-            </p>
+            <p className="pg-page-workspace__note">{labels.seoUnavailable}</p>
           ) : null}
           <label>
-            Site content direction
+            {labels.direction}
             <select
               value={settings.direction}
               onChange={(event) => {
                 setSettings({ ...settings, direction: event.currentTarget.value as 'ltr' | 'rtl' });
               }}
             >
-              <option value="ltr">Left to right</option>
-              <option value="rtl">Right to left</option>
+              <option value="ltr">{labels.ltr}</option>
+              <option value="rtl">{labels.rtl}</option>
             </select>
           </label>
           <button className="pg-page-workspace__save" type="submit">
-            Save page settings
+            {labels.save}
           </button>
         </form>
       )}
     </section>
   );
-}
-
-function settingsFor(page: SitePage, direction: 'ltr' | 'rtl'): PageSettingsDraft {
-  const root = page.document.nodes[page.document.rootId];
-  const supportsSeo = root?.type === 'codePage';
-  const seo = supportsSeo ? objectValue(root.props['seo']) : undefined;
-  return {
-    pageId: page.id,
-    title: page.title,
-    address: page.address,
-    purpose: page.purpose,
-    audience: page.audience,
-    direction,
-    supportsSeo,
-    seoTitle: stringValue(seo?.['title']),
-    seoDescription: stringValue(seo?.['description']),
-    seoImage: stringValue(seo?.['image']),
-    noIndex: seo?.['noIndex'] === true,
-  };
-}
-
-function pageSettingsSteps(
-  currentDirection: 'ltr' | 'rtl',
-  page: SitePage,
-  pageIndex: number,
-  settings: PageSettingsDraft,
-): SiteGroupStep[] {
-  const steps: SiteGroupStep[] = [];
-  if (page.title !== settings.title || page.address !== settings.address) {
-    steps.push({
-      command: 'renamePage',
-      args: {
-        pageId: page.id,
-        ...(page.title === settings.title ? {} : { title: settings.title }),
-        ...(page.address === settings.address ? {} : { address: settings.address }),
-      },
-    });
-  }
-  const patches: {
-    op: 'add' | 'replace' | 'remove';
-    path: (string | number)[];
-    value?: JsonValue;
-  }[] = [];
-  if (page.purpose !== settings.purpose)
-    patches.push({ op: 'replace', path: ['pages', pageIndex, 'purpose'], value: settings.purpose });
-  if (page.audience !== settings.audience)
-    patches.push({
-      op: 'replace',
-      path: ['pages', pageIndex, 'audience'],
-      value: settings.audience,
-    });
-  const root = page.document.nodes[page.document.rootId];
-  if (settings.supportsSeo && root?.type === 'codePage') {
-    const oldSeo = objectValue(root.props['seo']);
-    const seo = compactSeo(settings);
-    if (JSON.stringify(oldSeo ?? {}) !== JSON.stringify(seo)) {
-      const path = ['pages', pageIndex, 'document', 'nodes', page.document.rootId, 'props', 'seo'];
-      patches.push(
-        Object.keys(seo).length === 0
-          ? oldSeo === undefined
-            ? { op: 'add', path, value: {} }
-            : { op: 'remove', path }
-          : { op: oldSeo === undefined ? 'add' : 'replace', path, value: seo },
-      );
-    }
-  }
-  if (patches.length > 0) steps.push({ command: 'applySitePatches', args: { patches } });
-  if (currentDirection !== settings.direction) {
-    steps.push({ command: 'setSiteDirection', args: { dir: settings.direction } });
-  }
-  return steps;
-}
-
-function compactSeo(settings: PageSettingsDraft): Record<string, JsonValue> {
-  return {
-    ...(settings.seoTitle.trim() === '' ? {} : { title: settings.seoTitle.trim() }),
-    ...(settings.seoDescription.trim() === ''
-      ? {}
-      : { description: settings.seoDescription.trim() }),
-    ...(settings.seoImage.trim() === '' ? {} : { image: settings.seoImage.trim() }),
-    ...(settings.noIndex ? { noIndex: true } : {}),
-  };
-}
-
-function objectValue(value: JsonValue | undefined): Record<string, JsonValue> | undefined {
-  return value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)
-    ? value
-    : undefined;
-}
-function stringValue(value: JsonValue | undefined): string {
-  return typeof value === 'string' ? value : '';
-}
-function firstReplacement(pages: readonly SitePage[], pageId: string): string | undefined {
-  return pages.find((page) => page.id !== pageId)?.id;
-}
-function firstReplacementTitle(pages: readonly SitePage[], pageId: string): string | undefined {
-  return pages.find((page) => page.id !== pageId)?.title;
-}
-function nextPageAddress(addresses: readonly string[]): string {
-  let index = addresses.length + 1;
-  while (addresses.includes(`/page-${String(index)}`)) index += 1;
-  return `/page-${String(index)}`;
-}
-function titleForAddress(address: string): string {
-  return `Page ${address.split('-').at(-1) ?? ''}`.trim();
-}
-function sharedSummary(page: SitemapPageProjection): string {
-  return page.sharedReferences.length === 0
-    ? 'Private page'
-    : `${String(page.sharedReferences.length)} shared`;
-}
-
-function countInboundLinks(site: ReturnType<BuilderSiteKernel['getSite']>, pageId: string): number {
-  let count = 0;
-  const visit = (value: JsonValue): void => {
-    if (
-      value !== null &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      value['kind'] === 'page' &&
-      value['pageId'] === pageId
-    ) {
-      count += 1;
-      return;
-    }
-    if (Array.isArray(value)) value.forEach(visit);
-    else if (value !== null && typeof value === 'object') Object.values(value).forEach(visit);
-  };
-  for (const document of [
-    ...site.pages.filter((page) => page.id !== pageId).map((page) => page.document),
-    ...Object.values(site.sharedRegions).map((region) => region.document),
-  ]) {
-    for (const node of Object.values(document.nodes)) {
-      visit(node.props);
-      Object.values(node.responsive ?? {}).forEach(visit);
-    }
-  }
-  return count;
 }

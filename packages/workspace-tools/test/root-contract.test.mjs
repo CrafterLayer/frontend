@@ -97,11 +97,13 @@ test('keeps the workspace-tools package private with explicit module and CLI sur
   assert.deepEqual(Object.keys(manifest.exports).sort(), [
     '.',
     './components',
+    './files',
     './package.json',
     './workspace',
   ]);
   assert.deepEqual(Object.keys(manifest.bin).sort(), [
     'craftkit-check-components',
+    'craftkit-check-file-sizes',
     'craftkit-check-workspace',
   ]);
   assert.deepEqual(Object.keys(manifest.dependencies ?? {}), []);

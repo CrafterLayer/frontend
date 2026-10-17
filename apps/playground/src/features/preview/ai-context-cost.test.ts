@@ -52,8 +52,21 @@ describe('AI context cost', () => {
 
       The ceiling leaves room for the registry to roughly double, and still
       fails loudly if a mode regression put per-block schemas back.
+
+      2026-10-12: 12,000 → 12,500. Measured 12,243 with the 63rd block (report,
+      ~120 tokens of description), the chart's seven added types (+~45) and
+      the Table tools' longer description (+~110): registry growth, one
+      description line each, not schemas. Per-block schemas would add tens of
+      thousands, which this still catches.
+
+      2026-10-13: 12,500 → 13,000. Measured 12,731 with 71 blocks: the eight
+      new marketing blocks (beforeAfter, pullQuote, reviewSummary, caseStudy,
+      jobsList, downloadList, appDownload, fundraiser) are 1,597 characters of
+      index entries (~400 tokens, one description line each). The templates
+      added the same day cost nothing here: only those in the page's direction
+      are offered (template-context.ts).
     */
-    expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(12_000);
+    expect(measure('index', TYPICAL_REQUEST)).toBeLessThan(13_000);
   });
 
   it("none mode — what the playground actually sends — is the document, the escape hatch, and the page's own blocks by name", () => {

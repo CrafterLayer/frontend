@@ -23,7 +23,10 @@
  * Only two small guards ship as code; everything else is erased at build time.
  */
 
+import type { StoryBibleView } from './story-bible';
 import type { RunTelemetryState } from './run-telemetry';
+import type { EditRecordView } from './edit-record-view';
+export type { EditRecordView } from './edit-record-view';
 
 /* ── Primitives ──────────────────────────────────────────────────────────────── */
 
@@ -348,6 +351,46 @@ export interface BuildRecordView {
   readonly actions: BuildActionsView;
   readonly menu: readonly RecordMenuItem[];
   readonly error?: ErrorBodyView | undefined;
+  /**
+   * creative agent (2026-10-12): the planner's creative brief, present only on a build that
+   * writes a game or story scene (free code on, a creative request). CreativeBriefCard.
+   */
+  readonly brief?: CreativeBriefView | undefined;
+  /** T230: the site page this record built, one record per page of a site build. */
+  readonly page?: string | undefined;
+}
+
+/** The planner's genres (`CreativeGenre` in `@craftkit/builder`), each a `brief.genre.*` key. */
+export type CreativeBriefGenre =
+  | 'platformer'
+  | 'maze-adventure'
+  | 'arcade'
+  | 'puzzle'
+  | 'physics-toy'
+  | 'visual-novel'
+  | 'picture-book'
+  | 'chapter-story'
+  | 'mural';
+
+/** One character the brief casts: a name the person wrote, and the bible's colour if any. */
+export interface CreativeCastView {
+  readonly id: string;
+  readonly name: string;
+  readonly role?: string | undefined;
+  /** A CSS colour from the story bible; drawn as a dot, never as text. */
+  readonly color?: string | undefined;
+}
+
+/**
+ * creative agent (2026-10-12): the creative brief as CreativeBriefCard draws it. Library and
+ * effect names are API ids (`tilemap`, `dust`), shown as code because that is what the
+ * scene calls; the genre is catalog copy.
+ */
+export interface CreativeBriefView {
+  readonly genre: CreativeBriefGenre;
+  readonly libs: readonly string[];
+  readonly effects: readonly string[];
+  readonly cast: readonly CreativeCastView[];
 }
 
 /* ── Edits, answers, endings (SPEC §4.9, §4.10, §4.14) ───────────────────────── */
@@ -389,30 +432,6 @@ export type EditStageKey = Extract<StatusKey, 'run.understanding' | `edit.${stri
  */
 export type EditOrigin = 'request' | 'proposal';
 
-/**
- * One edit run (SPEC §4.9). Without `target` the title is `edit.title.runningPage`.
- * `changes` holds every line; the component shows three and "Show all changes (n)".
- * `undo` is a history action, available in every mode.
- */
-export interface EditRecordView {
-  readonly turnId: string;
-  readonly phase: EditPhase;
-  readonly origin: EditOrigin;
-  readonly target?: string | undefined;
-  readonly stage?: EditStageKey | undefined;
-  readonly changes: readonly ChangeLineView[];
-  /**
-   * `done` with no line to show: a transaction landed that no line describes. The record
-   * says `edit.unlisted` in ChangeLines' place and keeps Undo; it is never `noChange`, which
-   * would tell the person the page did not move when it did.
-   */
-  readonly unlisted?: true | undefined;
-  readonly elapsedMs?: number | undefined;
-  readonly revealNodeId?: string | undefined;
-  readonly undo?: UndoView | undefined;
-  readonly menu: readonly RecordMenuItem[];
-}
-
 /** A words-only answer to a `question` intent; nothing on the page changed (SPEC §4.10). */
 export interface AnswerView {
   readonly turnId: string;
@@ -421,12 +440,10 @@ export interface AnswerView {
 }
 
 /**
- * The one-line endings (SPEC §4.10 `end.*`). The last three are controller additions
- * (WP-16) for a build that could not land where the words asked, said after its record:
- * `siteAsOnePage` (a site request built as one page: the chat builds one page at a time),
- * `newPageAppended` (a new page was asked for but the host offers no `addPage`, so it was
- * built below this page) and `appendedNotReplaced` (a start-over this build cannot do:
- * a scaffold build appends, so nothing was replaced).
+ * The one-line endings (SPEC §4.10 `end.*`). The last three (WP-16) are said after a build
+ * that could not land where the words asked: `siteAsOnePage` and `newPageAppended` when the
+ * host offers no `addPage` (a site built as one page, T230; a new page built below this
+ * one), `appendedNotReplaced` when a scaffold build cannot start over, so it appended.
  */
 export type EndNoteKey =
   | 'proposalDiscarded'
@@ -916,6 +933,11 @@ export type RestoreResult = 'restored' | 'conflict';
 export interface AgentController {
   readonly state: AgentViewState;
   readonly capabilities: AgentCapabilities;
+  /**
+   * The project's story bible (creative agent, 2026-10-12): characters, assets, locations and
+   * canon the Agent keeps consistent. Optional: a host without one renders no bible panel.
+   */
+  readonly storyBible?: StoryBibleView | undefined;
 
   readonly send: () => void;
   readonly stop: () => void;

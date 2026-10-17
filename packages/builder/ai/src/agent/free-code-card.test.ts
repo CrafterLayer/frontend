@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CUSTOM_CODE_BEHAVIORS } from '@craftkit/builder-schema';
+
 import {
   FREE_CODE_CARD,
   FREE_CODE_CARD_MAX_CHARS,
@@ -27,6 +29,7 @@ interface Ticked {
 function fakePixi() {
   const children: Ticked[] = [];
   const ticks: ((ticker: { deltaTime: number }) => void)[] = [];
+  const resizes: (() => void)[] = [];
   class Graphics implements Ticked {
     x = 0;
     y = 0;
@@ -42,6 +45,11 @@ function fakePixi() {
   }
   const app = {
     screen: { width: 800, height: 400 },
+    renderer: {
+      on(event: string, fn: () => void) {
+        if (event === 'resize') resizes.push(fn);
+      },
+    },
     stage: {
       addChild(child: Ticked) {
         children.push(child);
@@ -53,7 +61,7 @@ function fakePixi() {
       },
     },
   };
-  return { children, ticks, Graphics, app };
+  return { children, ticks, resizes, Graphics, app };
 }
 
 function fakeCk(overrides: Record<string, unknown> = {}) {
@@ -77,7 +85,7 @@ afterEach(() => {
 describe('FREE_CODE_CARD', () => {
   it('fits its budget', () => {
     expect(FREE_CODE_CARD.length).toBeLessThanOrEqual(FREE_CODE_CARD_MAX_CHARS);
-    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2200);
+    expect(FREE_CODE_CARD_MAX_CHARS).toBe(2800);
   });
 
   it('states the runtime API, where the code goes, and the rules', () => {
@@ -85,7 +93,11 @@ describe('FREE_CODE_CARD', () => {
       'FREE CODE MODE is ON',
       '"js" prop of a customCode block',
       '32000',
-      'min-height:70vh',
+      // preview-fix (2026-10-12): a stage sized by width, laid out again when its region resizes.
+      'never vh',
+      'aspect-ratio:16/9',
+      'position:relative;z-index:1',
+      "app.renderer.on('resize',fn)",
       'BODY of an async function',
       'ck.root',
       'ck.editor',
@@ -110,9 +122,9 @@ describe('FREE_CODE_CARD', () => {
     expect(FREE_CODE_CARD).not.toContain('ck.find');
   });
 
-  it('has three examples that compile as the body of an async function of ck, in plain JavaScript', () => {
+  it('has two examples that compile as the body of an async function of ck, in plain JavaScript', () => {
     const examples = freeCodeCardExamples();
-    expect(examples).toHaveLength(3);
+    expect(examples).toHaveLength(2);
     for (const example of examples) {
       expect(() => compile(example)).not.toThrow();
       expect(example).not.toMatch(/:\s*(?:string|number|boolean|any|unknown)\b/u);
@@ -131,11 +143,17 @@ describe('FREE_CODE_CARD', () => {
     const live = fakeCk();
     await compile(pixi)({
       ...live.ck,
-      stage: () => Promise.resolve({ PIXI: { Graphics: moving.Graphics }, app: moving.app, canvas: {} }),
+      stage: () =>
+        Promise.resolve({ PIXI: { Graphics: moving.Graphics }, app: moving.app, canvas: {} }),
     });
     expect(moving.children).toHaveLength(5);
     expect(moving.ticks).toHaveLength(1);
     expect(moving.children[1]?.y).toBeCloseTo(280);
+    // The region grew (preview-fix 2026-10-12): the stage says so and the walkers follow.
+    expect(moving.resizes).toHaveLength(1);
+    moving.app.screen.height = 600;
+    moving.resizes[0]?.();
+    expect(moving.children[1]?.y).toBeCloseTo(420);
     const before = moving.children[0]?.x ?? 0;
     moving.ticks[0]?.({ deltaTime: 2 });
     expect(moving.children[0]?.x).toBeCloseTo(before + 3);
@@ -150,85 +168,29 @@ describe('FREE_CODE_CARD', () => {
     const calm = fakeCk({ reducedMotion: true });
     await compile(pixi)({
       ...calm.ck,
-      stage: () => Promise.resolve({ PIXI: { Graphics: still.Graphics }, app: still.app, canvas: {} }),
+      stage: () =>
+        Promise.resolve({ PIXI: { Graphics: still.Graphics }, app: still.app, canvas: {} }),
     });
     expect(still.children).toHaveLength(5);
     expect(still.ticks).toHaveLength(0);
   });
 
-  describe('the DOM example', () => {
-    function domStubs() {
-      const frames: ((time: number) => void)[] = [];
-      let observed: ((entries: { isIntersecting: boolean }[]) => void) | undefined;
-      const io = { disconnect: vi.fn(), observe: vi.fn() };
-      class FakeObserver {
-        constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
-          observed = callback;
-        }
-        disconnect = io.disconnect;
-        observe = io.observe;
-      }
-      vi.stubGlobal('IntersectionObserver', FakeObserver);
-      vi.stubGlobal('requestAnimationFrame', (fn: (time: number) => void) => frames.push(fn));
-      const cancel = vi.fn();
-      vi.stubGlobal('cancelAnimationFrame', cancel);
-      const el = { dataset: { count: '250' }, textContent: '' };
-      const root = { querySelector: (selector: string) => (selector === '[data-count]' ? el : null) };
-      return { frames, io, cancel, el, root, enter: () => observed?.([{ isIntersecting: true }]) };
+  it('points at the ready behaviours instead of a hand-written counter (2026-10-13)', () => {
+    // A counter, typed words or a filter is an attribute the renderer's audited packs run: the
+    // model writes one attribute, not ~400 characters of script, and the page ships no new code.
+    const ready = FREE_CODE_CARD.split('\n').find((line) => line.startsWith('READY, no js:'));
+    expect(ready).toContain('data-ck-behavior="count-up" data-ck-to="250"');
+    const named = ready?.match(
+      /[a-z]+(?:-[a-z]+)+|\b(?:tabs|marquee|countdown|filter|dismiss)\b/gu,
+    );
+    for (const name of named?.filter((word) => !word.startsWith('data-')) ?? []) {
+      expect(CUSTOM_CODE_BEHAVIORS, name).toContain(name);
     }
-
-    it('waits for the element to scroll in, then counts up to the number and cleans up', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck, disposers } = fakeCk({ root: stubs.root });
-
-      await compile(example)(ck);
-      expect(stubs.io.observe).toHaveBeenCalledWith(stubs.el);
-      expect(stubs.frames).toHaveLength(0);
-
-      stubs.enter();
-      expect(stubs.io.disconnect).toHaveBeenCalled();
-      const start = performance.now();
-      // The first frame is drawn at once; the rest follow the animation clock.
-      expect(stubs.el.textContent).toBe(0);
-      for (let step = 0; step < 4 && stubs.frames.length > 0; step += 1) {
-        stubs.frames.shift()?.(start + 400 * (step + 1));
-      }
-      expect(stubs.el.textContent).toBe(250);
-      expect(disposers).toHaveLength(1);
-      disposers[0]?.();
-      expect(stubs.cancel).toHaveBeenCalled();
-    });
-
-    it('shows the final number at once under reduced motion', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck } = fakeCk({ root: stubs.root, reducedMotion: true });
-
-      await compile(example)(ck);
-      stubs.enter();
-
-      expect(stubs.el.textContent).toBe(250);
-      expect(stubs.frames).toHaveLength(0);
-    });
-
-    it('does nothing when the region has no counter', async () => {
-      const example = freeCodeCardExamples()[1];
-      if (example === undefined) throw new Error('no DOM example');
-      const stubs = domStubs();
-      const { ck, disposers } = fakeCk({ root: { querySelector: () => null } });
-
-      await compile(example)(ck);
-
-      expect(stubs.io.observe).not.toHaveBeenCalled();
-      expect(disposers).toHaveLength(0);
-    });
+    expect(FREE_CODE_CARD).not.toContain('IntersectionObserver');
   });
 
   it('runs the cleanup example: the resize listener it adds is the one onDispose removes', async () => {
-    const example = freeCodeCardExamples()[2];
+    const example = freeCodeCardExamples()[1];
     if (example === undefined) throw new Error('no cleanup example');
     const added: unknown[] = [];
     const removed: unknown[] = [];

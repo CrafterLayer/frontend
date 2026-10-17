@@ -17,6 +17,8 @@
  * fails the moment that stops being true.
  */
 export {
+  SCENE_INITIALIZATION_HEADER,
+  isSceneInitializationRequest,
   AI_PLAN_WIRE_VERSION,
   DESIGN_LIBRARY_TEACHING,
   DESIGN_QUALITY_TEACHING,
@@ -27,6 +29,16 @@ export {
   PIXI_STORY_EXAMPLE,
   PIXI_STORY_CONTROLS,
   PIXI_MURAL_EXAMPLE,
+  // creative agent (2026-10-12): the engine playbooks' exact examples, for evals fixtures.
+  CREATIVE_ENGINE_SKILLS,
+  CREATIVE_ANIMATION_CONTROLS,
+  CREATIVE_ANIMATION_EXAMPLE,
+  CREATIVE_EFFECTS_CONTROLS,
+  CREATIVE_EFFECTS_EXAMPLE,
+  CREATIVE_DIALOGUE_EXAMPLE,
+  CREATIVE_INK_EXAMPLE,
+  CREATIVE_TILEMAP_CONTROLS,
+  CREATIVE_TILEMAP_EXAMPLE,
   AI_PLAN_WIRE_MAX_INVALID_OUTPUT_MESSAGE_LENGTH,
   boundAiPlanWireInvalidOutputMessage,
   estimateAiPlanWireRequestTokens,
@@ -34,6 +46,25 @@ export {
   type AiPlanWireInvalidOutputResponse,
   type AiPlanWireRequest,
   type AiPlanWireResponse,
+  // T230: the site-plan task's page limit, which the ai-server's answer schema holds to.
+  AI_SITE_PLAN_WIRE_MAX_PAGES,
+  // visual self-review (2026-10-13): the scene review's route, limits and readers.
+  AI_SCENE_REVIEW_MAX_FINDINGS,
+  AI_SCENE_REVIEW_PATH,
+  readAiSceneReviewFindings,
+  readAiSceneReviewWireRequest,
+  type AiSceneReviewFinding,
+  type AiSceneReviewWireImage,
+  type AiSceneReviewWireRequest,
+  // background batches (2026-10-12): the routes and limits the ai-server holds a batch to.
+  AI_BATCH_ITEM_ID_PATTERN,
+  AI_BATCH_MAX_ITEMS,
+  AI_BATCH_PATH,
+  type AiBatchWireItem,
+  type AiBatchWireRequest,
+  type AiBatchWireResultItem,
+  type AiBatchWireResults,
+  type AiBatchWireState,
 } from '@craftkit/builder-ai';
 
 export {

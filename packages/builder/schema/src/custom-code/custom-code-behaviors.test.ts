@@ -55,6 +55,13 @@ describe('site behaviours in the custom-code vocabulary', () => {
       'compare',
       'toggle-group',
       'mailto-form',
+      // everyday site behaviours (2026-10-13)
+      'back-to-top',
+      'read-more',
+      'scroll-spy',
+      'typed-words',
+      'filter',
+      'dismiss',
     ]);
     expect(isCustomCodeBehavior('marquee')).toBe(true);
     expect(isCustomCodeBehavior('parallax')).toBe(false);
@@ -62,7 +69,14 @@ describe('site behaviours in the custom-code vocabulary', () => {
 
   it('data-ck-behavior: a value in the enum; whatsapp-form only on a form or button', () => {
     // media-motion (2026-10-06): the tag-bound media behaviours are judged in their own block below.
-    const tagBound = new Set(['whatsapp-form', 'embed-facade', 'mailto-form']);
+    // everyday site behaviours (2026-10-13): back-to-top and typed-words, in site-behavior-vocabulary.test.ts.
+    const tagBound = new Set([
+      'whatsapp-form',
+      'embed-facade',
+      'mailto-form',
+      'back-to-top',
+      'typed-words',
+    ]);
     for (const behavior of CUSTOM_CODE_BEHAVIORS.filter((name) => !tagBound.has(name))) {
       ok('div', 'data-ck-behavior', behavior);
     }

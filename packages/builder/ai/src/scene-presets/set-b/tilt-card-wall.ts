@@ -1,12 +1,11 @@
 import { definePreset, range, SET_B_PHOTOS, sharedParams, text } from './define';
 
+// Four photos: a text param holds at most 500 characters (STUDIO_LIMITS.text), six URLs do not fit.
 const CARD_PHOTOS = [
   SET_B_PHOTOS.wadiRum,
   SET_B_PHOTOS.petraDeir,
   SET_B_PHOTOS.oliveGrove,
   SET_B_PHOTOS.poolSea,
-  SET_B_PHOTOS.petraTomb,
-  SET_B_PHOTOS.plantation,
 ].join(', ');
 
 /**

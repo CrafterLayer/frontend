@@ -1,0 +1,85 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as Stories from './CustomCodeParamsField.stories';
+
+<Meta of={Stories} />
+
+# CustomCodeParamsField
+
+The Inspector's **Scene settings** for a composed region (`customCode`): one control per param of
+the region's script, so a person tunes a Pixi scene — its speed, colours, shape, sound — without
+touching its code. Owned by `@craftkit/builder-custom-code`; loaded lazily as a contributed field
+type.
+
+<Canvas of={Stories.Default} />
+
+## Where it comes from
+
+Two props sit beside the region's `js` (pixi-studio DESIGN D8):
+
+| Prop       | Holds                                                                                                                           | Inspector                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `jsParams` | the VALUES — rendered on the region as `data-ck-params` and read by `ck.params(defaults)`; a change re-runs the scene           | this field, in the Content tab's Scene settings |
+| `jsMeta`   | the Studio's library reference and the param SPEC (`params`: key, type, bilingual label, default, min/max/step, options, group) | no row: written by the Studio and the agent     |
+
+Both are found by their **declarations** — the `customCodeJsParams()` and `customCodeJsMeta()`
+markers — never by their names. The manifest registers two field types:
+
+- `craftkit.custom-code.script-params` matches the `jsParams` marker, declares `siblings: true` (the
+  Inspector hands it the block's other props, where it finds `jsMeta` by its marker) and a `hidden`
+  rule: with no spec and no stored value there is nothing to tune, and the Inspector leaves the row
+  — and its section — out.
+- `craftkit.custom-code.script-meta` matches the `jsMeta` marker with `hidden: true`. It is never
+  shown as JSON or as fields, and has no component to load.
+
+## Props
+
+It takes the Inspector's `FieldProps`:
+
+| Prop           | Contract                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `value`        | the stored `jsParams` record, or `undefined`                                              |
+| `onChange`     | receives the next record — the host turns it into ONE `setProp` (one Undo entry)          |
+| `siblings`     | the block's other props; the spec is read from the one carrying the `jsMeta` marker       |
+| `locale`       | `en` (default) or `ar`: labels and help from the spec, and the form's direction           |
+| `assetLibrary` | the host's picture library, offered to an `image` param by asset id (read only if needed) |
+| `disabled`     | disables every control, Reset included                                                    |
+
+## Behaviour
+
+- **One control per spec entry, in spec order.** `number`/`range` — a number input, plus a slider
+  within `min`/`max`/`step`; `color` — a colour well with its hex; `palette` — Theme or custom
+  swatches; `select` — options; `toggle` — a switch; `text` — a text input; `image` — the picture
+  library and an address; `sound` — the sound bank.
+- **One write per gesture.** A drag or typing previews inside the form; the commit happens on
+  release, Enter or blur. A gesture that ends where it started writes nothing.
+- **Defaults are not written.** A value equal to its default is left out of the record; **Reset**
+  restores the default by removing the value.
+- **A merge, not a replacement.** Keys outside the spec (written by the agent or an older script)
+  are kept on every write.
+- **No spec.** Each key already stored gets a plain control by its value's type (number, switch,
+  colour, palette, text); its default is the stored value, so nothing reads as changed.
+
+<Canvas of={Stories.Changed} />
+<Canvas of={Stories.WithoutSpec} />
+<Canvas of={Stories.PictureLibrary} />
+<Canvas of={Stories.Empty} />
+<Canvas of={Stories.Disabled} />
+
+## Accessibility, direction and theme
+
+Every control has an accessible name from the spec's label in the editor's language; help text is
+associated through `aria-describedby`; groups are fieldsets with legends; the switch, radios,
+selects and inputs are native and keyboard operable (arrow keys step a slider, Enter commits a
+field). In Arabic the form is `dir="rtl"`; addresses and hex values stay left to right. Colours and
+spacing come from the editor's chrome tokens (the form's stylesheet), never from the site's theme.
+
+<Canvas of={Stories.Arabic} />
+
+## Limitations
+
+- Previews stay inside the form: the scene re-runs on the commit, not during a drag.
+- An image picked from the library is stored as its asset id, as the param model defines.
+  `ck.params` hands the script that id as it is: the scripts runtime does not resolve asset ids to
+  addresses yet, so a scene that needs a picture today is best given an `https://` address.
+- Sound choices are the built-in bank; an unknown stored reference stays selectable.

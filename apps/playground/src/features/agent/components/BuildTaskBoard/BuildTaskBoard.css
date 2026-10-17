@@ -32,17 +32,22 @@
   appearance: none;
   display: block;
   inline-size: 100%;
-  block-size: 3px;
+  block-size: var(--bldr-space-xs);
   overflow: hidden;
   border: 0;
-  border-radius: 2px;
-  background: var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-full);
+  background: var(--bldr-progress-track);
   color: var(--bldr-accent);
   accent-color: var(--bldr-accent);
 }
 
 .ck-agent-tasks__progress::-webkit-progress-bar {
-  background: var(--bldr-surface-border);
+  background: var(--bldr-progress-track);
+}
+
+/* Studio Indigo (2026-10-12): the filled stretch keeps the track's round ends. */
+.ck-agent-tasks__progress::-webkit-progress-value {
+  border-radius: var(--bldr-radius-full);
 }
 
 .ck-agent-tasks__progress::-webkit-progress-value {

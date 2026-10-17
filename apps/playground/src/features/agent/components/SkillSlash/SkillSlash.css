@@ -1,0 +1,156 @@
+/*
+  SkillSlash (2026-10-12). The list floats 8px above the composer like the `@` list — e2 on
+  the Sheet, the floating shadow, radius 9 — rows of the panel's row height, each with its
+  command in the mono face, the name in Ink and one line of description in Graphite. A quiet
+  heading line opens "Your skills" and "Built-in"; the last row opens Skills & memory. The active
+  row is Mist under Ink with a 2px Indigo bar at its inline start, as the `@` list's is.
+
+  Picked skills stay inline in the composer; this owner renders only the chooser and command feedback.
+*/
+
+.ck-agent-slash {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.ck-agent-slash__popup {
+  position: absolute;
+  z-index: 31;
+  inset-block-end: calc(100% + var(--bldr-space-md));
+  inset-inline: 0;
+  box-sizing: border-box;
+  padding: var(--bldr-space-xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-surface-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-floating);
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-slash__list {
+  max-block-size: calc(7 * var(--bldr-agent-row-height));
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.ck-agent-slash__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bldr-space-md);
+  min-block-size: var(--bldr-agent-row-height);
+  padding-inline: var(--bldr-space-md);
+  border-radius: var(--bldr-radius-sm);
+  cursor: pointer;
+}
+
+.ck-agent-slash__heading {
+  padding-block: var(--bldr-space-xs) var(--bldr-space-2xs);
+  padding-inline: var(--bldr-space-md);
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__option[data-kind='manage'] {
+  margin-block-start: var(--bldr-space-2xs);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: 0;
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-slash__option[aria-selected='true'] {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-slash__option[aria-selected='true']::after {
+  position: absolute;
+  inset-block: var(--bldr-space-xs);
+  inset-inline-start: 0;
+  inline-size: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent);
+  content: '';
+}
+
+.ck-agent-slash__command {
+  flex: none;
+  min-inline-size: 0;
+  max-inline-size: 40%;
+  overflow: hidden;
+  color: var(--bldr-accent-strong);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-slash__text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ck-agent-slash__name,
+.ck-agent-slash__description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-slash__description {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__description:empty {
+  display: none;
+}
+
+/* On the active row's wash the Graphite line falls under 4.5:1; it steps up, as the `@` list's does. */
+.ck-agent-slash__option[aria-selected='true'] .ck-agent-slash__description {
+  color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-slash__glyph {
+  flex: none;
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-slash__empty,
+.ck-agent-slash__done {
+  margin: 0;
+  margin-block-end: var(--bldr-space-xs);
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-slash__done:empty {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-slash__option {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+
+  .ck-agent-slash__list {
+    max-block-size: calc(4 * var(--bldr-hit-target-min));
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-slash__option[aria-selected='true'] {
+    outline: var(--bldr-border-hairline) solid Highlight;
+  }
+}

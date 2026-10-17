@@ -5,6 +5,8 @@
     node scripts/build-studio-engines.mjs all
     node scripts/build-studio-engines.mjs kit
     node scripts/build-studio-engines.mjs sound
+    node scripts/build-studio-engines.mjs anim|fx|dialogue|ink|tilemap|audio|gameai|hud|peeps|procgen|gif|noise|geom|hex|color|lsys|mural
+    (hex first needs node scripts/build-hex-atlas.mjs when its tile list changes)
 
   Each output is one minified browser IIFE with no chunks. Pixi-bound libraries
   receive the page's already-loaded Pixi namespace instead of bundling another
@@ -19,6 +21,8 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
+import { ALLOWED_LICENCES, TARGETS } from './studio-engine-targets.mjs';
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageDir = join(repoRoot, 'packages/builder/extensions/media-engines');
 // This bundle only consumes the schema's dependency-free sound contract. Resolve
@@ -30,89 +34,6 @@ const requireFromPackage = createRequire(join(packageDir, 'package.json'));
 const requireFromRoot = createRequire(join(repoRoot, 'package.json'));
 const esbuild = requireFromPackage('esbuild');
 const prettier = requireFromRoot('prettier');
-
-const ALLOWED_LICENCES = new Set(['MIT', 'ISC', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause']);
-
-const TARGETS = {
-  kit: {
-    entry: 'src/studio/kit-entry.ts',
-    factory: 'createKitLibrary',
-    pixi: true,
-    budget: 16_000,
-    version: '1.1.0',
-    vendored: [
-      {
-        name: 'webgl-noise',
-        version: 'git-22434e0',
-        declared: 'MIT',
-        licence: 'vendor/webgl-noise/LICENSE',
-      },
-    ],
-  },
-  filters: {
-    entry: 'src/studio/libs/filters-entry.ts',
-    factory: 'createFiltersLibrary',
-    pixi: true,
-    budget: 30_000,
-    versionPackage: 'pixi-filters',
-  },
-  emitter: {
-    entry: 'src/studio/libs/emitter-entry.ts',
-    factory: 'createEmitterLibrary',
-    pixi: true,
-    budget: 14_000,
-    version: '1.0.2',
-    vendored: [
-      {
-        name: '@spd789562/particle-emitter',
-        version: '1.0.2',
-        declared: 'MIT',
-        licence: 'vendor/particle-emitter/LICENSE',
-      },
-    ],
-  },
-  physics: {
-    entry: 'src/studio/libs/physics-entry.ts',
-    factory: 'createPhysicsLibrary',
-    pixi: false,
-    budget: 30_000,
-    versionPackage: 'matter-js',
-  },
-  brush: {
-    entry: 'src/studio/libs/brush-entry.ts',
-    factory: 'createBrushLibrary',
-    pixi: false,
-    budget: 4_000,
-    versionPackage: 'perfect-freehand',
-  },
-  rough: {
-    entry: 'src/studio/libs/rough-entry.ts',
-    factory: 'createRoughLibrary',
-    pixi: false,
-    budget: 11_000,
-    versionPackage: 'roughjs',
-  },
-  viewport: {
-    entry: 'src/studio/libs/viewport-entry.ts',
-    factory: 'createViewportLibrary',
-    pixi: true,
-    budget: 13_000,
-    versionPackage: 'pixi-viewport',
-  },
-  sound: {
-    entry: 'src/sound/entry.ts',
-    budget: 10_000,
-    version: '1.0.0',
-    vendored: [
-      {
-        name: 'zzfx',
-        version: '1.4.0',
-        declared: 'MIT',
-        licence: 'vendor/zzfx/LICENSE',
-      },
-    ],
-  },
-};
 
 const kb = (bytes) => `${(bytes / 1000).toFixed(1)} kB`;
 const constant = (key, suffix) => `${key.toUpperCase().replaceAll('-', '_')}_${suffix}`;
@@ -142,6 +63,7 @@ function classifyText(text) {
     return 'ISC';
   }
   if (/Apache License,?\s+Version 2\.0/iu.test(text)) return 'Apache-2.0';
+  if (/CC0 1\.0 Universal/u.test(text) && /Statement of Purpose/u.test(text)) return 'CC0-1.0';
   if (/Redistribution and use in source and binary forms/iu.test(text)) {
     return /Neither the name/iu.test(text) ? 'BSD-3-Clause' : 'BSD-2-Clause';
   }
@@ -165,7 +87,34 @@ function resolveVersion(target) {
   return target.version ?? dependencyVersion(target.versionPackage);
 }
 
-function buildPlugins(pixiBound) {
+/*
+  Module-scope `const x = new Vector3()` scratch objects, marked pure so an unused one does not
+  keep its class alive. Only the listed value classes may be marked: a constructor that is not on
+  the list (a future release adding a registry or a side effect) fails the build instead.
+*/
+function pureScratchPlugin(rule) {
+  return {
+    name: 'pure-module-scratch',
+    setup(build) {
+      build.onLoad({ filter: rule.file }, (args) => {
+        const text = readFileSync(args.path, 'utf8');
+        const contents = text.replace(/^(?:const|let) [^\n]*$/gmu, (line) =>
+          line.replaceAll(/\bnew ([A-Z]\w*)(?=\()/gu, (_match, name) => {
+            if (!rule.classes.includes(name)) {
+              throw new Error(
+                `pure-module-scratch: unexpected module-scope "new ${name}" in ${args.path}`,
+              );
+            }
+            return `/* @__PURE__ */ new ${name}`;
+          }),
+        );
+        return { contents, loader: 'js' };
+      });
+    },
+  };
+}
+
+function buildPlugins(pixiBound, target = {}) {
   const plugins = [
     {
       name: 'craftkit-schema-source',
@@ -174,6 +123,7 @@ function buildPlugins(pixiBound) {
       },
     },
   ];
+  if (target.pureScratch !== undefined) plugins.push(pureScratchPlugin(target.pureScratch));
   if (pixiBound) {
     plugins.push({
       name: 'shared-pixi-namespace',
@@ -223,7 +173,7 @@ async function bundleTarget(key, target) {
     legalComments: 'none',
     charset: 'utf8',
     tsconfig: join(packageDir, 'tsconfig.json'),
-    plugins: buildPlugins(target.pixi === true),
+    plugins: buildPlugins(target.pixi === true, target),
     logLevel: 'warning',
   });
   const output = result.outputFiles?.[0];
@@ -309,7 +259,11 @@ function inspectLicences(metafile, target) {
   return { licences, ownInputs };
 }
 
-function makeBanner(licences) {
+function makeBanner(licences, key) {
+  // First-party libraries bundle no package: say so instead of shipping an empty notice.
+  if (licences.length === 0) {
+    return `/*!\n * CraftKit ck-lib-${key}.js: first-party source; bundles no third-party package.\n */\n`;
+  }
   const bodies = new Map();
   for (const entry of licences) {
     const hash = createHash('sha256').update(entry.text, 'utf8').digest('hex');
@@ -330,7 +284,7 @@ function makeBanner(licences) {
 async function writeGenerated(key, target, bundle, licences, ownInputs) {
   const version = resolveVersion(target);
   const sha256 = createHash('sha256').update(bundle, 'utf8').digest('hex');
-  const banner = makeBanner(licences);
+  const banner = makeBanner(licences, key);
   const source = `${banner}${bundle}`;
   const gzipBytes = gzipSync(source, { level: 9 }).length;
   const gzipBundleBytes = gzipSync(bundle, { level: 9 }).length;
@@ -353,7 +307,7 @@ async function writeGenerated(key, target, bundle, licences, ownInputs) {
   Source: packages/builder/extensions/media-engines/${target.entry}.
   One minified browser IIFE, no splitting and no dynamic import.
   Size: ${String(gzipBytes)} bytes gzip (budget ${String(target.budget)}).
-  Bundled/adapted packages: ${licences.map((entry) => `${entry.name}@${entry.version} (${entry.declared})`).join(', ')}.
+  Bundled/adapted packages: ${licences.length === 0 ? 'none (first-party source)' : licences.map((entry) => `${entry.name}@${entry.version} (${entry.declared})`).join(', ')}.
 */
 
 export const ${versionName} = ${JSON.stringify(version)};

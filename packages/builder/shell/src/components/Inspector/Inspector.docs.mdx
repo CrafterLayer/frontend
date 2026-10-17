@@ -294,6 +294,20 @@ components load lazily through the per-definition cache. A contribution that fai
 falls back to the default control for that one property. A focused row keeps its resolved renderer
 until focus leaves, so runtime registration cannot steal a caret mid-edit.
 
+A contributed component also receives the editor `locale` and the host's `assetLibrary`. A field
+type may declare two more things (`FieldTypeDef`):
+
+- `siblings: true` — the row receives the block's other props (`FieldProps.siblings`: key, schema
+  and base value), so the field finds what it needs by its schema's marker, never by a prop name.
+  Only such a row subscribes to its node's `props`; every other row keeps its single-property
+  subscription.
+- `hidden` — the Inspector leaves the prop out: no row, and no section or tab when nothing else is
+  in it. `true` hides it always (data another surface writes, such as the Studio's `jsMeta`); a
+  function `({ value, siblings }) => boolean` hides it per value (the customCode Scene settings with
+  nothing to tune). The panel reads the hidden keys as one primitive, so a value edit renders it
+  only when a row appears or disappears; only props a hiding field type matches are resolved for
+  this. A rule that throws keeps the row.
+
 ## Render model
 
 The panel is built so that one property edit renders one row. The shell subscribes to the kernel

@@ -47,6 +47,7 @@ export function EffortMenu({ locale, effort, onEffortChange }: EffortMenuProps) 
       value={effort.selected}
       onValueChange={onEffortChange}
       className="ck-agent-effort"
+      icon="gauge"
     />
   );
 }

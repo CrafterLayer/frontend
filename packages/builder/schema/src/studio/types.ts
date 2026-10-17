@@ -18,6 +18,23 @@ export const STUDIO_LIB_KEYS = [
   'brush',
   'rough',
   'viewport',
+  'anim',
+  'fx',
+  'dialogue',
+  'ink',
+  'tilemap',
+  'audio',
+  'gameai',
+  'hud',
+  'peeps',
+  'procgen',
+  'gif',
+  'noise',
+  'geom',
+  'hex',
+  'color',
+  'lsys',
+  'mural',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 
@@ -27,6 +44,10 @@ export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [
   'filters',
   'emitter',
   'viewport',
+  'fx',
+  'tilemap',
+  'audio',
+  'hud',
 ];
 
 export type ScriptKind = 'scene' | 'interaction' | 'snippet';
@@ -45,15 +66,7 @@ export interface Bilingual {
 }
 
 export type ScriptParamType =
-  | 'number'
-  | 'range'
-  | 'color'
-  | 'palette'
-  | 'select'
-  | 'toggle'
-  | 'text'
-  | 'image'
-  | 'sound';
+  'number' | 'range' | 'color' | 'palette' | 'select' | 'toggle' | 'text' | 'image' | 'sound';
 
 export const SCRIPT_PARAM_TYPES: readonly ScriptParamType[] = [
   'number',

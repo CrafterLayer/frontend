@@ -298,6 +298,27 @@ describe('Composer: context chips', () => {
     mount({ chips: [blockChip('en', 'hero')] });
     expect(box()).toHaveAccessibleDescription(containing('Hero'));
   });
+
+  it('ends the context row with the latest request’s size against its budget', () => {
+    const { composer } = mount({
+      contextMeter: { used: 52_000, max: 64_000, level: 'warning', trimmed: false },
+    });
+    const row = composer.querySelector('.ck-agent-composer__context');
+    const meter = screen.getByRole('meter', { name: 'Context' });
+    expect(row?.lastElementChild).toBe(meter);
+    expect(meter).toHaveAttribute('data-level', 'warning');
+    expect(within(meter).getByText('52k / 64k')).toBeInTheDocument();
+  });
+
+  it('draws no meter before a request was measured', () => {
+    mount({ contextMeter: null });
+    expect(screen.queryByRole('meter')).toBeNull();
+  });
+
+  it('names the sections the latest run focused on in the scope chip', () => {
+    mount({ chips: [{ kind: 'page', id: 'page', focus: { names: ['Pricing'], outlined: true } }] });
+    expect(box()).toHaveAccessibleDescription(containing('Focused: Pricing (+ outline)'));
+  });
 });
 
 /* ── Stop ──────────────────────────────────────────────────────────────────── */
@@ -625,6 +646,7 @@ const SHEETS = [
   'StopButton/StopButton.css',
   'QueueHeader/QueueHeader.css',
   'ContextChip/ContextChip.css',
+  'ContextMeter/ContextMeter.css',
   'MentionMenu/MentionMenu.css',
   'ComposerToolbar/ComposerToolbar.css',
   'ComposerToolbar/ChoiceMenu.css',
@@ -664,10 +686,10 @@ describe('the composer family’s stylesheets', () => {
     }
   });
 
-  it('gives the box 2 to 6 lines, and 16px type under a coarse pointer through the tokens', () => {
+  it('gives the box 1 to 8 lines, and 16px type under a coarse pointer through the tokens', () => {
     const css = sheet('Composer/Composer.css');
-    expect(css).toContain('min-block-size: calc(2 * var(--bldr-line-height-input))');
-    expect(css).toContain('max-block-size: calc(6 * var(--bldr-line-height-input))');
+    expect(css).toContain('min-block-size: var(--bldr-line-height-input)');
+    expect(css).toContain('max-block-size: calc(8 * var(--bldr-line-height-input))');
     expect(css).toMatch(/font-size:\s*var\(--bldr-font-size-input\)/u);
   });
 

@@ -265,7 +265,8 @@
   .mkt-slab.bg-surface-inverse :is(.bg-surface, .bg-accent) {
     --ck-cta-ink: initial;
   }
-  .mkt-slab.bg-surface-inverse :is(.bg-surface, .bg-accent) :is(.text-text, .text-text-inverse, .text-text-muted, .text-accent) {
+  .mkt-slab.bg-surface-inverse :is(.bg-surface, .bg-accent) :is(.text-text, .text-text-inverse, .text-text-muted, .text-accent),
+  .mkt-slab.bg-surface-inverse :is(.bg-surface, .bg-accent):is(.text-text, .text-text-inverse, .text-text-muted, .text-accent) {
     color: revert-layer;
   }
 }

@@ -1,6 +1,6 @@
 import {
-  assetRefSchema,
   codePageReferenceSchema,
+  isAssetRef,
   type BuilderSite,
   type JsonValue,
   type Node,
@@ -127,9 +127,15 @@ function orderedNodes(page: SitePage): readonly Node[] {
   return output;
 }
 
+/*
+  `isAssetRef`, not a bare `assetRefSchema.safeParse` (2026-10-12). This walk
+  visits every prop value of every page on every page-list render, and nearly
+  every value fails the schema; a failing parse builds a ZodError. Measured on
+  the dev server with a 20-page landing site: 1.5 s of the 1.6 s "Add page"
+  render. `isAssetRef` rejects what cannot match before it asks the same schema.
+*/
 function firstAssetId(value: JsonValue): string | undefined {
-  const parsed = assetRefSchema.safeParse(value);
-  if (parsed.success) return parsed.data.assetId;
+  if (isAssetRef(value)) return value.assetId;
   if (value === null || typeof value !== 'object') return undefined;
   if (Array.isArray(value)) {
     for (const item of value) {

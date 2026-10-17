@@ -6,9 +6,12 @@ import { join } from 'node:path';
 
 import type Anthropic from '@anthropic-ai/sdk';
 
+import { subscriptionEnv } from './api-models';
+import { buildArgs, cliGenerationEnv } from './cli-generation-config';
 import type { CliWarmPool } from './cli-warm-pool';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
 import { CRAFTKIT_REASONING_EFFORT_HEADER } from './openrouter-client';
+import { turnText as messageText } from './prompt-cache';
 
 /**
  * DEV-ONLY fallback, gated by `CRAFTKIT_AI_BACKEND=cli`.
@@ -45,6 +48,7 @@ interface CliRequestOptions {
 interface CliStreamParams {
   /** The model the handler resolved for this call; honoured only when `allowedModels` lists it. */
   readonly model?: string;
+  readonly max_tokens?: number;
   readonly system?: readonly { readonly text: string }[];
   readonly messages?: readonly { readonly role: string; readonly content: unknown }[];
   readonly output_config?: { readonly format?: { readonly schema?: unknown } };
@@ -144,10 +148,6 @@ function boundedCliText(text: string): string {
   return flat.length > 300 ? `${flat.slice(0, 300)}…` : flat;
 }
 
-function messageText(content: unknown): string {
-  return typeof content === 'string' ? content : JSON.stringify(content);
-}
-
 /**
  * Strips a single wrapping ```json fence, when the whole reply is one.
  * The CLI is told not to do this; some turns do it anyway. `claude.ts`'s own
@@ -217,61 +217,6 @@ function writeSystemPromptFile(text: string): SystemPromptFile {
       rmSync(directory, { recursive: true, force: true });
     },
   };
-}
-
-/**
- * The CLI's switch for a call that turns thinking off. It has no `--thinking`
- * flag; `alwaysThinkingEnabled: false` is the setting it reads, and
- * `--settings` still applies under `--safe-mode`.
- *
- * Why it matters (measured 2026-09-29): the enhancer sends
- * `thinking: {type: 'disabled'}`, this shim dropped it, and haiku at
- * `--effort low` then thought for 56 s without writing a character — all 6
- * «Improve» runs on the scratch server ended in the 60 s cap. With this
- * setting the same call answered in 19 s, 351 tokens, at load 960.
- */
-const THINKING_OFF_SETTINGS = JSON.stringify({ alwaysThinkingEnabled: false });
-
-/**
- * The second half of turning thinking off. Measured 2026-09-30 on cli:haiku:
- * with the settings switch alone the enhancer still wrote ~4.3k output tokens,
- * mostly thinking, over 40-60 s, and every call hit the 45 s client cap. With
- * `MAX_THINKING_TOKENS=0` in the child's environment the same call answered
- * in 14-17 s with ~376 tokens.
- */
-const THINKING_OFF_ENV: Readonly<Record<string, string>> = { MAX_THINKING_TOKENS: '0' };
-
-function buildArgs(
-  model: string | undefined,
-  effort: CliEffort | undefined,
-  systemPromptPath: string | undefined,
-  thinkingOff: boolean,
-): string[] {
-  const args = [
-    '-p',
-    '--output-format',
-    'stream-json',
-    '--include-partial-messages',
-    '--verbose',
-    '--max-turns',
-    '1',
-    '--safe-mode',
-    '--disable-slash-commands',
-    '--no-session-persistence',
-    '--strict-mcp-config',
-    '--tools',
-    '',
-  ];
-  if (systemPromptPath !== undefined) args.push('--system-prompt-file', systemPromptPath);
-  if (model !== undefined && model !== '') args.push('--model', model);
-  /*
-    Left out entirely when unset: the CLI would otherwise fall back to whatever
-    CLAUDE_EFFORT the launching shell happened to export, which made the
-    server's reasoning budget depend on who started it.
-  */
-  if (effort !== undefined) args.push('--effort', effort);
-  if (thinkingOff) args.push('--settings', THINKING_OFF_SETTINGS);
-  return args;
 }
 
 /** What a CLI run actually cost, from its `result` event. */
@@ -378,11 +323,10 @@ function cancelled(): Error {
 const spawnRealCli: SpawnCli = (command, args, env) =>
   spawn(command, [...args], {
     cwd: tmpdir(),
-    ...(env === undefined ? {} : { env: { ...process.env, ...env } }),
+    env: subscriptionEnv(env),
     detached: process.platform !== 'win32',
     stdio: ['pipe', 'pipe', 'pipe'],
-    // Node's typed `stdout`/`stderr` are nullable in general; with this exact
-    // stdio triple they are always streams.
+    // Node's typed `stdout`/`stderr` are nullable in general; with this exact stdio triple they are always streams.
   }) as unknown as CliChildProcess;
 
 /** One CLI run: a child already spawned (cold, or a warm spare) and what to tell whom. */
@@ -394,6 +338,7 @@ interface CliRun {
   readonly onThinking: (delta: string) => void;
   /** Each piece of the answer's text as it is written (`stream.on('text')`). */
   readonly onText: (delta: string) => void;
+  readonly onStreamEvent: () => void;
   readonly onLog: (line: string) => void;
   readonly signal: AbortSignal | undefined;
 }
@@ -404,7 +349,7 @@ interface CliRun {
  * driven, timed out, cancelled and killed identically either way.
  */
 function runClaude(run: CliRun): Promise<Anthropic.Message> {
-  const { child, prompt, timeoutMs, onThinking, onText, onLog, signal } = run;
+  const { child, prompt, timeoutMs, onThinking, onText, onStreamEvent, onLog, signal } = run;
   return new Promise((resolve, reject) => {
     // Cancelled before it began (the caller checks first; this is the backstop).
     if (signal?.aborted === true) {
@@ -443,11 +388,7 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
       killTree(child.pid, () => child.kill('SIGTERM'));
     }, timeoutMs);
 
-    /*
-      Stop means stop (measured 2026-09-28: an aborted request's CLI ran its
-      whole 51s on, and a killed server left one orphaned). The request's
-      signal kills the process group exactly as the timeout does.
-    */
+    // Stop kills the process group, exactly as a timeout does; no orphaned CLI runs.
     const onAbort = (): void => {
       onLog('cli run stopped — the request was cancelled');
       finish(() => {
@@ -488,6 +429,12 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
         firstEventAt ??= Date.now();
         if (event['type'] === 'stream_event' && isRecord(event['event'])) {
           const frame = event['event'];
+          if (
+            ['message_start', 'content_block_start', 'content_block_delta'].includes(
+              String(frame['type']),
+            )
+          )
+            onStreamEvent();
           const block = frame['content_block'];
           if (frame['type'] === 'content_block_start' && isRecord(block)) {
             if (block['type'] === 'thinking') narrator.enterPhase('thinking');
@@ -495,10 +442,7 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
           }
           const delta = frame['delta'];
           if (isRecord(delta)) {
-            /*
-              `thinking`, not `text` — the field this read for its first weeks,
-              which is why the panel's line never moved once in a whole run.
-            */
+            // CLI thinking deltas carry estimated tokens, rather than answer text.
             if (delta['type'] === 'thinking_delta') {
               const estimated = delta['estimated_tokens'];
               narrator.addThinking(typeof estimated === 'number' ? estimated : 0);
@@ -628,9 +572,10 @@ export function cliShapeKey(
   effort: CliEffort | undefined,
   thinkingOff: boolean,
   system: string,
+  maxTokens?: number,
 ): string {
   return createHash('sha256')
-    .update(JSON.stringify([model ?? null, effort ?? null, thinkingOff, system]))
+    .update(JSON.stringify([model ?? null, effort ?? null, thinkingOff, system, maxTokens ?? null]))
     .digest('hex');
 }
 
@@ -677,11 +622,11 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       ) ?? options.effort;
     const model = callModel(params.model, options);
     const thinkingOff = params.thinking?.type === 'disabled';
-    const env = thinkingOff ? THINKING_OFF_ENV : undefined;
+    const env = cliGenerationEnv(effort, thinkingOff, params.max_tokens);
     /** Spawns this shape's child with its own system file, exactly as a cold call always has. */
     const spawnShape = (): { child: CliChildProcess; systemFile: SystemPromptFile | undefined } => {
       const systemFile = prompt.system === '' ? undefined : writeSystemPrompt(prompt.system);
-      const args = buildArgs(model, effort, systemFile?.path, thinkingOff);
+      const args = buildArgs(model, effort, systemFile?.path, thinkingOff, env);
       try {
         const child = env === undefined ? spawnCli('claude', args) : spawnCli('claude', args, env);
         return { child, systemFile };
@@ -692,14 +637,11 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
     };
 
     const key =
-      warmPool === undefined ? undefined : cliShapeKey(model, effort, thinkingOff, prompt.system);
+      warmPool === undefined
+        ? undefined
+        : cliShapeKey(model, effort, thinkingOff, prompt.system, params.max_tokens);
     const spare = key === undefined ? undefined : warmPool?.take(key);
-    /*
-      Said as it is (fix pass 2026-10-05): a spare primed a moment ago is still
-      in its own start-up, and calling it plain "warm" hid that concurrent
-      writers' "warm" starts took 4.0-4.4 s to the first event. Its age says
-      how much of the start-up it saved.
-    */
+    // A recently primed spare may still be starting; its age states the saved startup honestly.
     const startKind =
       spare === undefined
         ? 'cold'
@@ -736,6 +678,9 @@ export function createCliClient(options: CliClientOptions = {}): Anthropic {
       },
       onText: (delta) => {
         listeners.get('text')?.(delta);
+      },
+      onStreamEvent: () => {
+        listeners.get('streamEvent')?.('');
       },
       onLog,
       signal: requestOptions.signal,

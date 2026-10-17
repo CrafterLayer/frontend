@@ -22,6 +22,7 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { ArEntry, ArPlural, Key } from './keys';
+import { EDIT_RESULT_AR } from './edit-results';
 
 /**
  * One sentence for every count from one to other, and its own sentence at zero. The noun
@@ -37,6 +38,14 @@ export const ar = {
   'header.conversations': 'المحادثات',
   'header.new': 'محادثة جديدة',
   'header.new.busy': 'متاحة حين ينتهي العمل الحالي',
+  // (added) the header's status subtitle (Studio Indigo redesign, 2026-10-12).
+  'header.status.ready': 'جاهز',
+  'header.status.readyFreeCode': 'جاهز، والكود الحر مفعّل',
+  'header.status.thinking': 'يفكّر في الطلب',
+  'header.status.building': 'يبني الصفحة',
+  'header.status.editing': 'يعدّل الصفحة',
+  'header.status.stopping': 'يتوقف',
+  'header.status.review': 'بانتظار قرارك',
   'sheet.close': 'إغلاق',
   'sheet.showPage': 'عرض الصفحة',
   'sheet.backToChat': 'العودة إلى المحادثة',
@@ -46,7 +55,7 @@ export const ar = {
   'workers.option': 'عمال: {n}',
   'workers.hint': 'تُنفّذ مهام البناء المستقلة معًا؛ تعديل العنصر الواحد يستخدم عاملًا واحدًا.',
   'tasks.label': 'مهام البناء',
-  'tasks.coordinator': 'منسّق واحد · فحص بالترتيب',
+  'tasks.coordinator': 'منسّق واحد، وفحص بالترتيب',
   'tasks.active': 'قيد التنفيذ: {n}',
   'tasks.pool': 'حتى {n} عمال',
   'tasks.queued': 'في الانتظار: {n}',
@@ -56,13 +65,13 @@ export const ar = {
   'tasks.progress': 'طُبّقت {n} من {total} مهام',
   'telemetry.activity': 'النشاط المباشر',
   'telemetry.planning': 'يخطّط للتصميم…',
-  'telemetry.usage': 'التوكنات المبلّغة · ليست تقديرات',
+  'telemetry.usage': 'التوكنات المبلّغة، لا تقديرات',
   'telemetry.input': 'الإدخال',
   'telemetry.output': 'الإخراج',
   'telemetry.cacheRead': 'قراءة الكاش',
   'telemetry.cacheWrite': 'كتابة الكاش',
   'telemetry.unknown': 'غير مبلّغ',
-  'telemetry.cached': 'ردود محفوظة · بلا تكلفة نموذج جديدة: {n}',
+  'telemetry.cached': 'ردود محفوظة، بلا تكلفة نموذج جديدة: {n}',
   'telemetry.cost': 'التكلفة المبلّغة بالدولار',
 
   /* §4.3 visible status: at most 20 characters before interpolation */
@@ -209,6 +218,25 @@ export const ar = {
   'facts.toggle': 'معلومات افتراضية للاستبدال ({n})',
   'facts.intro': 'كُتبت هذه المعلومات كأمثلة، وتحتاج إلى الاستبدال قبل النشر.',
   'facts.item': '«{sample}» في «{section}»',
+  // creative agent (2026-10-12) (added): StoryBiblePanel.
+  'bible.toggle': 'دليل القصة ({n})',
+  'bible.intro':
+    'شخصيات وملفات وحقائق يحافظ عليها الوكيل كما هي في كل مشهد، ويتعلمها من الألعاب والقصص التي يكتبها.',
+  'bible.empty': 'لا شيء بعد. ابنِ لعبة أو قصة مع تفعيل الكود الحر، أو أضف شخصية.',
+  'bible.characters': 'الشخصيات',
+  'bible.assets': 'الملفات المعتمدة',
+  'bible.locations': 'الأماكن',
+  'bible.facts': 'حقائق القصة',
+  'bible.remove': 'إزالة {name}',
+  'bible.addCharacter': 'أضف شخصية',
+  'bible.name': 'الاسم',
+  'bible.role': 'الدور',
+  'bible.color': 'اللون',
+  'bible.addFact': 'أضف حقيقة يجب أن تحافظ عليها القصة',
+  'bible.fact': 'الحقيقة',
+  'bible.add': 'إضافة',
+  'bible.clear': 'مسح الدليل',
+  'bible.clearConfirm': 'تأكيد: مسح كل شيء',
   'footer.undoBuild': 'تراجع عن البناء',
   'footer.redoBuild': 'إعادة البناء',
   'footer.finishRest': 'إكمال الباقي ({n})',
@@ -475,6 +503,40 @@ export const ar = {
   'freeCode.button': 'الكود الحر',
   'freeCode.on': 'مفعّل: يكتب الوكيل JavaScript ومشاهد PixiJS كاملة',
   'freeCode.off': 'فعّله ليكتب الوكيل JavaScript ومشاهد PixiJS مخصصة',
+  // (added) creative agent (2026-10-12): creative starters and the creative brief.
+  'creative.title': 'ألعاب وقصص تفاعلية',
+  'creative.badge': 'جديد',
+  'creative.game': 'لعبة منصات',
+  'creative.game.detail': 'مستويات وبطل ونجوم للجمع',
+  'creative.game.prompt': 'لعبة منصات في غابة، بطلها ثعلب اسمه رومي يجمع ثلاث نجوم ويتجنب الحمم',
+  'creative.story': 'قصة بخيارات',
+  'creative.story.detail': 'شخصيات وحوار ونهايات',
+  'creative.story.prompt':
+    'رواية مرئية تلتقي فيها لينا بروبوت متكلم في مكتبة قديمة، مع خيارات تغيّر النهاية',
+  'creative.bedtime': 'قصة قبل النوم',
+  'creative.bedtime.detail': 'صفحات هادئة وحركة لطيفة',
+  'creative.bedtime.prompt':
+    'قصة تفاعلية للأطفال قبل النوم عن غيمة صغيرة تبحث عن القمر بين نجوم لطيفة',
+  'creative.needsFreeCode': 'الألعاب والقصص تحتاج الكود الحر: يكتب الوكيل المشهد بلغة JavaScript.',
+  'creative.enableFreeCode': 'تفعيل الكود الحر',
+  'creative.freeCodeOn': 'الكود الحر مفعّل. يكتب الوكيل المشهد وشخصياته ومؤثراته.',
+  'brief.title': 'الموجز الإبداعي',
+  'brief.caption': 'خُطّط قبل الكتابة',
+  'brief.genre': 'النوع',
+  'brief.libs': 'المكتبات',
+  'brief.effects': 'المؤثرات',
+  'brief.cast': 'الشخصيات',
+  'brief.role.hero': 'الدور الرئيسي',
+  'brief.role.supporting': 'دور مساند',
+  'brief.genre.platformer': 'لعبة منصات',
+  'brief.genre.maze-adventure': 'مغامرة متاهة',
+  'brief.genre.arcade': 'لعبة أركيد',
+  'brief.genre.puzzle': 'لعبة ألغاز',
+  'brief.genre.physics-toy': 'لعبة فيزياء',
+  'brief.genre.visual-novel': 'رواية مرئية',
+  'brief.genre.picture-book': 'كتاب مصوّر',
+  'brief.genre.chapter-story': 'قصة بفصول',
+  'brief.genre.mural': 'مشهد متحرك',
   send: 'إرسال',
   queue: 'إضافة كطلب تالٍ',
   queued: 'في الدور',
@@ -596,12 +658,7 @@ export const ar = {
   // a direction without fonts, or without swatches, says only what it has.
   'direction.aria.colors': 'الأسلوب: {mood}. الألوان: {colors}.',
   'direction.aria.fonts': 'الأسلوب: {mood}. الخطوط: {fonts}.',
-  // (added) §4.9: the page-wide twins of `edit.title.done` and `edit.title.noChange`, for an
-  // edit with no target to name. Passive, like «عُدِّل «{target}»».
-  'edit.title.donePage': 'عُدِّلت الصفحة',
-  'edit.title.noChangePage': 'لا تغيير في الصفحة',
-  // (added) §4.13: the page-wide twin of `proposal.applied`.
-  'proposal.appliedPage': 'طُبِّق الاقتراح',
+  ...EDIT_RESULT_AR,
 
   // WP-13-decisions additions
   // (added) §4.11 PlanSectionRow: eight rows each carry a handle and a [⋯], so each control

@@ -93,8 +93,10 @@ export const customCodeSchema = defineBlockSchema({
     css: { tab: 'advanced', section: 'Custom CSS' },
     js: { tab: 'advanced', section: 'Custom JS' },
     // pixi-studio:schema-library additions (2026-10-10)
-    jsParams: { tab: 'advanced', section: 'Script controls' },
-    jsMeta: { tab: 'advanced', section: 'Script controls' },
+    // Scene settings sit with the content: they are for the person tuning the scene, not its
+    // code. `jsMeta` has no row (its field type is hidden); its placement is only declared.
+    jsParams: { tab: 'content', section: 'Scene settings' },
+    jsMeta: { tab: 'content', section: 'Scene settings' },
     // end pixi-studio:schema-library additions
   },
   /*

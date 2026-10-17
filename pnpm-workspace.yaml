@@ -44,6 +44,14 @@ catalog:
   '@storybook/react-vite': 10.5.10
   '@tailwindcss/vite': 4.3.3
   '@tailwindcss/typography': 0.5.20
+  # tailwind-plugins additions (2026-10-13): Tailwind v4 plugins for generated pages, generated
+  # through @craftkit/builder-renderer's plugin layers (plugin-bridge.ts) and, for forms, the code
+  # runtime too. Licences read from each tarball's LICENSE on 2026-10-13: @tailwindcss/forms MIT
+  # (c) Tailwind Labs (its dependency mini-svg-data-uri MIT), tw-animate-css MIT (c) 2025
+  # Wombosvideo. Both are the latest releases (2025-12-17, 2025-09-24); table in vendor/VENDOR.md.
+  '@tailwindcss/forms': 0.5.11
+  'tw-animate-css': 1.4.0
+  # end tailwind-plugins additions
   '@testing-library/dom': 10.4.1
   '@testing-library/jest-dom': 7.0.0
   '@testing-library/react': 16.3.2
@@ -56,6 +64,8 @@ catalog:
   '@vitest/browser-playwright': 4.1.11
   '@vitest/coverage-v8': 4.1.11
   clsx: 2.1.1
+  # studio-indigo (2026-10-12): the editor's command palette (MIT, React 19 peer).
+  cmdk: 1.1.1
   codemirror: 6.0.2
   '@codemirror/state': 6.7.1
   '@codemirror/view': 6.43.11
@@ -74,6 +84,9 @@ catalog:
   eslint-plugin-react-refresh: 0.5.4
   eslint-plugin-storybook: 10.5.10
   fast-check: 4.9.0
+  # data reports (2026-10-14): the agent panel reads a dropped .xlsx (a zip of XML) with fflate's
+  # unzip (MIT, (c) 2020 Arjun Barrett), loaded only when an Excel file is dropped.
+  fflate: 0.8.2
   globals: 17.11.0
   immer: 11.1.18
   jsdom: 30.0.1
@@ -87,6 +100,8 @@ catalog:
   react-colorful: 5.8.1
   react-dom: 19.2.8
   react-router: 8.3.0
+  # studio-indigo (2026-10-12): the editor's action feedback toasts (MIT, React 19 peer).
+  sonner: 2.0.8
   storybook: 10.5.10
   'tailwind-merge': 3.6.0
   tailwindcss: 4.3.3
@@ -105,6 +120,8 @@ catalog:
   pixelmatch: 7.2.0
   # media-motion (2026-10-06): canvas scene engine, contained in @craftkit/builder-media-engines
   pixi.js: 8.22.0
+  '@pixi/tilemap': 5.0.2
+  inkjs: 2.4.0
   pngjs: 7.0.0
   promptfoo: 0.122.2
   # script-engine additions (2026-10-08): QuickJS-wasm sandbox for agent code mode
@@ -122,7 +139,77 @@ catalog:
   pixi-viewport: 6.0.3
   roughjs: 4.6.6
   simplex-noise: 4.0.3
+  # pixi-studio:engine-libs additions (2026-10-12): audio, procedural sound effects, game AI and
+  # in-canvas HUD widgets, shipped only as lazy ck-lib-<key>.js assets. Licences read from each
+  # tarball's LICENSE on 2026-10-12: @pixi/sound MIT, zzfx MIT, yuka MIT (+ @types/yuka MIT),
+  # @pixi/ui MIT (its dependencies tweedle.js MIT, typed-signals CC0-1.0). Pins are releases at
+  # least ten months old where one exists (@pixi/ui 2.3.2, zzfx 1.3.2), not last week's.
+  '@pixi/sound': 6.0.1
+  '@pixi/ui': 2.3.2
+  '@types/yuka': 0.7.4
+  yuka: 0.7.8
+  zzfx: 1.3.2
   # end pixi-studio:engine-libs additions
+  # pixi-studio:peeps additions (2026-10-13): Open Peeps characters (Pablo Stanley's hand-drawn
+  # people) through DiceBear's style package, in @craftkit/builder-media-engines only and shipped
+  # only as the lazy ck-lib-peeps.js asset. Licences read from each tarball on 2026-10-13:
+  # @dicebear/core LICENSE MIT (c) 2024 Florian Koerner; @dicebear/open-peeps LICENSE "Design ...
+  # License: CC0 1.0" for the artwork plus MIT for the code (its package.json says MIT). 9.4.3 is
+  # the v9 LTS (open-peeps peers on core ^9); 9.4.x XML-escapes the colour/rotate options it writes
+  # into the SVG (the 2026-03 hardening every DiceBear major received), which the ten-month-old
+  # 9.2.4 does not, so the newer pin is deliberate.
+  '@dicebear/core': 9.4.3
+  '@dicebear/open-peeps': 9.4.3
+  # end pixi-studio:peeps additions
+  # pixi-studio:procgen+gif additions (2026-10-13): procedural maps and animated GIF frames, in
+  # @craftkit/builder-media-engines only and shipped only as the lazy ck-lib-procgen.js and
+  # ck-lib-gif.js assets. Licences read from each tarball on 2026-10-13: rot-js license.txt
+  # BSD-3-Clause (c) 2012-now() Ondrej Zara (its Alea RNG notes "(C) 2010 Johannes Baagoe, MIT");
+  # gifuct-js LICENSE MIT (c) 2015 Matt Way. rot-js 2.2.1 was published 2024-11-13; gifuct-js 2.1.2
+  # (2021-11-04) is the decoder pixi.js 8.22 itself depends on, so the lockfile gains no new code.
+  # Not admitted: @pixi/gif 3.0.1, @pixi/layout 3.2.1 + yoga-layout 3.2.1 and poisson-disk-sampling
+  # (reasons in vendor/VENDOR.md).
+  gifuct-js: 2.1.2
+  rot-js: 2.2.1
+  # end pixi-studio:procgen+gif additions
+  # pixi-studio:mural-libs additions (2026-10-13): mural geometry and hex-tile art, in
+  # @craftkit/builder-media-engines only and shipped only as the lazy ck-lib-geom.js and
+  # ck-lib-hex.js assets (ck-lib-noise.js needs nothing new: simplex-noise is above). Licences read
+  # from each tarball on 2026-10-13: d3-contour LICENSE ISC (c) 2012-2023 Mike Bostock (its d3-array
+  # 3.2.4 and internmap 2.0.3, ISC, come with it); polybooljs LICENSE MIT (c) 2016 Sean Connelly;
+  # kenney-hexagon-pack License.txt "Creative Commons Zero, CC0" by Kenney Vleugels (art only, a
+  # build-time input: scripts/build-hex-atlas.mjs packs 28 of its tiles; the package itself never
+  # ships). d3-contour 4.0.2 was published 2023-01-11, polybooljs 1.2.2 2024-03-18,
+  # kenney-hexagon-pack 1.0.0 2019-08-05. Not admitted: d3-delaunay, polygon-clipping,
+  # martinez-polygon-clipping, @velipso/polybool, chromotome, nice-color-palettes,
+  # @iconify-json/game-icons (reasons in vendor/VENDOR.md). fastnoise-lite and bezier-js are not
+  # installed but COPIED (media-engines/vendor/), their tarballs carrying no licence file.
+  d3-contour: 4.0.2
+  kenney-hexagon-pack: 1.0.0
+  polybooljs: 1.2.2
+  # end pixi-studio:mural-libs additions
+  # pixi-studio:mural-libs-2 additions (2026-10-13): perceptual colour, L-system growth and curves
+  # for murals, in @craftkit/builder-media-engines only and shipped only as the lazy
+  # ck-lib-color.js, ck-lib-lsys.js and ck-lib-geom.js assets (culori 4.0.2 is above, for the
+  # shell's ramp editor; media-engines imports only culori/fn). Licences read from each tarball on
+  # 2026-10-13: culori LICENSE MIT (c) 2018 Dan Burzo; lindenmayer LICENSE MIT (c) 2015-2016 Tom
+  # Brewe; d3-shape LICENSE ISC (c) 2010-2022 Mike Bostock (its d3-path 3.1.0, ISC (c) 2015-2022
+  # Mike Bostock, comes with it); simplify-js LICENSE BSD-2-Clause (c) 2017 Vladimir Agafonkin.
+  # culori 4.0.2 was published 2025-06-27, lindenmayer 1.5.4 2020-06-12, d3-shape 3.2.0
+  # 2022-12-20 (d3-path 3.1.0 2022-12-19), simplify-js 1.2.4 2020-02-03.
+  d3-shape: 3.2.0
+  lindenmayer: 1.5.4
+  simplify-js: 1.2.4
+  # end pixi-studio:mural-libs-2 additions
+  # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
+  # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
+  # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json
+  # and the repository LICENSE, © 2022 PixiJS; the tarball carries no LICENSE file), read on
+  # 2026-10-12. Its native helpers come prebuilt (sharp Apache-2.0; ffmpeg through
+  # @ffmpeg-installer, LGPL-2.1 wrapper around a GPLv3 binary, run at build time only).
+  # 1.7.0 was published 2025-11-07.
+  '@assetpack/core': 1.7.0
+  # end pixi-assetpack additions
 
 sharedWorkspaceLockfile: true
 saveWorkspaceProtocol: rolling
@@ -143,6 +230,12 @@ trustPolicyExclude:
   - semver@6.3.1
 blockExoticSubdeps: true
 
+# pixi-assetpack (2026-10-12): AssetPack asks for chokidar ^4.0.3, and 4.0.2/4.0.3 were published
+# without the provenance 3.6.0-4.0.1 carry, so no-downgrade refuses them. Its watcher (watch mode
+# only) gets the last attested 4.x instead of an exception to the trust policy.
+overrides:
+  '@assetpack/core>chokidar': 4.0.1
+
 # Install scripts this workspace declines to run. promptfoo (apps/evals)
 # pulls optional native packages for local embeddings and image work no eval
 # here calls, plus a protobuf codegen step. Chromium is declined because the
@@ -155,3 +248,16 @@ allowBuilds:
   protobufjs: false
   sharp: false
   esbuild: true
+  # pixi-assetpack (2026-10-12): the ffmpeg binary package's only script is `chmod u+x ffmpeg`, so
+  # AssetPack's audio pipe can run it (a build-time tool; the GPLv3 binary never ships). Every
+  # platform is listed so an install on macOS or Windows meets the same decision. cpu-features is
+  # an optional node-gyp build the GPU texture encoder does without.
+  '@ffmpeg-installer/darwin-arm64': true
+  '@ffmpeg-installer/darwin-x64': true
+  '@ffmpeg-installer/linux-arm': true
+  '@ffmpeg-installer/linux-arm64': true
+  '@ffmpeg-installer/linux-ia32': true
+  '@ffmpeg-installer/linux-x64': true
+  '@ffmpeg-installer/win32-ia32': true
+  '@ffmpeg-installer/win32-x64': true
+  cpu-features: false

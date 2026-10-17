@@ -1,21 +1,27 @@
 /*
-  The bar above Preview: a row of its own, so nothing overlays the preview
-  frame. Chrome tokens only (light and dark follow the theme); logical
-  properties only (it mirrors in the Arabic editor).
+  Preview's tools: they ride in PreviewMode's bar above the page (with Exit preview at its
+  end), so nothing overlays the preview frame and the row's surface is the bar's. Chrome
+  tokens only (light and dark follow the theme); logical properties only (it mirrors in
+  the Arabic editor).
 */
 .pg-preview-toolbar {
   align-items: center;
-  background: var(--bldr-panel);
-  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
   box-sizing: border-box;
   color: var(--bldr-panel-text);
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   font-family: var(--bldr-font);
-  gap: var(--bldr-space-sm);
-  min-block-size: var(--bldr-control-lg);
-  padding-block: var(--bldr-space-xs);
-  padding-inline: var(--bldr-space-md);
+  gap: var(--bldr-space-md);
+  min-inline-size: 0;
+}
+
+.pg-preview-toolbar__note {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pg-preview-toolbar:lang(ar) {
@@ -34,9 +40,9 @@
   font-size: var(--bldr-font-size-caption);
   font-weight: var(--bldr-font-weight-medium);
   gap: var(--bldr-space-xs);
-  min-block-size: var(--bldr-control-sm);
+  min-block-size: var(--bldr-control-height);
   padding-block: var(--bldr-space-0);
-  padding-inline: var(--bldr-space-md);
+  padding-inline: var(--bldr-space-xl);
   transition:
     background-color var(--bldr-duration-state) var(--bldr-easing),
     border-color var(--bldr-duration-state) var(--bldr-easing);

@@ -1,3 +1,4 @@
+import { artKindOfUrl, isArtSpec, resolveArtImage } from '../../../art-catalog/runtime';
 import { selectCatalogPhotos } from '../../../context/providers/photo-catalog';
 import {
   PHOTO_CATALOG_ENTRIES,
@@ -15,6 +16,7 @@ import {
   setProp,
   treeNodes,
   unknownKeys,
+  type TreeRoot,
 } from '../shared';
 import { COLUMN_IMAGE_SIZES, srcsetFor } from '../../../section-kit/srcset';
 import { defineAgentTool, type AgentToolContext, type AgentToolRun } from '../types';
@@ -74,9 +76,38 @@ function parse(input: unknown) {
   return okParse<ImageSetInput>({ id, find, subject, alt, ...(orientation === undefined ? {} : { aspect: orientation }) });
 }
 
-/** Host + path: the part of an address that names the picture. */
+/** Host + path: the part of an address that names the picture (a character's seed is in its query). */
 function pathOf(url: string): string {
-  return url.replaceAll('&amp;', '&').trim().replace(/[?#].*$/u, '');
+  const address = url.replaceAll('&amp;', '&').trim();
+  return artKindOfUrl(address) === 'character' ? address : address.replace(/[?#].*$/u, '');
+}
+
+/**
+ * art catalog (2026-10-14): a `subject` such as 'illustration:doctor',
+ * 'character:<style>:<seed>' or 'logo:visa' swaps the picture for the
+ * verified art, square, with its alt in the page language.
+ */
+function runArt(
+  input: ImageSetInput,
+  context: AgentToolContext,
+  tree: TreeRoot,
+  wanted: string,
+): AgentToolRun {
+  const art = resolveArtImage(input.subject, { locale: context.locale.lang, alt: input.alt });
+  if (!art.ok) return art;
+  const { src, alt, width, height } = art.value;
+  const next = mapTree(tree, (node) => {
+    if (!isElement(node) || node.tag !== 'img' || pathOf(node.attributes?.['src'] ?? '') !== wanted)
+      return node;
+    const kept: Record<string, string> = { ...node.attributes };
+    delete kept['srcset'];
+    delete kept['sizes'];
+    return {
+      ...node,
+      attributes: { ...kept, src, alt, width: String(width), height: String(height) },
+    };
+  });
+  return { ok: true, steps: [setProp(input.id, 'tree', next)] };
 }
 
 
@@ -100,6 +131,7 @@ function run(input: ImageSetInput, context: AgentToolContext): AgentToolRun {
   if (images.length === 0) {
     return { ok: false, error: `no <img> in "${input.id}" has src "${input.find}"; quote the current src exactly.` };
   }
+  if (isArtSpec(input.subject)) return runArt(input, context, tree, wanted);
   const subject = input.subject.trim().toLowerCase();
   const brief = (TOPICS as readonly string[]).includes(subject) ? `${subject} ${PHOTO_TOPIC_KEYWORDS[subject as PhotoTopic].en.join(' ')}` : input.subject;
   const photos = selectCatalogPhotos(brief).filter(

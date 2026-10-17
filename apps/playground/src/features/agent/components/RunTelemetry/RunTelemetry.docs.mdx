@@ -12,10 +12,11 @@ not model reasoning, a token estimator, an invoice or a worker speed guarantee.
 
 Props: `locale` is `en` or `ar`; `state` contains bounded public phase history and attempt-id keyed
 provider measurements. `live` defaults to false: settled/restored phases are history, never a busy
-announcement. Empty historical state renders nothing. Known counts are summed once; any missing
-attempt/count remains **Not reported**, never zero. Input, output, cache read and cache write are
-separate. Local cached replies explicitly incur no new model request. Dollar cost appears only if
-every attempt reports it.
+announcement. Empty historical state renders nothing. Usage is drawn only when the provider reported
+at least one count (2026-10-12: four "Not reported" cells took a quarter of a narrow thread and said
+nothing). Known counts are summed once; beside a reported count, any missing attempt/count remains
+**Not reported**, never zero. Input, output, cache read and cache write are separate. Local cached
+replies explicitly incur no new model request. Dollar cost appears only if every attempt reports it.
 
 Live, measured, partial, cached, empty and Arabic narrow states are illustrated in the stories. The
 latest phase uses a polite atomic status announcement. Native disclosure is keyboard accessible;
@@ -31,5 +32,5 @@ same turn's receipt. Reload validates the bounded optional ledger; malformed tel
 without losing the conversation, and absent or invalid counts remain unknown. The receipt is not an
 invoice for failed transport fallback calls whose backend did not return usage. The attempt ledger
 remains capped at 64. If another physical attempt exceeds that cap, a persisted overflow marker
-makes all aggregate token counts and reported cost unknown; the retained subset is never presented
-as a complete total, even after reload.
+makes all aggregate token counts and reported cost unknown, so no usage is drawn; the retained
+subset is never presented as a complete total, even after reload.

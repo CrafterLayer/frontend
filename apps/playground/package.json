@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "check:size": "node ../../scripts/check-initial-load.mjs dist entry=896000 js=1151000 css=147000",
     "dev": "vite --open",
     "generate:vocabulary": "node --experimental-strip-types scripts/generate-ai-vocabulary.mjs",
     "lint": "eslint . --max-warnings 0",
@@ -21,9 +22,12 @@
     "@radix-ui/react-dropdown-menu": "catalog:",
     "@radix-ui/react-popover": "catalog:",
     "@radix-ui/react-tooltip": "catalog:",
+    "cmdk": "catalog:",
+    "fflate": "catalog:",
     "p-retry": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "sonner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

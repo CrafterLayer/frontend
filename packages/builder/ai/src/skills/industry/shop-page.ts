@@ -47,6 +47,9 @@ export const SHOP_PAGE_SKILL: AiSkillDefinitionV1 = {
       'jewelry',
       'jewellery',
       'متجر',
+      // Loanwords (2026-10-14). Not a bare «ستور»: «ستوري» is an Instagram story.
+      'ستور اونلاين',
+      'اونلاين ستور',
       'متاجر',
       'عطور',
       'عطورات',

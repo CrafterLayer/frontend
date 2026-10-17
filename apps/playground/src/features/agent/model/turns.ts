@@ -1,6 +1,5 @@
 import type {
   AiBuildSectionValues,
-  AiChatTurn,
   AiPlan,
   AiRunFailure,
   AiSkillActivationPin,
@@ -11,9 +10,10 @@ import type {
 
 import type { BuildProgress } from './build-progress';
 import type { RunProgress } from './run-progress';
-import type { RunTelemetryState } from './run-telemetry';
-import { readRunTelemetry } from './run-telemetry';
+import { readRunTelemetry, type RunTelemetryState } from './run-telemetry';
 import type { SectionOutcome } from './run-view';
+import { reviveUserTurn, type UserTurn } from './sent-request';
+export type { SentContext, UserTurn } from './sent-request';
 import {
   TURN_KINDS,
   type AssistantMode,
@@ -58,25 +58,6 @@ export const SESSIONS_KEY = 'pg-agent-sessions-v2';
 /* ── Turns ───────────────────────────────────────────────────────────────── */
 
 /**
- * The context a request was sent with (SPEC §4.5, FR-024): the page scope, or the blocks
- * it named, with the label they had when it was sent. `UserMessageView.chips` adds
- * `stale` at render time; a sent message never changes its own words.
- */
-export type SentContext =
-  | { readonly kind: 'page' }
-  | { readonly kind: 'selection' | 'mention'; readonly id: string; readonly label: string };
-
-/** The person's own turn (SPEC §4.5). */
-export interface UserTurn {
-  readonly id: string;
-  readonly kind: 'user';
-  readonly text: string;
-  readonly context: readonly SentContext[];
-  /** Its run was stopped before any output (SPEC §4.5 `message.notRun`). */
-  readonly notRun?: true | undefined;
-}
-
-/**
  * What became of a landed change after it landed: a build section's row Undo, or an
  * edit's Undo (SPEC §4.8, §4.9). Stored under `outcomeKeyOf(section)`: the id of the
  * transaction that LANDED it. It IS `run-view.ts`'s `SectionOutcome`, one type and not two
@@ -117,9 +98,9 @@ export interface BuildTurn {
   readonly revived?: true | undefined;
   readonly followUp?: string | undefined;
   readonly skills?: readonly AiSkillActivationPin[] | undefined;
-  /*
-    WP-16 additions, all plain data so they survive a reload:
-  */
+  /** T230: the site page this build wrote, when it is one page of a site build. */
+  readonly page?: string | undefined;
+  // WP-16 additions, all plain data so they survive a reload:
   /**
    * Each region's writer-owned props as the skeleton laid them, read at `build.planned`.
    * What "Remove empty sections" compares against (`removeUnfilledSections` removes only a
@@ -137,6 +118,13 @@ export interface BuildTurn {
    * entries (SPEC §7.6 E3 fallback).
    */
   readonly transactionIds?: readonly string[] | undefined;
+  /**
+   * creative agent (2026-10-12): free code was on and the request named a game or story,
+   * so the writers planned a scene. The record shows the creative brief, re-derived from
+   * `request` by the same deterministic planner the writers read (plain data, survives a
+   * reload; no brief is stored).
+   */
+  readonly creative?: true | undefined;
 }
 
 /**
@@ -368,33 +356,6 @@ export function highestIdSuffix(sessions: readonly Session[]): number {
   return highest;
 }
 
-/** The assistant's own words for one turn, or null when it said nothing the model needs. */
-function assistantWords(turn: Exclude<Turn, UserTurn>): string | null {
-  switch (turn.kind) {
-    case 'build':
-      return turn.progress.direction;
-    case 'edit':
-      return turn.summary ?? null;
-    case 'proposal':
-      return turn.plan?.rationale ?? null;
-    case 'page-plan':
-      return turn.direction?.mood ?? null;
-    case 'step-plan':
-      /*
-        The plan the assistant just wrote IS the answer, so it belongs in the history.
-        Dropping it meant a person could say "do option two" and the next request arrived
-        without the answer that had the options in it.
-      */
-      return turn.text;
-    case 'answer':
-      return turn.text;
-    case 'error':
-      return turn.failure.message;
-    case 'end':
-      return null;
-  }
-}
-
 /**
  * A run whose plan proposed no command but has words (its rationale, or a follow-up to
  * send next) is the model answering, most often asking what was meant. It is recorded as
@@ -427,16 +388,7 @@ export function answerFromPlan(input: {
   };
 }
 
-/** The newest 12 exchanges, for the next request's context. Empty lines are never sent. */
-export function historyOf(turns: readonly Turn[]): AiChatTurn[] {
-  return turns
-    .flatMap<AiChatTurn>((turn) => {
-      if (turn.kind === 'user') return [{ role: 'user', text: turn.text }];
-      const text = assistantWords(turn);
-      return text === null || text.trim() === '' ? [] : [{ role: 'assistant', text }];
-    })
-    .slice(-12);
-}
+export { historyOf } from './conversation-memory';
 
 /**
  * Saved conversations from before ids continued across reloads can hold two turns with
@@ -565,6 +517,7 @@ function reviveTurnRecord(turn: Turn): Turn {
     case 'step-plan':
       return turn.status === 'drafting' ? interrupted(turn.id) : turn;
     case 'user':
+      return reviveUserTurn(turn);
     case 'answer':
     case 'error':
     case 'end':

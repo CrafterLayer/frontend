@@ -1,0 +1,472 @@
+/* The page frame, the top bar and rail overrides, phone layouts, and the scenario harness. (split from App.css, 2026-10-12; App.css imports these in order). */
+
+/* The playground runs the builder as a WHOLE PAGE, so it owns the page's own
+   frame. This is deliberately here and not in @craftkit/builder-theme: a
+   builder embedded inside a larger application must never reset its host's
+   body, and a design system that did would be unusable in exactly the case
+   the product is built for.
+
+   Measured defect this closed: the user agent's default 8px body margin made
+   the document 1098px tall inside a 1000px viewport, so the whole editor
+   scrolled as a page — toolbars and status bar sliding away — and the shell
+   could never actually fill the screen. */
+html,
+body,
+#root {
+  block-size: 100%;
+  margin: 0;
+}
+
+/* NOTHING global may clip or scroll here.
+   `CanvasFrame` MIRRORS this document's head stylesheets into the preview
+   iframe so the page inherits the host's fonts — a deliberate feature. That
+   means a global rule written for the app's own page frame also lands on the
+   PAGE BEING EDITED. A `body { overflow: hidden }` here did exactly that: the
+   author's 1239px page was clamped inside an 866px frame with no way to reach
+   its bottom, because CSS propagates body's overflow to the frame's viewport.
+   Clipping belongs to `.pg-app`, which exists only in this document. */
+
+.pg-app {
+  /* Product chrome geometry. The page width stays independent from these
+     editor tracks; zoom/device simulation is owned by the canvas. */
+  --bldr-topbar-height: 48px;
+  --bldr-panel-width: 320px;
+  --bldr-inspector-width: 288px;
+  /* Studio Indigo (2026-10-12): 68px, so every destination carries its name under its icon. */
+  --bldr-rail-width: 68px;
+  /* An overlaid panel starts after the captioned rail, never over its words. */
+  --bldr-shell-rail-measure: var(--bldr-rail-width);
+  /*
+    ONE panel gutter (UX pass, 2026-10-13). Every rail destination drew its content
+    at its own distance from the panel edge — 8px (Library tabs, Edit history), 10px
+    (Assets, Design, Site), 14px (Blocks, Pages), 16px (Settings, Help, Layers) — so
+    switching destinations made the whole column jump sideways. The gutter is now the
+    16px step of the 4/8 scale, and every panel reads it from this one token.
+  */
+  --bldr-panel-padding: var(--bldr-space-3xl);
+  /* The harness panel is positioned against this, so the app root has to be a
+     containing block — `overflow` alone never was one. */
+  position: relative;
+  /* 100% of a full-height chain, not 100vh: on mobile browsers vh includes
+     retracting chrome and the layout jumps as it retracts. */
+  block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/*
+  One surface for the whole panel column (UX pass, 2026-10-13). The Library, Layers and Edit
+  history paint the panel tone themselves; Help, Settings, Assets and Restore points did not,
+  so they showed the shell's white — two shades inside the History panel, and a column that
+  changed colour from one destination to the next.
+*/
+.pg-app .bldr-shell__panel {
+  background-color: var(--bldr-panel);
+}
+
+.pg-app .bldr-icon-rail {
+  inline-size: var(--bldr-rail-width);
+  padding-inline: var(--bldr-space-2xs);
+}
+
+.pg-app .bldr-topbar {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.pg-workspace-view {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-2xs);
+  padding: var(--bldr-space-2xs);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-lg);
+  background-color: var(--bldr-surface-sunken);
+  white-space: nowrap;
+}
+
+/*
+  Studio Indigo (2026-10-12): Canvas / Sitemap is one segmented control, the same sunken
+  track as the device switcher; the chosen view is a raised white tile, not an Accent wash,
+  so the bar's only Accent fill is Publish.
+*/
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed] {
+  border: 0;
+  background-color: transparent;
+  color: var(--bldr-panel-muted);
+  font-weight: var(--bldr-font-weight-medium);
+}
+
+.pg-app .pg-workspace-view .bldr-chrome-button[data-variant='toggle'][aria-pressed='true'],
+.pg-app
+  .pg-workspace-view
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='true']:enabled:hover {
+  background-color: var(--bldr-surface);
+  box-shadow: var(--bldr-shadow-raised);
+  color: var(--bldr-panel-text);
+}
+
+.pg-app
+  .pg-workspace-view
+  .bldr-chrome-button[data-variant='toggle'][aria-pressed='false']:enabled:hover {
+  background-color: transparent;
+  color: var(--bldr-panel-text);
+}
+
+@media (width < 700px) {
+  .pg-app .bldr-topbar {
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    gap: var(--bldr-space-md);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pg-app .bldr-topbar__product-name {
+    display: none;
+  }
+
+  .pg-app .bldr-topbar__end,
+  .pg-app .bldr-topbar__extra {
+    max-inline-size: none;
+    flex-shrink: 0;
+  }
+}
+
+/*
+  The pane toggles are glyphs at every width (Studio Indigo, 2026-10-12): two words in an
+  Accent wash beside the view switch read as two more tabs. Their names stay their
+  accessible names and their titles.
+*/
+.pg-pane-toggle__icon {
+  display: block;
+  flex: none;
+  block-size: var(--bldr-space-3xl);
+  inline-size: var(--bldr-space-3xl);
+}
+
+.pg-app .pg-pane-toggle {
+  padding-inline: var(--bldr-space-sm);
+}
+
+.pg-app .pg-pane-toggle__label {
+  position: absolute;
+  overflow: hidden;
+  block-size: var(--bldr-border-hairline);
+  inline-size: var(--bldr-border-hairline);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A phone: the agent's PHONE_QUERY (<600px, coarse pointer). Final test,
+   2026-09-29, at 390px: the bar scrolled and cut its own start ("temap"), and
+   the status bar's strip and details drew over each other ("No Desktop
+   changes 1280 px"). The bar collapses to its glyphs: the logo and the
+   Canvas/Sitemap switch go (a site map is desk work), the pane toggles and
+   Preview keep their accessible names and lose their words. */
+@media (width < 600px) and (pointer: coarse) {
+  .pg-app .bldr-topbar {
+    gap: var(--bldr-space-md);
+    padding-inline: var(--bldr-space-md);
+  }
+
+  .pg-app .bldr-topbar__start,
+  .pg-app .pg-workspace-view,
+  .pg-app .bldr-topbar__divider {
+    display: none;
+  }
+
+  .pg-app .pg-pane-toggle {
+    padding-inline: var(--bldr-space-sm);
+  }
+
+  .pg-app .pg-pane-toggle__icon {
+    display: block;
+  }
+
+  .pg-app .pg-pane-toggle__label,
+  .pg-app .bldr-topbar__preview > span {
+    position: absolute;
+    overflow: hidden;
+    block-size: var(--bldr-border-hairline);
+    inline-size: var(--bldr-border-hairline);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pg-app .bldr-topbar__preview {
+    padding-inline: var(--bldr-space-md);
+  }
+}
+
+/* Below 600px the status bar keeps its activity and its details and drops the
+   change strip: three columns did not fit, and the strip's centre track was
+   painted over by the details' overflow. Any pointer: this is a width fault. */
+@media (width < 600px) {
+  .pg-app .bldr-statusbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .pg-app .bldr-statusbar__centre {
+    display: none;
+  }
+}
+
+/* The scenario shows the layers tree AND the inspector in the one aside track.
+   Stacking two full-height panels there made the region's content 1809px tall
+   inside an 866px track; sharing the track is the layout, not a scrollbar. The
+   tree takes what it needs up to a bound, the inspector takes the rest, and
+   each scrolls inside its own share. */
+/* The account tile the rail pins to its foot. The rail places whatever it is
+   handed; what that tile IS belongs to the host. */
+.pg-avatar {
+  align-items: center;
+  background: var(--bldr-accent);
+  block-size: 30px;
+  border-radius: var(--bldr-radius-lg);
+  color: var(--bldr-accent-text);
+  display: flex;
+  font: var(--bldr-font-weight-semibold) var(--bldr-font-size-caption) / 1 var(--bldr-font);
+  inline-size: 30px;
+  justify-content: center;
+  letter-spacing: 0.03em;
+}
+
+/* The playground's own scenario controls. They are a HARNESS, not product
+   chrome, so they read as one quiet group inside the bar's `extra` slot rather
+   than competing with the editor's primary controls for attention. */
+.pg-tools {
+  align-items: center;
+  display: flex;
+  /* NOT `wrap`. In a 56px bar a wrapped row has nowhere to go: measured, this
+     cluster grew to three rows spanning 0..148px, and the two rows below the
+     bar landed on top of the preview iframe — present, focusable, and
+     impossible to click. One row that scrolls beats three rows that escape. */
+  flex-wrap: nowrap;
+  gap: var(--bldr-space-md);
+  font-size: var(--bldr-font-size-caption);
+}
+
+.pg-tools > * {
+  flex: none;
+}
+
+/* The sealed-store counter, captioned so it reads as instrumentation rather
+   than as a stray digit in the action band. */
+.pg-tx {
+  align-items: baseline;
+  color: var(--bldr-panel-muted);
+  display: inline-flex;
+  gap: var(--bldr-space-xs);
+  font-size: var(--bldr-font-size-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pg-tx output {
+  color: var(--bldr-panel-text);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  Settings — the editor's preferences and the scenario harness, in the panel the rail gives
+  it (UX pass, 2026-10-13): the panel gutter, the panel Title step, three groups under the
+  same eyebrow every panel uses, each field's name ABOVE its control, every control at the
+  32px control height, and the radio choices drawn as one segmented row. Before, labels sat
+  beside 44px selects and full-width buttons, and the choices were bare lower-case radios.
+*/
+.pg-settings {
+  color: var(--bldr-panel-text);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-5xl);
+  padding: var(--bldr-panel-padding);
+}
+
+.pg-settings__head {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.pg-settings h2 {
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-title);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+}
+
+.pg-settings__head p {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-body);
+  line-height: var(--bldr-line-height-normal);
+  margin: var(--bldr-space-0);
+}
+
+.pg-settings__group {
+  display: grid;
+  gap: var(--bldr-space-xl);
+}
+
+.pg-settings h3 {
+  border-block-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-bold);
+  line-height: var(--bldr-line-height-tight);
+  margin: var(--bldr-space-0);
+  padding-block-end: var(--bldr-space-sm);
+  text-transform: uppercase;
+}
+
+/* A field: its name, then its control. */
+.pg-settings__group > label,
+.pg-settings__field {
+  color: var(--bldr-panel-text-soft);
+  display: grid;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  gap: var(--bldr-space-xs);
+  justify-items: stretch;
+}
+
+/* A radio group: its name, then one segmented row of choices. */
+.pg-settings fieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  margin: var(--bldr-space-0);
+  min-inline-size: 0;
+  padding: var(--bldr-space-0);
+}
+
+/* Floated, so the legend is an ordinary first row instead of sitting on the border. */
+.pg-settings legend {
+  color: var(--bldr-panel-text-soft);
+  flex: 0 0 100%;
+  float: inline-start;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  margin-block-end: var(--bldr-space-xs);
+  padding: var(--bldr-space-0);
+}
+
+.pg-settings fieldset label {
+  align-items: center;
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 0;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  justify-content: center;
+  min-block-size: var(--bldr-control-height);
+  min-inline-size: 0;
+  padding-inline: var(--bldr-space-md);
+  position: relative;
+  text-transform: capitalize;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.pg-settings fieldset label + label {
+  margin-inline-start: calc(-1 * var(--bldr-border-hairline));
+}
+
+.pg-settings fieldset label:first-of-type {
+  border-end-start-radius: var(--bldr-radius-md);
+  border-start-start-radius: var(--bldr-radius-md);
+}
+
+.pg-settings fieldset label:last-of-type {
+  border-end-end-radius: var(--bldr-radius-md);
+  border-start-end-radius: var(--bldr-radius-md);
+}
+
+.pg-settings fieldset label:hover {
+  border-color: var(--bldr-panel-border-strong);
+  z-index: 1;
+}
+
+.pg-settings fieldset label:has(:checked) {
+  background: var(--bldr-accent-soft);
+  border-color: var(--bldr-accent);
+  color: var(--bldr-accent-strong);
+  font-weight: var(--bldr-font-weight-semibold);
+  z-index: 1;
+}
+
+/* The radio stays the real control (focus, arrows, its name); the segment draws it. */
+.pg-settings fieldset input[type='radio'] {
+  cursor: pointer;
+  inset: 0;
+  margin: var(--bldr-space-0);
+  opacity: 0;
+  position: absolute;
+}
+
+.pg-settings fieldset label:has(:focus-visible) {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+  z-index: 2;
+}
+
+.pg-settings select,
+.pg-settings input[type='number'] {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  font-family: inherit;
+  font-size: var(--bldr-font-size-control);
+  font-weight: var(--bldr-font-weight-regular);
+  inline-size: 100%;
+  min-block-size: var(--bldr-control-height);
+  padding-inline: var(--bldr-space-md);
+}
+
+.pg-settings input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-settings button {
+  background: var(--bldr-panel-control);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-medium);
+  justify-self: start;
+  min-block-size: var(--bldr-control-height);
+  min-inline-size: calc(var(--bldr-control-height) * 2);
+  padding-inline: var(--bldr-space-xl);
+}
+
+.pg-settings select:hover,
+.pg-settings input[type='number']:hover,
+.pg-settings button:hover {
+  border-color: var(--bldr-panel-border-strong);
+}
+
+.pg-settings select:focus-visible,
+.pg-settings input[type='number']:focus-visible,
+.pg-settings button:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-settings fieldset label {
+    transition: none;
+  }
+}

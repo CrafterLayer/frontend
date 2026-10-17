@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
 import { sectionColorGroups, sectionColorProps } from '../section-color';
+import { safeImageSourceSchema } from '../section-urls';
 import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
 import {
@@ -27,7 +28,7 @@ const defaultLogos = [
 export const logoCloudSchema = defineBlockSchema({
   type: 'logoCloud',
   description:
-    'A responsive social-proof section for customer, partner, publication, or integration names without requiring external image assets.',
+    'A responsive social-proof section for customer, partner, publication, or integration names; each brand may also show its logo image.',
   surfaces: ['site', 'store'],
   props: z.object({
     eyebrow: z.string().min(1).max(40).default('Trusted in production'),
@@ -38,6 +39,8 @@ export const logoCloudSchema = defineBlockSchema({
         z.object({
           name: z.string().min(1).max(32),
           descriptor: z.string().min(1).max(48).optional(),
+          /* The brand's logo image; its name stays visible beside it, so the image is decorative. */
+          logo: safeImageSourceSchema.optional(),
         }),
       )
       .max(12)
@@ -74,8 +77,9 @@ export const logoCloudSchema = defineBlockSchema({
   inlineEditable: 'heading',
   /*
     The section's inner elements (block-parts DESIGN §1): the intro text, the
-    brand grid, each brand, and each brand's name and descriptor. The
-    monogram is decoration derived from the name, not a part.
+    brand grid, each brand, and each brand's name, descriptor and logo image.
+    The monogram a brand without a logo shows is decoration derived from the
+    name, not a part.
   */
   parts: {
     eyebrow: {
@@ -115,6 +119,12 @@ export const logoCloudSchema = defineBlockSchema({
       bind: 'items.*.name',
       label: { en: 'Brand name', ar: 'اسم العلامة' },
       aliases: ['name', 'company', 'الاسم', 'الشركة'],
+    },
+    'item.logo': {
+      kind: 'image',
+      bind: { src: 'items.*.logo' },
+      label: { en: 'Brand logo', ar: 'صورة الشعار' },
+      aliases: ['logo image', 'mark', 'emblem', 'صورة الشعار'],
     },
     'item.descriptor': {
       kind: 'text',

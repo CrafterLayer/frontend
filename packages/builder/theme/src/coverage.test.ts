@@ -196,10 +196,13 @@ describe('every delegated focus ring is drawn by somebody', () => {
     */
     const folder = join(REPO, relative).slice(0, join(REPO, relative).lastIndexOf('/'));
     const siblings = sourceFiles(folder).map((file) => readFileSync(file, 'utf8'));
-    // The playground keeps its chrome in one app-level sheet beside the folder.
-    const appSheet = join(REPO, 'apps/playground/src/app/App.css');
+    // The playground keeps its chrome in App.css and the app sheets it imports (app/styles/).
+    const appSheets = [
+      join(REPO, 'apps/playground/src/app/App.css'),
+      ...sourceFiles(join(REPO, 'apps/playground/src/app/styles')),
+    ];
     const pool = relative.includes('apps/playground')
-      ? [...siblings, readFileSync(appSheet, 'utf8')]
+      ? [...siblings, ...appSheets.map((sheet) => readFileSync(sheet, 'utf8'))]
       : siblings;
 
     const drawsRing = pool.some(

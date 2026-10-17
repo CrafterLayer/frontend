@@ -92,6 +92,8 @@ describe('punctuation', () => {
       (STATUS_KEYS as readonly Key[]).includes(key) ||
       key.startsWith('placeholder.') ||
       key === 'build.live.skeleton' ||
+      // The telemetry's planning stage, beside the edit.* stage lines (RunTelemetry STAGE_KEY).
+      key === 'telemetry.planning' ||
       key === 'stage.overture';
     expect(
       offenders(ALL_VALUES, (text) => text.endsWith('…')).filter(

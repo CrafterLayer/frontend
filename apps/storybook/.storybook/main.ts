@@ -10,13 +10,16 @@ const playgroundRoot = fileURLToPath(new URL('../../playground', import.meta.url
 
 /*
   Radix packages the playground (the agent panel) imports, read from its own
-  manifest so a new one is pre-bundled without anyone remembering this file.
+  manifest so a new one is pre-bundled without anyone remembering this file —
+  plus the editor's command palette (cmdk) and action feedback (sonner), which
+  load the same way and reload a run the same way when discovered late.
 */
+const PLAYGROUND_PREBUNDLED = new Set(['cmdk', 'sonner']);
 const playgroundManifest = JSON.parse(
   readFileSync(path.join(playgroundRoot, 'package.json'), 'utf8'),
 ) as { dependencies?: Record<string, string> };
-const playgroundRadix = Object.keys(playgroundManifest.dependencies ?? {}).filter((name) =>
-  name.startsWith('@radix-ui/'),
+const playgroundRadix = Object.keys(playgroundManifest.dependencies ?? {}).filter(
+  (name) => name.startsWith('@radix-ui/') || PLAYGROUND_PREBUNDLED.has(name),
 );
 
 /*

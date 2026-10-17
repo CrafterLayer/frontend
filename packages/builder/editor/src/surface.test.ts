@@ -101,7 +101,9 @@ const PROMISED_VALUES = [
   'lightTheme',
   'marqueeItemSchema',
   'marqueeSchema',
+  'loadMarketingTemplates',
   'marketingTemplates',
+  'marketingTemplateCatalog',
   'openDocument',
   'performBlockAction',
   'paginationSchema',
@@ -191,6 +193,17 @@ describe('@craftkit/builder curated surface (contract §4)', () => {
       expect(name in preset).toBe(false);
     },
   );
+
+  // The page templates load on demand (2026-10-13): the lazy door hands out the very module the
+  // eager re-exports come from, so a host switching to it registers the same manifest and cards.
+  it('loads the marketing templates on demand as the module the eager exports re-export', async () => {
+    const templates = await preset.loadMarketingTemplates();
+    expect(templates.marketingTemplates).toBe(preset.marketingTemplates);
+    expect(templates.marketingTemplateCatalog).toBe(preset.marketingTemplateCatalog);
+    expect(templates.marketingTemplates.contributes?.compositions?.length).toBe(
+      templates.marketingTemplateCatalog.length,
+    );
+  });
 
   it('serves the worker plumbing from the ./testing surface instead', async () => {
     const testing = await import('./testing');

@@ -358,9 +358,18 @@ describe('page-level skills stay out of edits', () => {
   });
 
   it('declares the page scope on every page playbook and the taste skill, and nowhere else', () => {
-    const scoped = createCraftkitAiSkillRegistry()
+    // The art skills (2026-10-14) serve every intent that writes — only a question goes without.
+    const writing = ['add-section', 'build-page', 'build-site', 'edit'];
+    const all = createCraftkitAiSkillRegistry()
       .list()
       .filter(({ activation }) => activation.mode === 'auto' && activation.intents !== undefined);
+    const art = all.filter(
+      ({ id }) => id === 'craftkit.art-names' || id === 'craftkit.logo-design',
+    );
+    expect(
+      art.map(({ activation }) => (activation.mode === 'auto' ? activation.intents : [])),
+    ).toEqual([writing, writing]);
+    const scoped = all.filter((manifest) => !art.includes(manifest));
     expect(scoped.map(({ id }) => id)).toEqual([...PAGE_LEVEL]);
     for (const { id, activation } of scoped) {
       if (activation.mode !== 'auto') continue;

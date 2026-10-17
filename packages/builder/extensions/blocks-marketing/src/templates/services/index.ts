@@ -1,0 +1,1 @@
+export { servicesTemplate } from './template';

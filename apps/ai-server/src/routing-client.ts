@@ -20,6 +20,51 @@ export function isCliModel(slug: string): boolean {
   return slug.startsWith(CLI_MODEL_PREFIX);
 }
 
+/**
+ * `api:claude-haiku-5-5`: the Anthropic Messages API, billed to ANTHROPIC_API_KEY.
+ * The picker's other half of the subscription/API switch — the same model as a
+ * `cli:` entry, paid the other way.
+ */
+export const API_MODEL_PREFIX = 'api:';
+
+export function isApiModel(slug: string): boolean {
+  return slug.startsWith(API_MODEL_PREFIX);
+}
+
+/**
+ * The request as the Messages API will take it. The plan schemas are open where
+ * kits differ (a brief's `slots`) and carry more optional fields than the API's
+ * grammar compiler allows (measured 2026-10-12: 26 against a limit of 24), so
+ * strict decoding answers 400 before the model writes a word. The schema goes
+ * into the system prompt as text instead — the path OpenRouter models without
+ * structured outputs already take, and `claude.ts` parses either.
+ */
+export function apiParams(params: Record<string, unknown>, model: string): Record<string, unknown> {
+  const outputConfig = params['output_config'] as
+    | { format?: { schema?: unknown }; [key: string]: unknown }
+    | undefined;
+  const schema = outputConfig?.format?.schema;
+  if (outputConfig === undefined || schema === undefined) return { ...params, model };
+  const rest = Object.fromEntries(Object.entries(outputConfig).filter(([key]) => key !== 'format'));
+  const system = Array.isArray(params['system']) ? (params['system'] as unknown[]) : [];
+  return {
+    ...params,
+    model,
+    system: [
+      ...system,
+      {
+        type: 'text',
+        text:
+          '# Required output format\n' +
+          'Reply with RAW JSON ONLY — the first character of your reply must be "{" and the last must be "}". ' +
+          'No markdown code fences, no explanation before or after. Conform exactly to this JSON Schema:\n' +
+          JSON.stringify(schema),
+      },
+    ],
+    ...(Object.keys(rest).length === 0 ? { output_config: undefined } : { output_config: rest }),
+  };
+}
+
 /** `cli:haiku` ⇒ `haiku`; a bare `cli:` ⇒ the CLI's own default. */
 function cliModelOf(slug: string): string | undefined {
   const model = slug.slice(CLI_MODEL_PREFIX.length);
@@ -30,6 +75,8 @@ export interface RoutingClientOptions {
   readonly openrouter: Anthropic;
   /** Builds a CLI client for one model; a fresh one per request is cheap, it holds no state. */
   readonly cli: (model: string | undefined) => Anthropic;
+  /** The Messages API client for `api:` slugs. Omitted ⇒ an `api:` request fails naming the missing key. */
+  readonly api?: Anthropic;
   /** A `cli:` slug to run instead when OpenRouter fails retryably. Omitted ⇒ no fallback. */
   readonly fallback?: string;
   readonly onLog?: (line: string) => void;
@@ -97,6 +144,10 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
     const follow = (inner: StreamLike): Promise<Anthropic.Message> => {
       inner.on('thinking', report);
       inner.on('text', text);
+      // The Messages API's first event (message_start): its prefix is cached now (cache-gate.ts).
+      inner.on('streamEvent', () => {
+        listeners.get('streamEvent')?.('');
+      });
       return inner.finalMessage();
     };
     const runCli = (slug: string): Promise<Anthropic.Message> => {
@@ -109,10 +160,36 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
         ) as unknown as StreamLike;
       return follow(inner);
     };
+    const runApi = (slug: string): Promise<Anthropic.Message> => {
+      if (options.api === undefined) {
+        return Promise.reject(
+          new Error(
+            `${slug} needs ANTHROPIC_API_KEY in apps/ai-server/.env; set it and restart the server.`,
+          ),
+        );
+      }
+      const model = slug.slice(API_MODEL_PREFIX.length);
+      const started = Date.now();
+      onLog(`api run: ${model} on the Anthropic API (billed to the key)`);
+      const inner = options.api.messages.stream(
+        apiParams(params as Record<string, unknown>, model) as never,
+        requestOptions,
+      ) as unknown as StreamLike;
+      // The CLI logs its own runs; this is the API's line, so the terminal names who answered.
+      return follow(inner).then((message) => {
+        const usage = message.usage as Partial<Anthropic.Usage> | undefined;
+        onLog(
+          `api usage — model ${model}, in ${String(usage?.input_tokens ?? '?')}, ` +
+            `out ${String(usage?.output_tokens ?? '?')}, ${String(Math.round((Date.now() - started) / 1000))} s`,
+        );
+        return message;
+      });
+    };
 
     const done = (async (): Promise<Anthropic.Message> => {
       const model = params.model;
       if (model !== undefined && isCliModel(model)) return runCli(model);
+      if (model !== undefined && isApiModel(model)) return runApi(model);
 
       const primary = options.openrouter.messages.stream(
         params as never,

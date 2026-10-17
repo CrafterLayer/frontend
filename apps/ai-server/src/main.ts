@@ -10,13 +10,15 @@ import { createAuthoredRunCoordinator } from './authored-run';
 import { parseAllowedOrigins, withCors } from './cors';
 import { createFreeModelCatalog } from './free-models';
 import { createHandler } from './handler';
+import { configuredCallTimeoutMs } from './call-lifetime';
 import {
   OPENROUTER_EFFORT_LEVELS,
   createOpenRouterClient,
   probeOpenRouterModels,
   type OpenRouterModelFacts,
 } from './openrouter-client';
-import { createRoutingClient, isCliModel } from './routing-client';
+import { createRoutingClient, isApiModel, isCliModel } from './routing-client';
+import { batchBackendFor, createApiBackend, logLocalBackends } from './api-models';
 import { jsonParseError, unwrapJson } from './json-salvage';
 import { createNodeServer } from './server';
 import { createProcessRuntimeSupervisor } from './runtime-workers';
@@ -156,6 +158,7 @@ for (const [signal, code] of [
 const answerDumpDir = setting('CRAFTKIT_AI_DUMP_DIR');
 const rawMaxTokens = Number(setting('CRAFTKIT_AI_MAX_TOKENS'));
 const maxTokens = Number.isInteger(rawMaxTokens) && rawMaxTokens > 0 ? rawMaxTokens : undefined;
+const callTimeoutMs = configuredCallTimeoutMs(setting('CRAFTKIT_AI_CALL_TIMEOUT_MS'));
 const runtimeWorkers = createProcessRuntimeSupervisor();
 const codeRuntime = createCodeRuntimeService({
   workers: runtimeWorkers,
@@ -180,13 +183,7 @@ const backend =
   BACKENDS.find((name) => name === rawBackend) ??
   refuseToStart(`CRAFTKIT_AI_BACKEND="${rawBackend}" is not one of ${BACKENDS.join(', ')}.`);
 
-/*
-  The CLI's whole-run cap. Left alone it is ten minutes, which is what a
-  full-page plan actually takes at the CLI's ~80 output tokens a second; it is
-  configurable because the honest answer depends on the size of the page being
-  asked for. A blank or unparseable value keeps the default rather than
-  silently becoming 0.
-*/
+/* The CLI process cap remains a backstop to the complete call deadline. */
 const rawCliTimeout = Number(setting('CRAFTKIT_AI_CLI_TIMEOUT_MS'));
 const cliTimeoutMs =
   Number.isFinite(rawCliTimeout) && rawCliTimeout > 0 ? rawCliTimeout : undefined;
@@ -273,20 +270,22 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     unless the picker says otherwise); anything else must be an OpenRouter
     slug, `vendor/model`.
   */
-  if (model === undefined || (!isCliModel(model) && !model.includes('/'))) {
+  if (model === undefined || (!isCliModel(model) && !isApiModel(model) && !model.includes('/'))) {
     refuseToStart(
       'CRAFTKIT_AI_BACKEND=openrouter needs CRAFTKIT_AI_MODEL set to an OpenRouter slug — vendor/model, ' +
         `such as anthropic/claude-sonnet-4.5 — or a cli: entry${model === undefined ? '' : `; "${model}" is neither`}.`,
     );
   }
   const cliSlugs = [...(isCliModel(model) ? [model] : []), ...models.filter(isCliModel)];
-  const openRouterSlugs = models.filter((entry) => !isCliModel(entry));
+  const apiSlugs = [...(isApiModel(model) ? [model] : []), ...models.filter(isApiModel)];
+  const openRouterSlugs = models.filter((entry) => !isCliModel(entry) && !isApiModel(entry));
   /*
     The OpenRouter shim needs a model of its own only when a request names
-    none, which never happens through the handler; when the default is a
-    `cli:` entry, the first OpenRouter slug stands in.
+    none, which never happens through the handler; when the default is a `cli:` or `api:` entry, the first OpenRouter slug stands in.
   */
-  const openRouterDefault = isCliModel(model) ? (openRouterSlugs[0] ?? model) : model;
+  const openRouterDefault =
+    isCliModel(model) || isApiModel(model) ? (openRouterSlugs[0] ?? model) : model;
+  const api = createApiBackend(apiSlugs, setting('ANTHROPIC_API_KEY'));
   for (const entry of openRouterSlugs) {
     if (!entry.includes('/')) {
       console.warn(
@@ -325,7 +324,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   */
   const slugs = [
     ...new Set([openRouterDefault, ...openRouterSlugs, ...configuredRoleModels]),
-  ].filter((slug) => !isCliModel(slug));
+  ].filter((slug) => !isCliModel(slug) && !isApiModel(slug));
   const facts = await probeOpenRouterModels(slugs, {
     ...(baseUrl === undefined ? {} : { baseUrl }),
   });
@@ -373,13 +372,9 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
       console.log(`[ai-server] ${line}`);
     },
   });
-  if (cliSlugs.length === 0 && fallback === undefined) return openrouter;
+  if (cliSlugs.length === 0 && apiSlugs.length === 0 && fallback === undefined) return openrouter;
 
-  for (const slug of cliSlugs) {
-    console.log(
-      `[ai-server] ${slug}: the local \`claude\` CLI (your own subscription, no API billing)`,
-    );
-  }
+  logLocalBackends(cliSlugs, apiSlugs);
   if (fallback !== undefined) {
     console.log(
       `[ai-server] fallback: ${fallback} answers when an OpenRouter model is overloaded or unreachable`,
@@ -388,6 +383,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   return createRoutingClient({
     openrouter,
     cli: createCliBackend,
+    ...(api === undefined ? {} : { api }),
     ...(fallback === undefined ? {} : { fallback }),
     onLog: (line) => {
       console.log(`[ai-server] ${line}`);
@@ -506,10 +502,11 @@ console.log(
   `[ai-server] prompt enhancer: ${enhanceModel ?? "the backend's default model"}, low effort, ` +
     'at most 900 output tokens',
 );
-
 const handle = createHandler({
   client,
+  callTimeoutMs,
   codeRuntime,
+  batches: batchBackendFor(backend, client, namedModels, setting('ANTHROPIC_API_KEY')),
   ...(enhanceModel === undefined ? {} : { enhanceModel }),
   onLog: (line) => {
     console.log(`[ai-server] ${line}`);

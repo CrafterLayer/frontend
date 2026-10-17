@@ -71,6 +71,17 @@ export const IconOnly: Story = {
   },
 };
 
+export const IconWithTooltip: Story = {
+  args: {
+    'aria-label': 'Undo',
+    'aria-keyshortcuts': 'Control+Z',
+    children: <span aria-hidden="true">↶</span>,
+    tooltip: 'Undo · Ctrl Z',
+    variant: 'icon',
+  },
+  parameters: { layout: 'centered' },
+};
+
 export const Toggle: Story = {
   args: {
     'aria-pressed': true,

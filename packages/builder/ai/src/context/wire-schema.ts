@@ -1,4 +1,4 @@
-import type { JsonValue } from '@craftkit/builder-schema';
+import { isCustomCodeJsMetaSchema, type JsonValue } from '@craftkit/builder-schema';
 
 /**
  * A block's props schema as the MODEL reads it: the same constraints, fewer
@@ -19,6 +19,10 @@ import type { JsonValue } from '@craftkit/builder-schema';
  *   landing request to 67,153 tokens against 64,000. The model styles a part
  *   with `part.style {id, part, style}` (the "Block parts" fragment and the
  *   part.* tool signatures); it never writes the record by hand.
+ * - studio (2026-10-12): customCode's `jsMeta` (the Studio's library reference
+ *   and param spec, ~2,400 characters) is summarised. The Studio writes it and
+ *   nothing teaches a model to; it rode on every request through the escape
+ *   hatch, and took the playground's request from ~9,000 to ~13,200 tokens.
  */
 
 type JsonRecord = Record<string, JsonValue>;
@@ -35,6 +39,27 @@ const SEO_SUMMARY: JsonRecord = {
   description:
     'Page SEO (keyword, pageKind, schemaKinds, site business). Write it with the seo.* tools (seo.meta, seo.business, seo.schema, seo.fix), never by hand.',
 };
+
+const STUDIO_META_SUMMARY: JsonRecord = {
+  type: 'object',
+  description:
+    'Studio script metadata (library reference, param spec). The Studio writes it; keep it as it is.',
+};
+
+/**
+ * A block's props JSON with every Studio-written prop (`jsMeta`, found by its declaration, never by
+ * name) reduced to a sentence. Its name stays, so a model still sees the block has it.
+ */
+export function withStudioSummaries(json: JsonValue, props: unknown): JsonValue {
+  const shape = (props as { shape?: Record<string, unknown> } | undefined)?.shape;
+  const properties = isRecord(json) ? json['properties'] : undefined;
+  if (shape === undefined || !isRecord(json) || !isRecord(properties)) return json;
+  const studio = Object.keys(shape).filter((key) =>
+    isCustomCodeJsMetaSchema(shape[key] as Parameters<typeof isCustomCodeJsMetaSchema>[0]),
+  );
+  if (studio.length === 0) return json;
+  return { ...json, properties: { ...properties, ...Object.fromEntries(studio.map((key) => [key, STUDIO_META_SUMMARY])) } };
+}
 
 function isRecord(value: JsonValue | undefined): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

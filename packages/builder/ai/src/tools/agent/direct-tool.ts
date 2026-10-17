@@ -1,5 +1,6 @@
 import { systemClock, type BuilderKernel } from '@craftkit/builder-core';
 
+import { readDataRequest } from '../../data-tools/direct-data';
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 // media-motion (2026-10-06): zero-token media readings (DESIGN §F.3)
 import { askMedia, readMedia } from '../../media-tools/direct-media';
@@ -12,6 +13,8 @@ import { colourOf } from './colour-words';
 import { askElementColour, readElementColour } from './element-colour';
 // ── /block-parts ──
 import { expandAgentTools } from './expand';
+import { readSectionSpace } from './section-space-reading';
+import { readSectionTone } from './section-tone-reading';
 import { rootChildren } from './shared';
 import { AGENT_TOOL_COMMAND, type AgentToolStep } from './types';
 import { planChangesLook } from './visible-change';
@@ -279,18 +282,25 @@ export function tryDirectTool(
   kernel: BuilderKernel,
 ): DirectToolResult | undefined {
   const trimmed = request.trim();
-  if (trimmed === '' || trimmed.length > MAX_REQUEST_CHARS || /[\r\n]/u.test(trimmed))
+  // data (2026-10-12): an instruction line over pasted rows («اعمل مخطط:» + a CSV) is data.show, multi-line;
+  // «اعمل تقرير:» / "make a dashboard from this:" over rows is report.build.
+  const data = readDataRequest(trimmed);
+  if (data === undefined && (trimmed === '' || trimmed.length > MAX_REQUEST_CHARS || /[\r\n]/u.test(trimmed)))
     return undefined;
   const text = folded(trimmed);
   // colour-target fix: a colour that names an element («سارة», «العنوان», "the button") is that element's, read first.
-  const element = readElementColour(text, kernel);
+  const element = data === undefined ? readElementColour(text, kernel) : undefined;
   const reading: Reading | undefined =
+    (data === undefined ? undefined : { calls: [{ name: data.tool, input: { ...data.input } }], label: data.label }) ??
     (element === undefined ? undefined : { calls: [], steps: element.steps, label: element.label }) ??
     readColour(text) ??
     readFont(text) ??
     readSeo(text) ??
     readNav(text) ??
     readDirection(text) ??
+    // ready scripts (2026-10-13): «خلّي قسم الأسعار داكن» → section.ops tone; «زوّد المسافات بين الأقسام» → space
+    readSectionTone(text, kernel) ??
+    readSectionSpace(text, kernel) ??
     readSections(text, kernel) ??
     // media-motion (2026-10-06): «ضيف معرض صور», «حط فيديو <url>», «خلفية متحركة» … (URLs read from the typed request)
     readMedia(text, kernel, trimmed);

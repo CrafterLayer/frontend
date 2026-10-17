@@ -12,7 +12,11 @@ import type {
   AiProposePagePlanOptions,
   AssembledAiContext,
 } from '../types';
-import { AiProviderError, type AiProviderErrorDetails } from './errors';
+import { AiProviderError } from './errors';
+import { RemoteAiProviderError, remoteStatusError } from './remote-errors';
+import { remoteSceneReview } from './remote-scene-review';
+import { remoteSitePlan } from './remote-site-plan';
+import { AiTaskUnsupportedError, type AiRemoteTask } from './remote-task';
 import { notifyProviderUsage } from './usage';
 import {
   AI_PLAN_WIRE_VERSION,
@@ -58,56 +62,10 @@ const ACCEPT_STREAM_OR_JSON = 'text/event-stream, application/json';
  * verbatim; transport failures get one plain sentence each. A caller's own
  * cancellation is NOT one of these — it rethrows as the platform AbortError.
  */
-export class RemoteAiProviderError extends AiProviderError {
-  override readonly name = 'RemoteAiProviderError';
+export { RemoteAiProviderError } from './remote-errors';
 
-  constructor(
-    message: string,
-    details: AiProviderErrorDetails = { code: 'invalid-output', retryable: false },
-  ) {
-    super(message, details);
-  }
-}
-
-/** The optional tasks a server may predate: the page plan (T1) and the prompt enhancer. */
-export type AiRemoteTask = 'page-plan' | 'prompt-enhance';
-
-/**
- * The server does not do this task: it answered a page-plan (or enhance)
- * request with an ORDINARY plan, the mark of a server written before the
- * task existed (wire.ts reads it as `'unsupported'`).
- *
- * Typed so a caller can tell "this server is older" from "this answer was
- * broken": the build treats it as it treats a provider with no
- * `proposePagePlan` — it reports the step failed and builds from the scaffold
- * — and `enhanceRequest` falls back to its tidy. Never retryable: the same
- * server gives the same answer. The provider REMEMBERS it (see
- * `createRemoteAiPlanProvider`), because such a server ignores the unknown
- * `task` and runs a whole plan generation to produce the wrong answer —
- * minutes and 15–25k output tokens per build (measured plan size, prompt
- * notes in planProviderFromEnv.ts).
- *
- * Its code is `'invalid-output'` because `AiProviderErrorCode` (errors.ts,
- * not this module's) has no `'unsupported'` yet; the class and `task` are the
- * stable signal until it does.
- */
-export class AiTaskUnsupportedError extends AiProviderError {
-  override readonly name: string = 'AiTaskUnsupportedError';
-  readonly task: AiRemoteTask;
-
-  constructor(task: AiRemoteTask, message: string) {
-    super(message, { code: 'invalid-output', retryable: false });
-    this.task = task;
-  }
-}
-
-/** Whether `value` says the server does not do `task` (any task when omitted). */
-export function isAiTaskUnsupportedError(
-  value: unknown,
-  task?: AiRemoteTask,
-): value is AiTaskUnsupportedError {
-  return value instanceof AiTaskUnsupportedError && (task === undefined || value.task === task);
-}
+// The tasks a server may predate, and the error that says so (T230: remote-task.ts).
+export { AiTaskUnsupportedError, isAiTaskUnsupportedError, type AiRemoteTask } from './remote-task';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -204,7 +162,7 @@ async function readJsonResponse(response: Response, maxResponseBytes: number): P
  * error names the server instead of confusing the kernel-door validator. The
  * real per-command validation still happens in `assertValidAiPlan`.
  */
-function parseWireResponse(payload: unknown): AiPlan {
+export function parseWireResponse(payload: unknown): AiPlan {
   if (
     isRecord(payload) &&
     Object.hasOwn(payload, 'version') &&
@@ -412,6 +370,11 @@ async function readSseResponse(
       }
       resultSeen = true;
       result = payload;
+    } else if (event === 'error') {
+      // A failure after the stream began, with the status a plain answer would have carried.
+      if (resultSeen || !isRecord(payload) || typeof payload['status'] !== 'number') return;
+      const said = payload['message'];
+      throw remoteStatusError(payload['status'], typeof said === 'string' ? said : undefined);
     } else if (event === 'draft') {
       if (resultSeen || onDraft === undefined || !isRecord(payload)) return;
       if (payload['reset'] === true) {
@@ -454,7 +417,7 @@ function endpointPolicyError(message: string): RemoteAiProviderError {
   return new RemoteAiProviderError(message, { code: 'endpoint-policy', retryable: false });
 }
 
-function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): void {
+export function assertEndpointAllowed(endpoint: string, allowInsecureHttp: boolean): void {
   let parsed: URL;
   try {
     parsed = new URL(endpoint);
@@ -530,14 +493,13 @@ interface RemoteExchange<T> {
  * (the model's raw answer text) feed `live.onDraft` — `start` when the stream
  * begins or the server resets it, then `text` slices; a JSON answer emits none.
  *
- * Three tasks, one transport (auth, deadline, cancellation, size cap, SSE):
- * `propose`/`repair` post a plan request to the endpoint; `proposePagePlan`
- * posts the same request with `task: 'page-plan'` (and the refused candidate
- * as `pagePlanAttempt` on its one repair); `enhancePrompt` posts the draft to
- * `/v1/prompt/enhance` on the endpoint's origin, under its own shorter
- * deadline. A server that turns out to predate a task is remembered for the
- * provider's lifetime (`AiTaskUnsupportedError`), so its misread answer is
- * paid for once, not once per build.
+ * Several tasks, one transport (auth, deadline, cancellation, size cap, SSE): `propose`/`repair`
+ * post a plan request to the endpoint; `proposePagePlan` posts the same request with
+ * `task: 'page-plan'` (and the refused candidate as `pagePlanAttempt` on its one repair);
+ * `enhancePrompt` posts the draft to `/v1/prompt/enhance` on the endpoint's origin, and
+ * `reviewScene` a scene's pictures to `/v1/scene/review`, each under its own shorter deadline.
+ * A server that turns out to predate a task is remembered for the provider's lifetime
+ * (`AiTaskUnsupportedError`), so its misread answer is paid for once, not once per build.
  */
 export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions) {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -622,18 +584,7 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
 
       if (!response.ok) {
         cancelResponseBody(response);
-        throw new RemoteAiProviderError(
-          `The assistant server answered with status ${String(response.status)}.`,
-          {
-            code: 'http-status',
-            retryable:
-              response.status === 408 ||
-              response.status === 425 ||
-              response.status === 429 ||
-              response.status >= 500,
-            status: response.status,
-          },
-        );
+        throw remoteStatusError(response.status);
       }
 
       try {
@@ -765,10 +716,9 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       );
     },
     /*
-      Step T1 over the page-plan wire (2026-09-28). Before this the playground's
-      provider had no `proposePagePlan`, so every build silently took the
-      scaffold path — the ~25k-character model-written skeleton the PagePlan
-      pipeline was built to replace (engine wave-2 verifier, same day).
+      Step T1 over the page-plan wire (2026-09-28). Before this the playground's provider had no
+      `proposePagePlan`, so every build silently took the scaffold path — the ~25k-character
+      model-written skeleton the PagePlan pipeline was built to replace (wave-2 verifier).
     */
     async proposePagePlan(
       request: string,
@@ -797,6 +747,12 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
         live,
       );
     },
+    // The site plan (remote-site-plan.ts) and the scene review (remote-scene-review.ts).
+    ...remoteSitePlan((body, read, live) => post(planExchange(body, read), live), {
+      refuseKnownUnsupported,
+      remember,
+    }),
+    ...remoteSceneReview(post, options, { refuseKnownUnsupported, remember }),
     async enhancePrompt(
       input: AiPromptEnhanceInput,
       live?: AiEnhancePromptOptions,

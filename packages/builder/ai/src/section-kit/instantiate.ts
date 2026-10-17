@@ -1,7 +1,15 @@
-import { CUSTOM_CODE_ATTRIBUTES, isLucideIconName, safeCustomCodeUrl } from '@craftkit/builder-schema';
+import { CUSTOM_CODE_ATTRIBUTES, isLucideIconName } from '@craftkit/builder-schema';
 
-import { selectCatalogPhotos } from '../context/providers/photo-catalog';
-import { catalogEntryFor } from '../seo/alt-text';
+import { artKindOfUrl } from '../art-catalog/runtime';
+import { checkImage } from './check-image';
+import {
+  clampText,
+  cleanText,
+  isRecord,
+  slotShape,
+  type CheckContext,
+  type SlotCheck,
+} from './slot-values';
 import {
   HEADING_MARKER,
   captureString,
@@ -62,117 +70,10 @@ const ANCHOR_ID = /^[A-Za-z؀-ۿ][\w؀-ۿ-]{0,79}$/u;
 const LABEL_MAX = 80;
 const DEFAULT_TEXT_MAX = 600;
 const DEFAULT_LIST_MAX = 12;
-/** Control characters other than tab and newline: never part of what a person wrote. */
-const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** Cut to `max` characters at a word, with an ellipsis. */
-export function clampText(text: string, max: number): string {
-  // Code points, not UTF-16 units: an Arabic or emoji character is never cut in half.
-  const chars = Array.from(text);
-  if (chars.length <= max) return text;
-  const head = chars.slice(0, max - 1).join('');
-  const space = head.lastIndexOf(' ');
-  const cut = space >= head.length - 30 && space > 0 ? head.slice(0, space) : head;
-  return `${cut.trimEnd()}…`;
-}
-
-function cleanText(value: string): string {
-  return value.replace(CONTROL, '').trim();
-}
 
 const SAFE_HREF = /^(?:#[^\s'"<>]{1,120}|\/[^\s'"<>]{0,300}|https:\/\/[^\s'"<>]{1,500}|mailto:[^\s'"<>]{3,200}|tel:\+?[\d\s().-]{3,40})$/u;
 
 // ── Slot values ───────────────────────────────────────────────────────────────
-
-type SlotCheck =
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly error: string };
-
-interface CheckContext {
-  readonly kit: SectionKit;
-  readonly lang: string;
-  /** Catalog photos already used by this instantiation, so a gallery never repeats one. */
-  readonly usedPhotos: Set<string>;
-}
-
-function slotShape(slot: SectionKitSlot): string {
-  switch (slot.kind) {
-    case 'text':
-      return '"…"';
-    case 'link':
-      return '{"label":"…","href":"#section-id"}';
-    case 'image':
-      return '{"src":"https://…","alt":"…"} or {"subject":"coffee","alt":"…"}';
-    case 'icon':
-      return 'a Lucide name such as "coffee"';
-    case 'list': {
-      const fields = Object.keys(slot.item ?? {});
-      return `[{${fields.map((field) => `"${field}":…`).join(',')}}]`;
-    }
-  }
-}
-
-/** The catalog subject a photo falls back to when the one named matches nothing. */
-const GENERIC_PHOTO_SUBJECT = 'business';
-
-function checkImage(where: string, value: unknown, context: CheckContext): SlotCheck {
-  if (!isRecord(value)) {
-    return { ok: false, error: `slot "${where}" is an image: ${slotShape({ kind: 'image' })}.` };
-  }
-  let src = typeof value['src'] === 'string' ? value['src'].trim() : '';
-  let alt = typeof value['alt'] === 'string' ? cleanText(value['alt']) : '';
-  if (src === '' && typeof value['subject'] === 'string' && value['subject'].trim() !== '') {
-    const subject = value['subject'];
-    const pick = (brief: string) =>
-      selectCatalogPhotos(brief, { exclude: (entry) => context.usedPhotos.has(entry.url) })[0];
-    /*
-      The nearest catalog photo, never a refusal (fix pass 2026-10-05): the
-      subject, then the subject with its alt, then the generic business photo.
-      "freelancer sending professional invoice on laptop" matched no topic,
-      and the refusal cost the English features section a whole repair round
-      while five finished sections below it waited to land.
-    */
-    const exact = pick(subject) ?? (alt === '' ? undefined : pick(`${subject} ${alt}`));
-    const photo = exact ?? pick(GENERIC_PHOTO_SUBJECT);
-    if (photo === undefined) {
-      return {
-        ok: false,
-        error: `slot "${where}": no catalog photo matches subject "${subject}"; name a plainer subject (coffee, bakery, clinic, office, team) or give "src" from PHOTOS YOU MAY USE.`,
-      };
-    }
-    src = photo.url;
-    // A generic stand-in is described as what it shows, not as what was asked for.
-    if (alt === '' || exact === undefined) {
-      alt = context.lang.startsWith('ar') ? photo.alt.ar : photo.alt.en;
-    }
-  }
-  /*
-    A catalog photo is described by its own entry, written from the picture
-    (walk 2026-10-08): a labneh bowl went out as «مائدة أرز وسلطات ومشاوي»
-    because the writer's alt described the photo it hoped for.
-  */
-  const described = catalogEntryFor(src)?.alt;
-  const own = described === undefined ? '' : context.lang.startsWith('ar') ? described.ar : described.en;
-  if (own.trim() !== '') alt = cleanText(own);
-  if (src === '') {
-    return { ok: false, error: `slot "${where}" needs "src" (an https photo address) or "subject".` };
-  }
-  if (!src.startsWith('https://') || safeCustomCodeUrl(src) === undefined) {
-    return { ok: false, error: `slot "${where}": "src" must be an https:// address.` };
-  }
-  if (alt === '') {
-    return {
-      ok: false,
-      error: `slot "${where}" needs "alt": say what the photo shows, in the page's language.`,
-    };
-  }
-  context.usedPhotos.add(src);
-  return { ok: true, value: { src, alt: clampText(alt, 180) } };
-}
 
 function checkSlot(where: string, slot: SectionKitSlot, value: unknown, context: CheckContext): SlotCheck {
   switch (slot.kind) {
@@ -324,6 +225,11 @@ function finishImages(nodes: readonly FilledNode[], hero: boolean): void {
         delete attributes['fetchpriority'];
       }
       attributes['decoding'] = 'async';
+      // art catalog (2026-10-14): a logo or an illustration is drawn whole in its frame, never cropped.
+      const art = artKindOfUrl(attributes['src'] ?? '');
+      if (node.className !== undefined && (art === 'logo' || art === 'illustration')) {
+        node.className = node.className.replace(/\bobject-cover\b/u, 'object-contain');
+      }
       const srcset = typeof attributes['src'] === 'string' ? srcsetFor(attributes['src']) : undefined;
       if (srcset !== undefined && attributes['srcset'] === undefined) {
         attributes['srcset'] = srcset;

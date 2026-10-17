@@ -2,29 +2,19 @@ import type Anthropic from '@anthropic-ai/sdk';
 
 import { parsesAsJson, unwrapJson } from './json-salvage';
 import { NARRATION_INTERVAL_MS, RunNarrator, formatCount, formatElapsed } from './narration';
+import * as cache from './openrouter-cache';
+import { openRouterThinking } from './openrouter-thinking';
 
 /**
  * The OpenRouter backend, gated by `CRAFTKIT_AI_BACKEND=openrouter`.
  *
- * Routes the exact request `claude.ts` builds through OpenRouter's
- * chat-completions API instead of the Anthropic Messages API, so one key
- * reaches every model OpenRouter fronts. Like `cli-client.ts` it intercepts
- * at the seam the tests fake (`client.messages.stream`): `prompt.ts` — skills,
- * catalog, cache layout — runs unmodified, and `claude.ts` / `handler.ts`
- * keep translating the same `Anthropic.Message` shape they always did.
+ * The shared `messages.stream` seam preserves prompts, cache layout and the answer contract.
  *
  * What changes on this path:
- * - The output schema travels as `response_format` (enforced by the models
- *   that support it) AND as text after the cache breakpoint (for the ones that
- *   silently drop it). `claude.ts` still parses and the client still
- *   validates, so a model that ignores both produces a rejected proposal,
- *   never a damaged document.
- * - Reasoning is opt-in per deployment (`effort`), because the models behind
- *   one OpenRouter key disagree about what it costs and whether it exists.
- *   When a model does reason, its own words narrate; when it does not, the
- *   shared narrator keeps the panel's line moving from the clock.
- * - Failures arrive as `OpenRouterBackendError`, carrying OpenRouter's own
- *   sentence and the HTTP status the handler should answer with.
+ * - Schemas travel as provider `response_format` plus text; the client validates either way.
+ * - Effort is per call/deployment; tested initialization disables reasoning only where supported.
+ * - Real reasoning narrates itself; a separate timer fills silence without proving cache readiness.
+ * - Typed backend errors retain the HTTP status the client should act on.
  */
 
 /** `fetch`, narrowed to what this backend uses; injected by the tests. */
@@ -66,6 +56,7 @@ export interface OpenRouterModelFacts {
   readonly inputModalities: readonly string[];
   /** The most the model may write in one answer; requests are clamped to it. */
   readonly maxOutputTokens: number | undefined;
+  readonly reasoningMandatory?: boolean;
   readonly promptPerMillion?: number;
   readonly completionPerMillion?: number;
 }
@@ -98,6 +89,7 @@ export interface OpenRouterClientOptions {
 interface StreamParams {
   readonly model?: string;
   readonly max_tokens?: number;
+  readonly thinking?: { readonly type?: string };
   readonly system?: readonly {
     readonly text: string;
     readonly cache_control?: unknown;
@@ -139,10 +131,6 @@ function isAbort(cause: unknown): boolean {
   return isRecord(cause) && cause['name'] === 'AbortError';
 }
 
-function messageText(content: unknown): string {
-  return typeof content === 'string' ? content : JSON.stringify(content);
-}
-
 /** OpenRouter's own words, on one line and bounded — never a stack, never a page. */
 function boundedText(text: string): string {
   const flat = text.replace(/\s+/gu, ' ').trim();
@@ -167,34 +155,16 @@ function schemaAsText(schema: unknown): string {
   );
 }
 
-function chatMessages(
-  params: StreamParams,
-  schema: unknown,
-  explicitPromptCache: boolean,
-): unknown[] {
-  const system = (params.system ?? []).map((block) => ({
-    type: 'text',
-    text: block.text,
-    ...(block.cache_control === undefined || !explicitPromptCache
-      ? {}
-      : { cache_control: block.cache_control }),
-  }));
-  if (schema !== undefined) system.push({ type: 'text', text: schemaAsText(schema) });
-  const turns = (params.messages ?? []).map((turn) => ({
-    role: turn.role === 'assistant' ? 'assistant' : 'user',
-    content: messageText(turn.content),
-  }));
-  return [...(system.length === 0 ? [] : [{ role: 'system', content: system }]), ...turns];
-}
-
 function chatPayload(
   params: StreamParams,
   options: OpenRouterClientOptions,
   effort: OpenRouterEffort | undefined,
+  extended: boolean,
 ): Record<string, unknown> {
   const schema = params.output_config?.format?.schema;
   const model = params.model ?? options.model;
   const facts = options.models?.get(model);
+  const reasoning = openRouterThinking(params, model, effort, facts?.reasoningMandatory);
   /*
     `response_format` only where constrained decoding is proven. A provider's
     guided decoding once turned every name in a plan into a single letter —
@@ -218,9 +188,10 @@ function chatPayload(
         : Math.min(params.max_tokens, ceiling);
   return {
     model,
-    // GPT caching is automatic. Anthropic is the only configured path where
-    // this server sends the provider-specific cache-control TTL.
-    messages: chatMessages(params, schema, model.startsWith('anthropic/')),
+    messages: cache.chatMessages(params, schema === undefined ? undefined : schemaAsText(schema), {
+      explicit: cache.explicitCacheFor(model),
+      extended,
+    }),
     ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     stream: true,
     usage: { include: true },
@@ -232,7 +203,7 @@ function chatPayload(
             json_schema: { name: 'craftkit_plan', strict: true, schema },
           },
         }),
-    ...(effort === undefined ? {} : { reasoning: { effort } }),
+    ...(reasoning === undefined ? {} : { reasoning }),
   };
 }
 
@@ -415,6 +386,7 @@ class Answer {
     private readonly report: (text: string) => void,
     /** Each piece of the answer as it arrives (`stream.on('text')`): a page plan's drafts. */
     private readonly onText: (text: string) => void,
+    private readonly onStreamEvent: () => void,
   ) {}
 
   take(data: string): void {
@@ -446,7 +418,10 @@ class Answer {
     const choice = Array.isArray(choices) ? (choices[0] as unknown) : undefined;
     if (isRecord(choice)) {
       const delta = choice['delta'];
-      if (isRecord(delta)) this.takeDelta(delta);
+      if (isRecord(delta)) {
+        this.onStreamEvent();
+        this.takeDelta(delta);
+      }
       if (typeof choice['finish_reason'] === 'string') this.finish = choice['finish_reason'];
     }
     if (isRecord(frame['usage'])) this.usage = frame['usage'];
@@ -527,6 +502,7 @@ async function runChat(
   signal: AbortSignal | undefined,
   report: (text: string) => void,
   onText: (text: string) => void,
+  onStreamEvent: () => void,
 ): Promise<Anthropic.Message> {
   const onLog = options.onLog ?? ((): void => undefined);
   const fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
@@ -534,17 +510,18 @@ async function runChat(
   // The model this run is actually on — a per-request choice or the default — so logs and failures name the right slug.
   const model = typeof payload['model'] === 'string' ? payload['model'] : options.model;
   const reasoning = isRecord(payload['reasoning']) ? payload['reasoning'] : {};
-  const effort = typeof reasoning['effort'] === 'string' ? reasoning['effort'] : '(model default)';
+  const effort =
+    reasoning['enabled'] === false
+      ? 'off'
+      : typeof reasoning['effort'] === 'string'
+        ? reasoning['effort']
+        : '(model default)';
   const body = JSON.stringify(payload);
 
   const startedAt = Date.now();
   const narrator = new RunNarrator(report, startedAt);
-  const answer = new Answer(model, narrator, report, onText);
-  /*
-    The clock speaks only when the model does not: a model that reasons
-    aloud narrates itself, and a status line that alternates between its
-    sentences and "Thinking (00:12)" would read as two voices.
-  */
+  const answer = new Answer(model, narrator, report, onText, onStreamEvent);
+  // Clock narration fills silence; never alternate with the model's own reasoning.
   const narration = setInterval(() => {
     if (answer.reasoningSeen && narrator.writtenSoFar() === 0) return;
     narrator.emit();
@@ -625,6 +602,7 @@ export function openRouterFactsOf(entry: Record<string, unknown>): OpenRouterMod
   const top = isRecord(entry['top_provider']) ? entry['top_provider'] : {};
   const pricing = isRecord(entry['pricing']) ? entry['pricing'] : {};
   const architecture = isRecord(entry['architecture']) ? entry['architecture'] : {};
+  const reasoning = isRecord(entry['reasoning']) ? entry['reasoning'] : {};
   const inputModalities: unknown[] = Array.isArray(architecture['input_modalities'])
     ? architecture['input_modalities']
     : [];
@@ -639,6 +617,9 @@ export function openRouterFactsOf(entry: Record<string, unknown>): OpenRouterMod
       (modality): modality is string => typeof modality === 'string',
     ),
     maxOutputTokens: typeof maxOut === 'number' && maxOut > 0 ? maxOut : undefined,
+    ...(typeof reasoning['mandatory'] === 'boolean'
+      ? { reasoningMandatory: reasoning['mandatory'] }
+      : {}),
     ...perMillion('promptPerMillion', pricing['prompt']),
     ...perMillion('completionPerMillion', pricing['completion']),
   };
@@ -696,28 +677,36 @@ export async function probeOpenRouterModels(
 
 /** A `client.messages.stream(...)`-shaped shim over OpenRouter's chat completions. */
 export function createOpenRouterClient(options: OpenRouterClientOptions): Anthropic {
+  // The hour-long breakpoints and the conversation breakpoint, until OpenRouter refuses them.
+  let extendedCache = true;
   const stream = (params: StreamParams, requestOptions: StreamRequestOptions = {}) => {
     const listeners = new Map<string, (delta: string) => void>();
     const report = (text: string): void => {
       listeners.get('thinking')?.(text);
     };
-    /*
-      Per call: `claude.ts` puts a section's budget where the Messages API
-      reads it, `output_config.effort`; the authored-file runs still send it
-      as the private header. Either wins over the deployment's own `effort`.
-    */
+    // A per-call effort in the API field or private header wins over the deployment.
     const requestedEffort =
       openRouterEffort(params.output_config?.effort) ??
       openRouterEffort(requestOptions.headers?.[CRAFTKIT_REASONING_EFFORT_HEADER]);
-    const done = runChat(
-      chatPayload(params, options, requestedEffort ?? options.effort),
-      options,
-      requestOptions.signal,
-      report,
-      (text) => {
-        listeners.get('text')?.(text);
-      },
-    );
+    const send = (extended: boolean) =>
+      runChat(
+        chatPayload(params, options, requestedEffort ?? options.effort, extended),
+        options,
+        requestOptions.signal,
+        report,
+        (text) => {
+          listeners.get('text')?.(text);
+        },
+        () => {
+          listeners.get('streamEvent')?.('');
+        },
+      );
+    const extended =
+      extendedCache && cache.usesExtendedCache(params, params.model ?? options.model);
+    const done = cache.sendWithCacheFallback(send, extended, () => {
+      extendedCache = false;
+      options.onLog?.('openrouter refused the hour-long cache form; five minutes from now on');
+    });
     return {
       on: (event: string, listener: (delta: string) => void) => {
         listeners.set(event, listener);

@@ -4,6 +4,7 @@ import type { ArtifactFile, CompileDiagnostic } from '@craftkit/builder-schema';
 import type { CompileOptions, CompileResult, RuntimeSnapshot, SourceElement } from '../contracts';
 import { fingerprint, projectFingerprints } from '../fingerprint';
 import { instrumentSource } from './instrument-source';
+import { TAILWIND_PLUGIN_PREAMBLE, loadTrustedPlugin } from './tailwind-plugins';
 import {
   resolveProjectModule,
   validateManagedCatalog,
@@ -132,13 +133,11 @@ export async function compileProject(
     const emitted = result.outputFiles ?? [];
     const cssSource = [
       options.catalog.stylesheet ?? '',
+      TAILWIND_PLUGIN_PREAMBLE,
       ...emitted.filter((file) => file.path.endsWith('.css')).map((file) => file.text),
     ].join('\n');
     const styles = await compileTailwind(cssSource, {
-      loadModule: () =>
-        Promise.reject(
-          new Error('Authored Tailwind plugins and configuration modules are not allowed.'),
-        ),
+      loadModule: loadTrustedPlugin,
       loadStylesheet: (id) => {
         const module = resolveProjectModule(snapshot, options.catalog, id);
         if (module.kind !== 'managed' || module.file.language !== 'css')

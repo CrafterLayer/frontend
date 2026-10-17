@@ -32,6 +32,15 @@ describe('ScriptParamsForm', () => {
     expect(screen.getByRole('switch')).toHaveAccessibleName('Pointer');
     expect(screen.queryByRole('button', { name: /^Reset/u })).not.toBeInTheDocument();
   });
+  it('keeps spec order, a group legend over each run of one group', () => {
+    const byKey = new Map(SCRIPT_PARAMS_FORM_SPEC.map((entry) => [entry.key, entry]));
+    const order = ['speed', 'title', 'pointer', 'color'];
+    const { container } = setup({ spec: order.flatMap((key) => byKey.get(key) ?? []) });
+    const rows = [...container.querySelectorAll('[data-param]')];
+    expect(rows.map((row) => row.getAttribute('data-param'))).toEqual(order);
+    const legends = [...container.querySelectorAll('legend')].map((legend) => legend.textContent);
+    expect(legends).toEqual(['Motion', 'Look', 'Interaction', 'Look']);
+  });
   it('shows an empty message without controls', () => {
     setup({ spec: [] });
     expect(screen.getByText('This script has no controls.')).toBeInTheDocument();

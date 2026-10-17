@@ -34,6 +34,7 @@ import type {
 } from '../model/view-types';
 
 import type { PluralCategory } from './format';
+import { EDIT_RESULT_KEYS } from './edit-results';
 
 /** Every catalog key, grouped by the SPEC section that owns it. */
 export const KEYS = [
@@ -42,6 +43,14 @@ export const KEYS = [
   'header.conversations',
   'header.new',
   'header.new.busy',
+  // (added) the header's status subtitle, Studio Indigo redesign (2026-10-12).
+  'header.status.ready',
+  'header.status.readyFreeCode',
+  'header.status.thinking',
+  'header.status.building',
+  'header.status.editing',
+  'header.status.stopping',
+  'header.status.review',
   'sheet.close',
   'sheet.showPage',
   'sheet.backToChat',
@@ -184,6 +193,24 @@ export const KEYS = [
   'facts.toggle',
   'facts.intro',
   'facts.item',
+  // creative agent (2026-10-12) (added): StoryBiblePanel.
+  'bible.toggle',
+  'bible.intro',
+  'bible.empty',
+  'bible.characters',
+  'bible.assets',
+  'bible.locations',
+  'bible.facts',
+  'bible.remove',
+  'bible.addCharacter',
+  'bible.name',
+  'bible.role',
+  'bible.color',
+  'bible.addFact',
+  'bible.fact',
+  'bible.add',
+  'bible.clear',
+  'bible.clearConfirm',
   'footer.undoBuild',
   'footer.redoBuild',
   'footer.finishRest',
@@ -410,6 +437,39 @@ export const KEYS = [
   'freeCode.button',
   'freeCode.on',
   'freeCode.off',
+  // (added) creative agent (2026-10-12): the empty state's creative starters and the
+  // build record's creative brief. Not `starter.*`: those are the SPEC's rotating rows.
+  'creative.title',
+  'creative.badge',
+  'creative.game',
+  'creative.game.detail',
+  'creative.game.prompt',
+  'creative.story',
+  'creative.story.detail',
+  'creative.story.prompt',
+  'creative.bedtime',
+  'creative.bedtime.detail',
+  'creative.bedtime.prompt',
+  'creative.needsFreeCode',
+  'creative.enableFreeCode',
+  'creative.freeCodeOn',
+  'brief.title',
+  'brief.caption',
+  'brief.genre',
+  'brief.libs',
+  'brief.effects',
+  'brief.cast',
+  'brief.role.hero',
+  'brief.role.supporting',
+  'brief.genre.platformer',
+  'brief.genre.maze-adventure',
+  'brief.genre.arcade',
+  'brief.genre.puzzle',
+  'brief.genre.physics-toy',
+  'brief.genre.visual-novel',
+  'brief.genre.picture-book',
+  'brief.genre.chapter-story',
+  'brief.genre.mural',
   'send',
   'queue',
   'queued',
@@ -509,9 +569,7 @@ export const KEYS = [
   'message.aria',
   'direction.aria.colors',
   'direction.aria.fonts',
-  'edit.title.donePage',
-  'edit.title.noChangePage',
-  'proposal.appliedPage',
+  ...EDIT_RESULT_KEYS,
 
   // WP-13-decisions additions: what the decision cards need that no SPEC table prints
   // (each value says why in the catalogs).

@@ -1,0 +1,67 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as CreativeStartersStories from './CreativeStarters.stories';
+
+<Meta of={CreativeStartersStories} />
+
+# CreativeStarters
+
+The empty thread's creative starters (creative agent, 2026-10-12): a platformer game, a story with
+choices and a bedtime story.
+
+<Canvas of={CreativeStartersStories.FreeCodeOff} />
+
+## Purpose
+
+The panel builds pages first, and its page starters say so. Games and interactive stories are the
+newer thing it can make, and nothing in an empty panel said they existed. These three cards show it,
+each with a strong, specific request (a hero, a goal, a setting) so the creative planner has
+something to plan from the first message.
+
+## When to use / not
+
+In AgentThread's empty state, under the page starters, when the host keeps a free-code switch
+(`AgentViewState.freeCode`). Not while a block is selected (that greeting asks about the block), not
+while a run is live or the composer holds text, and never after the first turn.
+
+## Props
+
+| prop               | type                         | default | notes                                      |
+| ------------------ | ---------------------------- | ------- | ------------------------------------------ |
+| `locale`           | `Locale`                     | none    |                                            |
+| `freeCode`         | `FreeCodeView`               | none    | the note says whether games can be written |
+| `onChoose`         | `(SuggestionView) => void`   | none    | fills the composer; never sends            |
+| `onFreeCodeChange` | `(enabled: boolean) => void` | none    | the note's Turn on button; left out, none  |
+| `className`        | `string`                     | none    | appended to `ck-agent-creative`            |
+
+## States
+
+`FreeCodeOff` (the note offers to turn it on), `FreeCodeOn`, `Dark`, `RightToLeft` and `Narrow` (the
+cards stack under a 360px panel).
+
+## Anatomy
+
+```text
+Games and interactive stories  (New)          h3 Meta 600 Slate, Accent-wash badge
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ [🎮]     │ │ [💬]     │ │ [🌙]     │        32px tinted tile: amber / indigo / green
+│ Platformer│ │ Story with│ │ Bedtime  │        name Read 500 Ink
+│ Levels, … │ │ Characters│ │ Calm …   │        detail Figure Slate
+└──────────┘ └──────────┘ └──────────┘
+</> Games and stories need free code …  [Turn on free code]   amber note; green once on
+```
+
+## Accessibility
+
+- A `section` named by its `h3`; the cards are a list of `type="button"` elements described by "Puts
+  the text in the box without sending it", like suggestion rows.
+- The tiles' glyphs are `aria-hidden`; each card is named by its words.
+- 44px targets on a coarse pointer; reduced motion removes the hover transitions; forced colours
+  draw every edge in CanvasText.
+- Not a live region: turning free code on changes the note in place, and the composer's switch says
+  the same.
+
+## RTL
+
+The grid and each card flow from the inline start; the stacked layout puts the tile at the start.
+Requests are catalog copy in the panel's locale, so they read in the person's language.

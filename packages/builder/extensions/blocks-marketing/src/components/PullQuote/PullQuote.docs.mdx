@@ -1,0 +1,41 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as PullQuoteStories from './PullQuote.stories';
+
+<Meta of={PullQuoteStories} />
+
+# Pull Quote
+
+One large, attributed quotation that breaks the rhythm of a page — a founder's line, a sentence from
+a press article, the line a customer said that sums the product up. Testimonials is a _set_ of
+reviews under a heading; a pull quote is one line set in display type, with no heading of its own.
+
+## Content model
+
+- `quote` (edited in place; up to 320 characters), `author`, `role`.
+- `source` + `sourceHref` — a publication or document, linked when the address is safe (relative,
+  http(s), mailto, tel); the address is also the blockquote's `cite`.
+- `imageSrc` / `imageAlt`: an optional round portrait beside the attribution.
+- `variant: 'plain' | 'rule' | 'card' = 'plain'`, `size: 'md' | 'lg' | 'xl' = 'lg'`,
+  `showMark = true`.
+- The shared section props: `align` (default centre), `tone`, `spacing`, `width`, colour roles,
+  motion, typography (a serif `fontFamily` suits it), gutter, custom classes and `partStyles`.
+
+## Semantics, direction and accessibility
+
+A `<figure>` holds the `<blockquote>` and a `<figcaption>`; the source sits in a `<cite>`. The
+decorative quotation mark is an `aria-hidden` glyph drawn from the project's lucide set and mirrored
+under RTL (`rtl:-scale-x-100`), so it opens an Arabic line from the right. The `rule` variant's bar
+is `border-s-4` — the inline start. The figure's measure is capped at the standard content width so
+a long quote never runs edge to edge on a wide screen. The `card` variant keeps its own light ground
+and ink on a dark section.
+
+## Parts
+
+| name     | kind  | bind                                 | label (en / ar)       |
+| -------- | ----- | ------------------------------------ | --------------------- |
+| `quote`  | text  | `quote`                              | Quote / الاقتباس (ml) |
+| `author` | text  | `author`                             | Speaker / القائل      |
+| `role`   | text  | `role`                               | Role / المنصب         |
+| `source` | link  | `{ text: source, href: sourceHref }` | Source / المصدر       |
+| `image`  | image | `{ src: imageSrc, alt: imageAlt }`   | Portrait / الصورة     |

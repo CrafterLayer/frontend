@@ -1,0 +1,1 @@
+export { fitnessTemplate } from './template';

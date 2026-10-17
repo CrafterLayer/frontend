@@ -156,7 +156,13 @@ export function BuilderShell({
           ? ({
               '--bldr-panel-width': `${String(controlledWidth)}px`,
               '--bldr-inspector-width': '288px',
-              '--bldr-shell-rail-size': rail === undefined ? '0px' : '48px',
+              /*
+                Where an overlaid panel starts: the rail's width. A host whose rail is not
+                48px (a captioned 68px rail) says so with `--bldr-shell-rail-measure`;
+                otherwise the panel would cover the rail's own words.
+              */
+              '--bldr-shell-rail-size':
+                rail === undefined ? '0px' : 'var(--bldr-shell-rail-measure, 48px)',
             } as CSSProperties)
           : undefined
       }

@@ -78,7 +78,7 @@ export interface AiPlanWireRequest {
 }
 
 /** The kinds of answer the plan endpoint gives. Absent on the wire = `'plan'`. */
-export type AiPlanWireTask = 'plan' | 'page-plan';
+export type AiPlanWireTask = 'plan' | 'page-plan' | 'site-plan'; // site-plan: T230, site-plan-wire.ts
 
 /** A page plan the client refused, echoed back so the server can repair it. */
 export interface AiPagePlanWireAttempt {

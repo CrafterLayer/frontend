@@ -1,4 +1,4 @@
-import type { AiProviderUsage } from '../types';
+import type { AiCacheMiss, AiCacheMissReason, AiProviderUsage } from '../types';
 
 const MAX_MEASURED_TOKENS = 1_000_000_000_000;
 
@@ -23,6 +23,36 @@ export function readProviderUsage(value: unknown): AiProviderUsage | undefined {
     cacheWriteTokens: count(wire['cacheWriteTokens']),
     costUsd: typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : null,
     ...(wire['cached'] === true ? { cached: true } : {}),
+    ...cacheMissOf(wire['cacheMiss']),
+  };
+}
+
+const CACHE_MISS_REASONS: ReadonlySet<string> = new Set<AiCacheMissReason>([
+  'first',
+  'expired',
+  'model',
+  'settings',
+  'rules',
+  'catalog',
+  'skills',
+  'system',
+  'tools',
+  'history',
+  'unknown',
+]);
+
+/** The server's reason the cache was written, when it is one it knows how to give. */
+function cacheMissOf(value: unknown): { readonly cacheMiss?: AiCacheMiss } {
+  if (typeof value !== 'object' || value === null) return {};
+  const miss = value as Record<string, unknown>;
+  const reason = miss['reason'];
+  if (typeof reason !== 'string' || !CACHE_MISS_REASONS.has(reason)) return {};
+  return {
+    cacheMiss: {
+      reason: reason as AiCacheMissReason,
+      missedTokens: count(miss['missedTokens']),
+      source: miss['source'] === 'api' ? 'api' : 'local',
+    },
   };
 }
 

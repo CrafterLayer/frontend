@@ -2,13 +2,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--bldr-space-md);
-  padding: var(--bldr-space-lg);
+  /* The panel gutter every destination shares (UX pass, 2026-10-13). */
+  padding: var(--bldr-panel-padding);
 }
 
+/* A destination's title: the one Title step every panel uses (Pages, Site, History…). */
 .bldr-asset-manager__title {
   color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-body);
+  font-size: var(--bldr-font-size-title);
   font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-tight);
   margin: var(--bldr-space-0);
 }
 
@@ -50,12 +53,21 @@
 }
 
 .bldr-asset-manager__drop {
+  align-items: center;
   border: var(--bldr-border-thick) dashed var(--bldr-panel-border-strong);
-  border-radius: var(--bldr-radius-md);
+  border-radius: var(--bldr-radius-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-xs);
-  padding: var(--bldr-space-md);
+  gap: var(--bldr-space-sm);
+  padding: var(--bldr-space-3xl) var(--bldr-space-xl);
+  text-align: center;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    border-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-asset-manager__drop:hover {
+  border-color: var(--bldr-accent);
 }
 
 .bldr-asset-manager__drop[data-over='true'] {
@@ -63,15 +75,53 @@
   border-color: var(--bldr-accent);
 }
 
-.bldr-asset-manager__upload-label {
-  color: var(--bldr-panel-text);
-  font-size: var(--bldr-font-size-caption);
-  font-weight: var(--bldr-font-weight-semibold);
+.bldr-asset-manager__drop-icon {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-lg);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-strong);
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
 }
 
+/* The native input stays the labelled, focusable control; the label is its button. */
 .bldr-asset-manager__file {
-  color: var(--bldr-panel-text);
+  block-size: var(--bldr-border-hairline);
+  clip-path: inset(50%);
+  inline-size: var(--bldr-border-hairline);
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.bldr-asset-manager__upload-label {
+  align-items: center;
+  background: var(--bldr-accent);
+  border-radius: var(--bldr-radius-md);
+  color: var(--bldr-accent-text);
+  cursor: pointer;
+  display: inline-flex;
   font-size: var(--bldr-font-size-caption);
+  font-weight: var(--bldr-font-weight-semibold);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-xl);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.bldr-asset-manager__upload-label:hover {
+  background: var(--bldr-accent-strong);
+}
+
+.bldr-asset-manager__upload-label[data-busy='true'] {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.bldr-asset-manager__file:focus-visible + .bldr-asset-manager__upload-label {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
 }
 
 .bldr-asset-manager__hint,
@@ -83,16 +133,34 @@
 
 .bldr-asset-manager__check {
   align-items: center;
-  color: var(--bldr-panel-text);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
   display: flex;
   font-size: var(--bldr-font-size-caption);
   gap: var(--bldr-space-xs);
 }
 
+.bldr-asset-manager__check input {
+  accent-color: var(--bldr-accent);
+  margin: var(--bldr-space-0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bldr-asset-manager__drop,
+  .bldr-asset-manager__upload-label {
+    transition: none;
+  }
+}
+
 .bldr-asset-manager__grid {
   display: grid;
   gap: var(--bldr-space-sm);
-  grid-template-columns: repeat(auto-fill, minmax(var(--bldr-thumb-width), 1fr));
+  /* Two thumbnails a row in the 320px panel at its 16px gutter: the full thumb width
+     (144px) left room for one, and each tile became a 288px blank while it loaded. */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--bldr-thumb-width) - var(--bldr-space-xl)), 1fr)
+  );
   list-style: none;
   margin: var(--bldr-space-0);
   padding: var(--bldr-space-0);

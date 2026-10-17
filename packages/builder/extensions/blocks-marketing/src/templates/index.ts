@@ -25,8 +25,12 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   // end templates-verticals additions
 ];
 
+// Each language's page declares its direction, so the agent is offered only the matching ones.
 export const TEMPLATE_COMPOSITIONS: CompositionDef[] = TEMPLATE_DEFINITIONS.flatMap(
-  (definition) => [definition.build('en'), definition.build('ar')],
+  (definition) => [
+    { ...definition.build('en'), dir: 'ltr' as const },
+    { ...definition.build('ar'), dir: 'rtl' as const },
+  ],
 );
 
 export { agencyTemplate, saasTemplate, servicesTemplate, storeTemplate };

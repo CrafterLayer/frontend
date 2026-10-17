@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as LocationStories from './Location.stories';
+
+<Meta of={LocationStories} />
+
+# Location
+
+Where to find a business: its address with an **Open in Maps** button, its opening hours, and call,
+email and WhatsApp links — the "visit" section every café, clinic and shop page ends with.
+
+## Content model
+
+- `eyebrow`, `heading` (default "Visit us", edited in place), `body`.
+- `address` (multiline), `addressLabel`, `mapsLabel = 'Open in Maps'`.
+- `latitude` / `longitude` (optional numbers). With both, the maps button pins the spot; without
+  them it searches OpenStreetMap for the address. No API key, no tracking parameters.
+- `embedMap: boolean = false` — off by default, for privacy: an embed loads a third party's page.
+  On, and with coordinates, it adds an OpenStreetMap embed (`<iframe>` with a `title` from
+  `mapTitle`, `loading="lazy"`, `referrerpolicy="no-referrer"` and a sandbox). Without coordinates
+  there is nothing to embed — an embed cannot search an address — so none is drawn.
+- `hoursLabel`, up to ten `hours` rows `{ days, time }` ("Sunday – Thursday", "9:00 – 22:00",
+  "Closed") and `hoursNote`. A simple description list (`dl`), not the Table block.
+- `contactLabel`; `phone` / `phoneLabel`, `email` / `emailLabel`, `whatsapp` / `whatsappLabel` and
+  an optional `whatsappMessage` (the chat's first line). Numbers and addresses are validated at the
+  door, and a link is drawn only from a value that makes a safe `tel:`, `mailto:` or
+  `https://wa.me/` link.
+- `layout: 'split' | 'stacked' = 'split'` (two columns from a 48rem container, when there is a
+  contact list or a map to fill the second).
+
+## Direction and accessibility
+
+The address is an `<address>`; the hours are a `dl` of `dt` days and `dd` times. Phone numbers,
+WhatsApp numbers and email addresses are `<bdi dir="ltr">`, so "+966 50 123 4567" never loses its
+plus sign to an Arabic paragraph. Each link is named by its label and its value ("WhatsApp +966 50
+123 4567"). WhatsApp is the primary (filled) action, as local businesses expect; calls and email are
+outlined. On the editing canvas the map lets clicks through, so the section can be selected.
+
+## Parts
+
+| name            | kind | bind            | label (en / ar)                   |
+| --------------- | ---- | --------------- | --------------------------------- |
+| `eyebrow`       | text | `eyebrow`       | Eyebrow / الشارة                  |
+| `heading`       | text | `heading`       | Heading / العنوان                 |
+| `body`          | text | `body`          | Body / الوصف                      |
+| `addressLabel`  | text | `addressLabel`  | Address label / تسمية العنوان     |
+| `address`       | text | `address`       | Address / العنوان البريدي         |
+| `mapsLabel`     | text | `mapsLabel`     | Maps button / زر الخريطة          |
+| `hoursLabel`    | text | `hoursLabel`    | Hours heading / عنوان المواعيد    |
+| `hours`         | list | `hours`         | Opening hours / مواعيد العمل      |
+| `hour`          | item | `hours.*`       | Hours row / صف المواعيد           |
+| `hour.days`     | text | `hours.*.days`  | Days / الأيام                     |
+| `hour.time`     | text | `hours.*.time`  | Times / الأوقات                   |
+| `hoursNote`     | text | `hoursNote`     | Hours note / ملاحظة المواعيد      |
+| `contactLabel`  | text | `contactLabel`  | Contact heading / عنوان التواصل   |
+| `phoneLabel`    | text | `phoneLabel`    | Call label / تسمية الاتصال        |
+| `phone`         | text | `phone`         | Phone number / رقم الهاتف         |
+| `emailLabel`    | text | `emailLabel`    | Email label / تسمية البريد        |
+| `email`         | text | `email`         | Email address / البريد الإلكتروني |
+| `whatsappLabel` | text | `whatsappLabel` | WhatsApp label / تسمية واتساب     |
+| `whatsapp`      | text | `whatsapp`      | WhatsApp number / رقم واتساب      |
+
+While a number is edited in place its link waits for the committed value; an `href` never reads an
+editor element.

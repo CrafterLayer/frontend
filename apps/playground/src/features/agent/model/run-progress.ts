@@ -175,6 +175,7 @@ export function reduceRunProgress(progress: RunProgress, event: AiAgentEvent): R
     case 'plan.repairing':
       return active === 'writing' ? withDetail(progress, 'edit.repairing') : progress;
     case 'plan.proposed':
+    case 'plan.applying':
       return active === 'writing' ? advance(progress, event.at) : progress;
     case 'run.completed':
       return settle(progress, event.at, 'done');
@@ -186,7 +187,7 @@ export function reduceRunProgress(progress: RunProgress, event: AiAgentEvent): R
       return settle(progress, event.at, 'failed');
     default:
       // run.started, skills.*, context.gathering, plan.proposing, plan.progress,
-      // plan.salvaged, plan.applying (the applying row opened with the proposal).
+      // plan.salvaged.
       return progress;
   }
 }

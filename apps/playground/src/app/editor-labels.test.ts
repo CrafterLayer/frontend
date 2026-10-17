@@ -6,6 +6,7 @@ import { createPlaygroundKernel } from '../features/preview/create-playground-ke
 import {
   CHROME_LABELS,
   EDITOR_LOCALE_KEY,
+  PANEL_LABELS,
   editorLabels,
   editorLocaleFromEnv,
   initialEditorLocale,
@@ -47,6 +48,11 @@ describe('editor labels', () => {
       throw new Error('SecurityError');
     };
     expect(initialEditorLocale({ VITE_EDITOR_LOCALE: 'ar' }, blocked)).toBe('ar');
+    // Nothing chosen and nothing pinned: the browser's first Arabic or English preference.
+    expect(initialEditorLocale({}, blocked, ['fr-FR', 'ar-JO', 'en-US'])).toBe('ar');
+    expect(initialEditorLocale({}, blocked, ['en-GB', 'ar'])).toBe('en');
+    expect(initialEditorLocale({}, blocked, ['fr'])).toBe('en');
+    expect(initialEditorLocale({ VITE_EDITOR_LOCALE: 'en' }, blocked, ['ar'])).toBe('en');
     expect(() => {
       rememberEditorLocale('ar', blocked);
     }).not.toThrow();
@@ -70,6 +76,31 @@ describe('editor labels', () => {
       }
     }
     expect(CHROME_LABELS.ar.deviceLine('سطح المكتب', 1280)).toBe('سطح المكتب · \u20661280 px\u2069');
+  });
+
+  it("gives the playground's own panels an Arabic set of the English shape, every value Arabic", () => {
+    const check = (en: unknown, ar: unknown, path: string): void => {
+      if (typeof en === 'string') {
+        expect(ar, path).toMatch(ARABIC_LETTER);
+        return;
+      }
+      if (typeof en === 'function') {
+        expect(typeof ar, path).toBe('function');
+        // Counts first, then a unit or reason: every parametrised string still reads Arabic.
+        const text = String((ar as (...args: unknown[]) => unknown)(2, 'kB'));
+        expect(text, path).toMatch(ARABIC_LETTER);
+        expect(text, path).not.toMatch(ARABIC_INDIC_DIGIT);
+        return;
+      }
+      const enRecord = en as Record<string, unknown>;
+      const arRecord = ar as Record<string, unknown>;
+      expect(Object.keys(arRecord).sort(), path).toEqual(Object.keys(enRecord).sort());
+      for (const key of Object.keys(enRecord))
+        check(enRecord[key], arRecord[key], `${path}.${key}`);
+    };
+    check(PANEL_LABELS.en, PANEL_LABELS.ar, 'panels');
+    expect(editorLabels('ar').pageWorkspace.addPage).toBe('إضافة صفحة');
+    expect(editorLabels('en').pageWorkspace.addPage).toBe('Add page');
   });
 
   it('builds one set per locale with its direction, from the shell catalogue', () => {
@@ -98,6 +129,7 @@ describe('editor labels', () => {
   it('phrases recent changes in Arabic when given the Arabic phrases', () => {
     const log = [{ id: 't1', author: 'user', command: 'insertTreeNode' }];
     expect(recentChangesOf(log, { phrases: CHROME_LABELS.ar.changes }).changes[0]?.label).toBe('إضافة عنصر');
-    expect(recentChangesOf(log).changes[0]?.label).toBe('add element');
+    // Sentence case, like every labelled change (use-recent-changes.ts `sentenceCase`).
+    expect(recentChangesOf(log).changes[0]?.label).toBe('Add element');
   });
 });

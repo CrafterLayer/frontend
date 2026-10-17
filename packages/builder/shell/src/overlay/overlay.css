@@ -37,14 +37,19 @@
   width: 0;
 }
 
+/* Strokes keep their CHROME width under canvas zoom: this layer shares the
+   frame's scale(zoom), so each width is divided by it. `--bldr-canvas-zoom` is
+   published on the layer by EditorCanvas (canvas-zoom.ts); 1 when absent. */
 .bldr-outline--hover {
-  outline: var(--bldr-border-hairline) dashed var(--bldr-hover, #6366f1);
-  outline-offset: var(--bldr-border-hairline);
+  outline: calc(var(--bldr-border-hairline) / var(--bldr-canvas-zoom, 1)) dashed
+    var(--bldr-hover, #6366f1);
+  outline-offset: calc(var(--bldr-border-hairline) / var(--bldr-canvas-zoom, 1));
 }
 
 .bldr-outline--selection {
-  outline: var(--bldr-border-thick) solid var(--bldr-selection, #4f46e5);
-  outline-offset: var(--bldr-border-hairline);
+  outline: calc(var(--bldr-border-thick) / var(--bldr-canvas-zoom, 1)) solid
+    var(--bldr-selection, #4f46e5);
+  outline-offset: calc(var(--bldr-border-hairline) / var(--bldr-canvas-zoom, 1));
 }
 
 .bldr-outline__label {
@@ -70,32 +75,52 @@
 
 /* The label may be slightly wider than a narrow block, but never wider than
    the remaining canvas space. `100cqi` is the .bldr-overlay query container;
-   the controller supplies the rect's already-known physical x coordinate. */
+   the controller supplies the rect's already-known physical x coordinate.
+
+   Chip-sized under canvas zoom: `scale` undoes the layer's zoom around the
+   chip's top-start corner, its offset above the outline is divided by the
+   zoom, and the layer-px caps (block width, remaining canvas) are multiplied
+   by it — the chip's own px are host px. At zoom 1 every term is unchanged.
+   Physical transform-origin: the same measured-geometry exception as above. */
 .bldr-outline > .bldr-outline__label {
+  inset-block-start: calc(-20px / var(--bldr-canvas-zoom, 1));
   inset-inline-start: max(0px, calc(0px - var(--bldr-outline-canvas-x, 0px)));
   max-inline-size: min(
-    calc(100% + var(--bldr-space-5xl)),
-    max(0px, calc(100cqi - max(var(--bldr-outline-canvas-x, 0px), 0px)))
+    calc(100% * var(--bldr-canvas-zoom, 1) + var(--bldr-space-5xl)),
+    max(
+      0px,
+      calc((100cqi - max(var(--bldr-outline-canvas-x, 0px), 0px)) * var(--bldr-canvas-zoom, 1))
+    )
   );
+  scale: calc(1 / var(--bldr-canvas-zoom, 1));
+  transform-origin: top left;
 }
 
 /* Under RTL the logical start is the outline's physical right edge, so the
-   available canvas space is x + outline width instead of canvas width - x. */
+   available canvas space is x + outline width instead of canvas width - x —
+   and the chip grows from its top-RIGHT corner. */
 .bldr-outline > .bldr-outline__label:dir(rtl) {
   inset-inline-start: max(0px, calc(var(--bldr-outline-canvas-x, 0px) + 100% - 100cqi));
   max-inline-size: min(
-    calc(100% + var(--bldr-space-5xl)),
-    max(0px, min(100cqi, calc(var(--bldr-outline-canvas-x, 0px) + 100%)))
+    calc(100% * var(--bldr-canvas-zoom, 1) + var(--bldr-space-5xl)),
+    max(
+      0px,
+      calc(min(100cqi, calc(var(--bldr-outline-canvas-x, 0px) + 100%)) * var(--bldr-canvas-zoom, 1))
+    )
   );
+  transform-origin: top right;
 }
 
 .bldr-outline--hover .bldr-outline__label {
   background: var(--bldr-hover, #6366f1);
 }
 
-/* Drag chrome (B2b) — same physical-geometry exception as the outlines. */
+/* Drag chrome (B2b) — same physical-geometry exception as the outlines. Its
+   strokes and its name chip keep chrome size under zoom, as the outlines do
+   (2026-10-12). */
 .bldr-drag-ghost {
-  border: var(--bldr-border-thick) dashed var(--bldr-selection, #4f46e5);
+  border: calc(var(--bldr-border-thick) / var(--bldr-canvas-zoom, 1)) dashed
+    var(--bldr-selection, #4f46e5);
   border-radius: var(--bldr-space-xs);
   left: 0;
   opacity: 0.6;
@@ -113,11 +138,22 @@
   visibility: hidden;
 }
 
+.bldr-drag-ghost > .bldr-outline__label {
+  inset-block-start: calc(-20px / var(--bldr-canvas-zoom, 1));
+  scale: calc(1 / var(--bldr-canvas-zoom, 1));
+  transform-origin: top left;
+}
+
+.bldr-drag-ghost > .bldr-outline__label:dir(rtl) {
+  transform-origin: top right;
+}
+
 .bldr-drop-parent {
   border-radius: var(--bldr-space-xs);
   left: 0;
-  outline: var(--bldr-border-hairline) dashed var(--bldr-drop, #16a34a);
-  outline-offset: var(--bldr-border-thick);
+  outline: calc(var(--bldr-border-hairline) / var(--bldr-canvas-zoom, 1)) dashed
+    var(--bldr-drop, #16a34a);
+  outline-offset: calc(var(--bldr-border-thick) / var(--bldr-canvas-zoom, 1));
   position: absolute;
   top: 0;
   visibility: hidden;
@@ -126,12 +162,15 @@
 /* Floating toolbars (B3c) — the host positions these imperatively, so the only
    job here is to make them a fixed origin that accepts pointer input while the
    layer around them stays transparent to it. Physical origin: same
-   measured-geometry exception as the outlines above. */
+   measured-geometry exception as the outlines above. The host's counter-scale
+   (`scale(1 / zoom)`, floating-host.ts) must grow from that same corner, or
+   the bar would drift off the point it was placed at. */
 .bldr-floating {
   left: 0;
   pointer-events: auto;
   position: absolute;
   top: 0;
+  transform-origin: 0 0;
   visibility: hidden;
   z-index: 2;
 }

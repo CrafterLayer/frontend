@@ -10,13 +10,27 @@ import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
 import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
 
 import { t } from '../../copy';
+import { jobsLabels } from '../../copy/jobs-labels';
+import { knowledgeLabels } from '../../copy/knowledge-labels';
+import { useAgentKnowledge } from '../../hooks/use-agent-knowledge';
 import type { Locale } from '../../model/view-types';
+import { fakeJobsView, SAMPLE_JOBS_AR, SAMPLE_PAGES_AR } from '../../testing/batch-fixtures';
 import {
   fakeViewState,
   useFakeController,
   type FakeCall,
   type FakeScenario,
 } from '../../testing/fake-controller';
+import {
+  createFakeCheckpoints,
+  SAMPLE_CHECKPOINTS,
+  SAMPLE_CHECKPOINTS_AR,
+  SAMPLE_NOTES,
+  SAMPLE_NOTES_AR,
+  SAMPLE_SKILLS,
+  SAMPLE_SKILLS_AR,
+  seededStorage,
+} from '../../testing/knowledge-fixtures';
 
 import { AgentPanel, type AgentPanelPresentation } from './AgentPanel';
 
@@ -188,6 +202,9 @@ export const Empty: Story = story('empty');
 export const EmptyArabic: Story = story('empty', 'ar');
 export const EmptyArabicDark: Story = story('empty', 'ar', { parameters: DARK });
 export const EmptyHasContent: Story = story('emptyHasContent');
+/** creative agent (2026-10-12): the creative starters under the page starters, free code on. */
+export const EmptyCreative: Story = story('emptyCreative', 'en', { width: 420 });
+export const EmptyCreativeArabic: Story = story('emptyCreative', 'ar', { width: 420 });
 
 /* ── §3.2 Composing ────────────────────────────────────────────────────────── */
 
@@ -200,6 +217,13 @@ export const Skeleton: Story = story('skeleton');
 export const Building: Story = story('building');
 /** SPEC §3.15: the same build in Arabic, mirrored by logical properties. */
 export const BuildingArabic: Story = story('building', 'ar');
+/** creative agent (2026-10-12): a platformer build carries its creative brief. */
+export const BuildingCreative: Story = story('buildingCreative', 'en', { width: 420 });
+export const BuildingCreativeArabic: Story = story('buildingCreative', 'ar', { width: 420 });
+export const BuildingCreativeArabicDark: Story = story('buildingCreative', 'ar', {
+  width: 420,
+  parameters: DARK,
+});
 export const BuildingArabicDark: Story = story('building', 'ar', { parameters: DARK });
 /** SPEC §3.14: the panel at 420, where rows gain their state words. */
 export const BuildingAt420: Story = story('building', 'en', { width: 420 });
@@ -338,5 +362,121 @@ export const PhoneSheet: Story = {
     await expect(
       within(sheet).getByRole('button', { name: t('ar', 'sheet.showPage') }),
     ).toBeVisible();
+  },
+};
+
+/* ── Skills & memory (2026-10-12) ──────────────────────────────────────────── */
+
+interface KnowledgePanelStoryProps {
+  readonly scenario: FakeScenario;
+  readonly locale: Locale;
+  /** Give the panel background jobs too (a hand-built view over the sample jobs). */
+  readonly withJobs?: boolean;
+}
+
+/**
+ * The panel given its knowledge, as LiveAgentPanel gives it: the person's skills and the
+ * project memory over the real stores (seeded), and an in-memory checkpoint port. The
+ * header then draws Skills & memory, which opens KnowledgePopover inside the panel.
+ */
+function KnowledgePanelStory({ scenario, locale, withJobs = false }: KnowledgePanelStoryProps) {
+  const arabic = locale === 'ar';
+  const [initial] = useState(() => fakeViewState(scenario, locale, { now: Date.now() }));
+  const controller = useFakeController(initial, { locale, onCall: logCall });
+  const [storage] = useState(() =>
+    seededStorage(
+      arabic ? SAMPLE_SKILLS_AR : SAMPLE_SKILLS,
+      arabic ? SAMPLE_NOTES_AR : SAMPLE_NOTES,
+    ),
+  );
+  const [checkpoints] = useState(() =>
+    createFakeCheckpoints(arabic ? SAMPLE_CHECKPOINTS_AR : SAMPLE_CHECKPOINTS),
+  );
+  const { view } = useAgentKnowledge({ storage, checkpoints });
+  const [jobs] = useState(() =>
+    withJobs
+      ? fakeJobsView(arabic ? { jobs: SAMPLE_JOBS_AR, pages: SAMPLE_PAGES_AR } : {})
+      : undefined,
+  );
+  const [panelWidth, setPanelWidth] = useState(320);
+  return (
+    <div style={{ display: 'grid', justifyItems: 'start', blockSize: 720, minInlineSize: 480 }}>
+      <AgentPanel
+        controller={controller}
+        knowledge={view}
+        jobs={jobs}
+        width={panelWidth}
+        onWidthChange={setPanelWidth}
+      />
+    </div>
+  );
+}
+
+function withKnowledge(locale: Locale, extra: Partial<Pick<Story, 'parameters'>> = {}): Story {
+  return {
+    args: { scenario: 'built', locale },
+    ...extra,
+    render: (args) => <KnowledgePanelStory scenario={args.scenario} locale={args.locale} />,
+    play: async ({ canvasElement }) => {
+      const panel = await expectShell(canvasElement, locale);
+      const title = knowledgeLabels(locale).title;
+      const button = within(panel).getByRole('button', { name: title });
+      await userEvent.click(button);
+      const popover = await within(panel).findByRole('dialog', { name: title });
+      await expect(popover).toBeVisible();
+      await expect(button).toHaveAttribute('aria-expanded', 'true');
+      await expect(within(popover).getAllByRole('tab')).toHaveLength(3);
+    },
+  };
+}
+
+/** The header's Skills & memory opens the popover inside the panel, on the Skills tab. */
+export const WithKnowledge: Story = withKnowledge('en');
+export const WithKnowledgeRightToLeft: Story = withKnowledge('ar');
+export const WithKnowledgeDark: Story = withKnowledge('en', { parameters: DARK });
+
+function withJobs(locale: Locale, extra: Partial<Pick<Story, 'parameters'>> = {}): Story {
+  return {
+    args: { scenario: 'built', locale },
+    ...extra,
+    render: (args) => (
+      <KnowledgePanelStory scenario={args.scenario} locale={args.locale} withJobs />
+    ),
+    play: async ({ canvasElement }) => {
+      const panel = await expectShell(canvasElement, locale);
+      const title = jobsLabels(locale).title;
+      await userEvent.click(within(panel).getByRole('button', { name: title }));
+      const dialog = await within(panel).findByRole('dialog', { name: title });
+      // It fades in: visible once its enter animation has run.
+      await waitFor(() => expect(dialog).toBeVisible());
+      await expect(within(dialog).getAllByRole('article')).toHaveLength(4);
+    },
+  };
+}
+
+/** Background jobs (2026-10-12): the header's button opens the jobs list inside the panel. */
+export const WithBackgroundJobs: Story = withJobs('en');
+export const WithBackgroundJobsRightToLeft: Story = withJobs('ar');
+export const WithBackgroundJobsDark: Story = withJobs('en', { parameters: DARK });
+
+/** "/" in the real composer opens the skills list above it; "/brand" + Enter inserts that skill inline
+    (a bare "/" lists the commands — Remember, Checkpoint… — first). */
+export const SlashMenu: Story = {
+  args: { scenario: 'empty', locale: 'en' },
+  render: (args) => <KnowledgePanelStory scenario={args.scenario} locale={args.locale} />,
+  play: async ({ canvasElement }) => {
+    const panel = await expectShell(canvasElement, 'en');
+    const slash = knowledgeLabels('en').slash;
+    const input = within(panel).getByRole('combobox', { name: t('en', 'input.aria') });
+    await userEvent.type(input, '/brand');
+    const list = await within(panel).findByRole('listbox', { name: slash.label });
+    await expect(list).toBeVisible();
+    await expect(input).toHaveAttribute('aria-controls', list.id);
+    await userEvent.keyboard('{Enter}');
+    await expect(
+      within(panel).queryByRole('group', { name: 'Skills for the next message' }),
+    ).toBeNull();
+    await expect(input).toHaveValue('/brand-voice ');
+    await expect(input).toHaveAttribute('aria-expanded', 'false');
   },
 };

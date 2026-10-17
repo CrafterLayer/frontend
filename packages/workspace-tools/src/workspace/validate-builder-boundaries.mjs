@@ -27,6 +27,8 @@ const BUILDER_LAYERS = Object.freeze({
   '@craftkit/builder-theme': 2,
   '@craftkit/builder-ai': 2,
   '@craftkit/builder-code-runtime': 2,
+  // pixi-assetpack (2026-10-12): Node-only build tooling beside the headless layer.
+  '@craftkit/builder-pixi-assets': 2,
   '@craftkit/builder-shell': 3,
   [BUILDER_PRESET_NAME]: 5,
 });
@@ -84,6 +86,18 @@ const CONTAINED_DEPENDENCIES = Object.freeze([
     matches: (name) =>
       name === 'pixi.js' || name.startsWith('pixi.js/') || name.startsWith('@pixi/'),
     owners: Object.freeze(new Set(['@craftkit/builder-media-engines'])),
+  }),
+  // pixi-assetpack (2026-10-12)
+  /*
+    AssetPack, the PixiJS build-time asset pipeline. Contained because it runs native encoders
+    (sharp, ffmpeg) in Node and is a build step: a page loads what it WRITES (optimised files and
+    a manifest), never the pipeline. Left uncontained, an import from the editor or a block would
+    pull a native toolchain into a browser bundle.
+  */
+  Object.freeze({
+    label: 'build-time asset pipeline',
+    matches: (name) => name.startsWith('@assetpack/'),
+    owners: Object.freeze(new Set(['@craftkit/builder-pixi-assets'])),
   }),
 ]);
 

@@ -91,6 +91,7 @@ export {
   type SearchableScript,
 } from './search';
 export { apiMembersOf, CK_API_REFERENCE, type CkApiMember } from './api-reference';
+export { CK_LIBRARY_REFERENCE, libraryEntry, type CkLibraryEntry } from './library-reference';
 export {
   humaniseKey,
   SCRIPT_KIND_LABELS,

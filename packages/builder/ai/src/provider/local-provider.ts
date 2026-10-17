@@ -238,7 +238,7 @@ function scoreTemplate(template: AiTemplateContext, request: string): number {
   score += normalizedRequest.includes(normalizedId) ? 100 : 0;
   score += overlapScore(requestWords, template.name, 20);
   score += overlapScore(requestWords, template.id, 16);
-  for (const type of template.blockTypes) {
+  for (const type of template.blockTypes ?? []) {
     score += overlapScore(requestWords, type, 2);
   }
   return score;

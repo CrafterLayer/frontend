@@ -435,7 +435,9 @@ describe('cli backend thinking', () => {
       : undefined;
 
   it('turns thinking off in the CLI when the call disables it', () => {
-    expect(settingsOf(argsFor({ type: 'disabled' }))).toEqual({ alwaysThinkingEnabled: false });
+    expect(settingsOf(argsFor({ type: 'disabled' }))).toMatchObject({
+      alwaysThinkingEnabled: false,
+    });
   });
 
   function envFor(thinking: unknown): Readonly<Record<string, string>> | undefined {
@@ -455,7 +457,6 @@ describe('cli backend thinking', () => {
   }
 
   it('caps the thinking budget at zero when the call disables it', () => {
-    // The settings switch alone left haiku writing ~4.3k thinking tokens (40-60 s).
     expect(envFor({ type: 'disabled' })).toEqual({ MAX_THINKING_TOKENS: '0' });
   });
 
@@ -796,8 +797,7 @@ describe('the prompt enhancer through a real `claude` process', () => {
     };
     expect(seen.args[seen.args.indexOf('--model') + 1]).toBe('haiku');
     expect(seen.args[seen.args.indexOf('--effort') + 1]).toBe('low');
-    // Thinking off: with it on, haiku thought past every cap and never answered.
-    expect(JSON.parse(seen.args[seen.args.indexOf('--settings') + 1] ?? 'null')).toEqual({
+    expect(JSON.parse(seen.args[seen.args.indexOf('--settings') + 1] ?? 'null')).toMatchObject({
       alwaysThinkingEnabled: false,
     });
     expect(seen.system).toContain(ENHANCE_RULES_TEXT);

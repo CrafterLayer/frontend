@@ -68,6 +68,7 @@ export function ModelMenu({ locale, model, onModelChange }: ModelMenuProps) {
       value={model.selected.id}
       onValueChange={onModelChange}
       className="ck-agent-model"
+      icon="cpu"
     />
   );
 }

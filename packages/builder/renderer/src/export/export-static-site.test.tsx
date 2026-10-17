@@ -228,6 +228,25 @@ describe('exportStaticSite', () => {
     expect(html.indexOf('أهلاً بكم')).toBeLessThan(html.indexOf('التذييل'));
   });
 
+  it('writes an English version inside an Arabic site left to right', async () => {
+    const alternates = [
+      { lang: 'ar', path: '/' },
+      { lang: 'en', path: '/en' },
+    ];
+    const [home] = arabicSite();
+    if (home === undefined) throw new Error('Fixture is missing the home page.');
+    const { file } = await run([
+      home,
+      {
+        pageId: 'home-en',
+        address: '/en',
+        document: doc({ title: 'Jasmine', lang: 'en', seo: { alternates } }, [{ heading: 'Hi' }]),
+      },
+    ]);
+    expect(file('index.html')).toContain('<html lang="ar" dir="rtl">');
+    expect(file('en/index.html')).toContain('<html lang="en" dir="ltr">');
+  });
+
   it('skips sitemap and robots without an origin; options.origin overrides the stored one', async () => {
     const pages = arabicSite().map((page) => ({
       ...page,

@@ -41,6 +41,10 @@ Every selector is prefixed with the hosting node's `[data-ck]` attribute before 
 one region's CSS cannot reach into another's — or into the editor chrome around it. Colours go
 through `var(--t-accent)` so the page still re-themes.
 
+Viewport heights (`vh`, `svh`, `lvh`, `dvh`) are written as `calc(N * var(--ck-vh, 1vh))`. Only the
+editor canvas sets `--ck-vh` — to its viewport at zoom 1 — so a `min-height: 70vh` stage is as tall
+at any canvas zoom as at 100%, and Preview and the published page keep the real unit.
+
 ## A refused stylesheet is dropped whole, and said out loud
 
 <Canvas of={CustomCodeBlockStories.RefusedOnCanvas} />
@@ -80,6 +84,11 @@ renderer never emits one. The code rides on the region as `data-ck-js` (plus `da
 id), which the same attribute escaping round-trips, so the canvas and the published page stay equal;
 the `scripts` behaviour pack evaluates it. `ck-pixi.js` ships on a published site only when some
 page's code names Pixi (`ck.pixi()` / `ck.stage()`).
+
+The stage **follows its region**, not only the window: when `ck.root` changes size (the script filled
+its own copy, a web font arrived, Preview's viewport is shorter than the canvas's) the canvas still
+fills it. A script that lays itself out on `app.renderer.on('resize', layout)` gets the new size; one
+that never listens keeps its first frame, scaled to cover the region like a background image.
 
 Errors never escape: each run is try/caught, logged as `[ck-js]`, and on the canvas the region gets
 `data-ck-js-error="<message>"` for the shell to show. A script has full page access on the published

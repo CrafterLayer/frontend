@@ -45,6 +45,8 @@ scroller inside it or around it.
 | `draft`            | `string`                               | none    | the composer's text: suggestions hide while it has any            |
 | `onSuggestion`     | `(suggestion: SuggestionView) => void` | none    | fill the composer and focus it, caret at the end; never send      |
 | `onScrolledChange` | `(scrolled: boolean) => void`          | none    | AgentHeader's `scrolled`                                          |
+| `freeCode`         | `FreeCodeView \| null`                 | none    | given, the empty thread adds CreativeStarters                     |
+| `onFreeCodeChange` | `(enabled: boolean) => void`           | none    | CreativeStarters' Turn on free code                               |
 | `ref`              | `Ref<AgentThreadHandle>`               | none    | `scrollToBottom()`, `jumpToLatest()`                              |
 
 `AgentThreadHandle.scrollToBottom` is for the person's own acts, such as sending while scrolled up;

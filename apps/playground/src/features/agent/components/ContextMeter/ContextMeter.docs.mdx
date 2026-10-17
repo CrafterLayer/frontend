@@ -1,0 +1,66 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as ContextMeterStories from './ContextMeter.stories';
+
+<Meta of={ContextMeterStories} />
+
+# ContextMeter
+
+How big the latest request was against its context budget (2026-10-12), beside the composer's
+context chip: a quiet "12k / 64k" with a thin bar under it.
+
+<Canvas of={ContextMeterStories.Default} />
+
+## Purpose and ownership
+
+Owned by the agent feature's composer. The engine estimates every model request before it is sent
+(`context.ready` carries `requestTokens` and `maxTokens`), and over the budget it now shortens the
+oldest of the conversation instead of failing the run. The meter makes that visible: how close the
+latest request came, and whether older messages already gave way.
+
+## When to use
+
+- In the composer's context row, after the chips. The controller fills `AgentViewState.contextMeter`
+  from the latest model request in the active conversation.
+
+## When not to use
+
+- For a build's sections: each is its own request, and none carries the conversation.
+- Before a request was measured: the composer draws nothing (`contextMeter` is `null`).
+
+## Props
+
+| prop        | type               | default | notes                                                           |
+| ----------- | ------------------ | ------- | --------------------------------------------------------------- |
+| `locale`    | `Locale`           | none    |                                                                 |
+| `meter`     | `ContextMeterView` | none    | `used`, `max` (tokens), `level` (`normal`/`warning`), `trimmed` |
+| `className` | `string`           | none    | appended to `ck-agent-meter`                                    |
+
+## States
+
+| story                                        | what it shows                                        |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `Default`, `Small`                           | inside the budget: Slate figure and bar              |
+| `NearTheLimit`, `NearTheLimitDark`           | past 80%: the warning token                          |
+| `Trimmed`                                    | the conversation gave way; said in the spoken value  |
+| `RightToLeft`, `RightToLeftNearTheLimitDark` | Arabic, Latin digits, the bar filling from the right |
+| `Narrow`                                     | wraps under the chip instead of squeezing it         |
+
+## Accessibility
+
+- A `meter` named "Context" («السياق»), with `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and
+  a spoken value in whole tokens: "About 12,345 of 64,000 tokens". Near the limit, and when the
+  conversation was trimmed, the spoken value adds what that means.
+- The compact figure and the bar are `aria-hidden`: they repeat the value for the eye.
+- Not focusable: it is a reading, not a control. The pointer gets the same words as a `title`.
+
+## Theme, RTL and content
+
+Meta type in Slate on the progress track; past 80% both take `--bldr-warning`. Logical properties
+throughout, so the meter sits at the row's inline end and its bar fills from the inline start.
+Digits stay Latin in both languages. Under forced colours the track keeps an outline.
+
+## Limitations
+
+The figure is the engine's estimate (four characters a token, two for Arabic), not the provider's
+count: the reported usage lives in the run's telemetry.

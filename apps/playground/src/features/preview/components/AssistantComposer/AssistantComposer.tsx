@@ -41,6 +41,7 @@ function modelLabel(slug: string): string {
     const name = slug.slice('cli:'.length);
     return name === '' ? 'Claude CLI' : `${name.charAt(0).toUpperCase()}${name.slice(1)} · CLI`;
   }
+  if (slug.startsWith('api:')) return `${slug.slice('api:'.length).replace(/^claude-/u, '')} · API`;
   const name = slug.slice(slug.lastIndexOf('/') + 1);
   return name.endsWith(':free') ? `${name.slice(0, -5)} · free` : name;
 }

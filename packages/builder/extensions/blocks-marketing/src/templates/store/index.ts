@@ -1,0 +1,1 @@
+export { storeTemplate } from './template';

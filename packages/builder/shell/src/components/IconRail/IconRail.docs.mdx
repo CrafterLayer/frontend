@@ -42,6 +42,12 @@ shown in top-layer tooltips on hover or keyboard focus. Escape dismisses a toolt
 | `onSelect`  | `(id: string) => void` | none               | Fires from native button activation         |
 | `account`   | `ReactNode`            | none               | Caller-owned account content at block-end   |
 | `label`     | `string`               | `Builder sections` | Accessible name for the navigation landmark |
+| `captions`  | `boolean`              | `false`            | Draw each name under its icon (68px rail)   |
+
+With `captions` (Studio Indigo, 2026-10-12) every item shows its name under its glyph in Micro 500,
+one line, and the hover label is not rendered: one name on screen, never two. The rail itself is the
+product's one dark surface (`--bldr-rail`, Rail text, an Accent-tinted selected tile with an Accent
+bar at its inline-start edge) in both modes.
 
 `RailItem` contains a stable `id`, a visible `label`, and a caller-supplied `icon`.
 

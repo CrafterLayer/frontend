@@ -7,6 +7,8 @@
   else.
 */
 import {
+  isCustomCodeJsMetaSchema,
+  isCustomCodeJsParamsSchema,
   isCustomCodeTreeSchema,
   isCustomCssSchema,
   isCustomJsSchema,
@@ -14,6 +16,8 @@ import {
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
 import { CustomCodeBlock, customCodeSchema } from './CustomCodeBlock';
+// Pure (no component): the scene settings' visibility rule rides in the manifest.
+import { sceneParamsHidden } from './CustomCodeParamsField/scene-params';
 // P2-tree-commands additions
 import { treeNodeCommands } from './commands';
 // end P2-tree-commands additions
@@ -71,6 +75,34 @@ export const builderCustomCode: TrustedExtensionManifest = {
           import('./CustomCodeJsField/CustomCodeJsField').then((module) => ({
             default: module.default,
           })),
+      },
+      /*
+        Pixi Studio (DESIGN D8), both by their markers. The scene settings edit
+        `jsParams` against the spec beside them, so the row is handed its
+        siblings; with no spec and no value there is nothing to tune and the
+        row (and its section) is left out.
+      */
+      {
+        id: 'craftkit.custom-code.script-params',
+        match: (schema) => (isCustomCodeJsParamsSchema(schema) ? 100 : 0),
+        siblings: true,
+        hidden: sceneParamsHidden,
+        load: () =>
+          import('./CustomCodeParamsField/CustomCodeParamsField').then((module) => ({
+            default: module.default,
+          })),
+      },
+      /*
+        `jsMeta` is the Studio's library reference and the param spec: it is
+        written by the Studio and the agent, read by the scene settings, and
+        never shown as fields — so it has no row, and no component to load.
+      */
+      {
+        id: 'craftkit.custom-code.script-meta',
+        match: (schema) => (isCustomCodeJsMetaSchema(schema) ? 100 : 0),
+        hidden: true,
+        load: () =>
+          Promise.reject(new Error('The script library reference is written by the Studio.')),
       },
     ],
   },

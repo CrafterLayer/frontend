@@ -28,7 +28,8 @@ import {
 } from '@craftkit/builder-schema';
 
 import { serializeTreeMarkup } from '../plan/tree-markup';
-import { wirePropsSchema } from './wire-schema';
+import { wirePropsSchema, withStudioSummaries } from './wire-schema';
+import { collectTemplates } from './template-context';
 import type {
   AiBlockContext,
   AiBlockPropertyIntentContext,
@@ -37,7 +38,6 @@ import type {
   AiDocumentContext,
   AiDocumentNodeContext,
   AiSelectionContext,
-  AiTemplateContext,
   AiPlanOutputContract,
   AssembledAiContext,
 } from '../types';
@@ -124,7 +124,7 @@ function blockCatalogEntry({ schema }: RegisteredBlock): AiContextBlockCatalogEn
   return Object.freeze({
     type: schema.type,
     description: schema.description,
-    propsSchema: deepFreezeJson(cloneJson(blockPropsJsonSchema(schema))),
+    propsSchema: deepFreezeJson(cloneJson(withStudioSummaries(blockPropsJsonSchema(schema), schema.props))),
     ...(schema.surfaces === undefined
       ? {}
       : { surfaces: frozenStrings([...schema.surfaces].sort(compareText)) }),
@@ -154,6 +154,7 @@ function compositionCatalogEntry(composition: CompositionDef): AiContextComposit
     ...(composition.surfaces === undefined
       ? {}
       : { surfaces: frozenStrings([...composition.surfaces].sort(compareText)) }),
+    ...(composition.dir === undefined ? {} : { dir: composition.dir }),
     rootType: root?.type ?? 'unknown',
     nodeCount: Object.keys(composition.nodes).length,
     blockTypes: frozenStrings(
@@ -595,16 +596,6 @@ function propertyIntentSummary(
   };
 }
 
-function collectTemplates(ctx: AiContextReadApi): readonly AiTemplateContext[] {
-  return ctx.registry.compositions(ctx.surface).map((composition) => ({
-    id: composition.id,
-    name: composition.name,
-    rootType: composition.rootType,
-    nodeCount: composition.nodeCount,
-    blockTypes: [...composition.blockTypes],
-  }));
-}
-
 function collectDocument(
   ctx: AiContextReadApi,
   policy: ResolvedAiCompositionPolicy,
@@ -881,7 +872,7 @@ export const templateCatalogContextProvider: AiContextProvider = {
         trust: 'builtin',
         title: 'Registered page templates',
       },
-      collectTemplates(ctx),
+      collectTemplates(ctx, true),
     );
   },
 };
@@ -1088,7 +1079,7 @@ export function assembleAiContext(
     fragments,
     totalTokens: fragments.reduce((total, current) => total + (current.tokens ?? 0), 0),
     blocks: collectBlocks(readCtx, composition, focus),
-    templates: collectTemplates(readCtx),
+    templates: collectTemplates(readCtx, composition.catalogMode === 'full'),
     document: focused?.document ?? collectDocument(readCtx, composition, selection),
     selection: collectSelection(readCtx, selection),
     commands,

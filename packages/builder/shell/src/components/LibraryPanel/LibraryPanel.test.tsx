@@ -41,7 +41,7 @@ describe('LibraryPanel', () => {
     const before = treeOf(kernel, 'rA');
     render(<LibraryPanel kernel={kernel} labels={LIBRARY_PANEL_LABELS_AR} />);
     await user.selectOptions(screen.getByRole('combobox', { name: 'فئة العناصر' }), 'professional');
-    expect(screen.getAllByRole('button', { name: /^إدراج / })).toHaveLength(8);
+    expect(screen.getAllByRole('button', { name: /^إدراج / })).toHaveLength(ELEMENT_RECIPE_CATALOG.length);
     for (const recipe of ELEMENT_RECIPE_CATALOG) expect(screen.getByText(recipe.description.ar)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'إدراج شبكة بنتو' }));
     expect(treeOf(kernel, 'rA').children[1]).toEqual(buildElementRecipe('bento-grid', 'ar'));
@@ -97,7 +97,8 @@ describe('LibraryPanel', () => {
 
   it.each(['en', 'ar'] as const)('every Elements preset is a valid tree node (%s)', (language) => {
     // gsap-pixi additions (2026-10-08): +3 motion sections (animated hero, scroll reveal features / section)
-    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(42);
+    // table (2026-10-12): +1 shared recipe, the data table.
+    expect(LIBRARY_ELEMENT_PRESETS).toHaveLength(43);
     for (const preset of LIBRARY_ELEMENT_PRESETS) {
       const tree = { kind: 'root', children: [preset.node(language)] };
       expect({ id: preset.id, problems: customCodeTreeProblems(tree) }).toEqual({ id: preset.id, problems: [] });
@@ -197,6 +198,8 @@ describe('LibraryPanel', () => {
     render(<LibraryPanel kernel={makeKernel()} />);
     await user.click(screen.getByRole('tab', { name: 'Blocks' }));
     expect(screen.getByRole('navigation', { name: 'Block palette' })).toBeInTheDocument();
+    // One row of tabs: the composed palette drops its own Blocks / Templates switch.
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
   });
 
   it('builds thumbnails from the classes a tree uses, sandboxed and directional', () => {

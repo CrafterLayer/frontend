@@ -409,10 +409,14 @@ async function expectMini(
   const canvas = within(canvasElement);
   await expect(canvas.queryByRole('dialog')).toBeNull();
   const region = canvas.getByRole('region', { name: t(locale, 'header.name') });
-  await waitFor(async () => {
-    const face = region.getBoundingClientRect();
-    await expect(Math.round(phoneOf(canvasElement).bottom - face.bottom)).toBe(0);
-  });
+  // The sheet slides down to its mini row; a loaded test machine can take over a second.
+  await waitFor(
+    async () => {
+      const face = region.getBoundingClientRect();
+      await expect(Math.round(phoneOf(canvasElement).bottom - face.bottom)).toBe(0);
+    },
+    { timeout: 4000 },
+  );
   const bar = region.querySelector('.ck-agent-mini-bar');
   const row = region.querySelector('.ck-agent-mini-bar__row')?.getBoundingClientRect();
   await expect(bar).not.toBeNull();

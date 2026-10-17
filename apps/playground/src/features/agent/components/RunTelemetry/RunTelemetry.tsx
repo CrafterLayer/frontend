@@ -1,5 +1,7 @@
 import { formatNumber, t, type Key } from '../../copy';
+import { cacheMissLine } from '../../copy/cache-labels';
 import {
+  latestCacheMiss,
   telemetryTotals,
   type OperationalStage,
   type RunTelemetryState,
@@ -31,8 +33,17 @@ const COUNTS = [
 /** Bounded public work phases and actual measurements, separate from context estimates. */
 export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps) {
   const totals = telemetryTotals(state);
+  // Why the cache was written instead of read (2026-10-13): the server's cause, said plainly.
+  const miss = latestCacheMiss(state);
   const latest = state.activity.at(-1);
-  if (latest === undefined && totals.requests === 0) return null;
+  /*
+    Usage is drawn only when the provider reported a count (2026-10-12): four cells reading
+    "Not reported" took a quarter of a narrow thread and said nothing. A missing count beside
+    a reported one still reads "Not reported", so a partial total never passes as whole.
+  */
+  const reported = totals.requests > 0 && COUNTS.some(([field]) => totals[field] !== null);
+  if (latest === undefined && !reported) return null;
+  if (!live && state.activity.length === 0 && !reported) return null;
   return (
     <section className="ck-agent-telemetry" aria-label={t(locale, 'telemetry.activity')}>
       {latest === undefined || !live ? null : (
@@ -54,7 +65,7 @@ export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps)
           </ol>
         </details>
       )}
-      {totals.requests === 0 ? null : (
+      {!reported ? null : (
         <div className="ck-agent-telemetry__usage">
           <p>{t(locale, 'telemetry.usage')}</p>
           <dl>
@@ -73,6 +84,9 @@ export function RunTelemetry({ locale, state, live = false }: RunTelemetryProps)
           </dl>
           {totals.cachedReplies === 0 ? null : (
             <p>{t(locale, 'telemetry.cached', { n: totals.cachedReplies })}</p>
+          )}
+          {miss === undefined ? null : (
+            <p className="ck-agent-telemetry__cache-miss">{cacheMissLine(locale, miss)}</p>
           )}
           {totals.costUsd == null ? null : (
             <p>

@@ -313,6 +313,7 @@ interface SchemaDef {
   readonly innerType?: PropSchema;
   readonly shape?: Readonly<Record<string, PropSchema>>;
   readonly format?: string;
+  readonly defaultValue?: unknown;
 }
 
 function defOf(schema: PropSchema): SchemaDef {
@@ -361,15 +362,14 @@ const NOT_WORDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The words-bearing props of a block schema, in declaration order: a plain string (no
- * `format`: a URL, email or uuid is not words) or rich text. An enum is a choice among
- * the schema's own tokens (`tone: 'dark'`), and a boolean, a number or a style is not
- * words either.
+ * The words-bearing props of a block, in declaration order: plain strings (no `format`) and rich
+ * text; never enums, booleans, numbers, styles, nor wording the schema fills (Chart's 'Other').
  */
 export function textPropsOf(schema: BlockSchema): readonly string[] {
   const shape = defOf(unwrapped(schema.props)).shape ?? {};
   return Object.entries(shape).flatMap(([key, prop]) => {
-    if (NOT_WORDS.has(key) || STYLE_KEYS.has(key)) return [];
+    const fallback = defOf(prop).defaultValue;
+    if (NOT_WORDS.has(key) || STYLE_KEYS.has(key) || (typeof fallback === 'string' && fallback !== '')) return [];
     if (isRichTextSchema(prop)) return [key];
     const def = defOf(unwrapped(prop));
     return def.type === 'string' && def.format === undefined ? [key] : [];

@@ -35,7 +35,16 @@ export function CustomCodeBlock({ node, props, isCanvas }: BlockRenderProps<Cust
           the rest of the stylesheet will apply.
         </p>
       )}
-      <CustomCode tree={props.tree} hostId={node.id} isCanvas={isCanvas} js={props.js} />
+      {/* jsParams ride beside the code as data-ck-params, read by ck.params (2026-10-12: they
+          were never passed, so the Inspector's scene settings and scene.preset's params did
+          nothing on the canvas, in Preview and on the published page). */}
+      <CustomCode
+        tree={props.tree}
+        hostId={node.id}
+        isCanvas={isCanvas}
+        js={props.js}
+        jsParams={props.jsParams}
+      />
     </>
   );
 }

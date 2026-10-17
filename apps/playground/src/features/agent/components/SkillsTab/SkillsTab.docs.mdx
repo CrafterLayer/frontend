@@ -1,0 +1,98 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as SkillsTabStories from './SkillsTab.stories';
+
+<Meta of={SkillsTabStories} />
+
+# SkillsTab
+
+The Skills tab of "Skills & memory" (2026-10-12): the person's own skills, New skill and Import, and
+the skills the Agent already has.
+
+<Canvas of={SkillsTabStories.Default} />
+
+## Purpose
+
+People teach the Agent how they work: a brand voice, a house style, "every page ends with our
+booking band". A skill is data, never code: a name, when to use it, instructions, and how it turns
+on, either in every request or when a request mentions its words. This tab lists them, each with its
+switch, Edit, Copy as SKILL.md and Delete, and lets a person write one or import a SKILL.md, pasted
+or from a link. Under them, behind a quiet disclosure, it lists the built-in skills by group, each
+with a switch (`BuiltInSkillsList`, 2026-10-14), so a person sees what the Agent already knows and
+can switch a built-in off.
+
+## When to use / not
+
+Inside KnowledgePopover, which passes `knowledge.skills` and the panel's labels. It renders the view
+and calls its edits (`add`, `update`, `setEnabled`, `remove`, `importMarkdown`, `exportMarkdown`);
+the store judges every write (`checkSkillDraft`), and a refusal comes back as a line to show. Not a
+place for project facts (MemoryTab).
+
+## Props
+
+| prop        | type                              | default                         | notes                               |
+| ----------- | --------------------------------- | ------------------------------- | ----------------------------------- |
+| `skills`    | `UserSkillsView`                  | none                            | the person's skills and their edits |
+| `labels`    | `KnowledgeLabels`                 | none                            | `knowledgeLabels(locale)`           |
+| `clipboard` | `(text: string) => Promise<void>` | `navigator.clipboard.writeText` | where "Copy as SKILL.md" writes     |
+| `fetcher`   | `Fetcher`                         | `fetch`                         | what answers a skill link           |
+
+## States
+
+| story                            | what it shows                                                   |
+| -------------------------------- | --------------------------------------------------------------- |
+| `Default`, `Dark`                | three skills (one off), the count, the built-ins closed         |
+| `Empty`                          | none of their own yet                                           |
+| `Editing`, `EditingRightToLeft`  | New skill or Edit: SkillEditor takes the list's place           |
+| `Importing`                      | one field for a pasted SKILL.md                                 |
+| `Imported`                       | the front matter's name and mode, added to the list             |
+| `ImportFromLink`                 | a GitHub link fetched into the box, to read before Add skill    |
+| `ImportRefused`                  | "This is not a skill that can be read."                         |
+| `Refused`                        | a second long every-request skill refused by the budget, in-row |
+| `BuiltIns`                       | the built-in skills, opened                                     |
+| `RightToLeft`, `DarkRightToLeft` | Arabic skills and words                                         |
+
+## Anatomy
+
+```text
+Teach the Agent how you work. …                 intro (Meta, Graphite)
+[New skill] [Import]                  3 of 24    actions; count at the inline end
+ ● Brand voice                       ✎ ⧉ 🗑     SkillRow, one per skill
+   When a request mentions copy, headline
+▸ Built-in skills (N)                            disclosure, hairline above
+```
+
+Writing or importing a skill replaces the list in place; Save, Add skill or Cancel bring it back.
+The built-in list stays closed until opened, so many built-ins never push the person's own skills
+away.
+
+## Accessibility
+
+- Each skill's controls are named for it (SkillRow).
+- The import field has a visible label; a refusal is one `alert` line above Add skill.
+- The built-ins are a native `details`/`summary`; their switches, filter and Reset are described in
+  BuiltInSkillsList.
+- Every refusal is the store's own reason, in the panel's language: the every-request budget, the
+  limit of 24, or an unreadable SKILL.md.
+
+## RTL
+
+Logical properties only; the count sits at the inline end. The SKILL.md field runs in its own
+script's direction (`dir="auto"`), monospaced.
+
+## Import from a link
+
+The Import box takes either a SKILL.md or one https link to one. A GitHub page link (`/blob/…`) is
+read from its raw file, and a folder link (`/tree/…`) from the SKILL.md inside it
+(`model/skill-link.ts`). The button then reads "Fetch skill". The fetched text replaces the link in
+the box, and a status line names the host it came from, so the person reads it before Add skill. A
+link never adds a skill on its own. Plain http, web pages, files over 64 KB, empty files and
+unanswered links are refused with the reason. The fetch sends no cookies.
+
+## Default skills
+
+Between the person's own skills and the starter templates sits DefaultSkillsList: the seven reviewed
+skills every project starts with (`CRAFTKIT_DEFAULT_SKILLS`, design intelligence from UI UX Pro Max
+among them). Each has a switch kept per viewer, its exact instructions behind "What it teaches the
+Agent", and "Make it my own", which opens New skill on a copy; saving the copy switches the default
+off and the status line says so.

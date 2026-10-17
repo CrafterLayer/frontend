@@ -36,22 +36,35 @@ never dead: one model means no ModelMenu, no rewriting means no ✨.
 | `onSend`          | `() => void`                    | none    |                                               |
 | `className`       | `string`                        | none    | appended to `ck-agent-toolbar`                |
 
-The folder also holds the pieces ModeMenu and ModelMenu share: `ChoiceMenu` (a ghost trigger over a
-Radix DropdownMenu radio group of two-line items) and `ComposerTooltip` (IconButton's tooltip for
-labelled triggers: Stop, Send, ✨ and the menu triggers).
+Free code (`freeCode`, `onFreeCodeChange`) is a labelled switch with the choices, not an icon
+(Studio Indigo redesign, 2026-10-12): `</>` Free code and a 26 × 16 track whose knob sits at the
+inline end when on, in the Accent wash. It is a toggle button (`aria-pressed`) described by what on
+and off mean (`freeCode.on` / `freeCode.off`); under a 560px panel the words are visually hidden,
+and stay its accessible name and its tooltip.
+
+Compact composer (2026-10-12, the person's request): every choice is a 28px chip (44 on a coarse
+pointer) with a glyph — Mode ⚡, Model, Effort, Workers, Free code — on ONE row with ✨, `@` and
+Send. As the panel narrows the words go first, widest first (Free code under 560px, Model and Effort
+under 460px with every ▾, Mode under 380px); the glyphs, the accessible names and the tooltips keep
+the whole. The row wraps only as a last resort, so nothing is ever clipped.
+
+The folder also holds the pieces ModeMenu, ModelMenu, EffortMenu and WorkerMenu share: `ChoiceMenu`
+(a ghost trigger, with an optional `icon` glyph, over a Radix DropdownMenu radio group of two-line
+items) and `ComposerTooltip` (IconButton's tooltip for labelled triggers: Stop, Send, ✨ and the
+menu triggers).
 
 ## States
 
-| story                                        | what it shows                                       |
-| -------------------------------------------- | --------------------------------------------------- |
-| `Ready`, `ReadyDark`, `ReadyRightToLeft`     | the order, in both directions                       |
-| `Empty`                                      | ✨ and Send wait, still focusable and explained     |
-| `Running`, `Queued`, `QueuedRightToLeftDark` | Queue as next; the Queued pill                      |
-| `Enhancing`, `ImproveUnavailable`            | ✨ at work; ✨ absent                               |
-| `NoModelChoice`                              | one model: no menu                                  |
-| `Mention`                                    | `[@]` calls back                                    |
-| `Narrow` (288)                               | the actions wrap under the choices rather than clip |
-| `CoarsePointer`, `CoarsePointerRightToLeft`  | 44px items 8px apart, previewed                     |
+| story                                        | what it shows                                   |
+| -------------------------------------------- | ----------------------------------------------- |
+| `Ready`, `ReadyDark`, `ReadyRightToLeft`     | the order, in both directions                   |
+| `Empty`                                      | ✨ and Send wait, still focusable and explained |
+| `Running`, `Queued`, `QueuedRightToLeftDark` | Queue as next; the Queued pill                  |
+| `Enhancing`, `ImproveUnavailable`            | ✨ at work; ✨ absent                           |
+| `NoModelChoice`                              | one model: no menu                              |
+| `Mention`                                    | `[@]` calls back                                |
+| `Narrow` (288)                               | glyph-only chips on one row with the actions    |
+| `CoarsePointer`, `CoarsePointerRightToLeft`  | 44px items 8px apart, previewed                 |
 
 ## Anatomy
 
@@ -60,9 +73,10 @@ labelled triggers: Stop, Send, ✨ and the menu triggers).
 `--ck-agent-toolbar-gap`), set by the stylesheets only under `(pointer: coarse)`, so the phone sheet
 or a story can preview them from an ancestor.
 
-Both the choice group and the action row may wrap; neither can push a control outside the panel.
-Provider labels use a shorter visual measure below 360px. Accessible button names retain the full
-label, and menus remain portalled above the composer rather than clipped inside a scroll box.
+The choices never wrap (their words hide instead); the whole row wraps only when even the glyphs do
+not fit, so no control is pushed outside the panel. Provider labels use a shorter visual measure
+below 360px. Accessible button names retain the full label, and menus remain portalled above the
+composer rather than clipped inside a scroll box.
 
 ## Accessibility
 

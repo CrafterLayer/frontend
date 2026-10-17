@@ -1,6 +1,7 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import { safeCustomCodeUrl, type MediaImage, type MediaLocale } from '@craftkit/builder-schema';
 
+import { isArtSpec, resolveArtImage } from '../art-catalog/runtime';
 import { selectCatalogPhotos, type CatalogPhoto } from '../context/providers/photo-catalog';
 import {
   PHOTO_CATALOG_ENTRIES,
@@ -26,7 +27,20 @@ import type { AgentToolContext } from '../tools/agent/types';
 /** What an `images` field asks for, parsed. */
 export type ImagesRequest =
   | { readonly kind: 'catalog'; readonly topic?: string | undefined }
-  | { readonly kind: 'list'; readonly images: readonly MediaImage[] };
+  | { readonly kind: 'list'; readonly images: readonly GivenImage[] };
+
+/**
+ * An image the call names: an address with its alt, or (art catalog,
+ * 2026-10-14) an art spec — 'logo:stripe', 'character:<style>:<seed>',
+ * 'illustration:doctor' — resolved when the tool runs, alt optional.
+ */
+export type GivenImage =
+  | MediaImage
+  | {
+      readonly art: string;
+      readonly alt?: string | undefined;
+      readonly caption?: string | undefined;
+    };
 
 export type Resolved<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: string };
 
@@ -122,11 +136,43 @@ function wholeNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 && value < 100_000 ? value : undefined;
 }
 
-/** One `{src,alt,width?,height?,caption?}` the person supplied, checked. */
-function parseGivenImage(value: unknown, where: string): Resolved<MediaImage> {
+/** An art spec in place of an address: its alt and caption are optional, the tool writes the alt. */
+function parseArtImage(
+  value: Readonly<Record<string, unknown>>,
+  where: string,
+): Resolved<GivenImage> {
+  const { src, alt, caption } = value;
+  if (alt !== undefined && (typeof alt !== 'string' || alt.length > MAX_ALT)) {
+    return {
+      ok: false,
+      error: `${where}.alt must be text of at most ${String(MAX_ALT)} characters.`,
+    };
+  }
+  if (caption !== undefined && (typeof caption !== 'string' || caption.length > MAX_CAPTION)) {
+    return {
+      ok: false,
+      error: `${where}.caption must be text of at most ${String(MAX_CAPTION)} characters.`,
+    };
+  }
+  const words = (text: unknown) =>
+    typeof text === 'string' && text.trim() !== '' ? text.trim() : undefined;
+  const given = { alt: words(alt), caption: words(caption) };
+  return {
+    ok: true,
+    value: {
+      art: (src as string).trim(),
+      ...(given.alt === undefined ? {} : { alt: given.alt }),
+      ...(given.caption === undefined ? {} : { caption: given.caption }),
+    },
+  };
+}
+
+/** One `{src,alt,width?,height?,caption?}` the person supplied, checked; `src` may be an art spec. */
+function parseGivenImage(value: unknown, where: string): Resolved<GivenImage> {
   if (!isRecord(value)) return { ok: false, error: `${where} must be {"src","alt"}.` };
   const extra = Object.keys(value).filter((key) => !['src', 'alt', 'width', 'height', 'caption'].includes(key));
   if (extra.length > 0) return { ok: false, error: `${where}: unknown keys ${extra.join(', ')}; use src, alt, width, height, caption.` };
+  if (isArtSpec(value['src'])) return parseArtImage(value, where);
   const problem = imageAddressProblem(value['src'], `${where}.src`);
   if (problem !== undefined) return { ok: false, error: problem };
   const alt = value['alt'];
@@ -179,7 +225,7 @@ export function parseImagesField(value: unknown, key: string, max: number): Reso
     return { ok: false, error: `"${key}" is 'catalog:<topic>' or a non-empty array of {"src","alt"}.` };
   }
   if (value.length > max) return { ok: false, error: `"${key}" holds at most ${String(max)} images.` };
-  const images: MediaImage[] = [];
+  const images: GivenImage[] = [];
   for (const [index, entry] of (value as unknown[]).entries()) {
     const parsed = parseGivenImage(entry, `${key}[${String(index)}]`);
     if (!parsed.ok) return parsed;
@@ -191,13 +237,15 @@ export function parseImagesField(value: unknown, key: string, max: number): Reso
 /** One image field (a poster, a before or after picture): an address, `'catalog:<topic>'`, or `{src,alt}`. */
 export type ImageRequest =
   | { readonly kind: 'catalog'; readonly topic?: string | undefined }
-  | { readonly kind: 'given'; readonly image: MediaImage };
+  | { readonly kind: 'given'; readonly image: GivenImage };
 
 export function parseImageField(value: unknown, key: string): Resolved<ImageRequest | undefined> {
   if (value === undefined) return { ok: true, value: undefined };
   if (typeof value === 'string') {
     const spec = catalogSpec(value);
     if (spec !== undefined) return { ok: true, value: { kind: 'catalog', ...spec } };
+    if (isArtSpec(value))
+      return { ok: true, value: { kind: 'given', image: { art: value.trim() } } };
     const problem = imageAddressProblem(value, key);
     if (problem !== undefined) return { ok: false, error: problem };
     const src = value.trim();
@@ -317,13 +365,39 @@ export function catalogImages(context: AgentToolContext, options: CatalogImagesO
   return { ok: true, value: chosen.slice(0, options.count).map((photo) => catalogImage(photo, locale)) };
 }
 
+/** A given image as a recipe image: an address as it came, an art spec resolved in the page language. */
+export function givenImage(context: AgentToolContext, image: GivenImage): Resolved<MediaImage> {
+  if (!('art' in image)) return { ok: true, value: image };
+  const art = resolveArtImage(image.art, { locale: mediaLocale(context), alt: image.alt });
+  if (!art.ok) return art;
+  const { src, alt, width, height } = art.value;
+  return {
+    ok: true,
+    value: {
+      src,
+      alt,
+      width,
+      height,
+      ...(image.caption === undefined ? {} : { caption: image.caption }),
+    },
+  };
+}
+
 /** Resolve an `images` request (absent → the page topic) to `count` images. */
 export function resolveImages(
   context: AgentToolContext,
   request: ImagesRequest | undefined,
   count: number,
 ): Resolved<readonly MediaImage[]> {
-  if (request?.kind === 'list') return { ok: true, value: request.images.slice(0, count) };
+  if (request?.kind === 'list') {
+    const images: MediaImage[] = [];
+    for (const image of request.images.slice(0, count)) {
+      const resolved = givenImage(context, image);
+      if (!resolved.ok) return resolved;
+      images.push(resolved.value);
+    }
+    return { ok: true, value: images };
+  }
   return catalogImages(context, { topic: request?.topic, count });
 }
 
@@ -334,7 +408,7 @@ export function resolveImage(
   skip?: ReadonlySet<string>,
 ): Resolved<MediaImage | undefined> {
   if (request === undefined) return { ok: true, value: undefined };
-  if (request.kind === 'given') return { ok: true, value: request.image };
+  if (request.kind === 'given') return givenImage(context, request.image);
   const images = catalogImages(context, { topic: request.topic, count: 1, skip });
   return images.ok ? { ok: true, value: images.value[0] } : images;
 }

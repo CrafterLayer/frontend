@@ -4,20 +4,32 @@
 
 import type { TrustedExtensionManifest } from '@craftkit/builder-schema';
 
+import type * as TemplatesModule from './templates';
+
 import { Cta, ctaSchema } from './components/Cta';
 import { AnnouncementBar, announcementBarSchema } from './components/AnnouncementBar';
+import { AppDownload, appDownloadSchema } from './components/AppDownload';
+import { BeforeAfter, beforeAfterSchema } from './components/BeforeAfter';
 import { BentoGrid, bentoGridSchema } from './components/BentoGrid';
 import { BlogGrid, blogGridSchema } from './components/BlogGrid';
 import { Carousel, carouselSchema } from './components/Carousel';
+import { CaseStudy, caseStudySchema } from './components/CaseStudy';
+import { Chart, chartSchema } from './components/Chart';
 import { ComparisonTable, comparisonTableSchema } from './components/ComparisonTable';
 import { Contact, contactSchema } from './components/Contact';
+import { Countdown, countdownSchema } from './components/Countdown';
+import { DownloadList, downloadListSchema } from './components/DownloadList';
 import { ContentSection, contentSectionSchema } from './components/ContentSection';
 import { Faq, faqSchema } from './components/Faq';
 import { Features, featuresSchema } from './components/Features';
 import { FormSection, formSectionSchema } from './components/FormSection';
+import { Fundraiser, fundraiserSchema } from './components/Fundraiser';
 import { Gallery, gallerySchema } from './components/Gallery';
 import { Grid, gridSchema } from './components/Grid';
 import { Image, imageSchema } from './components/Image';
+import { JobsList, jobsListSchema } from './components/JobsList';
+import { Location, locationSchema } from './components/Location';
+import { MenuSection, menuSectionSchema } from './components/MenuSection';
 import { NavLinks, navLinksSchema } from './components/NavLinks';
 import { Newsletter, newsletterSchema } from './components/Newsletter';
 import { PageFooter, pageFooterSchema } from './components/PageFooter';
@@ -29,12 +41,17 @@ import { PricingPlan, pricingPlanSchema } from './components/PricingPlan';
 import { ProductGrid, productGridSchema } from './components/ProductGrid';
 import { ProcessSteps, processStepsSchema } from './components/ProcessSteps';
 import { PromoBanner, promoBannerSchema } from './components/PromoBanner';
+import { Report, reportSchema } from './components/Report';
 import { PortfolioGrid, portfolioGridSchema } from './components/PortfolioGrid';
+import { PullQuote, pullQuoteSchema } from './components/PullQuote';
+import { ReviewSummary, reviewSummarySchema } from './components/ReviewSummary';
 import { RichTextBlock, richTextBlockSchema } from './components/RichTextBlock';
 import { Testimonials, testimonialsSchema } from './components/Testimonials';
 import { LogoCloud, logoCloudSchema } from './components/LogoCloud';
 import { Stats, statsSchema } from './components/Stats';
+import { Table, tableSchema } from './components/Table';
 import { Team, teamSchema } from './components/Team';
+import { Timeline, timelineSchema } from './components/Timeline';
 import { VideoSection, videoSectionSchema } from './components/VideoSection';
 
 export const blocksMarketing: TrustedExtensionManifest = {
@@ -57,6 +74,8 @@ export const blocksMarketing: TrustedExtensionManifest = {
       { schema: carouselSchema, render: Carousel },
       { schema: videoSectionSchema, render: VideoSection },
       { schema: gallerySchema, render: Gallery },
+      // A before/after comparison: two photos of one subject and a slider (2026-10-13).
+      { schema: beforeAfterSchema, render: BeforeAfter },
       { schema: logoCloudSchema, render: LogoCloud },
       { schema: featuresSchema, render: Features },
       { schema: bentoGridSchema, render: BentoGrid },
@@ -70,13 +89,33 @@ export const blocksMarketing: TrustedExtensionManifest = {
       // The card that goes inside it. Composed, so a plan can hold a button.
       { schema: pricingPlanSchema, render: PricingPlan },
       { schema: testimonialsSchema, render: Testimonials },
+      // Proof beyond quotes (2026-10-13): one editorial line, the rating distribution, a customer story.
+      { schema: pullQuoteSchema, render: PullQuote },
+      { schema: reviewSummarySchema, render: ReviewSummary },
+      { schema: caseStudySchema, render: CaseStudy },
       { schema: comparisonTableSchema, render: ComparisonTable },
+      // Data: a rows-and-columns table and an SVG chart, both script-free when published.
+      { schema: tableSchema, render: Table },
+      { schema: chartSchema, render: Chart },
+      // One dataset as a report: KPI cards, a chart and the table (2026-10-12).
+      { schema: reportSchema, render: Report },
+      // Local business and events: milestones, a menu or price list, where to find it, and a countdown.
+      { schema: timelineSchema, render: Timeline },
+      { schema: menuSectionSchema, render: MenuSection },
+      { schema: locationSchema, render: Location },
+      { schema: countdownSchema, render: Countdown },
       { schema: faqSchema, render: Faq },
       { schema: blogGridSchema, render: BlogGrid },
       { schema: contactSchema, render: Contact },
+      // Careers and files to take away (2026-10-13).
+      { schema: jobsListSchema, render: JobsList },
+      { schema: downloadListSchema, render: DownloadList },
       { schema: formSectionSchema, render: FormSection },
       { schema: newsletterSchema, render: Newsletter },
       { schema: ctaSchema, render: Cta },
+      // Conversion beyond a button (2026-10-13): an app's store links, a fundraising goal.
+      { schema: appDownloadSchema, render: AppDownload },
+      { schema: fundraiserSchema, render: Fundraiser },
       // A row of links: the composition primitive a header or footer slot holds.
       { schema: navLinksSchema, render: NavLinks },
       { schema: richTextBlockSchema, render: RichTextBlock },
@@ -84,17 +123,22 @@ export const blocksMarketing: TrustedExtensionManifest = {
   },
 };
 
-export { marketingTemplates } from './templates';
-// templates-core additions
-// The Library's template cards (one per en/ar composition) and their shape.
-export {
-  marketingTemplateCatalog,
-  TEMPLATE_PHOTOS,
-  type MarketingTemplateCard,
-  type TemplateCategory,
-  type TemplateLang,
-} from './templates';
-// end templates-core additions
+/*
+  The page templates load on demand (performance pass, 2026-10-13). Their
+  bilingual copy, photos and compositions are ~100 KB gzip that a page made of
+  blocks never needs, so this entry no longer carries them: the manifest
+  (`marketingTemplates`), the Library's cards (`marketingTemplateCatalog`) and
+  `TEMPLATE_PHOTOS` live on the `./templates` subpath, and a host that wants
+  them off its first load fetches that module through `loadMarketingTemplates`.
+  Only their types stay here, which compile to nothing.
+*/
+export type { MarketingTemplateCard, TemplateCategory, TemplateLang } from './templates';
+/** Everything `@craftkit/builder-blocks-marketing/templates` exports. */
+export type MarketingTemplatesModule = typeof TemplatesModule;
+/** Fetches the templates module (manifest, Library cards, photos) as its own chunk. */
+export function loadMarketingTemplates(): Promise<MarketingTemplatesModule> {
+  return import('./templates');
+}
 
 export { Cta, ctaSchema, type CtaProps } from './components/Cta';
 export {
@@ -102,15 +146,25 @@ export {
   announcementBarSchema,
   type AnnouncementBarProps,
 } from './components/AnnouncementBar';
+export { AppDownload, appDownloadSchema, type AppDownloadProps } from './components/AppDownload';
+export { BeforeAfter, beforeAfterSchema, type BeforeAfterProps } from './components/BeforeAfter';
 export { BentoGrid, bentoGridSchema, type BentoGridProps } from './components/BentoGrid';
 export { BlogGrid, blogGridSchema, type BlogGridProps } from './components/BlogGrid';
 export { Carousel, carouselSchema, type CarouselProps } from './components/Carousel';
+export { CaseStudy, caseStudySchema, type CaseStudyProps } from './components/CaseStudy';
+export { Chart, chartSchema, type ChartProps } from './components/Chart';
 export {
   ComparisonTable,
   comparisonTableSchema,
   type ComparisonTableProps,
 } from './components/ComparisonTable';
 export { Contact, contactSchema, type ContactProps } from './components/Contact';
+export { Countdown, countdownSchema, type CountdownProps } from './components/Countdown';
+export {
+  DownloadList,
+  downloadListSchema,
+  type DownloadListProps,
+} from './components/DownloadList';
 export {
   ContentSection,
   contentSectionSchema,
@@ -119,8 +173,12 @@ export {
 export { Faq, faqSchema, type FaqProps } from './components/Faq';
 export { Features, featuresSchema, type FeaturesProps } from './components/Features';
 export { FormSection, formSectionSchema, type FormSectionProps } from './components/FormSection';
+export { Fundraiser, fundraiserSchema, type FundraiserProps } from './components/Fundraiser';
 export { Gallery, gallerySchema, type GalleryProps } from './components/Gallery';
 export { Hero, heroSchema, type HeroProps } from './components/Hero';
+export { JobsList, jobsListSchema, type JobsListProps } from './components/JobsList';
+export { Location, locationSchema, type LocationProps } from './components/Location';
+export { MenuSection, menuSectionSchema, type MenuSectionProps } from './components/MenuSection';
 export { Pricing, pricingSchema, type PricingProps } from './components/Pricing';
 export {
   PortfolioGrid,
@@ -129,6 +187,13 @@ export {
 } from './components/PortfolioGrid';
 export { ProductGrid, productGridSchema, type ProductGridProps } from './components/ProductGrid';
 export { PromoBanner, promoBannerSchema, type PromoBannerProps } from './components/PromoBanner';
+export { PullQuote, pullQuoteSchema, type PullQuoteProps } from './components/PullQuote';
+export { Report, reportSchema, type ReportProps } from './components/Report';
+export {
+  ReviewSummary,
+  reviewSummarySchema,
+  type ReviewSummaryProps,
+} from './components/ReviewSummary';
 export { LogoCloud, logoCloudSchema, type LogoCloudProps } from './components/LogoCloud';
 export { Newsletter, newsletterSchema, type NewsletterProps } from './components/Newsletter';
 export { PricingPlan, pricingPlanSchema, type PricingPlanProps } from './components/PricingPlan';
@@ -148,7 +213,9 @@ export {
   type TestimonialsProps,
 } from './components/Testimonials';
 export { Stats, statsSchema, type StatsProps } from './components/Stats';
+export { Table, tableSchema, type TableProps } from './components/Table';
 export { Team, teamSchema, type TeamProps } from './components/Team';
+export { Timeline, timelineSchema, type TimelineProps } from './components/Timeline';
 export {
   VideoSection,
   videoSectionSchema,

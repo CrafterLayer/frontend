@@ -324,6 +324,84 @@ describe('createRetryingAiPlanProvider — page plans and rewrites', () => {
     expect(Object.hasOwn(provider, 'enhancePrompt')).toBe(false);
   });
 
+  it('mirrors a site plan (T230): absent stays absent, present is retried', async () => {
+    expect(
+      Object.hasOwn(
+        createRetryingAiPlanProvider({ propose: () => Promise.resolve(plan) }),
+        'proposeSitePlan',
+      ),
+    ).toBe(false);
+    let calls = 0;
+    const pages = [
+      { title: 'Home', request: 'The home page.' },
+      { title: 'About', request: 'The about page.' },
+    ];
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        proposeSitePlan: () => {
+          calls += 1;
+          return calls === 1 ? Promise.reject(httpError(529)) : Promise.resolve({ pages });
+        },
+      },
+      { random: () => 1 },
+    );
+    const proposal = provider.proposeSitePlan?.('Build a 2-page site');
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(proposal).resolves.toEqual({ pages });
+    expect(calls).toBe(2);
+  });
+
+  it('mirrors a scene review (2026-10-13) with the enhancer’s budget: one retry, none after a timeout', async () => {
+    expect(
+      Object.hasOwn(
+        createRetryingAiPlanProvider({ propose: () => Promise.resolve(plan) }),
+        'reviewScene',
+      ),
+    ).toBe(false);
+    const look = {
+      image: { mediaType: 'image/jpeg' as const, base64: 'QQ==', width: 640, height: 360 },
+      contract: { title: 'Garden', purpose: 'A garden.', mustSay: [] },
+      lang: 'en',
+    };
+    let calls = 0;
+    const provider = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        reviewScene: () => {
+          calls += 1;
+          return calls < 3
+            ? Promise.reject(httpError(529))
+            : Promise.resolve({ ok: true, findings: [] });
+        },
+      },
+      { random: () => 1 },
+    );
+    const failed = expect(provider.reviewScene?.(look)).rejects.toMatchObject({ status: 529 });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await failed;
+    expect(calls).toBe(2);
+    const answered = provider.reviewScene?.(look);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(answered).resolves.toEqual({ ok: true, findings: [] });
+
+    let slow = 0;
+    const timingOut = createRetryingAiPlanProvider(
+      {
+        propose: () => Promise.resolve(plan),
+        reviewScene: () => {
+          slow += 1;
+          return Promise.reject(timeoutError());
+        },
+      },
+      { random: () => 1 },
+    );
+    const timedOut = expect(timingOut.reviewScene?.(look)).rejects.toThrow(/timed out/);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await timedOut;
+    expect(slow).toBe(1);
+  });
+
   it('retries a page plan over the same flaky wire, with the same options', async () => {
     let calls = 0;
     const seen: unknown[] = [];

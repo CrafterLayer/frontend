@@ -1,0 +1,116 @@
+/*
+  PagePicker (2026-10-12): the pages a background job runs on. A bar with the count and two
+  quiet buttons, then a list of rows: a checkbox in the Accent, the title in Ink, the address
+  in Graphite mono (always left to right), and "Open now" as a small tag at the inline end.
+  Builder tokens only; logical properties only.
+*/
+
+.ck-agent-page-picker {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ck-agent-page-picker__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bldr-space-2xs);
+}
+
+.ck-agent-page-picker__count {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-page-picker__list {
+  display: grid;
+  max-block-size: calc(8 * var(--bldr-control-md));
+  margin: 0;
+  padding: var(--bldr-space-2xs);
+  overflow-y: auto;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface);
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.ck-agent-page-picker[aria-invalid='true'] .ck-agent-page-picker__list {
+  border-color: var(--bldr-danger);
+}
+
+.ck-agent-page-picker__page {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--bldr-space-sm);
+  min-block-size: var(--bldr-control-md);
+  padding-inline: var(--bldr-space-sm);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-page-picker__page:hover {
+  background-color: var(--bldr-surface-hover);
+}
+
+.ck-agent-page-picker__check {
+  inline-size: var(--bldr-space-2xl);
+  block-size: var(--bldr-space-2xl);
+  margin: 0;
+  accent-color: var(--bldr-accent);
+  cursor: pointer;
+}
+
+.ck-agent-page-picker__check:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-page-picker__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-page-picker__address {
+  overflow: hidden;
+  max-inline-size: 16ch;
+  color: var(--bldr-panel-muted);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-agent-page-picker__current {
+  padding-inline: var(--bldr-space-xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .ck-agent-page-picker__page {
+    min-block-size: var(--bldr-hit-target-min);
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-page-picker__current {
+    outline: var(--bldr-border-hairline) solid CanvasText;
+  }
+}

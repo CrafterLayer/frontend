@@ -1,0 +1,103 @@
+/*
+  The empty page's invitation (UX pass, 2026-10-13). It floats over the canvas region —
+  the canvas slot is the positioned ancestor — and lets every pointer event through except
+  on its own buttons, so a library drag still lands on the page underneath. Chrome tokens
+  only, logical properties only, so it follows the editor's theme and direction.
+*/
+.pg-canvas-empty {
+  box-sizing: border-box;
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  align-items: start;
+  padding-block-start: calc(var(--bldr-space-6xl) * 3);
+  padding-inline: var(--bldr-space-5xl);
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.pg-canvas-empty__card {
+  animation: pg-canvas-empty-enter var(--bldr-duration-enter) var(--bldr-easing-enter) both;
+  background: var(--bldr-surface-raised);
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-xl);
+  box-shadow: var(--bldr-shadow-floating);
+  box-sizing: border-box;
+  color: var(--bldr-panel-text);
+  display: grid;
+  font-family: var(--bldr-font);
+  gap: var(--bldr-space-md);
+  justify-items: center;
+  max-inline-size: var(--bldr-measure-list-lg);
+  padding: var(--bldr-space-5xl);
+  text-align: center;
+}
+
+.pg-canvas-empty:lang(ar) .pg-canvas-empty__card,
+.pg-canvas-empty[dir='rtl'] .pg-canvas-empty__card {
+  font-family: var(--bldr-font-arabic);
+}
+
+.pg-canvas-empty__icon {
+  align-items: center;
+  background: var(--bldr-accent-soft);
+  block-size: var(--bldr-control-lg);
+  border-radius: var(--bldr-radius-full);
+  color: var(--bldr-accent);
+  display: inline-flex;
+  inline-size: var(--bldr-control-lg);
+  justify-content: center;
+}
+
+.pg-canvas-empty__title {
+  font-size: var(--bldr-font-size-lead);
+  font-weight: var(--bldr-font-weight-semibold);
+  line-height: var(--bldr-line-height-lead);
+  margin: var(--bldr-space-0);
+}
+
+.pg-canvas-empty__body {
+  color: var(--bldr-panel-text-soft);
+  font-size: var(--bldr-font-size-read);
+  line-height: var(--bldr-line-height-read);
+  margin: var(--bldr-space-0);
+  text-wrap: pretty;
+}
+
+.pg-canvas-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bldr-space-md);
+  justify-content: center;
+  margin-block-start: var(--bldr-space-xs);
+}
+
+/* Only the buttons take the pointer; the rest of the card is see-through to a drag. */
+.pg-canvas-empty__actions .bldr-chrome-button {
+  pointer-events: auto;
+}
+
+.pg-canvas-empty__actions .pg-canvas-empty__secondary {
+  border-color: var(--bldr-panel-border);
+}
+
+.pg-canvas-empty__tip {
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  margin: var(--bldr-space-xs) var(--bldr-space-0) var(--bldr-space-0);
+}
+
+@keyframes pg-canvas-empty-enter {
+  from {
+    opacity: 0;
+    translate: 0 var(--bldr-space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-canvas-empty__card {
+    animation: none;
+  }
+}

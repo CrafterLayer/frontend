@@ -11,6 +11,7 @@ import type {
 } from '@craftkit/builder-schema';
 
 import type { IntentKind } from './intent/route-intent';
+import type { AiSceneReviewCapability } from './provider/scene-review-wire';
 import type { AiSkillActivationPin, AiSkillManifestV1 } from './skills';
 
 export interface AiBlockSlotContext {
@@ -118,7 +119,7 @@ export interface AiTemplateContext {
   name: string;
   rootType: string;
   nodeCount: number;
-  blockTypes: readonly string[];
+  /** The template's block types; with the full catalog only (2026-10-12: 18 templates, ~850 tokens). */ blockTypes?: readonly string[];
 }
 
 /** One command the model may propose in this exact run. */
@@ -208,6 +209,30 @@ export interface AiProviderUsage {
   readonly costUsd?: number | null;
   /** A local answer-cache hit: no new model request or charge. */
   readonly cached?: true;
+  /** Why the provider wrote its prompt cache instead of reading it, when the server says. */
+  readonly cacheMiss?: AiCacheMiss;
+}
+
+/** Why a request wrote the prompt cache instead of reading it (ai-server cache-doctor.ts). */
+export type AiCacheMissReason =
+  | 'first'
+  | 'expired'
+  | 'model'
+  | 'settings'
+  | 'rules'
+  | 'catalog'
+  | 'skills'
+  | 'system'
+  | 'tools'
+  | 'history'
+  | 'unknown';
+
+export interface AiCacheMiss {
+  readonly reason: AiCacheMissReason;
+  /** Tokens the API says would have been read had the prefix matched; null when not said. */
+  readonly missedTokens: number | null;
+  /** The Messages API's own comparison, or the server's. */
+  readonly source: 'api' | 'local';
 }
 
 /**
@@ -234,7 +259,7 @@ export interface AiProposeOptions {
 }
 
 /** The provider boundary. A network-backed provider implements the same contract. */
-export interface AiPlanProvider {
+export interface AiPlanProvider extends AiSceneReviewCapability {
   propose(
     request: string,
     context: AssembledAiContext,
@@ -283,6 +308,22 @@ export interface AiPlanProvider {
     context: AssembledAiContext,
     options?: AiProposePagePlanOptions,
   ): Promise<AiPagePlanProposal>;
+  /**
+   * Optional (T230, 2026-10-12): plan a SITE. A request for several pages ("a 4-page
+   * website: home, about, services, contact") is answered with its pages, each with its
+   * own build brief in the person's language that carries the site's subject, so every
+   * page is built as part of one site. Nothing is written: the host builds each page
+   * with `runAiBuild`.
+   *
+   * Optional like every capability after `propose`: without it, or when it fails, the
+   * pages are read from the words (`sitePlanFromRequest`). What comes back is UNTRUSTED:
+   * only `validateSitePlan` turns it into pages (at most `AI_SITE_MAX_PAGES`). On the
+   * remote wire this is `task: 'site-plan'` on the plan endpoint (wire.ts).
+   */
+  proposeSitePlan?(
+    request: string,
+    options?: AiProposeSitePlanOptions,
+  ): Promise<AiSitePlanProposal>;
   /**
    * Optional: rewrite a person's DRAFT before it runs — spelling and spacing
    * fixed in its own language, an edit made explicit, a build turned into a
@@ -420,6 +461,25 @@ export interface AiProposePagePlanOptions extends AiProposeOptions {
    * swallowed by the provider and never change the call's outcome.
    */
   onDraft?: (event: AiPagePlanDraftEvent) => void;
+}
+
+/** Live options for `proposeSitePlan` (T230): a proposal's, without free code. */
+export type AiProposeSitePlanOptions = Pick<
+  AiProposeOptions,
+  'signal' | 'onProgress' | 'onUsage' | 'history'
+>;
+
+/** One page of a provider's site plan: its name, and its own build brief. */
+export interface AiSitePlanProposalPage {
+  readonly title: string;
+  readonly request: string;
+}
+
+/** A provider's site plan (T230), before `validateSitePlan` reads it. */
+export interface AiSitePlanProposal {
+  readonly pages: readonly AiSitePlanProposalPage[];
+  /** One sentence on the site, in the person's language. */
+  readonly rationale?: string;
 }
 
 /** Dedicated deterministic capabilities for preflight; never borrow the live kernel's instances. */

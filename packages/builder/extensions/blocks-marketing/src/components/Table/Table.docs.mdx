@@ -1,0 +1,142 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as TableStories from './Table.stories';
+
+<Meta of={TableStories} />
+
+# Table
+
+A semantic data table for anything that is rows and columns: schedules, opening hours, price lists,
+shipping rates, specifications. Use `comparisonTable` instead when the columns are plans or products
+competing with each other.
+
+## Content model
+
+- `title` (optional) is the visible `h2`; it names the section and the table through
+  `aria-labelledby`.
+- `caption` (optional) is a real `<caption>`, drawn under the table. Without a title it is the
+  table's name.
+- Up to eight `columns`, each `{ label, align: 'start' | 'center' | 'end' = 'start' }`.
+- Up to fifty `rows`, each `{ cells: string[] }` with up to eight cells. The columns decide how many
+  cells a row shows: a missing cell is drawn empty, a cell past the last column stays in the
+  document but is not drawn. A table with no columns falls back to its widest row and no header.
+- `headerRow: boolean = true` draws the column labels as `<th scope="col">`.
+- `firstColumnIsHeader: boolean = true` draws each row's first cell as `<th scope="row">`.
+- `striped: boolean = false`, `density: 'comfortable' | 'compact' = 'comfortable'`,
+  `variant: 'boxed' | 'minimal' = 'boxed'`.
+- `scrollLabel` localises the accessible name of the horizontal scroll region.
+- Each column may also set `sortAs: 'auto' | 'text' | 'number' | 'date' = 'auto'` (see Sort below).
+- The shared section props: `align`, `tone`, `spacing`, `width`, colour roles, motion, typography,
+  gutter, custom classes and `partStyles`.
+
+Inserted from the Library, the block starts as a three-column, four-row sample (service, duration,
+price) so its shape is obvious before anything is typed.
+
+## Interactive tools (all off by default)
+
+Long tables can sort, search and page. Every tool is opt-in, so a table saved before they existed
+publishes exactly as it did.
+
+| Prop                | Default                   | What it does                                                    |
+| ------------------- | ------------------------- | --------------------------------------------------------------- |
+| `sortable`          | `false`                   | Column labels become buttons; the sorted header has `aria-sort` |
+| `searchable`        | `false`                   | A labelled filter box and a polite row count                    |
+| `pageSize`          | `0` (every row)           | Rows per page, with Previous / "Page X of Y" / Next             |
+| `stickyHeader`      | `false`                   | The header row stays put while the region scrolls (70vh tall)   |
+| `searchLabel`       | `Search the table`        | The field's visible label (a part)                              |
+| `searchPlaceholder` | `Type to filter rows`     | The field's placeholder                                         |
+| `countLabel`        | `{shown} of {total} rows` | The live count (a part)                                         |
+| `noResultsLabel`    | `No matching rows`        | Shown when nothing matches (a part)                             |
+| `previousLabel`     | `Previous`                | Pager button (a part)                                           |
+| `nextLabel`         | `Next`                    | Pager button (a part)                                           |
+| `pageLabel`         | `Page {page} of {pages}`  | The polite page status (a part)                                 |
+| `paginationLabel`   | `Table pages`             | The pager landmark's accessible name                            |
+
+Write the words in the page's language: `countLabel: '{shown} من {total} صفًا'`,
+`pageLabel: 'الصفحة {page} من {pages}'`, `previousLabel: 'السابق'`, `nextLabel: 'التالي'`. A
+template written in Arabic prints its numbers in Arabic-Indic digits ("٤ من ١٢"); an English one
+prints Western digits. The Arabic example in `examples.ts` sets every word.
+
+**Sort.** `sortAs: 'auto'` reads a column as dates when every filled cell is one (ISO `2026-03-14`,
+day-first `14/03/2026`, or a month name with a year), else as numbers when every filled cell holds
+one (`$1,240`, `٣٩٩٩ ر.س`, `٩٫٥`, `30 min`), else as text. Arabic-Indic and Extended Arabic-Indic
+digits read as numbers. Text compares with `Intl.Collator` in the page's language, so an Arabic page
+lists Arabic names first, each alphabet in its own order, and `Item 9` comes before `Item 10`. Empty
+cells, and cells a number or date column cannot read, sort last in either direction. The first press
+sorts ascending, the next one descending; a sort returns to page one.
+
+**Search.** Every word of the query must appear in the row. Case, Latin accents, Arabic harakat and
+tatweel are ignored, the alef forms (أ إ آ) match ا, ة matches ه, ى matches ي, and digits match in
+either script: "احمد ٣" finds "أحمد 3". A search returns to page one.
+
+**Where it runs.** On the canvas, in Preview and in Storybook, React does the work. A published page
+runs no React: the static markup is the whole table in document order, with the search box, the
+no-match message and the pager shipped `hidden`, and the `table-tools` behaviour pack (renderer
+`behaviors/packs/table-tools.ts`, about 2.2 kB gzip) brings them to life. It ships only to a page
+whose markup carries `data-ck-behavior="table-tools"`, writes text with `textContent` only, and
+sorts number and date columns by the `data-ck-key` the block wrote with the same function its live
+render sorts by. With JavaScript off, every row reads and no control that cannot work is shown.
+
+## Accessibility, direction and narrow screens
+
+Column labels are column headers and the first cell of each row is a row header, so every value is
+announced with both. The table sits in a `role="region"` scroll container that is keyboard-focusable
+and labelled by `scrollLabel`: on a phone, a wide table keeps its shape and scrolls instead of
+crushing its columns.
+
+Alignment is logical (`text-start`, `text-end`), so the same document reads correctly in Arabic and
+English. A cell's text gets its own direction through `<bdi>` rather than `dir="auto"` on the cell:
+an English product name in an Arabic table stays in its column's alignment instead of jumping to the
+left edge. Numbers use tabular figures so a column of prices lines up.
+
+A sortable header holds a real `button` named by the column label; the sorted header carries
+`aria-sort="ascending"` or `"descending"` (and only that one). The arrows beside the label are
+`aria-hidden`. The search field has a visible `<label>` and `aria-controls` the table; the count is
+a `role="status"`, so it is announced politely as the matches change. The pager is a `nav` named by
+`paginationLabel`; Previous and Next stay focusable at either end (`aria-disabled`, never
+`disabled`, so a keyboard user's focus is never dropped), and the page status is
+`aria-live="polite"`. The pager arrows mirror in RTL.
+
+Rules, the header band and stripes are drawn in the section's own ink (`current` at low opacity), so
+a minimal table on a dark section draws light rules rather than dark-on-dark ones. Nothing in the
+block holds a colour value; every class resolves through a theme token.
+
+## Parts
+
+Each inner element is a part (block-parts DESIGN §1): selectable and editable on the canvas, styled
+per part through `partStyles` (`row.cell` for every cell, `row.cell@2.1` for the third row's second
+cell), and addressable by the agent by name, alias or label.
+
+| name             | kind | bind              | label (en / ar)                           |
+| ---------------- | ---- | ----------------- | ----------------------------------------- |
+| `title`          | text | `title`           | Heading / العنوان                         |
+| `caption`        | text | `caption`         | Caption / التعليق (multiline)             |
+| `columns`        | list | `columns`         | Columns / الأعمدة                         |
+| `column`         | item | `columns.*`       | Column / العمود                           |
+| `column.label`   | text | `columns.*.label` | Column heading / عنوان العمود             |
+| `rows`           | list | `rows`            | Rows / الصفوف                             |
+| `row`            | item | `rows.*`          | Row / الصف                                |
+| `row.cell`       | text | `rows.*.cells.*`  | Cell / الخلية                             |
+| `searchLabel`    | text | `searchLabel`     | Search label / تسمية البحث                |
+| `countLabel`     | text | `countLabel`      | Row count / عدد الصفوف                    |
+| `noResultsLabel` | text | `noResultsLabel`  | No results message / رسالة عدم وجود نتائج |
+| `previousLabel`  | text | `previousLabel`   | Previous button / زر السابق               |
+| `pageLabel`      | text | `pageLabel`       | Page status / حالة الصفحة                 |
+| `nextLabel`      | text | `nextLabel`       | Next button / زر التالي                   |
+
+A missing cell has no value to edit in place; add it from the Inspector's row editor. `scrollLabel`
+and `paginationLabel` are read only by assistive technology and `searchPlaceholder` sits inside the
+field, so they stay Inspector rows. The count and page templates are edited in place as written
+(`{shown} of {total} rows`) and shown filled in.
+
+## Limitations
+
+- Sorting and searching read the drawn cells as plain text; a row's cells past the last column are
+  not searched.
+- Dates read in day-first numeric order (`03/04/2026` is 3 April); write ISO dates or set
+  `sortAs: 'text'` for anything else. Month names are read in English only.
+- Up to fifty rows: for bigger data, page it or link to a full report.
+- On the canvas the tools work as they do in Preview, so a filtered or paged table shows only the
+  rows in view; clear the search or page through to edit the others in place (the Inspector's row
+  list always holds every row). A sorted row keeps its document index, so an edit lands on the right
+  row.

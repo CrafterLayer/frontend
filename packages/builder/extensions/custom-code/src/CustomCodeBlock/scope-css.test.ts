@@ -189,3 +189,28 @@ describe('custom-code CSS scoping', () => {
     expect(scopeCustomCodeCss('.a { color: red }', 'n1', 'off')).toBeUndefined();
   });
 });
+
+describe('custom-code CSS — viewport heights (preview-fix 2026-10-12)', () => {
+  /*
+    The canvas frame is `100 / zoom` percent tall, so its own `vh` grew with zoom-out: a story
+    stage at `min-height: 70vh` was 999px on the canvas at 57% and 604px in Preview, under the
+    same pixel-sized cards. A region's viewport heights read the canvas's `--ck-vh` instead; with
+    nothing set (Preview, a published page) the fallback is the real unit.
+  */
+  it('reads a region height in vh through --ck-vh, in rules and inside media blocks', () => {
+    const scoped = scope(
+      '.ck-story { min-height: 70vh } @media (max-width: 640px) { .ck-story { height: 100dvh } }',
+    );
+    expect(scoped).toContain(
+      '[data-ck="n1"] .ck-story{ min-height: calc(70 * var(--ck-vh, 1vh)) }',
+    );
+    expect(scoped).toContain(
+      '@media (max-width: 640px){[data-ck="n1"] .ck-story{ height: calc(100 * var(--ck-vh, 1dvh)) }}',
+    );
+    expect(scoped).not.toMatch(/ (?:70vh|100dvh)/u);
+  });
+
+  it('leaves a class that merely mentions vh as it was', () => {
+    expect(scope('.ck-h-70vh { color: red }')).toBe('[data-ck="n1"] .ck-h-70vh{ color: red }');
+  });
+});

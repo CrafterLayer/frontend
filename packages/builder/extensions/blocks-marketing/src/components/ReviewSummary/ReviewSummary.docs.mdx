@@ -1,0 +1,49 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+import * as ReviewSummaryStories from './ReviewSummary.stories';
+
+<Meta of={ReviewSummaryStories} />
+
+# Review Summary
+
+The aggregate view of what customers say: the average score with stars, how many reviews it rests
+on, the share of reviews at each star level, and a few of the reviews. Testimonials shows chosen
+quotes; this block shows the whole distribution, the way a store or a clinic's review page does.
+
+## Content model
+
+- `eyebrow`, `heading` (default "What our customers say", edited in place), `body`.
+- `average: 0–5 = 4.7` (printed with one decimal), `totalLabel` ("Based on 1,248 reviews").
+- `breakdown`: up to five `{ label, count }` rows, top level first. Shares are computed from the
+  counts, so the bars always add up.
+- `reviews`: up to six `{ quote, author, meta?, rating: 1–5 = 5 }`.
+- `numberLanguage: 'en' | 'ar' = 'en'` — Arabic-Indic digits for the average and the shares.
+- `ratingLabel = '{rating} out of 5 stars'`: what a screen reader hears for a row of stars
+  (Accessibility, advanced tab).
+- An optional action (`actionLabel` + `actionHref`), and the shared section props.
+
+## Accessibility and direction
+
+The average is printed large but `aria-hidden`; the stars beside it are one `role="img"` named from
+`ratingLabel` ("4.7 out of 5 stars"), so the number is heard once. Each level reads as its label and
+its printed share ("5 stars 79%"); the bar beside them is decoration. Each review is a `<figure>`
+with a `<blockquote>` and a `<figcaption>`, its own stars named the same way. The bars use
+`inline-size`, so they grow from the inline start; the partial star is mirrored under RTL so it
+fills from the right in Arabic. The summary card keeps its light ground on a dark section.
+
+## Parts
+
+| name              | kind | bind                                      | label (en / ar)                 |
+| ----------------- | ---- | ----------------------------------------- | ------------------------------- |
+| `eyebrow`         | text | `eyebrow`                                 | Eyebrow / الشارة                |
+| `heading`         | text | `heading`                                 | Heading / العنوان               |
+| `body`            | text | `body`                                    | Body / الوصف (multiline)        |
+| `totalLabel`      | text | `totalLabel`                              | Total line / سطر الإجمالي       |
+| `breakdown`       | list | `breakdown`                               | Star levels / مستويات النجوم    |
+| `breakdown.label` | text | `breakdown.*.label`                       | Star level / مستوى النجوم       |
+| `reviews`         | list | `reviews`                                 | Reviews / المراجعات             |
+| `review`          | item | `reviews.*`                               | Review / مراجعة                 |
+| `review.quote`    | text | `reviews.*.quote`                         | Review text / نص المراجعة (ml)  |
+| `review.author`   | text | `reviews.*.author`                        | Reviewer / صاحب المراجعة        |
+| `review.meta`     | text | `reviews.*.meta`                          | Review detail / تفاصيل المراجعة |
+| `action`          | link | `{ text: actionLabel, href: actionHref }` | Link / الرابط                   |

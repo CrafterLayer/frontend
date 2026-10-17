@@ -2,11 +2,16 @@
 // it never constructs or replaces a BuilderDocument.
 
 export {
+  SCENE_INITIALIZATION_HEADER,
+  isSceneInitializationRequest,
+} from './provider/scene-init-wire';
+
+export {
   DEFAULT_AI_BUILD_BUDGET_MS,
   DEFAULT_AI_BUILD_MAX_TASKS,
   DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
   runAiAgent,
-  runAiBuild,
+  runAiBuild, SCENE_PROBE_TIMEOUT_MS, isProbedScene, sceneProbeIssues, type SceneProbe, type SceneProbeContext, type SceneProbeReport, // creative-power Phase 2 E
   type AiAgentEvent,
   type AiAgentEventBase,
   type AiAgentPolicy,
@@ -39,14 +44,8 @@ export {
   type AiRunFailureSource,
   type RunAiAgentOptions,
   type RunAiBuildOptions,
-  /*
-    The PAGE PLAN contract (agent-audit §3.2, 2026-09-28): one structured,
-    editable design of a page that Plan mode shows, Ask approves and Build
-    consumes verbatim. `validatePagePlan` is the only way to get a `PagePlan`;
-    `skeletonFromPlan`, `checkSection`, `summarizeNeighbours` and `planAiPage`
-    are the orchestration's steps T2, E, the writers' context and T1.
-  */
-  fillConcurrencyFor,
+  /** Validated editable PAGE PLAN shared by Plan, Ask and Build. */
+  fillConcurrencyFor, createAiWriterPool, congestionAwareProvider, isCongestion, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY, type AiBuildWriterOptions, type AiWriterPermit, type AiWriterPool, // T230: one writers' pool across a site's pages
   type AiBuildPlanAnswer,
   type AiBuildSectionCheck,
   type AiBuildSkipReasonCode,
@@ -54,7 +53,7 @@ export {
   type AiPagePlanEvent,
   type PlanAiPage,
   type PlanAiPageOptions,
-  type PlanAiPageResult,
+  type PlanAiPageResult, AI_SITE_MAX_PAGES, AI_SITE_MAX_REQUEST_LENGTH, AI_SITE_MAX_TITLE_LENGTH, AI_SITE_MIN_PAGES, linkSitePages, menuLabelOf, type LinkSitePagesOptions, planAiSite, sitePlanFromRequest, validateSitePlan, type AiSitePage, type AiSitePlan, type PlanAiSiteOptions, type SiteFromWordsOptions, type ValidateSitePlanResult, // T230: a site plan
   NEIGHBOUR_SUMMARY_MAX_CHARS,
   PAGE_PLAN_INTENTS,
   PAGE_PLAN_MAX_FACTS,
@@ -118,7 +117,6 @@ export {
   type RunUnitLease,
   type StartRunInput,
 } from './agent/run-coordinator';
-
 export {
   BUILDER_AI_CONTEXT_PROVIDERS,
   assembleAiContext,
@@ -245,7 +243,7 @@ export {
   type AiPagePlanWireResponse,
   type AiPagePlanWireResult,
   type AiPlanWireTask,
-} from './provider/wire';
+} from './provider/wire'; export { AI_SITE_PLAN_WIRE_MAX_PAGES, aiSitePlanWireRequest, readAiSitePlanWireResponse, type AiSitePlanWireReading, type AiSitePlanWireResponse, type AiSitePlanWireResult } from './provider/site-plan-wire'; export { AI_SCENE_REVIEW_MAX_FINDINGS, AI_SCENE_REVIEW_MAX_IMAGE_CHARS, AI_SCENE_REVIEW_MEDIA_TYPES, AI_SCENE_REVIEW_PATH, aiSceneReviewWireRequest, readAiSceneReviewFindings, readAiSceneReviewWireRequest, readAiSceneReviewWireResponse, type AiReviewSceneOptions, type AiSceneReview, type AiSceneReviewBrief, type AiSceneReviewCapability, type AiSceneReviewContract, type AiSceneReviewFinding, type AiSceneReviewImage, type AiSceneReviewMediaType, type AiSceneReviewRequest, type AiSceneReviewWireImage, type AiSceneReviewWireReading, type AiSceneReviewWireRequest, type AiSceneReviewWireResponse } from './provider/scene-review-wire'; // T230: the site-plan task; 2026-10-13: the scene review
 export {
   DEFAULT_AI_CONTEXT_TOKEN_BUDGET,
   AiContextBudgetError,
@@ -283,7 +281,7 @@ export {
   AI_SKILL_MAX_REFERENCE_BYTES,
   AI_SKILL_MAX_REGISTRY_SIZE,
   AI_SKILL_MAX_TOTAL_REFERENCE_BYTES,
-  CRAFTKIT_AI_SKILL_DEFINITIONS,
+  CRAFTKIT_AI_SKILL_DEFINITIONS, CRAFTKIT_DEFAULT_SKILLS,
   DEFAULT_AI_MAX_COMMANDS,
   DEFAULT_AI_MAX_OPERATIONS,
   DEFAULT_AI_SKILL_MAX_ACTIVE,
@@ -328,14 +326,14 @@ export {
   type AiPlan,
   type AiPlanOutputContract,
   type AiPlanProvider,
-  type AiProposePagePlanOptions,
+  type AiProposePagePlanOptions, type AiProposeSitePlanOptions, type AiSitePlanProposal, type AiSitePlanProposalPage, // T230: the provider's site plan
   type AiPagePlanDraftEvent, // P3-client-wire addition (fast page build, DESIGN §5.2)
   type AiPlanStep,
   type AiChatTurn,
   type AiPlanValidationIssue,
   type AiPlanValidationResult,
   type AiProposeOptions,
-  type AiProviderUsage,
+  type AiProviderUsage, type AiCacheMiss, type AiCacheMissReason,
   type AiSelectedNodeContext,
   type AiSelectionContext,
   type AiTemplateContext,
@@ -365,8 +363,21 @@ export {
   PIXI_STORY_EXAMPLE,
   PIXI_STORY_CONTROLS,
   PIXI_MURAL_EXAMPLE,
-} from './skills/pixi-creative';
-export { pixiSkillIdsFor } from './skills/pixi-selection';
+} from './skills/creative/pixi-creative';
+export * from './skills/request-skills';
+// creative agent (2026-10-12): engine playbooks, the planner and the story bible.
+export {
+  CREATIVE_ANIMATION_EXAMPLE,
+  CREATIVE_DIALOGUE_EXAMPLE,
+  CREATIVE_EFFECTS_EXAMPLE,
+  CREATIVE_ENGINE_SKILLS,
+  CREATIVE_INK_EXAMPLE,
+  CREATIVE_TILEMAP_CONTROLS,
+  CREATIVE_TILEMAP_EXAMPLE,
+  CREATIVE_ANIMATION_CONTROLS,
+  CREATIVE_EFFECTS_CONTROLS,
+} from './skills/creative/creative-engines';
+export * from './creative';
 
 /*
   The quality gate's DOM-FREE half: one implementation, two callers.
@@ -740,6 +751,7 @@ export type { AiAgentScriptSite } from './agent/types';
 // script-host additions (2026-10-08): code mode (agent-script DESIGN §A) — the engine plus the host side:
 // element index, call → tool-step mapping, coalescing, expandScriptSteps, SCRIPT_CARD, prefersScript, directScript.
 export * from './script';
+export * from './i18n-tools'; // i18n (2026-10-12): page.translate, language intent, language pages
 // end script-host additions
 // library-playground additions (2026-10-08): the page kit as data (agent-script DESIGN §B.5) — a
 // host writes a Library section's page kit with the SAME function the skeleton writes it with.
@@ -751,8 +763,7 @@ export {
   type PageKitState,
 } from './tools/agent/page-kit';
 // end library-playground additions
-// free-code additions (2026-10-09): free code mode — the card the model reads for a customCode block's `js`
-// (the ai-server carries a verbatim copy), the line a request for code gets while the switch is off, the door's limit.
+// free-code additions (2026-10-09): free code mode — the card the model reads for a customCode block's `js` (the ai-server carries a verbatim copy), the line a request for code gets while the switch is off, the door's limit.
 export {
   FREE_CODE_CARD,
   FREE_CODE_CARD_MAX_CHARS,
@@ -761,3 +772,4 @@ export {
 } from './agent/free-code-card';
 export { CUSTOM_CODE_JS_MAX_LENGTH } from './plan/validate-plan';
 // end free-code additions
+export * from './batch'; // background batches (2026-10-12): Message Batches jobs — runner, HTTP client, wire, store port

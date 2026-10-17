@@ -3,7 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useState, type KeyboardEvent, type PointerEvent } from 'react';
 
 import type { Locale } from '../../model/view-types';
-import { AgentIcon } from '../AgentIcon';
+import { AgentIcon, type AgentIconName } from '../AgentIcon';
 import { usePortalScope } from '../IconButton';
 
 import './ChoiceMenu.css';
@@ -34,6 +34,11 @@ export interface ChoiceMenuProps<V extends string> {
   readonly tooltip?: string | undefined;
   /** Appended to the trigger's class `ck-agent-choice`. */
   readonly className?: string | undefined;
+  /**
+   * A glyph before the word (2026-10-12, compact composer): the chip reads as icon + value,
+   * and a narrow panel keeps only the glyph while the accessible name keeps the whole.
+   */
+  readonly icon?: AgentIconName | undefined;
 }
 
 /** How a list of words is joined for a screen reader, in the locale's punctuation. */
@@ -62,6 +67,7 @@ export function ChoiceMenu<V extends string>({
   onValueChange,
   tooltip,
   className,
+  icon,
 }: ChoiceMenuProps<V>) {
   const { scope, capture } = usePortalScope();
   const [open, setOpen] = useState(false);
@@ -77,9 +83,10 @@ export function ChoiceMenu<V extends string>({
       <DropdownMenu.Trigger asChild>
         <ComposerTooltip
           label={tooltip ?? ariaLabel}
-          // Always mounted, so the trigger is one element for its whole life; it speaks
-          // only when there is something to add, and never over its own open menu.
-          silent={tooltip === undefined || open}
+          // Always mounted, so the trigger is one element for its whole life. A chip with a
+          // glyph names itself ("Effort: High"), since a narrow panel shows the glyph alone;
+          // never over its own open menu.
+          silent={(tooltip === undefined && icon === undefined) || open}
           align="start"
         >
           <ChromeButton
@@ -89,6 +96,9 @@ export function ChoiceMenu<V extends string>({
             onPointerDown={captureScope}
             onKeyDown={captureScope}
           >
+            {icon === undefined ? null : (
+              <AgentIcon name={icon} className="ck-agent-choice__icon" />
+            )}
             <span className="ck-agent-choice__label">{label}</span>
             <AgentIcon name="chevronDown" className="ck-agent-choice__chevron" />
           </ChromeButton>

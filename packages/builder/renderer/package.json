@@ -15,6 +15,14 @@
       "types": "./src/tailwind/tailwind-theme.css.d.ts",
       "default": "./src/tailwind/tailwind-theme.css"
     },
+    "./tailwind-animate.css": {
+      "types": "./src/tailwind/tailwind-animate.css.d.ts",
+      "default": "./src/tailwind/tailwind-animate.css"
+    },
+    "./tailwind-content.css": {
+      "types": "./src/tailwind/tailwind-content.css.d.ts",
+      "default": "./src/tailwind/tailwind-content.css"
+    },
     "./motion.css": {
       "types": "./src/motion/motion.css.d.ts",
       "default": "./src/motion/motion.css"
@@ -32,8 +40,11 @@
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
     "@tabler/icons": "catalog:",
+    "@tailwindcss/forms": "catalog:",
+    "@tailwindcss/typography": "catalog:",
     "lucide": "catalog:",
-    "tailwindcss": "catalog:"
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:"
   },
   "peerDependencies": {
     "react": "catalog:",

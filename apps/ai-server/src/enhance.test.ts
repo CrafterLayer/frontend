@@ -187,7 +187,10 @@ describe('the enhancer’s rules', () => {
     );
     const turn = messages[0]?.content ?? '';
 
-    expect(system).toEqual([{ type: 'text', text: ENHANCE_RULES_TEXT }]);
+    // The rules are the same for every request: cached for an hour, like every plan's.
+    expect(system).toEqual([
+      { type: 'text', text: ENHANCE_RULES_TEXT, cache_control: { type: 'ephemeral', ttl: '1h' } },
+    ]);
     expect(turn).toContain('بدي صفحه لمطعم مشاوي في عمان');
     expect(turn).toContain('English');
     expect(turn).toContain('edit (confidence 0.80)');

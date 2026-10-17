@@ -89,6 +89,21 @@ describe('mountCompare', () => {
     dispose();
   });
 
+  it("takes a block's own slider name and start position when the container carries them", () => {
+    const el = host(PAIR, 'data-ck-compare-label="اسحب للمقارنة" data-ck-compare-start="35"');
+    const dispose = mountCompare(document);
+    const range = rangeOf(el);
+    expect(range?.getAttribute('aria-label')).toBe('اسحب للمقارنة');
+    expect(range?.value).toBe('35');
+    expect(el.style.getPropertyValue('--ck-compare')).toBe('35%');
+    dispose();
+    /* A start outside 0–100 falls back to the middle. */
+    const odd = host(PAIR, 'data-ck-compare-start="140"');
+    const again = mountCompare(document);
+    expect(rangeOf(odd)?.value).toBe('50');
+    again();
+  });
+
   it('is drawn at 50% and inert on the canvas', () => {
     const el = host(PAIR);
     const dispose = mountCompare(document, { interactive: false });

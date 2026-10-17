@@ -13,7 +13,7 @@ export const LOW_POLY_TERRAIN = definePreset({
     ar: 'منظر طبيعي بأوجه من مثلّثات ديلوني مظلّلة بشمس متحرّكة ينجرف ببطء باتجاه القراءة، ويحرّك المؤشر الضوء.',
   },
   tags: ['generative', 'geometric', 'background', 'hero'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 31, interactive: true }),
     range('points', 'Points', 'عدد النقاط', 900, 200, 3000, 50, 'look'),
@@ -23,10 +23,10 @@ export const LOW_POLY_TERRAIN = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:31,speed:1,density:1,interactive:true,points:900,heightScale:1,lightAngle:135,drift:0.4});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette;
 const sky=new PIXI.Graphics(),g=new PIXI.Graphics();
-s.stage.addChild(sky,g);
+s.world.addChild(sky,g);
 const stops=[C.colors[4],C.colors[0],C.colors[1],C.mix(C.colors[1],0xffffff,0.7)];
 function tone(e){
   const x=Math.max(0,Math.min(0.999,e))*(stops.length-1),i=Math.floor(x);
@@ -49,8 +49,7 @@ function height(x,y,T){
   const h=s.fbm((x-T*p.drift*30*s.dir)*0.0022,y*0.0026,4)*0.9+(y/H-0.5)*0.5;
   return Math.max(-0.18,h);
 }
-build(s.width,s.height);
-s.onResize(build);
+build(1280,720);
 s.tick(function(time){
   if(!s.reducedMotion&&frame++%2)return;
   const T=s.reducedMotion?0:time.t*p.speed;

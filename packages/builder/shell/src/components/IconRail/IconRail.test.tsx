@@ -57,6 +57,46 @@ describe('IconRail', () => {
     }
   });
 
+  it('draws each name under its icon with captions on, and keeps every button named', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { container } = render(
+      <IconRail
+        items={ITEMS}
+        secondary={SECONDARY}
+        activeId="pages"
+        onSelect={onSelect}
+        captions
+      />,
+    );
+    const navigation = screen.getByRole('navigation', { name: 'Builder sections' });
+    expect(navigation).toHaveAttribute('data-captions');
+    for (const item of [...ITEMS, ...SECONDARY]) {
+      const button = within(navigation).getByRole('button', { name: item.label });
+      const caption = button.querySelector('.bldr-icon-rail__caption');
+      expect(caption).toHaveTextContent(item.label);
+      expect(caption).toHaveAttribute('aria-hidden', 'true');
+      // The caption replaces the hover label: one name on screen, never two.
+      expect(button.querySelector('[popover]')).toBeNull();
+    }
+    expect(container.querySelectorAll('.bldr-icon-rail__label')).toHaveLength(0);
+    await user.click(within(navigation).getByRole('button', { name: 'Layers' }));
+    expect(onSelect).toHaveBeenCalledWith('layers');
+  });
+
+  it('paints the rail dark with the rail tokens and lays captions out in a 68px track', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'components', 'IconRail', 'IconRail.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/\.bldr-icon-rail \{[^}]*background-color: var\(--bldr-rail\)/u);
+    expect(css).toMatch(/\.bldr-icon-rail \{[^}]*color: var\(--bldr-rail-text\)/u);
+    expect(css).toMatch(
+      /\.bldr-icon-rail\[data-captions\] \{[^}]*inline-size: var\(--bldr-rail-width\)/u,
+    );
+    expect(css).toMatch(/\.bldr-icon-rail__caption \{[^}]*text-overflow: ellipsis/u);
+  });
+
   it('marks only the active item as the current page and accepts a custom navigation label', () => {
     render(<IconRail items={ITEMS} activeId="layers" label="Editor navigation" />);
 

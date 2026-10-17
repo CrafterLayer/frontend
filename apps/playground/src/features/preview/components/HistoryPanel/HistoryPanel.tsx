@@ -8,6 +8,7 @@ import {
   type VaultSnapshot,
   type VaultSnapshotMeta,
 } from '../../../vault';
+import { HISTORY_PANEL_LABELS_EN, type HistoryPanelLabels } from './HistoryPanel.labels';
 import './HistoryPanel.css';
 
 export interface HistoryPanelProps {
@@ -16,6 +17,8 @@ export interface HistoryPanelProps {
   shelf: SnapshotShelf;
   /** Injected so a test and a story can STATE the time instead of guessing it. */
   now?: (() => number) | undefined;
+  /** Every string the panel shows; English unless the host passes its locale's set. */
+  labels?: HistoryPanelLabels | undefined;
 }
 
 /** The list plus the moment it was read: relative ages need both, and both together. */
@@ -45,7 +48,12 @@ interface HistoryView {
  * the announcement can promise one undo: the revert is a forward change like
  * any other, and nothing here reaches around the kernel.
  */
-export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProps) {
+export function HistoryPanel({
+  kernel,
+  shelf,
+  now = Date.now,
+  labels = HISTORY_PANEL_LABELS_EN,
+}: HistoryPanelProps) {
   /*
     The clock is captured ONCE. Taken as a live prop it would land in the
     dependency list of the effect that reads the shelf, and a caller passing an
@@ -101,7 +109,7 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
   const save = (): void => {
     void (async () => {
       const typed = name.trim();
-      const label = typed.length > 0 ? typed : `Restore point ${String(entries.length + 1)}`;
+      const label = typed.length > 0 ? typed : labels.defaultName(entries.length + 1);
       try {
         const meta = await shelf.save({
           label,
@@ -113,9 +121,9 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
         });
         setName('');
         await refresh();
-        announce(`Saved “${meta.label}”.`);
+        announce(labels.saved(meta.label));
       } catch {
-        announce('That restore point could not be saved — storage refused it.');
+        announce(labels.saveFailed);
       }
     })();
   };
@@ -129,24 +137,20 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
       try {
         stored = await shelf.read(entry.id);
       } catch {
-        announce(`“${entry.label}” could not be read — storage refused it. Nothing has changed.`);
+        announce(labels.readFailed(entry.label));
         return;
       }
       if (stored === undefined) {
-        announce(`“${entry.label}” is no longer stored.`);
+        announce(labels.gone(entry.label));
         await refresh();
         return;
       }
       const outcome = restoreDocument(kernel, stored.document);
       if (!outcome.ok) {
-        announce(`“${entry.label}” could not be restored: ${outcome.reason}`);
+        announce(labels.restoreFailed(entry.label, outcome.reason));
         return;
       }
-      announce(
-        outcome.changed
-          ? `Restored “${entry.label}”. One undo puts it back.`
-          : `The page already matches “${entry.label}” — nothing to change.`,
-      );
+      announce(outcome.changed ? labels.restored(entry.label) : labels.alreadyMatches(entry.label));
     })();
   };
 
@@ -155,30 +159,27 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
       try {
         await shelf.clear();
         await refresh();
-        announce('History cleared.');
+        announce(labels.cleared);
       } catch {
-        announce('The history could not be cleared — storage refused it.');
+        announce(labels.clearFailed);
       }
     })();
   };
 
   return (
-    <section className="pg-history" aria-label="History">
+    <section className="pg-history" aria-label={labels.region}>
       <header className="pg-history__head">
-        <h2>History</h2>
-        <p>
-          A restore point keeps the whole page. Restoring one is a single change, so a single undo
-          puts it back.
-        </p>
+        <h2>{labels.title}</h2>
+        <p>{labels.intro}</p>
       </header>
 
       <div className="pg-history__save">
         <label className="pg-history__name">
-          <span>Name</span>
+          <span>{labels.name}</span>
           <input
             type="text"
             value={name}
-            placeholder="Before the rewrite"
+            placeholder={labels.namePlaceholder}
             onChange={(event) => {
               setName(event.currentTarget.value);
             }}
@@ -191,32 +192,29 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
             save();
           }}
         >
-          Save restore point
+          {labels.save}
         </ChromeButton>
       </div>
 
-      <output aria-live="polite" aria-label="History status" className="pg-history__status">
+      <output aria-live="polite" aria-label={labels.status} className="pg-history__status">
         {message.text}
         {message.nonce % 2 === 1 ? '\u200b' : ''}
       </output>
 
       {unreadable ? (
         <p className="pg-history__empty" role="alert">
-          Your restore points could not be read — storage refused. They have not been deleted; try
-          again in a moment.
+          {labels.unreadable}
         </p>
       ) : entries.length === 0 ? (
-        <p className="pg-history__empty">
-          Nothing kept yet. Save a restore point before a big change and this is where you come back
-          to it.
-        </p>
+        <p className="pg-history__empty">{labels.empty}</p>
       ) : (
         <ul className="pg-history__list">
           {entries.map((entry) => (
             <li key={entry.id} className="pg-history__row">
               <span className="pg-history__label">{entry.label}</span>
               <span className="pg-history__facts">
-                {relativeTime(entry.ts, view?.asOf ?? entry.ts)} · {formatBytes(entry.bytes)}
+                {relativeTime(entry.ts, view?.asOf ?? entry.ts, labels)} ·{' '}
+                {formatBytes(entry.bytes, labels)}
               </span>
               <ChromeButton
                 size="sm"
@@ -226,12 +224,12 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
                   by screen reader alike. WCAG 2.5.3 holds: the visible text is
                   contained in the accessible name.
                 */
-                aria-label={`Restore ${entry.label}`}
+                aria-label={labels.restoreNamed(entry.label)}
                 onClick={() => {
                   restore(entry);
                 }}
               >
-                Restore
+                {labels.restore}
               </ChromeButton>
             </li>
           ))}
@@ -248,7 +246,7 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
           clear();
         }}
       >
-        Clear history
+        {labels.clear}
       </ChromeButton>
     </section>
   );
@@ -258,30 +256,30 @@ export function HistoryPanel({ kernel, shelf, now = Date.now }: HistoryPanelProp
  * Ages, not timestamps. "14:22" answers a question nobody asked; "4 min ago" is
  * the one a person restoring a page actually has.
  */
-function relativeTime(ts: number, asOf: number): string {
+function relativeTime(ts: number, asOf: number, labels: HistoryPanelLabels): string {
   const seconds = Math.max(0, Math.round((asOf - ts) / 1000));
   if (seconds < 45) {
-    return 'just now';
+    return labels.justNow;
   }
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) {
-    return `${String(minutes)} min ago`;
+    return labels.minutesAgo(minutes);
   }
   const hours = Math.round(minutes / 60);
   if (hours < 24) {
-    return `${String(hours)} h ago`;
+    return labels.hoursAgo(hours);
   }
-  return `${String(Math.round(hours / 24))} d ago`;
+  return labels.daysAgo(Math.round(hours / 24));
 }
 
 /** kB, not KiB: the number beside a restore point is for a person, not a disk. */
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number, labels: HistoryPanelLabels): string {
   if (bytes < 1000) {
-    return `${String(bytes)} B`;
+    return labels.size(String(bytes), 'B');
   }
   const kilobytes = bytes / 1000;
   if (kilobytes < 1000) {
-    return `${kilobytes.toFixed(kilobytes < 10 ? 1 : 0)} kB`;
+    return labels.size(kilobytes.toFixed(kilobytes < 10 ? 1 : 0), 'kB');
   }
-  return `${(kilobytes / 1000).toFixed(1)} MB`;
+  return labels.size((kilobytes / 1000).toFixed(1), 'MB');
 }

@@ -47,3 +47,8 @@ export function isCustomCodeJsParamsSchema(schema: z.ZodType): boolean {
 export function isCustomCodeJsMetaSchema(schema: z.ZodType): boolean {
   return hasStudioMarker(schema, JS_META_META_VALUE);
 }
+
+/** A script's data (`jsParams` or `jsMeta`): authored values, like the script itself. */
+export function isScriptDataSchema(schema: z.ZodType): boolean {
+  return isCustomCodeJsParamsSchema(schema) || isCustomCodeJsMetaSchema(schema);
+}

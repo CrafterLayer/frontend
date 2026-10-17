@@ -1,0 +1,1 @@
+export { nonprofitTemplate } from './template';

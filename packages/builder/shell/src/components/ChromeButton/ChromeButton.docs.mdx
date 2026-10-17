@@ -69,6 +69,13 @@ adds these chrome-specific props:
 | `tone`         | `'quiet' \| 'primary'` on `icon` only               | `'quiet'` |
 | `aria-label`   | required `string` on `icon`; optional otherwise     | none      |
 | `aria-pressed` | required `boolean` on `toggle`; forbidden otherwise | none      |
+| `tooltip`      | optional `string` — a visible hint, name and keys   | none      |
+
+`tooltip` draws a hint under the button on hover (after a short pause) and at once on keyboard focus
+— the name of an icon-only control and its shortcut, such as "Undo · Ctrl Z". It is visual only: the
+accessible name stays `aria-label`, and a shortcut also belongs in `aria-keyshortcuts`. The hint
+uses the panel's inverse colour pair, mirrors in RTL, and appears without a fade under
+`prefers-reduced-motion: reduce`.
 
 ## Accessibility and keyboard behavior
 

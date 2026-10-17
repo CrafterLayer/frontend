@@ -7,6 +7,8 @@ export default createReactTestConfig({
   // CI has no env file either, so this is the configuration the suite is for.
   envDir: false,
   test: {
+    // Publish checks need the owner CSS text, without enabling component style side effects.
+    css: { include: [/\/section-layout\.css\?raw$/u] },
     include: ['src/**/*.test.{ts,tsx}'],
     // These are END-TO-END app scenarios: each one mounts the whole playground and
     // drives a real journey, and several resolve the LAZY EDITOR ROAD — a dynamic

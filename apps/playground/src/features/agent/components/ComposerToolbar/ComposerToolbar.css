@@ -32,17 +32,67 @@
 
 .ck-agent-toolbar__choices {
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  /*
+    Compact composer (2026-10-12): the choices share ONE row with the actions. Chips are the
+    small control size and sit 2px apart, so mode, model, effort, workers and free code fit
+    beside Improve, @ and Send in a 360px panel once their words are hidden.
+  */
+  flex-wrap: nowrap;
+  gap: var(--ck-agent-chip-gap, var(--bldr-space-2xs));
+  --ck-agent-target: var(--ck-agent-chip, var(--bldr-control-sm));
 }
 
 /* Provider names cannot push Effort or the next-run worker choice out of the panel. */
 .ck-agent-toolbar__choices .ck-agent-choice {
-  --ck-agent-choice-measure: 12ch;
+  --ck-agent-choice-measure: 10ch;
 }
 
-@container agent (inline-size < 360px) {
-  .ck-agent-toolbar__choices .ck-agent-model {
-    --ck-agent-choice-measure: 8ch;
+.ck-agent-toolbar__choices .ck-agent-choice[data-bldr-chrome-button][data-variant][data-size] {
+  padding-inline: var(--bldr-space-sm) var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+}
+
+.ck-agent-choice__icon {
+  flex: none;
+  color: var(--bldr-panel-muted);
+}
+
+.ck-agent-choice[aria-expanded='true'] .ck-agent-choice__icon,
+.ck-agent-choice:hover .ck-agent-choice__icon {
+  color: var(--bldr-panel-text);
+}
+
+/* The words go first, widest first; the glyph, the accessible name and the tooltip remain. */
+@container agent (inline-size < 560px) {
+  .ck-agent-freecode .ck-agent-freecode__label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    inline-size: var(--bldr-border-hairline);
+    block-size: var(--bldr-border-hairline);
+    white-space: nowrap;
+  }
+}
+
+@container agent (inline-size < 460px) {
+  .ck-agent-toolbar__choices .ck-agent-model .ck-agent-choice__label,
+  .ck-agent-toolbar__choices .ck-agent-effort .ck-agent-choice__label {
+    display: none;
+  }
+
+  /* A narrow panel draws each choice as a glyph alone, so the tools and Send share one row. */
+  .ck-agent-toolbar__choices .ck-agent-choice__chevron {
+    display: none;
+  }
+
+  .ck-agent-toolbar__choices .ck-agent-choice[data-bldr-chrome-button][data-variant][data-size] {
+    padding-inline: var(--bldr-space-xs);
+  }
+}
+
+@container agent (inline-size < 380px) {
+  .ck-agent-toolbar__choices .ck-agent-mode .ck-agent-choice__label {
+    display: none;
   }
 }
 
@@ -60,6 +110,121 @@
 @media (pointer: coarse) {
   .ck-agent-toolbar {
     --ck-agent-target: var(--bldr-hit-target-min);
+    --ck-agent-chip: var(--bldr-hit-target-min);
+    --ck-agent-chip-gap: var(--bldr-space-md);
     --ck-agent-toolbar-gap: var(--bldr-space-md);
+  }
+}
+
+/*
+  The free-code switch (Studio Indigo redesign, 2026-10-12): a chip on the toolbar's target
+  size, Meta 500 in Graphite; on, it takes the Accent wash and its text turns Accent strong.
+  The track is 26 x 16 with a 12px knob: Graphite on the progress track when off, Accent
+  text on Accent at the inline end when on. Logical alignment, so RTL moves the knob too.
+*/
+.ck-agent-freecode {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--bldr-space-xs);
+  box-sizing: border-box;
+  block-size: var(--ck-agent-target, var(--bldr-control-md));
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--bldr-space-sm);
+  border: 0;
+  border-radius: var(--bldr-radius-full);
+  background-color: transparent;
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-freecode:hover {
+  background-color: var(--bldr-surface-hover);
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-freecode[aria-pressed='true'] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+.ck-agent-freecode[aria-pressed='true']:hover {
+  background-color: var(--bldr-accent-soft-hover);
+}
+
+.ck-agent-freecode:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-freecode__glyph {
+  flex: none;
+}
+
+.ck-agent-freecode__track {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  inline-size: calc(var(--bldr-space-3xl) + var(--bldr-space-lg));
+  block-size: var(--bldr-space-3xl);
+  padding: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-progress-track);
+  transition: background-color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+.ck-agent-freecode__knob {
+  inline-size: var(--bldr-space-xl);
+  block-size: var(--bldr-space-xl);
+  border-radius: var(--bldr-radius-full);
+  background-color: var(--bldr-panel-text-soft);
+}
+
+.ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__track {
+  justify-content: flex-end;
+  background-color: var(--bldr-accent);
+}
+
+.ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__knob {
+  background-color: var(--bldr-accent-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-freecode,
+  .ck-agent-freecode__track {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-freecode__track {
+    border: var(--bldr-border-hairline) solid CanvasText;
+    forced-color-adjust: none;
+    background-color: Canvas;
+  }
+
+  .ck-agent-freecode__knob {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+
+  .ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__track {
+    background-color: Highlight;
+  }
+
+  .ck-agent-freecode[aria-pressed='true'] .ck-agent-freecode__knob {
+    background-color: HighlightText;
   }
 }

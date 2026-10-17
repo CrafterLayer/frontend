@@ -5,7 +5,10 @@
   door contributes an `@theme` block that Tailwind reads as CONFIGURATION — it
   has to be loaded before it can be configured. The door second, so every
   utility resolves through the site's --t-* design system rather than carrying
-  a value of its own.
+  a value of its own. The door also brings tw-animate-css (animate-in,
+  fade-in…) and its reduced-motion guard; typography (prose) and forms
+  (form-*) are generated per page by the in-page compiler instead (see the
+  door's own comment).
 */
 @import 'tailwindcss';
 @import '@craftkit/builder/tailwind.css';
@@ -22,6 +25,11 @@
 */
 @source '../../../packages/builder/**/src/**/*.{ts,tsx}';
 @source '../../../packages/ui/src/**/*.{ts,tsx}';
+/*
+  tw-animate-source.ts holds the tw-animate-css stylesheet as a string for the in-page compiler;
+  scanned, every utility it defines would be generated here whether a page used it or not.
+*/
+@source not '../../../packages/builder/renderer/src/tailwind/tw-animate-source.ts';
 
 /*
   THE AI STYLING VOCABULARY.
@@ -85,6 +93,8 @@
 @source inline("order-{1,2,3,4,5,6,first,last,none}");
 @source inline("{sm:,md:,lg:,}grid-cols-{1..12}");
 @source inline("grid-cols-none");
+@source inline("max-md:grid-cols-1");
+@source inline("max-md:col-span-1");
 @source inline("{sm:,md:,lg:,}col-span-{1..12}");
 @source inline("col-span-full");
 @source inline("col-start-{1..12}");
@@ -299,4 +309,10 @@
 @source inline("bg-{auto,repeat,repeat-x,repeat-y,round,space}");
 @source inline("object-{left-top,right-top,left-bottom,right-bottom}");
 @source inline("rounded-{s,e,ss,se,es,ee}-{none,sm,md,lg,xl,2xl,3xl,full}");
+@source inline("animate-in");
+@source inline("motion-reduce:animate-none");
+@source inline("fade-in");
+@source inline("zoom-in-95");
+@source inline("slide-in-from-{bottom,start}-{4,8}");
+@source inline("fill-mode-both");
 /* AI-VOCABULARY:END */

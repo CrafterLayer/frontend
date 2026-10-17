@@ -4,10 +4,24 @@
 // fails when the block drifts from the source, so this is the only way to
 // change what the assistant may style with.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { registerHooks } from 'node:module';
 import { resolve } from 'node:path';
 
-// The vocabulary module is dependency-free TypeScript, which is what lets Node
-// strip its types and import it directly — nothing else in the workspace can.
+// The vocabulary modules are dependency-free TypeScript, which is what lets Node
+// strip their types and import them directly. They import each other the
+// workspace's way, without an extension (`./effects-vocabulary`), so a relative
+// specifier Node cannot find is tried again as `.ts`.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context);
+    } catch (error) {
+      if (error?.code !== 'ERR_MODULE_NOT_FOUND' || !specifier.startsWith('.')) throw error;
+      return nextResolve(`${specifier}.ts`, context);
+    }
+  },
+});
+
 const { utilitySourceDirectives, utilityVocabulary } = await import(
   resolve('../../packages/builder/schema/src/custom-code/utility-vocabulary.ts')
 );

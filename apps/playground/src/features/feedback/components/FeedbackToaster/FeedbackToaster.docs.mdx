@@ -1,0 +1,58 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as FeedbackToasterStories from './FeedbackToaster.stories';
+
+<Meta of={FeedbackToasterStories} />
+
+# FeedbackToaster
+
+The outcome of a person's own action, said once near the canvas and gone on its own. Publishing is
+the first action it narrates.
+
+<Canvas of={FeedbackToasterStories.Published} />
+
+## Purpose
+
+A consequential action needs an answer. Before this, Publish site downloaded a zip in silence, and a
+failure only changed the button's tooltip. Now one toast carries the whole story: "Publishing the
+site…" while it runs, the outcome in place when it lands ("Site published · 5 files", the files are
+downloading), and on failure what happened, that nothing was lost, and **Try again**.
+
+## When to use / not
+
+Use it for the outcome of an action the person just took (publish, export, a palette action whose
+effect is off screen). Do not use it for background facts (saving, the assistant's progress: they
+have their own quiet places in the status bar and the panel), for errors that need a decision (a
+dialog), or for anything the person must be able to find again later.
+
+## Props
+
+| prop     | type             | default | notes                                |
+| -------- | ---------------- | ------- | ------------------------------------ |
+| `labels` | `FeedbackLabels` | English | `feedbackLabels(locale)` picks EN/AR |
+| `dir`    | `'ltr' \| 'rtl'` | `'ltr'` | the editor's direction               |
+
+Toasts are raised through `notifyPublish(publish, labels, retry)` in `features/feedback/notify.ts`,
+which keeps sonner behind one door.
+
+## States
+
+| story                  | what it shows                                     |
+| ---------------------- | ------------------------------------------------- |
+| `Published`            | the outcome, with the count and what happens next |
+| `Failed`               | what happened, nothing lost, Try again            |
+| `Working`              | the quiet running line and its ring               |
+| `PublishedRightToLeft` | Arabic, right to left, the count in agreement     |
+
+## Anatomy
+
+A Panel card 352px wide, bottom-centre above the status bar: the Hairline edge, the 12px radius, the
+floating elevation. A 28px tile with the outcome's glyph in its colour (Success, Danger, Accent; a
+ring while working), the title in Ink, one sentence of detail in Graphite, and on failure Try again
+in the Accent wash. Close sits at the inline end (44px on a coarse pointer).
+
+## Accessibility
+
+- sonner's region is a polite live region, named "Notifications" («الإشعارات»).
+- Toasts pause while hovered or focused; Alt T moves focus to them; swipe or Close dismisses.
+- The spinner stops under `prefers-reduced-motion`; forced colours keep the card's edge.

@@ -68,6 +68,8 @@ import {
   type IntentToken,
 } from './intent-tokens';
 import { normalizeIntentText } from './normalize-arabic';
+import { creativeCreationObject, targetsExistingCreativeObject } from './creative-creation';
+import { canvasOf, CONFIDENCE, ownable, route } from './routing-decision';
 
 /**
  * WHAT A REQUEST IS FOR — decided by rules, before any model is asked.
@@ -169,79 +171,6 @@ export function isBuildIntent(route: IntentRoute): boolean {
   return route.kind === 'build-page' || route.kind === 'build-site';
 }
 
-/*
-  Confidence, as a small table rather than numbers scattered through the rules,
-  so the ORDER of trust is readable in one place: a counted page ask beats a
-  named one; a verb with its object beats a bare noun phrase; the same ask is
-  surer on an empty page than over content it would sit beside.
-*/
-const CONFIDENCE = {
-  interrogative: 0.9,
-  trailingQuestion: 0.75,
-  greeting: 0.7,
-  siteCounted: 0.9,
-  siteNamed: 0.8,
-  startOver: 0.85,
-  /*
-    Below the ~0.6 confirm line on purpose: "start over" with nothing about
-    what replaces the page would wipe a page with content for a build that
-    has to invent its own brief (wave-1 verifier, 2026-09-28).
-  */
-  startOverBare: 0.5,
-  /*
-    CEILINGS for a request shaped as a question (router-3, 2026-09-28). A
-    suggestion ("how about adding a map?") names its change, so it is acted
-    on — but as an idea weighed, never above 0.7. A capability question ("is
-    it possible to change the font?") is asked of the product first, so it
-    sits below the ~0.6 confirm line and the host asks "shall I?" before any
-    write. Either one that would BUILD is answered in words instead.
-  */
-  suggestion: 0.7,
-  capability: 0.5,
-  /* A verbless phrase headed by a section: "a nav with links to home and blog". */
-  partPhrase: 0.7,
-  addSection: 0.85,
-  newPage: 0.85,
-  createOnEmpty: 0.9,
-  createBeside: 0.75,
-  phraseOnEmpty: 0.8,
-  phraseBeside: 0.6,
-  definiteOnEmpty: 0.7,
-  briefOnEmpty: 0.6,
-  editPointed: 0.85,
-  editNamed: 0.85,
-  editVerb: 0.8,
-  editPointedOverBuild: 0.7,
-  editDefinite: 0.5,
-  editOnEmpty: 0.5,
-  editDefault: 0.6,
-  control: 0.4,
-} as const;
-
-type Canvas = 'empty' | 'placeholders' | 'content' | 'unknown';
-
-function canvasOf(document: IntentDocumentSummary | undefined): Canvas {
-  if (document === undefined) return 'unknown';
-  if (document.nodeCount <= 0) return 'empty';
-  return document.placeholderOnly ? 'placeholders' : 'content';
-}
-
-/** Nothing on the page is worth keeping, so a build may own it. */
-function ownable(canvas: Canvas): boolean {
-  return canvas === 'empty' || canvas === 'placeholders';
-}
-
-function route(
-  kind: IntentKind,
-  confidence: number,
-  reason: string,
-  target?: IntentTarget,
-): IntentRoute {
-  return Object.freeze(
-    target === undefined ? { kind, confidence, reason } : { kind, confidence, reason, target },
-  );
-}
-
 /** Decide what a request is for. Pure: the same input always routes the same way. */
 export function routeIntent(input: RouteIntentInput): IntentRoute {
   const folded = normalizeIntentText(input.request);
@@ -258,6 +187,20 @@ export function routeIntent(input: RouteIntentInput): IntentRoute {
   return opened.ability === undefined
     ? routed
     : askedOfTheAssistant(routed, opened.tokens, opened.ability);
+}
+
+/** Explicit creative creation grammar shared with execution outcome checks. */
+export function creativeCreationRequest(request: string): boolean {
+  const folded = normalizeIntentText(request);
+  const opened = stripOpeners(tokenize(folded));
+  const decided = routeIntent({
+    request,
+    document: { nodeCount: 0, placeholderOnly: false, sectionLabels: [] },
+  });
+  return (
+    decided.kind === 'build-page' &&
+    readSignals(opened.tokens, folded, []).createScene !== undefined
+  );
 }
 
 /**
@@ -520,6 +463,17 @@ function routeWords(
     After the page asks, deliberately: "create a landing page and add a
     pricing section" is a page that has a pricing section, not one section.
   */
+  if (owned && !pointed && read.createScene !== undefined) {
+    return route(
+      'build-page',
+      CONFIDENCE.createOnEmpty,
+      `asks to create “${read.createScene}” on a page with nothing to keep`,
+      'replace',
+    );
+  }
+  if (!pointed && read.addScene !== undefined) {
+    return route('add-section', CONFIDENCE.addSection, `asks to add “${read.addScene}”`, 'append');
+  }
   if (read.addSection !== undefined) {
     return route(
       'add-section',
@@ -1214,6 +1168,9 @@ interface Signals {
   readonly newPage?: string;
   /** A verb whose object is a page not yet made: "build | a website". */
   readonly createPage?: string;
+  /** An explicit creative object of the request, independent of later modifiers. */
+  readonly createScene?: string;
+  readonly addScene?: string;
   /** A creation verb whose object is a page that exists: "build | my portfolio". */
   readonly definitePage?: string;
   /** The request opens with a page it names: "a site for my clinic", "موقع لعياده". */
@@ -1231,6 +1188,8 @@ function readSignals(
 ): Signals {
   const scan = scanOf(tokens);
   const comparative = tokens.some((token) => readsAs(token, COMPARATIVES));
+  const first = scan.verbs.find((found) => !scan.governing.has(found.index));
+  const createScene = first === undefined ? undefined : creativeCreationObject(tokens, first);
 
   let createPage: string | undefined;
   let definitePage: string | undefined;
@@ -1289,7 +1248,10 @@ function readSignals(
     request became the brief for a whole page (wave-1 verifier, 2026-09-28).
   */
   const changes =
-    comparative || restart?.aim === 'part' || scan.verbs.some((found) => found.kind === 'edit');
+    comparative ||
+    targetsExistingCreativeObject(tokens, first) ||
+    restart?.aim === 'part' ||
+    scan.verbs.some((found) => found.kind === 'edit');
 
   return {
     acting:
@@ -1302,6 +1264,8 @@ function readSignals(
     ...(addSection === undefined ? {} : { addSection }),
     ...(newPage === undefined ? {} : { newPage }),
     ...(createPage === undefined ? {} : { createPage }),
+    ...(createScene === undefined ? {} : { createScene }),
+    ...(first?.kind === 'add' && createScene !== undefined ? { addScene: createScene } : {}),
     ...(definitePage === undefined ? {} : { definitePage }),
     ...(nounPhrase === undefined ? {} : { nounPhrase }),
     ...(partPhrase === undefined ? {} : { partPhrase }),

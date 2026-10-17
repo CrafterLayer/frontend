@@ -11,6 +11,7 @@ import {
   type CodeWorkspacePort,
   type CodeWorkspaceSnapshot,
 } from './code-workspace';
+import { CODE_WORKSPACE_LABELS_AR } from './code-workspace.labels';
 
 beforeAll(() => {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
@@ -194,6 +195,36 @@ describe('CodeWorkspace', () => {
 
     expect(screen.getByRole('region', { name: 'Page source workspace' })).toHaveTextContent(
       'No authored source is open',
+    );
+  });
+
+  it('reads in Arabic with the Arabic labels', async () => {
+    const port = new WorkspacePortHarness();
+    const { unmount } = render(<CodeWorkspace port={port} labels={CODE_WORKSPACE_LABELS_AR} />);
+    const region = screen.getByRole('region', { name: 'مساحة عمل شيفرة الصفحة' });
+    expect(region).toHaveTextContent('الشيفرة');
+    expect(screen.getByRole('combobox', { name: 'الملف' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'إظهار العنصر المحدد' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'حفظ الشيفرة' })).toBeDisabled();
+    expect(await screen.findByRole('textbox', { name: 'الشيفرة المصدرية' })).toBeInTheDocument();
+    expect(region).toHaveTextContent('الشيفرة مطابقة لنسخة المشروع المحفوظة.');
+    unmount();
+
+    render(
+      <CodeWorkspace
+        port={
+          new WorkspacePortHarness({
+            ...initialSnapshot(),
+            files: [],
+            activeFile: null,
+            selectedSource: null,
+          })
+        }
+        labels={CODE_WORKSPACE_LABELS_AR}
+      />,
+    );
+    expect(screen.getByRole('region', { name: 'مساحة عمل شيفرة الصفحة' })).toHaveTextContent(
+      'لا توجد شيفرة مكتوبة مفتوحة',
     );
   });
 });

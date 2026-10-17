@@ -7,6 +7,32 @@ export {
   DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
 } from './run-build';
 export {
+  createAiWriterPool,
+  MAX_AI_BUILD_AUTO_FILL_CONCURRENCY,
+  type AiBuildWriterOptions,
+  type AiWriterPermit,
+  type AiWriterPool,
+} from './writer-pool';
+// Smarter live workers (2026-10-12): a pool that backs off when the provider says "too many".
+export { congestionAwareProvider, isCongestion } from './writer-congestion';
+export {
+  AI_SITE_MAX_PAGES,
+  AI_SITE_MAX_REQUEST_LENGTH,
+  AI_SITE_MAX_TITLE_LENGTH,
+  AI_SITE_MIN_PAGES,
+  linkSitePages,
+  menuLabelOf,
+  planAiSite,
+  sitePlanFromRequest,
+  validateSitePlan,
+  type AiSitePage,
+  type AiSitePlan,
+  type LinkSitePagesOptions,
+  type PlanAiSiteOptions,
+  type SiteFromWordsOptions,
+  type ValidateSitePlanResult,
+} from './site-plan';
+export {
   AiBuildRevertError,
   REMOVE_UNFILLED_SECTIONS_LABEL,
   removeUnfilledSections,
@@ -14,6 +40,14 @@ export {
   type AiBuildRevertErrorCode,
   type AiBuildUnfilledRemoval,
 } from './build-revert';
+export {
+  SCENE_PROBE_TIMEOUT_MS,
+  isProbedScene,
+  sceneProbeIssues,
+  type SceneProbe,
+  type SceneProbeContext,
+  type SceneProbeReport,
+} from './scene-probe';
 export {
   classifyAiRunFailure,
   type AiRunFailure,

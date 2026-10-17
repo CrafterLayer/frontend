@@ -1,16 +1,21 @@
+/*
+  Studio Indigo (2026-10-12): the rail is the product's one dark surface, the deep indigo
+  `--bldr-rail` with Rail text, so the chrome reads as a frame around the light work area and
+  the selected destination glows in an Accent-tinted tile with an Accent bar at its edge.
+*/
 .bldr-icon-rail {
   align-items: stretch;
-  background-color: var(--bldr-panel);
+  background-color: var(--bldr-rail);
   block-size: 100%;
-  border-inline-end: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-inline-end: var(--bldr-border-hairline) solid var(--bldr-rail-border);
   box-sizing: border-box;
-  color: var(--bldr-panel-text-soft);
+  color: var(--bldr-rail-text);
   display: flex;
   flex-direction: column;
   font-family: var(--bldr-font);
   inline-size: calc(var(--bldr-hit-target-min) + var(--bldr-space-xl));
   overflow: hidden;
-  padding-block: var(--bldr-space-xl);
+  padding-block: var(--bldr-space-md);
   padding-inline: var(--bldr-space-sm);
 }
 
@@ -40,7 +45,7 @@
   background-color: transparent;
   border: none;
   border-radius: var(--bldr-radius-xl);
-  color: var(--bldr-panel-text-soft);
+  color: var(--bldr-rail-text);
   flex-direction: row;
   font-size: var(--bldr-font-size-micro);
   font-weight: var(--bldr-font-weight-medium);
@@ -59,20 +64,20 @@
 }
 
 .bldr-icon-rail .bldr-icon-rail__button[data-variant='quiet']:enabled:hover {
-  background-color: var(--bldr-surface-hover);
-  color: var(--bldr-panel-text);
+  background-color: var(--bldr-rail-raised);
+  color: var(--bldr-rail-text-strong);
 }
 
 .bldr-icon-rail .bldr-icon-rail__button[aria-current='page'],
 .bldr-icon-rail .bldr-icon-rail__button[data-variant='quiet'][aria-current='page']:enabled:hover {
-  background-color: var(--bldr-accent-soft);
-  color: var(--bldr-accent-strong);
+  background-color: color-mix(in srgb, var(--bldr-accent) 32%, var(--bldr-rail));
+  color: var(--bldr-rail-text-strong);
 }
 
 /* Shape reinforces selection independently of color, in either direction. */
 .bldr-icon-rail__button[aria-current='page']::before {
-  background: currentColor;
-  block-size: var(--bldr-space-3xl);
+  background: var(--bldr-accent);
+  block-size: var(--bldr-space-xl);
   border-radius: var(--bldr-radius-full);
   content: '';
   inline-size: var(--bldr-border-thick);
@@ -111,28 +116,79 @@
 }
 
 .bldr-icon-rail__footer {
-  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-rail-border);
   display: flex;
   flex-direction: column;
-  gap: var(--bldr-space-md);
+  gap: var(--bldr-space-xs);
   margin-block-start: auto;
-  padding-block-start: var(--bldr-space-md);
+  padding-block-start: var(--bldr-space-sm);
 }
 
 .bldr-icon-rail__account {
   align-items: center;
-  background-color: var(--bldr-surface-sunken);
+  background-color: var(--bldr-rail-raised);
   border-radius: var(--bldr-radius-xl);
   box-sizing: border-box;
-  color: var(--bldr-panel-text);
+  color: var(--bldr-rail-text-strong);
   display: flex;
   font-family: var(--bldr-font);
   font-size: var(--bldr-font-size-micro);
   font-weight: var(--bldr-font-weight-semibold);
   justify-content: center;
   line-height: var(--bldr-line-height-tight);
-  min-block-size: var(--bldr-hit-target-min);
+  min-block-size: var(--bldr-control-lg);
   padding-block: var(--bldr-space-xs);
   padding-inline: var(--bldr-space-xs);
   text-align: center;
+}
+
+/*
+  Captions (Studio Indigo, 2026-10-12): the name under every glyph, Micro 500 in the
+  button's own colour, one line, never wider than the tile. The rail's track
+  (`--bldr-rail-width`, 68px) fits a ten-letter English name and every Arabic one.
+
+  Compact tiles (person's request, 2026-10-12): the 60px tiles left the seven destinations
+  and the footer taller than a laptop screen, so the last one (Assistant) was cut off. A
+  tile is now the 44px hit target itself (glyph, 2px, word), 2px apart, its corner the
+  Large radius, and the selection bar 12px.
+*/
+.bldr-icon-rail[data-captions] {
+  inline-size: var(--bldr-rail-width);
+}
+
+.bldr-icon-rail[data-captions] .bldr-icon-rail__list {
+  gap: var(--bldr-space-2xs);
+}
+
+.bldr-icon-rail[data-captions] .bldr-icon-rail__button[data-size='lg'] {
+  block-size: auto;
+  border-radius: var(--bldr-radius-lg);
+  flex-direction: column;
+  gap: var(--bldr-space-2xs);
+  min-block-size: var(--bldr-hit-target-min);
+  padding-block: var(--bldr-space-xs);
+  /* The word needs the tile's whole width: a large button's own inline padding clipped
+     «الصفحات» to «الصفحا…» in a 64px tile. */
+  padding-inline: var(--bldr-space-2xs);
+}
+
+.bldr-icon-rail__caption {
+  display: block;
+  font-size: var(--bldr-font-size-micro);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-tight);
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .bldr-icon-rail {
+    border-inline-end-color: CanvasText;
+  }
+
+  .bldr-icon-rail__button[aria-current='page']::before {
+    background: Highlight;
+  }
 }

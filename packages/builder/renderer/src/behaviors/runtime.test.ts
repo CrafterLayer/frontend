@@ -304,6 +304,21 @@ describe('mountBehaviors', () => {
     expect(host.querySelector('button')?.classList.contains('ck-copied')).toBe(false);
   });
 
+  it('says "copied" politely, in the page language, and takes the words away on dispose', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn(() => Promise.resolve()) } });
+    const host = mount(
+      '<p lang="ar"><button data-ck-behavior="copy-text">IBAN</button></p><button data-ck-behavior="copy-text">x</button>',
+    );
+    const dispose = mountBehaviors(host);
+    const said = () => [...document.querySelectorAll('[role="status"]')].map((s) => s.textContent);
+    expect(said()).toEqual(['', '']);
+    for (const button of host.querySelectorAll('button')) button.click();
+    await Promise.resolve();
+    expect(said()).toEqual(['تم النسخ', 'Copied']);
+    dispose();
+    expect(said()).toEqual([]);
+  });
+
   it('leaves the click-driven behaviours inert when not interactive (the canvas)', () => {
     const open = vi.fn();
     vi.stubGlobal('open', open);

@@ -13,7 +13,7 @@ export const TOPOGRAPHIC_CONTOURS = definePreset({
     ar: 'خطوط كنتور متحرّكة لتضاريس متخيَّلة تُرسم بالمربّعات الزاحفة مع خطوط رئيسية وأرقام ارتفاع، ويرفع المؤشر تلّاً.',
   },
   tags: ['generative', 'calm', 'background', 'interactive'],
-  libs: ['kit'],
+  libs: ['kit', 'viewport'],
   params: [
     ...sharedParams({ seed: 21, interactive: true }),
     range('levels', 'Levels', 'عدد المستويات', 18, 6, 40, 1, 'look'),
@@ -24,10 +24,10 @@ export const TOPOGRAPHIC_CONTOURS = definePreset({
   ],
   code: String.raw`
 const p=ck.params({palette:'theme',seed:21,speed:1,density:1,interactive:true,levels:18,scale:0.0028,drift:0.3,lineWidth:1.2,labels:true});
-const s=await ck.scene({libs:[],seed:p.seed});
+const s=await ck.scene({libs:['viewport'],seed:p.seed,design:{width:1280,height:720,fit:'cover',zoom:true}});
 const PIXI=s.PIXI,C=s.palette;
 const bg=new PIXI.Graphics(),g=new PIXI.Graphics(),tags=new PIXI.Container();
-s.stage.addChild(bg,g,tags);
+s.world.addChild(bg,g,tags);
 // Marching-squares segments per case (corners: a=8 top-left, b=4 top-right, c=2 bottom-right, d=1 bottom-left).
 const SEG=['','lb','br','lr','tr','trlb','tb','tl','tl','tb','tlbr','tr','lr','br','lb'];
 let W=1,H=1,cs=8,nx=2,ny=2,F=new Float32Array(4),frame=0,hill=0;
@@ -90,8 +90,7 @@ function label(marks){
     t.x=m[0];t.y=m[1];
   }
 }
-layout(s.width,s.height);
-s.onResize(function(w,h){layout(w,h);frame=0;});
+layout(1280,720);
 s.tick(function(time){
   const T=s.reducedMotion?0:time.t*p.speed;
   if(!s.reducedMotion){

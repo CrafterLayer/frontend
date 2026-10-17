@@ -616,6 +616,12 @@ describe('the door itself', () => {
         'importDesignLibrary',
         'updateAsset',
         'removeAsset',
+        // The script library and the sound engine (pixi-studio, 2026-10-10).
+        'saveScript',
+        'renameScript',
+        'removeScript',
+        'saveSound',
+        'removeSound',
       ].sort(),
     );
   });

@@ -122,8 +122,23 @@ const BASELINE_GZIP_BYTES = 12_605;
   14 000 → 16 000 on 2026-10-09 (free-code mode): the `scripts` pack adds 2 669 B gzip to the
   every-pack bundle (25 015 → 27 684 B). It ships only on a site whose markup carries `data-ck-js`
   (see the "ships only the packs" test below), so a page that uses no script pays nothing.
+  16 000 → 21 000 on 2026-10-12, measured: the Studio wiring the creative engines added to the
+  `scripts` pack (69dca3f) left the every-pack bundle 19 231 B over the runtime, and the Countdown
+  block's clock (`countdown-clock`) adds 1 088 B (20 321 B). Both ship only to pages that use them.
+  21 000 → 22 500 on 2026-10-12, measured: the Table block's sort, search and pages
+  (`table-tools`, 2 225 B gzip on its own) add 1 810 B to the every-pack bundle (20 321 → 22 131 B).
+  It ships only to a page whose markup carries `data-ck-behavior="table-tools"`.
+  22 500 → 23 000 on 2026-10-12 (preview-fix), measured: a plain `ck.stage()` now follows its
+  region (a ResizeObserver, the renderer resize for a script that listens, the cover fallback and
+  its pointer mapping), +495 B to the every-pack bundle (22 131 → 22 626 B). It is part of the
+  `scripts` pack, which ships only to a page whose markup carries `data-ck-js`.
+  23 000 → 27 000 on 2026-10-13 (everyday site behaviours), measured: six packs the agent names
+  by attribute instead of writing script — back-to-top 1 111, read-more 1 549, scroll-spy 1 803,
+  typed-words 1 557, filter 1 084, dismiss 1 182 B gzip on their own — add 3 938 B to the
+  every-pack bundle (22 756 → 26 694 B). Each ships only to a page whose markup carries its
+  `data-ck-behavior` value (packs/everyday.test.ts), so a page that uses none pays nothing.
 */
-const PACKS_BUDGET_GZIP_BYTES = 16_000;
+const PACKS_BUDGET_GZIP_BYTES = 27_000;
 
 describe('behaviorRuntimeScript — packs', () => {
   it('serialises the core runtime and then every pack, each called on the document', () => {
@@ -150,6 +165,7 @@ describe('behaviorRuntimeScript — packs', () => {
       '<div id="toggle" data-ck-behavior="toggle-group"><button>شهري / سنوي</button><p data-ck-option="a">10</p><p data-ck-option="b" hidden>100</p></div>',
       '<form id="mailto" data-ck-behavior="mailto-form" data-ck-email="a@example.com"><label>الاسم <input name="name"></label><button>أرسل</button></form>',
       '<section><div id="scene" data-ck-scene="particles"><img src="https://example.com/s.jpg" alt=""></div><h1>مرحبا</h1></section>',
+      '<section id="table" data-ck-behavior="table-tools"><template data-ck-table-button><button type="button"></button></template><table><thead><tr><th data-ck-table-sort="number">السعر</th></tr></thead><tbody><tr><td data-ck-key="9">٩</td></tr><tr><td data-ck-key="3">٣</td></tr></tbody></table></section>',
     ].join('');
     // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call -- evaluating the serialised runtime IS the test
     new Function('document', behaviorRuntimeScript())(fresh);
@@ -162,6 +178,8 @@ describe('behaviorRuntimeScript — packs', () => {
     expect(el('toggle')?.hasAttribute('data-ck-mounted')).toBe(true);
     expect(el('mailto')?.hasAttribute('data-ck-mounted')).toBe(true);
     expect(el('scene')?.hasAttribute('data-ck-engine-mounted')).toBe(true);
+    fresh.querySelector<HTMLButtonElement>('#table th button')?.click();
+    expect(fresh.querySelector('#table tbody')?.textContent).toBe('٣٩');
     const engines = (
       frame.contentWindow as unknown as { ckEngines?: { queue: { kind: string }[] } }
     ).ckEngines;

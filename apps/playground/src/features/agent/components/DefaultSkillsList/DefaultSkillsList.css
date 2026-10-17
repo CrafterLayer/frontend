@@ -1,0 +1,90 @@
+/*
+  DefaultSkillsList (2026-10-12): the default skills under a small heading with their count,
+  each a SkillRow-shaped row (the switch, the name, the actions) whose description wraps to
+  two lines and whose instructions open in a quiet, scrolling disclosure.
+*/
+
+.ck-agent-defaults {
+  display: grid;
+  gap: var(--bldr-space-xs);
+  padding-block-start: var(--bldr-space-xs);
+  border-block-start: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+}
+
+.ck-agent-defaults__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bldr-space-sm);
+}
+
+.ck-agent-defaults__title {
+  margin: 0;
+  color: var(--bldr-panel-text);
+  font-size: var(--bldr-font-size-read);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-read);
+}
+
+.ck-agent-defaults__count {
+  margin-inline-start: auto;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-defaults__row {
+  align-items: start;
+}
+
+.ck-agent-defaults__description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--bldr-panel-muted);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.ck-agent-defaults__summary {
+  inline-size: fit-content;
+  padding-block: var(--bldr-space-2xs);
+  border-radius: var(--bldr-radius-sm);
+  color: var(--bldr-panel-text-soft);
+  cursor: pointer;
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+}
+
+.ck-agent-defaults__summary:hover {
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-defaults__summary:focus-visible,
+.ck-agent-defaults__instructions:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-defaults__instructions {
+  max-block-size: calc(var(--bldr-space-3xl) * 8);
+  margin: 0;
+  padding: var(--bldr-space-sm);
+  overflow: auto;
+  border: var(--bldr-border-hairline) solid var(--bldr-panel-border);
+  border-radius: var(--bldr-radius-md);
+  background-color: var(--bldr-surface-sunken);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font-mono);
+  font-size: var(--bldr-font-size-meta);
+  line-height: var(--bldr-line-height-meta);
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The name dims with SkillRow's own rule; the description follows it. */
+.ck-agent-defaults__row:not([data-enabled]) .ck-agent-defaults__description {
+  opacity: 0.7;
+}

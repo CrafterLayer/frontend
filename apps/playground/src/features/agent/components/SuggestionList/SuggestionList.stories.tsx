@@ -117,14 +117,17 @@ function WithComposer({
   );
 }
 
-/** Each row is on the glyph column: its words start 24px in, on every record title's edge. */
+/**
+ * Each row is a quiet card (Studio Indigo, 2026-10-12): its words start 33px in — the hairline,
+ * 8px, the 16px glyph column and 8px — no longer on the records' 24px title edge.
+ */
 async function expectRowGeometry(canvasElement: HTMLElement, locale: Locale): Promise<void> {
   for (const row of within(canvasElement).getAllByRole('button')) {
     const box = row.getBoundingClientRect();
     const text = row.querySelector('.ck-agent-suggestion__text')?.getBoundingClientRect();
     if (text === undefined) throw new Error('row text');
     const inset = locale === 'ar' ? box.right - text.right : text.left - box.left;
-    await expect(Math.round(inset)).toBe(24);
+    await expect(Math.round(inset)).toBe(33);
     await expect(box.height).toBeGreaterThanOrEqual(32);
   }
   const root = canvasElement.querySelector('.ck-agent');

@@ -103,6 +103,57 @@ describe('LogoCloud', () => {
     expect(logoCloudSchema.props.safeParse({ columns: '7' }).success).toBe(false);
   });
 
+  it('shows a brand’s logo image in place of its monogram, the name still visible', () => {
+    const { container } = render(
+      <LogoCloud
+        node={node}
+        props={logoCloudSchema.props.parse({
+          heading: 'Pay your way',
+          items: [
+            { name: 'Visa', logo: 'https://cdn.simpleicons.org/visa' },
+            { name: 'Northstar' },
+          ],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={true}
+      />,
+    );
+
+    const logos = container.querySelectorAll('[data-logo-cloud-logo]');
+    expect(logos).toHaveLength(1);
+    const logo = logos[0];
+    expect(logo).toHaveAttribute('src', 'https://cdn.simpleicons.org/visa');
+    // Decorative: the brand's name is the text beside it.
+    expect(logo).toHaveAttribute('alt', '');
+    expect(logo).toHaveAttribute('data-ck-part', 'item.logo');
+    expect(logo).toHaveAttribute('data-ck-bind', 'items.0.logo');
+    expect(logo).toHaveClass('object-contain');
+    expect(screen.getByText('Visa')).toBeVisible();
+    expect(screen.queryByRole('img')).toBeNull();
+    // The brand without a logo keeps its monogram.
+    expect(screen.getByText('N')).toBeInTheDocument();
+  });
+
+  it('accepts the art catalog’s addresses as logos and refuses unsafe ones', () => {
+    const accepts = (logo: string) =>
+      logoCloudSchema.props.safeParse({ items: [{ name: 'Brand', logo }] }).success;
+    // The three shapes the agent's art catalog writes (builder-ai art-catalog/art-url.ts).
+    expect(accepts('https://cdn.simpleicons.org/stripe')).toBe(true);
+    expect(accepts('https://cdn.simpleicons.org/visa/ffffff')).toBe(true);
+    expect(
+      accepts(
+        'https://api.dicebear.com/9.x/lorelei/svg?seed=%D8%B3%D8%A7%D8%B1%D8%A9&backgroundColor=f4e3d7',
+      ),
+    ).toBe(true);
+    expect(accepts('https://api.iconify.design/fluent-emoji-flat/hot-beverage.svg')).toBe(true);
+    expect(accepts('/uploads/our-partner.png')).toBe(true);
+    // SVG data URLs and scripts stay refused.
+    expect(accepts('data:image/svg+xml;base64,PHN2Zy8+')).toBe(false);
+    expect(accepts('javascript:alert(1)')).toBe(false);
+    expect(accepts('//cdn.simpleicons.org/visa')).toBe(false);
+  });
+
   it('keeps every requested density readable through container-aware breakpoints', () => {
     const props = logoCloudSchema.props.parse({ items: [{ name: 'Northstar' }] });
     const columns = ['3', '4', '5', '6'] as const;

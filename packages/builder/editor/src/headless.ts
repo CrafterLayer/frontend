@@ -308,3 +308,26 @@ export {
   type NodeScriptRunnerOptions,
 } from '@craftkit/builder-ai/script-node';
 // end script-servers additions
+// background-batches additions (2026-10-12)
+/*
+  Background batches: the same request on many pages of a site, sent as one Message Batches
+  job at half price and applied page by page through the live door — one Undo per page. A
+  Node host (and the ai-server's end-to-end test) drives the same runner a panel does.
+*/
+export {
+  AiBatchJobError,
+  createAiBatchRunner,
+  createMemoryBatchJobStore,
+  createRemoteBatchClient,
+  isAiBatchJobError,
+  type AiBatchAgentOptions,
+  type AiBatchClient,
+  type AiBatchItemResult,
+  type AiBatchJobRecord,
+  type AiBatchJobStore,
+  type AiBatchPageOutcome,
+  type AiBatchRunner,
+  type AiBatchState,
+  type RemoteBatchClientOptions,
+} from '@craftkit/builder-ai';
+// end background-batches additions

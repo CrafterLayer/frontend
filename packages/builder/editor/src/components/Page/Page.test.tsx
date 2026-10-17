@@ -122,6 +122,35 @@ describe('Page', () => {
     expect(screen.getByRole('main')).not.toHaveAttribute('lang');
   });
 
+  it('reads a page of a language set in its own language direction', () => {
+    const seo = { alternates: [{ lang: 'ar', path: '/' }, { lang: 'en', path: '/en' }] };
+    render(
+      <Page
+        node={rootNode}
+        props={{ ...defaultPageProps, lang: 'en', seo }}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByRole('main')).toHaveAttribute('dir', 'ltr');
+  });
+
+  it('leaves the direction to the document when the page has no language versions', () => {
+    render(
+      <Page
+        node={rootNode}
+        props={{ ...defaultPageProps, lang: 'en' }}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+
+    expect(screen.getByRole('main')).not.toHaveAttribute('dir');
+  });
+
   it('exposes content width on the rendered root', () => {
     render(
       <Page

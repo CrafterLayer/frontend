@@ -4,6 +4,7 @@ import { AiMemoryContextError } from '../context/memory-provider';
 import { AiContextBudgetError } from '../plan/generate-plan';
 import { AiValidatedProposalError } from '../plan/validated-proposal';
 import { AiPlanRejectedError } from '../plan/validate-plan';
+import { AiRunTimeoutError } from './run-deadline';
 import { isAiProviderError, type AiProviderErrorCode } from '../provider/errors';
 import {
   AiCommandPolicyError,
@@ -43,6 +44,9 @@ function failure(value: AiRunFailure): AiRunFailure {
 
 /** Convert every known run boundary into data without weakening the thrown error path. */
 export function classifyAiRunFailure(cause: unknown): AiRunFailure {
+  if (cause instanceof AiRunTimeoutError) {
+    return failure({ source: 'run', code: 'timeout', message: cause.message, retryable: false });
+  }
   if (cause instanceof Error && cause.name === 'AbortError') {
     return failure({
       source: 'run',

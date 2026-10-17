@@ -67,6 +67,16 @@ describe('studioPreviewEngines', () => {
     ).toEqual(['lib-physics', 'sound']);
     expect(studioPreviewEngines({ code: 'ck.root.title = "x"' })).toEqual([]);
   });
+
+  // mural kit (2026-10-14): s.lib.mural tells its beats on s.lib.anim, so listing 'mural' ships both.
+  it('ships anim with mural', () => {
+    expect(studioPreviewEngines({ code: "await ck.scene({ libs: ['mural'] });" })).toEqual([
+      'pixi',
+      'lib-kit',
+      'lib-anim',
+      'lib-mural',
+    ]);
+  });
 });
 
 describe('buildStudioPreviewHtml', () => {
@@ -153,6 +163,43 @@ describe('buildStudioPreviewHtml', () => {
     expect(quiet.querySelector('script[data-ck-sound-bank]')).toBeNull();
     expect(quiet.querySelector('script[data-ck-engine]')).toBeNull();
   });
+
+  // creative-power Phase 2 E (2026-10-12): a written section, run and measured by the probe.
+  it('runs a rendered section in place of the code region, and carries the probe when asked', async () => {
+    const markup =
+      '<div data-ck-custom-code="" data-ck-js="await ck.scene({});" data-ck-js-id="s1"><section class="ck-scene">Hi</section></div>';
+    const probe = {
+      deadline: 1,
+      canvasWaitMs: 1500,
+      settleMs: 600,
+      expectCanvas: true,
+      click: true,
+    };
+    const html = await buildStudioPreviewHtml({
+      code: 'await ck.scene({});',
+      markup,
+      probe,
+      loaders,
+    });
+    const doc = parse(html);
+    const root = doc.getElementById('ck-preview');
+    expect(root?.hasAttribute('data-ck-js')).toBe(false);
+    expect(root?.querySelector('[data-ck-js-id="s1"] > section.ck-scene')?.textContent).toBe('Hi');
+    // The section keeps its own height, and the page may scroll so it can be measured.
+    expect(doc.querySelector('style')?.textContent).not.toContain('overflow:hidden');
+    const inline = Array.from(doc.querySelectorAll('script:not([data-ck-engine])')).map(
+      (script) => script.textContent,
+    );
+    expect(inline[0]).toContain('function studioProbeContexts(');
+    expect(inline.at(-1)).toContain('function studioSceneProbe(');
+    expect(inline.at(-1)).toContain('"click":true');
+    expect(STUDIO_PREVIEW_MESSAGES.probe).toBe('ck-preview:probe');
+
+    const plain = await buildStudioPreviewHtml({ code: 'ck.root.title = "x"', loaders });
+    expect(plain).not.toContain('studioSceneProbe');
+    expect(plain).not.toContain('studioProbeContexts');
+    expect(plain).toContain(', false, null);');
+  });
 });
 
 describe('studioPreviewBridge (in the frame)', () => {
@@ -232,6 +279,26 @@ describe('studioPreviewBridge (in the frame)', () => {
     studioPreviewBridge(win, mountScripts, true);
     await new Promise((done) => setTimeout(done, 0));
     expect(doc.getElementById('ck-preview')?.getAttribute('data-reduced')).toBe('true');
+  });
+
+  it('hands the probe every error it reported, and Pixi’s own errors without posting them', async () => {
+    const { win, doc, posted } = frame();
+    doc
+      .getElementById('ck-preview')
+      ?.setAttribute('data-ck-js', 'const a = 1;\nthrow new Error("boom");');
+    vi.spyOn(win.console, 'error').mockImplementation(() => undefined);
+    let seen: { errors: { message: string; line: number | null }[] } | undefined;
+    studioPreviewBridge(win, mountScripts, false, function probe(_win, given) {
+      seen = given;
+    });
+    win.console.error('PixiJS Error: Could not initialize shader.');
+    await new Promise((done) => setTimeout(done, 0));
+    expect(seen?.errors.map(({ message }) => message)).toEqual([
+      'PixiJS Error: Could not initialize shader.',
+      'boom',
+    ]);
+    const errors = posted.filter((message) => message['type'] === STUDIO_PREVIEW_MESSAGES.error);
+    expect(errors.map((message) => message['message'])).toEqual(['boom']);
   });
 
   it('holds animation frames while paused and releases them on resume', () => {

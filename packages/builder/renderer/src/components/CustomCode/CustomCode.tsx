@@ -141,6 +141,8 @@ const BOOLEAN_ATTRIBUTES: ReadonlySet<string> = new Set([
   'disabled',
   'multiple',
   'checked',
+  // React drops a falsy `hidden`; a toggle group's stored `hidden: ''` must stay hidden.
+  'hidden',
 ]);
 
 /*
@@ -543,8 +545,7 @@ function renderIcon(node: Record<string, unknown>, key: string, context: RenderC
       ? lucideIconNode(ref.name)
       : tablerIconNode(ref.name, filled ? 'filled' : 'outline');
   if (data === undefined) {
-    // Visible, like UnknownBlock: a missing icon that renders as nothing is a
-    // layout that looks finished and is not.
+    // Visible, like UnknownBlock: a missing icon rendering as nothing looks finished; it is not.
     return (
       <span
         key={key}
@@ -625,8 +626,7 @@ function renderElement(
   context: RenderContext,
 ): ReactNode {
   const tag = node['tag'];
-  // An unknown tag is SKIPPED rather than rendered as a div: a document that
-  // stored `iframe` must not become a container the reader cannot see.
+  // An unknown tag is SKIPPED, not rendered as a div: a stored `iframe` is no hidden container.
   if (typeof tag !== 'string' || !isCustomCodeTag(tag)) return null;
 
   const className = transformedClass(context, node['className']);

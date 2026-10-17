@@ -1,0 +1,89 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as BuiltInSkillsListStories from './BuiltInSkillsList.stories';
+
+<Meta of={BuiltInSkillsListStories} />
+
+# BuiltInSkillsList
+
+The built-in skills the Agent picks by itself (2026-10-14), at the end of the Skills tab of "Skills
+& memory". It replaced the read-only list of every built-in.
+
+<Canvas of={BuiltInSkillsListStories.Default} />
+
+## Purpose
+
+The engine chooses skills from the request in every lane (`requestSkillIdsFor`, keyword matching, a
+scene's pins). This list lets a person see those skills and switch one off. A switched-off skill is
+sent to every run as `excludedSkillIds`: no keyword, carried match, dependency, page plan, scaffold,
+section writer or scene pin uses it. Naming it with `/` in the composer still uses it.
+
+Groups, in order:
+
+| group          | skills                                                                    |
+| -------------- | ------------------------------------------------------------------------- |
+| Design & pages | design and visual direction, tokens, composition, recipes, motion, trades |
+| Content        | headlines, actions and body copy                                          |
+| Data & reports | charts and tables                                                         |
+| Images & brand | art by name, original logo, photo direction                               |
+| Creative       | the Pixi playbooks (games, stories, murals, effects, v8 guides)           |
+| Language       | Arabic and right-to-left composition                                      |
+| Engine         | craft manual, page skeleton, section fill, direction deck: "Always on"    |
+
+The engine cannot build without the last four, and it drops them from any exclusion, so they have no
+switch. Other explicit-only built-ins (Plan mode, the surgical edit, design code, section layouts,
+the creative director and page shapes) run only when a mode or step names them, which a switch could
+not override, so they are not listed.
+
+## When to use / not
+
+SkillsTab draws it with `knowledge.skills.builtInSwitches`, `setBuiltInEnabled` and `resetBuiltIns`.
+Use it only for built-ins. The default skills (`DefaultSkillsList`) and the person's own skills
+(`SkillRow`) have their own switches.
+
+## Props
+
+| prop          | type                                     | notes                                           |
+| ------------- | ---------------------------------------- | ----------------------------------------------- |
+| `skills`      | `readonly BuiltInSkillToggleView[]`      | `builtInSkillViews(registry.list(), locale, …)` |
+| `labels`      | `BuiltInSkillLabels`                     | `knowledgeLabels(locale).builtInSkills`         |
+| `onToggle`    | `(id: string, enabled: boolean) => void` | the knowledge view's `setBuiltInEnabled`        |
+| `onReset`     | `() => void`                             | the knowledge view's `resetBuiltIns`            |
+| `defaultOpen` | `boolean`, default `false`               | open the disclosure on mount                    |
+
+## Persistence
+
+`ck-agent-builtin-skills:v1` in the viewer's storage: a JSON array of the ids switched off, the same
+shape as the default skills' `ck-agent-default-skills:v1`. Unknown or locked ids are ignored on
+read. No key means every built-in is on.
+
+## States
+
+| story                    | what it shows                                       |
+| ------------------------ | --------------------------------------------------- |
+| `Default`, `Dark`        | every built-in on, by group                         |
+| `Closed`                 | the disclosure as the tab first shows it            |
+| `RightToLeft`, `DarkRTL` | Arabic names, descriptions and labels               |
+| `SomeOff`                | two off, softer; a switch turns one back on         |
+| `Filtered`, `NoMatch`    | the filter narrowing the groups; nothing matches    |
+| `Reset`                  | "Reset to defaults" turns every built-in back on    |
+| `Narrow`                 | a 300px panel: rows truncate, filter and Reset wrap |
+
+## Accessibility
+
+- A native disclosure; each group is a region named by its heading.
+- Each switch is a checkbox with `role="switch"`, named "Use {name}", toggled with Space.
+- The filter is a named search box. The count is a polite live region, so a switch or Reset is
+  announced as the new count.
+- "Reset to defaults" uses `aria-disabled` when everything is on, so focus stays on it.
+- A truncated name or description keeps its full text in `title`.
+
+## RTL
+
+Logical properties and theme tokens only. Names and descriptions run in their own direction
+(`dir="auto"`). Arabic names come from `builtin-skill-copy.ts`. English reads the registry.
+
+## Limitations
+
+The engine's list of required skills is duplicated as `ALWAYS_ON_SKILL_IDS` in the playground,
+because the package entry does not export it. The engine stays authoritative.

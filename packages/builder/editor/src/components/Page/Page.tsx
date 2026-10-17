@@ -1,7 +1,7 @@
 import './Page.css';
 
 import { findCssRejection, scopeCustomCodeCss } from '@craftkit/builder-custom-code';
-import type { BlockRenderProps } from '@craftkit/builder-schema';
+import { languageSetDirection, type BlockRenderProps } from '@craftkit/builder-schema';
 
 import type { z } from 'zod';
 
@@ -32,6 +32,8 @@ export function Page({ node, props, slots, isCanvas }: BlockRenderProps<PageProp
       data-content-width={props.contentWidth}
       data-ck={node.id}
       lang={props.lang === '' ? undefined : props.lang}
+      // A version in a language set reads in its own direction; the site keeps one.
+      dir={languageSetDirection(props)}
     >
       {pageCss === undefined ? null : <style>{pageCss}</style>}
       {rejection === undefined ? null : (

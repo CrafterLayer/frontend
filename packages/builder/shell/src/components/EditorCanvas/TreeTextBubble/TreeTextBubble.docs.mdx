@@ -1,0 +1,68 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as TreeTextBubbleStories from './TreeTextBubble.stories';
+
+<Meta of={TreeTextBubbleStories} />
+
+# TreeTextBubble
+
+The formatting bubble the canvas shows over a **selected range** of a custom-code (tree) text
+element while it is edited in place (style-manager DESIGN.md §E). It is the canvas's own wrapper
+around [`TextBubble`](?path=/docs/builder-shell-textbubble--docs): the marks for the range, or —
+once Link is pressed — the one-field link-address prompt.
+
+Owned by `EditorCanvas`, which portals it into the floating text host and decides **when** it shows
+(an open tree session with a selected range, or an open link prompt). This component only decides
+**what** the bubble contains and what its prompt does.
+
+## When to use
+
+- Inside `EditorCanvas`, for an open `TreeTextSession`.
+
+## When not to use
+
+- Formatting a block's declared rich text — that is the inline editor's own bubble (`TextBubble` fed
+  by the editor's `onActions`).
+- Anywhere outside the canvas: it needs an open in-place edit to format.
+
+## Props
+
+| Prop          | Type                                                            | Notes                                                           |
+| ------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| `dir`         | `'ltr' \| 'rtl'`                                                | the canvas direction                                            |
+| `labels`      | `TreeTextActionLabels`                                          | EN or AR words: group name, link prompt label, Apply, Cancel    |
+| `actions`     | `TextBubbleAction[]`                                            | from `treeTextBubbleActions(session, labels, …)`                |
+| `session`     | `Pick<TreeTextSession, 'format' \| 'refocus' \| 'suspendBlur'>` | the open in-place edit                                          |
+| `linkRange`   | `{ start, end } \| null`                                        | the range a link is being asked for; `null` shows the marks     |
+| `onCloseLink` | `() => void`                                                    | the prompt closed (applied or cancelled)                        |
+| `onAnnounce`  | `(message) => void`                                             | a refused link is announced in the canvas's gesture live region |
+
+## Behaviour
+
+- **Marks**: each action is one transaction (`session.format`), run on click; focus never leaves the
+  text (TextBubble's focus law).
+- **Link prompt**: Apply closes the prompt, lets blur commit again (`suspendBlur(false)`) and
+  formats the **remembered** range as one `a` mark. A refusal is announced and focus returns to the
+  text.
+- **Cancel** closes the prompt, resumes blur commits and returns focus to the text.
+
+<Canvas of={TreeTextBubbleStories.LinkPrompt} />
+
+## Accessibility
+
+- A named `group` ("Formatting" / «التنسيق») of real buttons; disabled marks are disabled buttons.
+- The prompt's field is labelled ("Link address") and takes focus when it opens; Enter applies,
+  Escape cancels.
+- Escape from a mark returns focus to the edited text.
+
+## RTL and locale
+
+`dir` mirrors the reading order; `labels` carries the editor's language (Arabic on an Arabic
+canvas). A URL is typed left-to-right on any page.
+
+<Canvas of={TreeTextBubbleStories.Arabic} />
+
+## Limitations
+
+Geometry is not this component's: the floating host positions it. It renders nothing about where the
+range is.

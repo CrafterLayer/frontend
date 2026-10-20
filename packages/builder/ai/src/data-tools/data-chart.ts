@@ -1,5 +1,6 @@
 import { normalizeIntentText } from '../intent/normalize-arabic';
 import { columnUnit, isNumericColumn, isTimeline, readNumber, type DataGrid } from './data-text';
+import { chartContract, histogramData } from './chart-specialized';
 
 /**
  * The chart reading of a grid (2026-10-12), shared by `data.show` and `report.build`: which
@@ -20,6 +21,15 @@ export const CHART_TYPES = [
   'sparkline',
   'pie',
   'donut',
+  'waterfall',
+  'heatmap',
+  'treemap',
+  'histogram',
+  'bubble',
+  'boxplot',
+  'candlestick',
+  'lollipop',
+  'bullet',
 ] as const;
 export type ChartType = (typeof CHART_TYPES)[number];
 
@@ -89,7 +99,11 @@ function dialColumns(grid: DataGrid): Dial {
  * is a series — or, when the headings are the times ("Metric,2022,2023"), each row is a series.
  * `skip` leaves columns out (a gauge's Max and Target).
  */
-function readSeries(grid: DataGrid, skip: ReadonlySet<number>): ChartData | string {
+function readSeries(
+  grid: DataGrid,
+  skip: ReadonlySet<number>,
+  sizeAxis = false,
+): ChartData | string {
   const numeric = grid.header.map(
     (_, column) => column > 0 && !skip.has(column) && isNumericColumn(grid, column),
   );
@@ -135,16 +149,41 @@ function readSeries(grid: DataGrid, skip: ReadonlySet<number>): ChartData | stri
   if (long !== undefined)
     return `"${long.slice(0, 50)}…" is over ${String(LIMITS.label)} characters; shorten the label.`;
   const read = series.flatMap((entry) => entry.cells.map((cell) => readNumber(cell)));
-  if (read.some((number) => number === undefined)) notes.push('empty cells plotted as 0');
+  if (read.some((number) => number === undefined))
+    return 'missing chart values cannot be plotted as zero; resolve missing cells or use a table.';
   const present = read.filter((number) => number !== undefined);
+  const unitRead = sizeAxis
+    ? (series[0]?.cells ?? []).flatMap((cell) => {
+        const value = readNumber(cell);
+        return value === undefined ? [] : [value];
+      })
+    : present;
+  const units = new Set(
+    unitRead.map((number) => `${number.prefix.trim()}|${number.suffix.trim()}`),
+  );
+  if (units.size > 1)
+    return 'chart values use different units; split the measures into separate charts.';
+  if (
+    sizeAxis &&
+    series.some(
+      (entry) =>
+        new Set(
+          entry.cells.map((cell) => {
+            const value = readNumber(cell);
+            return `${value?.prefix.trim() ?? ''}|${value?.suffix.trim() ?? ''}`;
+          }),
+        ).size > 1,
+    )
+  )
+    return 'each bubble axis must use a consistent unit.';
   return {
     categories,
     series: series.map((entry) => ({
       name: entry.name,
       values: entry.cells.map((cell) => readNumber(cell)?.value ?? 0),
     })),
-    prefix: shared(present.map((number) => number.prefix)),
-    suffix: shared(present.map((number) => number.suffix)),
+    prefix: shared(unitRead.map((number) => number.prefix)),
+    suffix: shared(unitRead.map((number) => number.suffix)),
     notes,
   };
 }
@@ -217,6 +256,20 @@ export function chartData(grid: DataGrid): ChartData | string {
  * radar three to twelve categories.
  */
 export function chartDataFor(grid: DataGrid, type: ChartType): ChartData | string {
+  if (type === 'histogram') return histogramData(grid);
+  if (type === 'bubble') {
+    if (grid.header.length !== 3)
+      return 'bubble needs exactly three columns in role order: X, Y, Size.';
+    for (const column of [0, 2]) {
+      if (
+        grid.rows.some((row) => {
+          const value = readNumber(row[column] ?? '');
+          return value !== undefined && (value.prefix.trim() !== '' || value.suffix.trim() !== '');
+        })
+      )
+        return 'bubble X and Size must be unitless numbers; convert them explicitly before charting. Y may carry a unit.';
+    }
+  }
   if (type === 'gauge') {
     const dial = dialColumns(grid);
     const skip = new Set([dial.max?.column ?? -1, dial.target?.column ?? -1]);
@@ -242,11 +295,13 @@ export function chartDataFor(grid: DataGrid, type: ChartType): ChartData | strin
       notes.push(`a gauge draws the first ${String(LIMITS.gauges)} rows`);
     return { ...data, maxValue: dial.max?.value, targetValue: dial.target?.value, notes };
   }
-  const data = readSeries(grid, new Set());
+  const data = readSeries(grid, new Set(), type === 'bubble');
   if (typeof data === 'string') return data;
-  if (type === 'scatter') {
+  const invalid = chartContract(data, type);
+  if (invalid !== undefined) return invalid;
+  if (type === 'scatter' || type === 'bubble') {
     if (!numericFirstColumn(grid))
-      return 'a scatter needs numbers in the first column (the x values); send as "line" or "bar".';
+      return `${type} needs numbers in the first column (the x values); use line or bar for categories.`;
     return {
       ...data,
       categories: data.categories.map((cell) => String(readNumber(cell)?.value ?? cell)),

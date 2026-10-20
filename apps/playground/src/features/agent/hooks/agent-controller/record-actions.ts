@@ -17,9 +17,23 @@ import { followKernel } from './kernel-follow';
 import { track } from './run-lease';
 import { failureTurn, say } from './run-outcomes';
 import { locateTurn, patchTurn, requestOf, sessionOf } from './turn-plumbing';
+import { answerTargetQuestion } from './send';
 
 export function recordActions(flow: Flow) {
   const env = flow.env;
+
+  const rejectForeignEdit = (turnId: string, sessionId: string): boolean => {
+    const owner = flow.runtime.edits.get(turnId);
+    if (owner === undefined || owner === env().options.kernel) return false;
+    const origin = requestOf(flow, turnId) ?? { text: '', context: [] };
+    answerTargetQuestion(
+      flow,
+      { ...origin, pointed: [] },
+      { sessionId, recordTurnId: turnId },
+      'missing',
+    );
+    return true;
+  };
 
   const endPreview = (turnId: string): void => {
     if (flow.ui.getState().previewing !== turnId) return;
@@ -32,6 +46,7 @@ export function recordActions(flow: Flow) {
     const turn = located?.turn;
     if (located === null || turn?.kind !== 'proposal' || turn.proposal === undefined) return;
     if (flow.runtime.lease !== null) return;
+    if (rejectForeignEdit(turnId, located.sessionId)) return;
     const kernel = env().options.kernel;
     const proposal = turn.proposal;
     endPreview(turnId);
@@ -102,6 +117,35 @@ export function recordActions(flow: Flow) {
     if (located === null || origin === null || origin.text.trim() === '') return;
     const kernel = env().options.kernel;
     const document = kernel.getDocument();
+    const turn = located.turn;
+    const previousBuild = flow.runtime.builds.get(turnId);
+    const previousEdit = flow.runtime.edits.get(turnId);
+    const unownedTarget =
+      previousBuild === undefined &&
+      previousEdit === undefined &&
+      origin.context.some((entry) => entry.kind !== 'page');
+    const elsewhere =
+      unownedTarget ||
+      (previousBuild !== undefined && previousBuild.kernel !== kernel) ||
+      (previousEdit !== undefined && previousEdit !== kernel) ||
+      (turn.kind === 'edit' &&
+        (turn.revived === true ||
+          (turn.transactionId !== undefined &&
+            !kernel.transactions().some((transaction) => transaction.id === turn.transactionId))));
+    if (
+      elsewhere ||
+      origin.context.some(
+        (entry) => entry.kind !== 'page' && document.nodes[entry.id] === undefined,
+      )
+    ) {
+      answerTargetQuestion(
+        flow,
+        { ...origin, pointed: [] },
+        { sessionId: located.sessionId, recordTurnId: turnId },
+        'missing',
+      );
+      return;
+    }
     // The blocks it pointed at, while they are still there.
     const context = origin.context.filter(
       (entry) => entry.kind === 'page' || document.nodes[entry.id] !== undefined,
@@ -157,8 +201,10 @@ export function recordActions(flow: Flow) {
       endPreview(turnId);
       return;
     }
-    const turn = locateTurn(flow, turnId)?.turn;
+    const located = locateTurn(flow, turnId);
+    const turn = located?.turn;
     if (turn?.kind !== 'proposal' || turn.proposal === undefined) return;
+    if (located !== null && rejectForeignEdit(turnId, located.sessionId)) return;
     try {
       const document = previewAiPlan({
         kernel: env().options.kernel,

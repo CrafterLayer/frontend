@@ -6,7 +6,7 @@ import * as ReportStories from './Report.stories';
 
 # Report
 
-One dataset as a report section: a title that states the finding, a summary, up to four KPI cards
+One dataset as a report section: a title that states the finding, a summary, up to eight KPI cards
 computed from the data, one accessible chart, and an optional table of the numbers. It is what the
 agent's `report.build` tool inserts from pasted rows, and it renders with no client script.
 
@@ -20,16 +20,35 @@ and `stats` for headline numbers that do not come from one table.
 
 - `title` (default "Quarterly report") and an optional `summary`. The title names the section and
   the chart; the summary describes the chart.
+- `dataNote` is optional source or preparation context (1–320 characters), such as original
+  observation count and histogram bin definitions. It renders as a readable paragraph by the chart
+  and contributes to its accessible description independently of the authored summary. A blank
+  stored note is hidden, allowing a changed chart type to clear obsolete preparation details.
 - `categories`: up to 24 row labels (the first column). `series`: up to six numeric columns, each
   `{ name, values }` with one number per category.
-- `valuePrefix` / `valueSuffix` print beside every number: cards, chart and table.
-- `kpis`: up to four `{ label, series, measure, better }` cards. `series` is the column's index;
-  `measure` is `last` (default), `total`, `average`, `max` or `min`. A `last` card also shows the
-  change against the row before: an arrow, the signed percentage and `changeLabel` ("vs previous").
-  `better: 'up' | 'down'` says which way is good — revenue up, costs down.
-- `chartType`: `bar`, `hbar`, `line`, `area`, `combo`, `scatter`, `radar`, `funnel`, `pie` or
-  `donut` (the Chart block's types that read a whole table), with `stacked`, `showLegend`,
-  `showValues`, `showGrid`, `palette`, `height` and `otherLabel` as on the Chart.
+- `valuePrefix` / `valueSuffix` print beside measures in cards, chart and table. Observation-count
+  cards are unitless even when other values use a currency or percentage.
+- `kpis`: up to eight `{ label, series, measure, better }` cards. `series` is the column's index;
+  `measure` is `last` (default), `total`, `average`, `max`, `min`, `median` or `count`. A `last`
+  card also shows the change against the row before: an arrow, the signed percentage and
+  `changeLabel` ("vs previous"). `better: 'up' | 'down'` says which way is good — revenue up, costs
+  down.
+- Each KPI optionally accepts `comparisonValue` for a supplied baseline of the same aggregation and
+  unit, `target` for its goal threshold, and `detail` (up to 120 characters) for methodology or
+  period context. Explicit baselines override the previous-row comparison even when zero. They use
+  the optional `comparisonLabel` (default display: "vs baseline") and visibly include the actual
+  baseline number with the measure's units. Count baselines stay unitless. `changeLabel` remains
+  reserved for comparisons against the previous source row; changing it never relabels an explicit
+  baseline. A zero baseline retains its caption and number but shows no invalid percentage.
+- `showTrends` is off unless `true`; enabled cards show their own series in source order, trimmed to
+  the visible categories. Counts have no trend because the source values are not counts of
+  observations. No source values are invented.
+- `chartType` supports Chart's complete enum, including `gauge`, `sparkline`, `waterfall`,
+  `heatmap`, `treemap`, `histogram`, `bubble`, `boxplot`, `candlestick`, `lollipop` and `bullet`.
+  Each specialized type requires Chart's documented series shape; choosing a type does not invent
+  OHLC values or quantiles. `maxValue`, `targetValue` and `targetLabel` forward to the chart.
+  `stacked`, `showLegend`, `showValues`, `showGrid`, `palette`, `height` and `otherLabel` match
+  Chart.
 - `showTable = true`, `variant: 'card' | 'plain' = 'card'`, plus the shared section props.
 
 ## How it is drawn
@@ -59,30 +78,53 @@ readers; the signed percentage is read.
 
 ## Parts
 
-| name           | kind | bind            | label (en / ar)                          |
-| -------------- | ---- | --------------- | ---------------------------------------- |
-| `title`        | text | `title`         | Title / العنوان                          |
-| `summary`      | text | `summary`       | Summary / الملخص (multiline)             |
-| `kpis`         | list | `kpis`          | KPI cards / بطاقات المؤشرات              |
-| `kpi`          | item | `kpis.*`        | KPI card / بطاقة مؤشر                    |
-| `kpi.label`    | text | `kpis.*.label`  | KPI label / تسمية المؤشر                 |
-| `changeLabel`  | text | `changeLabel`   | Change label / تسمية التغيّر             |
-| `categories`   | list | `categories`    | Categories / الفئات                      |
-| `category`     | text | `categories.*`  | Category / الفئة                         |
-| `series`       | list | `series`        | Data columns / أعمدة البيانات            |
-| `dataset`      | item | `series.*`      | Data column / عمود البيانات              |
-| `dataset.name` | text | `series.*.name` | Column name / اسم العمود                 |
-| `valuePrefix`  | text | `valuePrefix`   | Value prefix / بادئة القيمة              |
-| `valueSuffix`  | text | `valueSuffix`   | Value suffix / لاحقة القيمة              |
-| `otherLabel`   | text | `otherLabel`    | Other slice label / تسمية الشريحة الأخرى |
+| name              | kind | bind              | label (en / ar)                                     |
+| ----------------- | ---- | ----------------- | --------------------------------------------------- |
+| `title`           | text | `title`           | Title / العنوان                                     |
+| `summary`         | text | `summary`         | Summary / الملخص (multiline)                        |
+| `dataNote`        | text | `dataNote`        | Data note / ملاحظة البيانات (multiline)             |
+| `kpis`            | list | `kpis`            | KPI cards / بطاقات المؤشرات                         |
+| `kpi`             | item | `kpis.*`          | KPI card / بطاقة مؤشر                               |
+| `kpi.label`       | text | `kpis.*.label`    | KPI label / تسمية المؤشر                            |
+| `kpi.detail`      | text | `kpis.*.detail`   | KPI detail / تفصيل المؤشر                           |
+| `targetLabel`     | text | `targetLabel`     | Target label / تسمية الهدف                          |
+| `changeLabel`     | text | `changeLabel`     | Change label / تسمية التغيّر                        |
+| `comparisonLabel` | text | `comparisonLabel` | Baseline comparison label / تسمية المقارنة المرجعية |
+| `categories`      | list | `categories`      | Categories / الفئات                                 |
+| `category`        | text | `categories.*`    | Category / الفئة                                    |
+| `series`          | list | `series`          | Data columns / أعمدة البيانات                       |
+| `dataset`         | item | `series.*`        | Data column / عمود البيانات                         |
+| `dataset.name`    | text | `series.*.name`   | Column name / اسم العمود                            |
+| `valuePrefix`     | text | `valuePrefix`     | Value prefix / بادئة القيمة                         |
+| `valueSuffix`     | text | `valueSuffix`     | Value suffix / لاحقة القيمة                         |
+| `otherLabel`      | text | `otherLabel`      | Other slice label / تسمية الشريحة الأخرى            |
 
 A label printed in several places is one part with one host for the in-place editor: the table hosts
 the categories and column names (the chart, without a table); the first card with a number hosts the
 value prefix and suffix (else the table, else the chart); the first card with a change hosts the
-change label. The other copies show the committed text.
+change label. The first explicit-baseline card independently hosts `comparisonLabel`. The first card
+with a target hosts `targetLabel`; otherwise the chart hosts it. The other copies show the committed
+text.
 
 ## Limitations
 
-- A card's change always compares the last row with the one before; a `total`, `average`, `max` or
-  `min` card shows no change.
+- Without an explicit comparison baseline, only a `last` card compares with the row before it. A
+  zero baseline yields no percentage; it never becomes infinity. Aggregates with nonfinite results
+  render an unavailable value, never a fabricated valid number.
+- Target text includes the actual threshold (`≥` for a minimum, `≤` for a maximum) and a distinct
+  met/unmet symbol. For positive targets and nonnegative actual values, the percentage is **actual /
+  target**, not an inferred success score. Lower-is-better metrics can meet the target below 100%;
+  the inequality and status make that distinction explicit. The bar stops at 100 but visible and
+  accessible text retains the full percentage, including 120% or higher. Zero or negative targets
+  retain the threshold and status without an invalid ratio.
+- Median sorts a copy and averages the middle pair for even observations. Count includes only
+  observations in the selected series within the available category range; no observations means
+  zero. Table order is preserved. Raw data should already have the intended chronological order.
 - The cards read columns by index: reordering `series` moves what a card shows.
+
+## Examples across domains
+
+Financial Goals shows revenue, a spending ceiling, median revenue and unitless observed-month count.
+Project Delivery shows completed work items and sprint targets. Marketing Mobile RTL shows Arabic
+weekly analytics with the same source feeding cards, trends, chart and table. All examples are
+illustrative and require actual user data before publication.

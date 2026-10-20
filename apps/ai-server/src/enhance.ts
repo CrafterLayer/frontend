@@ -560,8 +560,8 @@ function usageOf(message: Anthropic.Message): UsageReport {
   return {
     inputTokens: message.usage.input_tokens,
     outputTokens: message.usage.output_tokens,
-    cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: message.usage.cache_read_input_tokens ?? null,
+    cacheWriteTokens: message.usage.cache_creation_input_tokens ?? null,
   };
 }
 

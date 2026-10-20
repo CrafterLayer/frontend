@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { defineBlockSchema } from '@craftkit/builder-schema';
 
-import { chartHeights, chartPalettes, chartVariants } from '../Chart/schema';
+import { chartHeights, chartPalettes, chartTypes, chartVariants } from '../Chart/schema';
 import { sectionColorGroups, sectionColorProps } from '../section-color';
 import { sectionCustomGroups, sectionCustomProps } from '../section-custom';
 import { sectionMotionGroups, sectionMotionProps } from '../section-motion';
@@ -16,25 +16,18 @@ import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { reportExamples } from './examples';
 
-/*
-  The chart a report draws: every chart type that reads a whole table. A gauge
-  (one value) is what the KPI cards already are, and a sparkline is a trend
-  without its numbers, so neither is offered here.
-*/
-export const reportChartTypes = [
-  'bar',
-  'hbar',
-  'line',
-  'area',
-  'combo',
-  'scatter',
-  'radar',
-  'funnel',
-  'pie',
-  'donut',
-] as const;
+/* A Report exposes the same explicit chart contract as a standalone Chart. */
+export const reportChartTypes = chartTypes;
 /* What a KPI card shows of its column: the last row (with its change), or the whole column. */
-export const reportMeasures = ['last', 'total', 'average', 'max', 'min'] as const;
+export const reportMeasures = [
+  'last',
+  'total',
+  'average',
+  'max',
+  'min',
+  'median',
+  'count',
+] as const;
 /* Which way a KPI's change is good: up for revenue, down for costs. */
 export const reportDirections = ['up', 'down'] as const;
 
@@ -52,11 +45,12 @@ const defaultKpis = [
 export const reportSchema = defineBlockSchema({
   type: 'report',
   description:
-    'One dataset as a report section: `title`, `summary`, up to four KPI cards, one SVG chart and an optional table. `categories` label the rows; each of up to six `series` is a numeric column. A KPI names a column by index (`series`) and a `measure`: `last` (with its change against the previous row, coloured by `better`: up or down), `total`, `average`, `max` or `min`. `chartType`: bar, hbar, line, area, combo, scatter, radar, funnel, pie or donut.',
+    'One dataset as a report section: `title`, `summary`, up to eight KPI cards, one SVG chart and an optional table. `categories` label the rows; each of up to six `series` is a numeric column. A KPI names a column by index (`series`) and a `measure`: `last` (with its change against the previous row, coloured by `better`: up or down), `total`, `average`, `max`, `min`, `median` or unitless `count`. Optional KPI `comparisonValue`, `target`, `detail` and report `showTrends` add source-grounded comparisons, goal thresholds and trends. `chartType` accepts every registered Chart type with the same data contract.',
   surfaces: ['site', 'store', 'docs'],
   props: z.object({
     title: z.string().min(1).max(90).default('Quarterly report'),
     summary: z.string().min(1).max(320).optional(),
+    dataNote: z.string().min(1).max(320).optional(),
     categories: z.array(z.string().min(1).max(40)).max(24).default(defaultCategories),
     series: z
       .array(
@@ -76,13 +70,21 @@ export const reportSchema = defineBlockSchema({
           series: z.number().int().min(0).max(5).default(0),
           measure: z.enum(reportMeasures).default('last'),
           better: z.enum(reportDirections).default('up'),
+          comparisonValue: z.number().optional(),
+          target: z.number().optional(),
+          detail: z.string().min(1).max(120).optional(),
         }),
       )
-      .max(4)
+      .max(8)
       .default(defaultKpis),
     /* Printed after every change: "▲ +12.5% vs previous". */
     changeLabel: z.string().min(1).max(40).default('vs previous'),
+    comparisonLabel: z.string().min(1).max(40).optional(),
     chartType: z.enum(reportChartTypes).default('bar'),
+    maxValue: z.number().optional(),
+    targetValue: z.number().optional(),
+    targetLabel: z.string().min(1).max(24).optional(),
+    showTrends: z.boolean().optional(),
     stacked: z.boolean().default(false),
     /* The slice a pie folds its smallest values into past eight slices. */
     otherLabel: z.string().min(1).max(24).default('Other'),
@@ -106,13 +108,19 @@ export const reportSchema = defineBlockSchema({
   propertyGroups: {
     title: { tab: 'content', section: 'Text' },
     summary: { tab: 'content', section: 'Text', kind: 'multiline' },
+    dataNote: { tab: 'content', section: 'Data', kind: 'multiline' },
     categories: { tab: 'content', section: 'Data' },
     series: { tab: 'content', section: 'Data' },
     valuePrefix: { tab: 'content', section: 'Values' },
     valueSuffix: { tab: 'content', section: 'Values' },
     kpis: { tab: 'content', section: 'KPIs' },
     changeLabel: { tab: 'content', section: 'KPIs' },
+    comparisonLabel: { tab: 'content', section: 'KPIs' },
     chartType: { tab: 'content', section: 'Chart' },
+    maxValue: { tab: 'content', section: 'Values' },
+    targetValue: { tab: 'content', section: 'Values' },
+    targetLabel: { tab: 'content', section: 'Values' },
+    showTrends: { tab: 'design', section: 'KPIs' },
     stacked: { tab: 'content', section: 'Chart' },
     otherLabel: { tab: 'content', section: 'Values' },
     showTable: { tab: 'design', section: 'Display' },
@@ -155,6 +163,13 @@ export const reportSchema = defineBlockSchema({
       aliases: ['description', 'subtitle', 'finding', 'وصف', 'الخلاصة'],
       multiline: true,
     },
+    dataNote: {
+      kind: 'text',
+      bind: 'dataNote',
+      label: { en: 'Data note', ar: 'ملاحظة البيانات' },
+      aliases: ['source note', 'provenance', 'binning', 'مصدر البيانات', 'ملاحظة البيانات'],
+      multiline: true,
+    },
     kpis: {
       kind: 'list',
       bind: 'kpis',
@@ -173,6 +188,30 @@ export const reportSchema = defineBlockSchema({
       bind: 'kpis.*.label',
       label: { en: 'KPI label', ar: 'تسمية المؤشر' },
       aliases: ['metric name', 'kpi name', 'اسم المؤشر'],
+    },
+    'kpi.detail': {
+      kind: 'text',
+      bind: 'kpis.*.detail',
+      label: { en: 'KPI detail', ar: 'تفصيل المؤشر' },
+      aliases: ['metric note', 'methodology', 'تفصيل', 'منهجية'],
+    },
+    targetLabel: {
+      kind: 'text',
+      bind: 'targetLabel',
+      label: { en: 'Target label', ar: 'تسمية الهدف' },
+      aliases: ['target', 'goal', 'الهدف', 'المستهدف'],
+    },
+    comparisonLabel: {
+      kind: 'text',
+      bind: 'comparisonLabel',
+      label: { en: 'Baseline comparison label', ar: 'تسمية المقارنة المرجعية' },
+      aliases: [
+        'vs baseline',
+        'comparison baseline',
+        'reference',
+        'القيمة المرجعية',
+        'مقارنة بالمرجع',
+      ],
     },
     changeLabel: {
       kind: 'text',

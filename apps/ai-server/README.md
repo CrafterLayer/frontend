@@ -1,13 +1,61 @@
 # `@craftkit/ai-server`
 
-The model server behind `createRemoteAiPlanProvider`: Claude through the Anthropic SDK by default,
-or any model OpenRouter fronts through one OpenRouter key. One route, one POST, three possible
-answers.
+The model server behind `createRemoteAiPlanProvider`: Anthropic SDK, OpenRouter, or local
+Claude/Codex CLI adapters. One route, one POST, three possible answers.
 
 Until this existed the assistant's entire remote path was a contract with nothing on the other end:
 the wire was specified and tested, and every request went nowhere.
 
 ## Run it
+
+### Codex CLI beside Claude
+
+Use the **same existing command**, `pnpm --filter @craftkit/ai-server dev`. After `codex login`, add
+`codex:` to `CRAFTKIT_AI_MODELS` alongside your `cli:` entries:
+
+```dotenv
+CRAFTKIT_AI_BACKEND=openrouter
+CRAFTKIT_AI_MODEL=cli:claude-sonnet-5-5
+CRAFTKIT_AI_MODELS=cli:haiku,codex:
+```
+
+Append to your existing list rather than replacing it. The existing model picker receives Codex from
+`/v1/models`, on the same port and endpoint as Claude. Select Codex there to use your ChatGPT login.
+A bare `codex:` uses the installed CLI's built-in default; `codex:<model-id>` selects a specific
+model available to your account. To make Codex the server default, set `CRAFTKIT_AI_MODEL=codex:`.
+No separate command, port, server or Playground endpoint is needed. The current picker labels Codex
+routes as “Codex”; the single bare route works alongside Claude. Multiple explicit Codex IDs are
+distinct at the HTTP boundary but currently share that UI label.
+
+Codex CLI 0.162.1 or newer is required; check `codex --version` and `codex login status`. See
+[OpenAI's authentication guide](https://learn.chatgpt.com/docs/auth) for account access. The child
+forces ChatGPT login, strips API keys and provider redirects, and never falls back to Claude or a
+paid API on failure. Calls count toward your Codex account limits. The hybrid server retains its
+existing OpenRouter configuration for other routes; a Codex request never goes there. For Codex
+alone, the normal command also accepts `CRAFTKIT_AI_BACKEND=codex` and the same `CRAFTKIT_AI_MODEL`
+/ `CRAFTKIT_AI_MODELS` settings.
+
+`CRAFTKIT_AI_CLI_EFFORT` and per-call effort apply just as they do for Claude (`max` maps to
+`xhigh`). Thinking-off uses low effort in the absence of an explicit selection; Codex reasoning
+cannot be disabled. The CLI's user configuration is ignored while its credential store remains
+available, including a deliberately configured `CODEX_HOME`. Managed Codex policy still applies.
+
+Calls are ephemeral, read-only and never-approve, in private temporary directories. Shell, apps,
+plugins, hooks, multi-agent tools and web search are disabled; project instructions and
+user-configured MCP servers are not loaded. A single shared client limits all Codex models to six
+active processes, including terminating children; excess requests receive 429 without a queue. Stop,
+disconnect, deadlines and shutdown terminate children and clean files. JSONL output and final
+answers each have a 4 MiB cap; stderr retains a bounded diagnostic tail. Screenshots use local
+attachments (up to four, 10 MiB combined).
+
+Plans, page/site planning, prompt enhancement and scene review keep existing contracts and
+validation. SSE reports lifecycle status; answer text arrives whole when Codex exits, without token
+deltas. Schemas and `max_tokens` are prompt instructions, not native decoding/token caps. Byte
+limits and deadlines are enforced locally. Usage separates cached and uncached input; unknown cache
+writes and dollar cost stay unknown. Codex routes cannot use background batches or authored Agent
+role execution. This is a local development adapter.
+
+### Existing API backends
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...      # or put it in apps/ai-server/.env (git-ignored; see .env.example)
@@ -97,7 +145,7 @@ token to authored code.
 | `CRAFTKIT_AI_ASTRA_MODEL`         | —                              | OpenRouter slug reserved for the single bounded escalation.                                                                                                                                                                                                                            |
 | `CRAFTKIT_AI_MODELS`              | —                              | Comma-separated models a request may name in its `x-craftkit-ai-model` header (the playground picker), beyond the default. Unset ⇒ only the default is accepted; any other choice is refused with 400. The server owns this list, never the browser.                                   |
 | `CRAFTKIT_AI_FALLBACK`            | —                              | OpenRouter backend only. A `cli:` entry that answers instead when an OpenRouter model is rate limited, overloaded, or unreachable (429/502); the panel's progress line says it switched. Unset ⇒ those failures reach the panel with Retry.                                            |
-| `CRAFTKIT_AI_BACKEND`             | `sdk`                          | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), or `cli` (dev only). Anything else refuses to start.                                                                                                                                           |
+| `CRAFTKIT_AI_BACKEND`             | `sdk`                          | `sdk` (the Anthropic Messages API), `openrouter` (any model behind one OpenRouter key), `cli` (local Claude), or `codex` (local Codex subscription). CLI backends are development only; unknown values refuse startup.                                                                 |
 | `OPENROUTER_API_KEY`              | —                              | OpenRouter backend only, and required there. From openrouter.ai/keys.                                                                                                                                                                                                                  |
 | `CRAFTKIT_AI_OPENROUTER_EFFORT`   | model default                  | OpenRouter only. `none`/`minimal`/`low`/`medium`/`high`/`xhigh`, sent as `reasoning.effort`. Unset sends no reasoning field at all. When the model reasons, its reasoning narrates the progress line.                                                                                  |
 | `CRAFTKIT_AI_OPENROUTER_STRICT`   | per model                      | OpenRouter only. Unset ⇒ constrained decoding only for Anthropic/OpenAI models that declare `structured_outputs`; every other model gets the schema as text only (a provider's guided decoding once turned every command name into a single letter). `true`/`false` forces it for all. |
@@ -147,13 +195,16 @@ at half price, answered within 24 hours. `batch-routes.ts` has the contract; bui
   `{ id, error: { type, message } }` for an item that errored, expired or was cancelled.
 
 Only the Messages API batches: the `sdk` backend with `ANTHROPIC_API_KEY`, or `api:` models beside
-OpenRouter. On the `cli` backend, or OpenRouter with no `api:` model or key, `/batch` answers `501`
-naming what is missing; an item whose model only the CLI or OpenRouter serves answers `409`.
+OpenRouter. On the `cli`/`codex` backends, or OpenRouter with no `api:` model or key, `/batch`
+answers `501` naming what is missing; an item whose model only the CLI or OpenRouter serves answers
+`409`.
 
 ## Concurrency
 
-There is no request cap here, on purpose. A page-sized request in the playground is a split build
-(`runAiBuild` in `@craftkit/builder-ai`): one scaffold call, then one call per section, with up to
+The SDK, OpenRouter and Claude CLI paths retain their existing concurrency behavior. Codex allows
+six active processes and returns 429 for excess requests, including while cancelled children are
+still terminating. A page-sized request in the playground is a split build (`runAiBuild` in
+`@craftkit/builder-ai`): one scaffold call, then one call per section, with up to
 `fillConcurrencyFor(n)` sections in flight at once — as many writers as sections up to three, four
 for four to six sections, five for seven to nine, six at most. On the CLI backend every in-flight
 request is one `claude` process, so the busiest moment of a twelve-section page is six processes on

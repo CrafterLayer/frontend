@@ -1,0 +1,32 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+
+import * as Stories from './MetricTrend.stories';
+
+<Meta of={Stories} />
+
+# MetricTrend
+
+A compact SVG summary of source observations, shared by Stats and Report cards. It has no network,
+animation, mutable state or chart dependency and renders in static output.
+
+<Canvas of={Stories.Default} />
+<Controls />
+
+## API and examples
+
+`values` accepts two through 24 finite numbers in source order, including negative and constant
+values. `label` names the observed metric in the report's language. An empty, single-observation,
+nonfinite or over-limit series renders nothing; do not invent missing observations to fill it.
+
+For example, use `values={[18, 21, 19, 24]}` with `label="Monthly revenue"`. The plot scales to its
+own minimum and maximum; it is for shape, not cross-card magnitude comparison. Include units and
+period details in the surrounding card. There are no loading or disabled states: the caller owns
+whether source data is available.
+
+## Accessibility, variants and responsive output
+
+The image has a visible-context name from its SVG title and a description listing every numeric
+observation in order. Flat and signed data remain legible. Color is supplemental; the points and
+accessible values carry the meaning. The width follows its container and the height is 40px.
+Sequence order remains left-to-right in either page direction so source chronology is unchanged;
+Arabic labels and numbers are supported. The containing card supplies responsive and RTL layout.

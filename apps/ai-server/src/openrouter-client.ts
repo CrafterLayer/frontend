@@ -107,17 +107,14 @@ interface StreamRequestOptions {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
-/**
- * Every failure of this backend, as a sentence its owner can act on, plus the
- * HTTP status the handler should answer with — 429 is retryable, 400 is
- * terminal, and a key or credit problem is a deployment mistake (500).
- */
+/** Backend failures retain their status; key/credit deployment failures forbid retries. */
 export class OpenRouterBackendError extends Error {
   override readonly name = 'OpenRouterBackendError';
 
   constructor(
     message: string,
     readonly httpStatus: number,
+    readonly retryable?: boolean,
   ) {
     super(message);
   }
@@ -218,12 +215,14 @@ function failureOf(status: number, detail: string, model: string): OpenRouterBac
     return new OpenRouterBackendError(
       `OpenRouter rejected the API key: check OPENROUTER_API_KEY in apps/ai-server/.env and restart the server.${said}`,
       500,
+      false,
     );
   }
   if (status === 402) {
     return new OpenRouterBackendError(
       `The OpenRouter account has no credits left: top it up at openrouter.ai/settings/credits.${said}`,
       500,
+      false,
     );
   }
   if (status === 403) {

@@ -39,6 +39,19 @@ interface Row {
 }
 
 const ROWS: readonly Row[] = [
+  ...[
+    'Waterfall of operating cash flows',
+    'Heatmap of team deliveries',
+    'Histogram of durations',
+    'Boxplot of response times',
+    'مخطط شموع للاسعار',
+  ].map((contract): Row => ({
+    request: 'Build the report',
+    contract,
+    lane: 'section',
+    role: 'band',
+    has: ['craftkit.data-viz'],
+  })),
   // Reports and dashboards.
   { request: 'Build a sales dashboard page', lane: 'host', has: ['craftkit.data-viz'] },
   { request: 'سويلي لوحة تحكم للمبيعات', lane: 'host', has: ['craftkit.data-viz'] },

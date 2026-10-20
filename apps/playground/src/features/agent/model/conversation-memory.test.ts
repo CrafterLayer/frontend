@@ -14,6 +14,7 @@ import {
   HISTORY_MAX_MESSAGES,
   HISTORY_STEP_MESSAGES,
   carriedSkillIdsOf,
+  assistantWords,
   historyOf,
   withCarriedSkills,
 } from './conversation-memory';
@@ -91,10 +92,60 @@ describe('the words each turn gives the model', () => {
     ];
     expect(historyOf(turns)).toEqual([
       { role: 'user', text: 'A dental clinic page' },
-      { role: 'assistant', text: 'Calm, clinical, teal. Sections: Hero, Services, Contact.' },
+      {
+        role: 'assistant',
+        text: 'Build settled. Applied sections: Hero [n0], Services [n1], Contact [n2]. Direction: Calm, clinical, teal.',
+      },
       { role: 'user', text: 'Plan a café page' },
-      { role: 'assistant', text: 'Warm and roasted. Sections: Hero, Menu.' },
+      {
+        role: 'assistant',
+        text: 'Proposed page plan; not applied. Warm and roasted. Sections: Hero, Menu.',
+      },
     ]);
+  });
+
+  it('separates applied, failed and undone sections in a partial build', () => {
+    const original = build(['Game', 'Story', 'Mural']);
+    const turn: BuildTurn = {
+      ...original,
+      progress: {
+        ...original.progress,
+        tasks: original.progress.tasks.map((task) =>
+          task.id === 'n1' ? { ...task, status: 'failed' } : task,
+        ),
+      },
+      outcomes: { 'v1-section:n2': { kind: 'undone' } },
+    };
+    const words = assistantWords(turn);
+    expect(words).toContain('Applied sections: Game [n0].');
+    expect(words).toContain('Not applied: Story (failed), Mural (undone).');
+    expect(assistantWords({ ...turn, undone: true })).toContain(
+      'Build undone. No applied sections.',
+    );
+  });
+
+  it('never describes an unapplied proposal or an undone/no-op edit as a completed change', () => {
+    const edit = {
+      id: 'e1',
+      kind: 'edit',
+      origin: 'request',
+      status: 'done',
+      targetNodeId: 'game-1',
+      changes: [],
+      summary: 'Added another level.',
+    } as const;
+    expect(assistantWords(edit)).toBe('Edit applied to [game-1]. Added another level.');
+    expect(assistantWords({ ...edit, outcome: { kind: 'undone' } })).toContain('Edit undone.');
+    expect(assistantWords({ ...edit, status: 'noChange' })).toContain('No change applied.');
+    expect(
+      assistantWords({
+        id: 'p1',
+        kind: 'proposal',
+        status: 'ready',
+        changes: [],
+        plan: { rationale: 'Added another level.', commands: [] },
+      }),
+    ).toContain('Proposal only; not applied.');
   });
 });
 

@@ -235,6 +235,17 @@ function sceneFixture(reducedMotion = false, editor = false) {
 }
 
 describe('creative scene integration', () => {
+  it.each([
+    [true, false],
+    [false, true],
+  ])('keeps calm/editor scroll scenes compact (%s, %s)', (calm, editor) => {
+    const { scene, root, dispose } = sceneFixture(calm, editor);
+    root.style.minHeight = '400px';
+    scene.scroll.pin();
+    expect(root.style.minHeight).toBe('400px');
+    dispose();
+  });
+
   it('keeps the authoritative completion reference in sync with every actual scene member', () => {
     const { scene, dispose } = sceneFixture();
     expect(Object.keys(scene).sort()).toEqual([...SCENE_MEMBERS].sort());

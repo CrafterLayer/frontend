@@ -207,7 +207,7 @@ describe('ready scenes in a build (2026-10-13)', () => {
     }
   });
 
-  it('tells a first attempt at a picture no preset matches to compose it with the mural kit', () => {
+  it('preserves an unmatched picture subject through its first attempt and retry', () => {
     const scene = (purpose: string) => ({
       options: { request: purpose },
       plan: { locale: { lang: 'en', dir: 'ltr' as const } },
@@ -222,14 +222,24 @@ describe('ready scenes in a build (2026-10-13)', () => {
         mustNotRepeat: [],
       },
     });
-    const reef = scene('A mural of a coral reef with a diver and fish');
-    const first = withReadyScenes('brief', reef, 1);
-    expect(first).toContain(MURAL_KIT_WRITER_LINE);
-    expect(first).not.toContain('READY SCENES');
-    // A retry keeps the tested ready scenes as its safety net; a named preset stays a preset.
-    expect(withReadyScenes('brief', reef, 2)).not.toContain(MURAL_KIT_WRITER_LINE);
-    const named = scene('A mural using aurora-curtains');
-    expect(withReadyScenes('brief', named, 1)).not.toContain(MURAL_KIT_WRITER_LINE);
+    for (const request of [
+      'A mural of a coral reef with a diver and fish',
+      'جدارية عن شعاب مرجانية فيها أسماك وأخطبوط',
+    ]) {
+      for (const attempt of [1, 2] as const) {
+        const prepared = withReadyScenes('brief', scene(request), attempt);
+        expect(prepared, request).toContain(MURAL_KIT_WRITER_LINE);
+        expect(prepared, request).not.toContain('READY SCENES');
+        expect(isSceneInitializationRequest(prepared), request).toBe(false);
+      }
+    }
+    // A deliberately named preset keeps its identity, including on retry.
+    const named = scene('A mural using aurora-curtains with a coral reef below');
+    for (const attempt of [1, 2] as const) {
+      const prepared = withReadyScenes('brief', named, attempt);
+      expect(prepared).not.toContain(MURAL_KIT_WRITER_LINE);
+      expect(prepared).toContain('SCENE INITIALIZATION v1: aurora-curtains\n');
+    }
   });
 
   it('gives an edit for an unmatched mural the kit line instead of unrelated ready scenes', () => {

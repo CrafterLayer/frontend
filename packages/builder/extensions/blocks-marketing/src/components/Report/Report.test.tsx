@@ -59,6 +59,29 @@ describe('Report', () => {
     );
   });
 
+  it('keeps data provenance visible and accessible without replacing the authored summary', () => {
+    renderReport({
+      title: 'Delivery distribution',
+      summary: 'Authored executive finding.',
+      dataNote: 'Source: 100 observations grouped into five equal-width bins.',
+    });
+    expect(screen.getByText('Authored executive finding.')).toBeVisible();
+    expect(
+      screen.getByText('Source: 100 observations grouped into five equal-width bins.'),
+    ).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Delivery distribution' })).toHaveAccessibleDescription(
+      'Authored executive finding. Source: 100 observations grouped into five equal-width bins.',
+    );
+  });
+
+  it('hides a cleared data note without leaving a stale chart description', () => {
+    const { container } = renderReport({ summary: 'Preserved finding.', dataNote: ' ' });
+    expect(container.querySelector('[data-report-note]')).toBeNull();
+    expect(screen.getByRole('img', { name: 'Quarterly report' })).toHaveAccessibleDescription(
+      'Preserved finding.',
+    );
+  });
+
   it('colours a change by whether it is good, and always shows its arrow and sign', () => {
     const { container } = renderReport(exampleProps(0));
     const changes = [...container.querySelectorAll<HTMLElement>('[data-report-change]')];
@@ -147,6 +170,8 @@ describe('Report model', () => {
       affixes: 'kpis',
       affixKpi: 0,
       changeKpi: 0,
+      comparisonKpi: -1,
+      targetKpi: -1,
       labelsInTable: true,
     });
     expect(reportHosts({ ...props, showTable: false }, []).affixes).toBe('chart');
@@ -172,9 +197,10 @@ describe('Report schema', () => {
 
   it('bounds the KPIs and refuses a chart a report cannot draw', () => {
     const parse = (props: unknown) => reportSchema.props.safeParse(props).success;
-    expect(parse({ kpis: Array.from({ length: 5 }, () => ({ label: 'K' })) })).toBe(false);
+    expect(parse({ kpis: Array.from({ length: 9 }, () => ({ label: 'K' })) })).toBe(false);
     expect(parse({ kpis: [{ label: 'K', series: 6 }] })).toBe(false);
-    expect(parse({ chartType: 'gauge' })).toBe(false);
+    expect(parse({ chartType: 'gauge' })).toBe(true);
+    expect(parse({ chartType: 'unknown' })).toBe(false);
     expect(parse({ chartType: 'hbar' })).toBe(true);
   });
 

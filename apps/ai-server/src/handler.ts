@@ -18,7 +18,7 @@ import {
 import { createBatchRoutes, isBatchPath, type BatchCapability } from './batch-routes';
 import { invalidOutputBody, reportUsage, type UsageTask } from './plan-answer';
 import { answer } from './plan-call';
-import { errorResponse, describeFailure } from './plan-errors';
+import { errorResponse, describeFailure, errorFrame } from './plan-errors';
 import { SCENE_REVIEW_PATH, sceneReviewResponse } from './scene-review';
 import type { UsageReport } from './plan-params';
 import {
@@ -550,11 +550,9 @@ function streamed(wire: AiPlanWireRequest, options: HandlerOptions, signal: Abor
         drafts?.flush();
         send('result', answered.body);
       } catch (cause) {
-        /* The status line is spent: the status rides an `error` frame (a 429 stays retryable,
-           a key problem terminal), then the invalid-output result an older client still reads. */
         drafts?.flush();
-        const { status } = errorResponse(cause);
-        if (status !== 499) send('error', { status, message: describeFailure(cause) });
+        const failure = errorFrame(cause);
+        if (failure.status !== 499) send('error', failure);
         send('result', invalidOutputBody(describeFailure(cause)));
       } finally {
         drafts?.dispose();

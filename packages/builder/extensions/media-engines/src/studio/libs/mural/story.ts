@@ -115,6 +115,7 @@ export function tell(s: MuralScene, b: Built, warn: (m: string) => void) {
   const anim = s.lib?.['anim'] as Anim | undefined;
   const still = s.reducedMotion === true || s.editor === true || n.mode === 'still';
   const scrub = n.mode === 'scrub';
+  const unpin = scrub && !still ? s.scroll?.pin?.() : undefined;
   const space = n.mood === 'space';
   const A = anim?.create({ reducedMotion: s.reducedMotion === true });
   if (A === undefined)
@@ -330,7 +331,7 @@ export function tell(s: MuralScene, b: Built, warn: (m: string) => void) {
     if (!still && A !== undefined) {
       if (scrub && tl !== undefined) {
         const target = s.scroll?.progress ?? 0;
-        sp += (target - sp) * Math.min(1, time.dt * 5);
+        sp = target === 0 || target === 1 ? target : sp + (target - sp) * Math.min(1, time.dt * 5);
         tl.progress(sp);
         go += (Math.min(1, Math.abs(s.scroll?.velocity ?? 0) * 6) - go) * Math.min(1, time.dt * 4);
         for (const m of members.values()) if (m.rig !== undefined) m.rig.speed = go;
@@ -344,6 +345,7 @@ export function tell(s: MuralScene, b: Built, warn: (m: string) => void) {
   function dispose(): void {
     if (disposed) return;
     disposed = true;
+    unpin?.();
     A?.dispose();
     if (b.root.destroyed !== true) b.root.destroy({ children: true });
     for (const f of b.fills.splice(0)) f.destroy();

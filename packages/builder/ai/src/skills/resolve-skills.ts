@@ -20,6 +20,7 @@ import type {
   AiSkillPrepareOptions,
 } from './types';
 import { requestUsesScript } from './request-script';
+import { creativeCreationSkill, creativeCreationSkillMatches } from './creative/creation-skills';
 
 export const DEFAULT_AI_SKILL_MAX_ACTIVE = 16;
 export const DEFAULT_AI_SKILL_TOKEN_BUDGET = 16_000;
@@ -55,6 +56,7 @@ interface AutoRequest {
   readonly text: string;
   words(): readonly IntentToken[];
   intent(): IntentKind;
+  creation(): string | undefined;
 }
 
 /*
@@ -74,10 +76,12 @@ const BLANK_PAGE: IntentDocumentSummary = Object.freeze({
 function autoRequest(request: string, hint: IntentKind | undefined): AutoRequest {
   let words: readonly IntentToken[] | undefined;
   let intent: IntentKind | undefined = hint;
+  let creation: { id: string | undefined } | undefined;
   return {
     text: request,
     words: () => (words ??= readRequestWords(request)),
     intent: () => (intent ??= routeIntent({ request, document: BLANK_PAGE }).kind),
+    creation: () => (creation ??= { id: creativeCreationSkill(request) }).id,
   };
 }
 
@@ -112,7 +116,12 @@ function matchesAuto(
     activation.selectedBlockTypes?.some((type) => selectedBlockTypes.has(type)) ?? false;
   const scriptMatch =
     activation.scripts?.some((script) => requestUsesScript(request.text, script)) ?? false;
-  if (!(keywordMatch || blockMatch || scriptMatch || carried.has(skill.manifest.id))) return false;
+  const creationMatch =
+    skill.manifest.source === 'builtin' &&
+    skill.manifest.id.startsWith('craftkit.pixi-') &&
+    creativeCreationSkillMatches(skill.manifest.id, request.creation());
+  const triggered = keywordMatch || blockMatch || scriptMatch || creationMatch;
+  if (!triggered && !carried.has(skill.manifest.id)) return false;
   /*
     The gate, after the triggers so the route is only computed for a skill
     that would otherwise activate.

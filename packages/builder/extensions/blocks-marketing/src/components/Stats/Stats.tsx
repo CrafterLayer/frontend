@@ -14,6 +14,9 @@ import { sectionMotionAttributes } from '../section-motion-attributes';
 import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
+import { committed } from '../Chart/chart-drawing';
+import { MetricTrend } from '../MetricTrend';
+
 import { statsSchema, type StatsProps } from './schema';
 
 const COLUMN_CLASSES: Readonly<Record<StatsProps['columns'], string>> = {
@@ -28,6 +31,12 @@ const ITEM_CLASSES: Readonly<Record<StatsProps['variant'], string>> = {
   minimal: 'border-s-2 border-accent py-4 ps-5',
   contrast: 'min-h-40 rounded-xl bg-surface-inverse p-6 text-text-inverse shadow-elevated mkt-slab',
 };
+
+const SENTIMENTS = {
+  positive: { symbol: '✓', label: 'Positive change' },
+  negative: { symbol: '!', label: 'Negative change' },
+  neutral: { symbol: '–', label: 'Neutral change' },
+} as const;
 
 /** Quantified outcomes presented as a semantic description list. */
 export function Stats({ node, props, isCanvas }: BlockRenderProps<StatsProps>) {
@@ -110,6 +119,7 @@ export function Stats({ node, props, isCanvas }: BlockRenderProps<StatsProps>) {
         >
           {props.items.map((item, index) => {
             const at = [index];
+            const sentiment = SENTIMENTS[item.sentiment ?? 'neutral'];
             return (
               /* Keyed by position: a bound value may be an inline editor element. */
               <div
@@ -137,12 +147,69 @@ export function Stats({ node, props, isCanvas }: BlockRenderProps<StatsProps>) {
                 >
                   {item.value}
                 </dd>
+                {item.change === undefined ? null : (
+                  <dd
+                    className="order-3 m-0 mt-3 flex flex-wrap items-center gap-2 text-sm"
+                    data-stat-change={item.sentiment ?? 'neutral'}
+                  >
+                    <span
+                      role="img"
+                      aria-label={sentiment.label}
+                      className={cx(
+                        'font-bold',
+                        item.sentiment === 'positive' ? 'text-success' : undefined,
+                      )}
+                    >
+                      {sentiment.symbol}
+                    </span>
+                    <span
+                      {...part('item.change', {
+                        index: at,
+                        className: 'font-semibold tabular-nums',
+                      })}
+                    >
+                      {item.change}
+                    </span>
+                  </dd>
+                )}
+                {item.trend === undefined || item.trend.length < 2 ? null : (
+                  <dd className="order-4 m-0 mt-3">
+                    <MetricTrend values={item.trend} label={committed(item.label)} />
+                  </dd>
+                )}
+                {item.progress === undefined ? null : (
+                  <dd className="order-5 m-0 mt-3 flex flex-col gap-2" data-stat-progress="">
+                    <div className="flex flex-wrap justify-between gap-2 text-xs">
+                      {item.progressLabel === undefined ? (
+                        <span className="tabular-nums">{item.progress}%</span>
+                      ) : (
+                        <span {...part('item.progressLabel', { index: at })}>
+                          {item.progressLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      role="progressbar"
+                      aria-label={committed(item.progressLabel) || committed(item.label)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={item.progress}
+                      aria-valuetext={committed(item.progressLabel) || `${String(item.progress)}%`}
+                      className="flex h-1.5 overflow-hidden rounded-full bg-current/10"
+                    >
+                      <span
+                        className="h-full rounded-full bg-accent"
+                        style={{ inlineSize: `${String(item.progress)}%` }}
+                      />
+                    </div>
+                  </dd>
+                )}
                 {item.detail === undefined ? null : (
                   <dd
                     {...part('item.detail', {
                       index: at,
                       className: cx(
-                        'order-3 m-0 mt-2 text-sm leading-relaxed',
+                        'order-6 m-0 mt-2 text-sm leading-relaxed',
                         props.variant === 'contrast' || props.tone === 'dark'
                           ? 'text-inherit opacity-75'
                           : 'text-text-muted',

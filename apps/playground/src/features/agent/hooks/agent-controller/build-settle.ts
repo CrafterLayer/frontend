@@ -12,6 +12,7 @@ import type {
 } from '@craftkit/builder';
 
 import { buildEndAnnouncement } from '../../model/agent-status';
+import { blockName } from '../../model/block-name';
 import { type BuildProgress, landedCount, reduceBuildProgress } from '../../model/build-progress';
 import { initialRunProgress } from '../../model/run-progress';
 import { answerFromPlan, type EditTurn, type ProposalTurn, type Turn } from '../../model/turns';
@@ -22,7 +23,7 @@ import { markNotRun } from './exchange';
 import { collected, type Slot } from './run-lease';
 import { compare, failureOf, failureTurn, rehearse, say } from './run-outcomes';
 import { learnStoryBible } from './story-bible-context';
-import { insertAfter, locateTurn, patchKind, patchTurn } from './turn-plumbing';
+import { insertAfter, locateTurn, patchKind, patchTurn, requestOf } from './turn-plumbing';
 
 export interface BuildPlan {
   /** Where the page lands. */
@@ -58,6 +59,54 @@ function buildTransactions(
     .slice(logBefore)
     .filter((tx) => tx.author === 'ai')
     .map((tx) => tx.id);
+}
+
+/** A compatibility fallback has no build task IDs; derive its unique applied section. */
+function fallbackTarget(
+  flow: Flow,
+  kernel: BuilderKernel,
+  turnId: string,
+  transactionIds: readonly string[],
+  before: BuilderDocument,
+): { readonly targetNodeId?: string; readonly target?: string } {
+  const document = kernel.getDocument();
+  const explicit =
+    requestOf(flow, turnId)?.context.flatMap((entry) =>
+      entry.kind === 'page' ? [] : [entry.id],
+    ) ?? [];
+  let id = explicit.length === 1 ? explicit[0] : undefined;
+  if (explicit.length === 0) {
+    const parents = new Map<string, string>();
+    for (const node of Object.values(document.nodes))
+      for (const child of Object.values(node.slots ?? {}).flat()) parents.set(child, node.id);
+    const sections = new Set<string>();
+    for (const tx of kernel.transactions()) {
+      if (!transactionIds.includes(tx.id)) continue;
+      for (const patch of tx.patches) {
+        const index = patch.path.lastIndexOf('nodes');
+        const changed = index < 0 ? undefined : patch.path[index + 1];
+        if (
+          typeof changed !== 'string' ||
+          changed === document.rootId ||
+          document.nodes[changed] === undefined ||
+          before.nodes[changed] === document.nodes[changed]
+        )
+          continue;
+        let section = changed;
+        const seen = new Set<string>();
+        while (parents.has(section) && parents.get(section) !== document.rootId) {
+          if (seen.has(section)) break;
+          seen.add(section);
+          section = parents.get(section) ?? section;
+        }
+        if (parents.get(section) === document.rootId) sections.add(section);
+      }
+    }
+    if (sections.size === 1) id = [...sections][0];
+  }
+  return id !== undefined && document.nodes[id] !== undefined
+    ? { targetNodeId: id, target: blockName(kernel, id) }
+    : {};
 }
 
 /**
@@ -98,6 +147,7 @@ export function settleBuild(
       the edit (or, asked in Ask, the proposal) it was, never as a build.
     */
     const fallback = result.fallback;
+    flow.runtime.edits.set(turnId, kernel);
     const request = current !== undefined && 'request' in current ? (current.request ?? '') : '';
     // Words and no command: an answer, as `runEdit` reads one (`answerFromPlan`).
     const words =
@@ -118,6 +168,7 @@ export function settleBuild(
       const ids = buildTransactions(flow, slot, kernel, logBefore, plan);
       const transactionId = ids.at(-1);
       const changes = compare(flow, kernel, before.documentBefore, kernel.getDocument());
+      const target = fallbackTarget(flow, kernel, turnId, ids, before.documentBefore);
       const edit: EditTurn = {
         id: turnId,
         kind: 'edit',
@@ -131,6 +182,7 @@ export function settleBuild(
         summary: fallback.plan.rationale,
         ...(transactionId === undefined ? {} : { transactionId }),
         skills: fallback.proposal.skillActivations,
+        ...target,
       };
       patchTurn(flow, slot.sessionId, turnId, () => edit);
       say(flow, 'edit.donePage');

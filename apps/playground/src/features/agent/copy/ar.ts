@@ -23,6 +23,7 @@
  */
 import type { ArEntry, ArPlural, Key } from './keys';
 import { EDIT_RESULT_AR } from './edit-results';
+import { FOLLOWUP_AR } from './followup-copy';
 
 /**
  * One sentence for every count from one to other, and its own sentence at zero. The noun
@@ -33,6 +34,7 @@ function zeroApart(zero: string, counted: string): ArPlural {
 }
 
 export const ar = {
+  ...FOLLOWUP_AR,
   /* §4.2 AgentHeader and the phone sheet */
   'header.name': 'أبو غضب',
   'header.conversations': 'المحادثات',

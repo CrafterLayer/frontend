@@ -8,7 +8,7 @@ import { BuilderError, type ContentDirection, type Transaction } from '@craftkit
 import type { AiPlan, AiValidationPorts } from '../types';
 import type { AiEffectiveCommandPolicy } from '../skills';
 import {
-  assertAuthenticatedAiValidatedProposal,
+  assertAiProposalSourceCurrent,
   resolveAiProposalAuthority,
   type AiValidatedProposal,
 } from './validated-proposal';
@@ -181,10 +181,14 @@ function applyAcrossPages(
   });
   // Keep the authentication check adjacent to the only live mutation door.
   if (authority.proposal !== undefined) {
-    assertAuthenticatedAiValidatedProposal(authority.proposal);
+    assertAiProposalSourceCurrent(authority.proposal, options.kernel.getDocument());
   }
   const steps: SiteGroupStep[] = [
-    ...plan.commands.map((step) => ({ command: step.command, args: step.args, pageId: currentPage })),
+    ...plan.commands.map((step) => ({
+      command: step.command,
+      args: step.args,
+      pageId: currentPage,
+    })),
     ...elsewhere.flatMap(({ pageId, commands }) =>
       commands.map((step) => ({ command: step.command, args: step.args, pageId })),
     ),
@@ -224,7 +228,7 @@ export function applyAiPlan(options: ApplyAiPlanOptions): AppliedAiPlan {
   );
   // Keep the authentication check adjacent to the only live mutation door.
   if (authority.proposal !== undefined) {
-    assertAuthenticatedAiValidatedProposal(authority.proposal);
+    assertAiProposalSourceCurrent(authority.proposal, options.kernel.getDocument());
   }
   const steps: GroupStep[] = plan.commands.map((step) => ({
     command: step.command,

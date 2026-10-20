@@ -1,17 +1,10 @@
 /*
   The creative planner (creative agent, 2026-10-12).
 
-  Before a scene writer starts, a deterministic pass reads the brief — in Arabic or English — and
-  decides what the piece IS: a platformer, a maze adventure, a visual novel, a picture book, an
-  arcade game or an art-directed scene. From that it picks the Studio libraries that actually
-  serve it (tile worlds for levels, dialogue/Ink for conversations, anim rigs for characters, fx
-  for game feel and atmosphere), the mechanics and story beats to cover, the effects that fit the
-  setting (fireflies in a forest, bubbles underwater, snow in winter) and the character states to
-  animate. Characters named in the brief and the project's story bible become the cast.
-
-  It is a planning aid, not authority: the result is rendered as a `data` context fragment
-  ("CREATIVE BRIEF") beside the section contract. No model call, no network, same input → same
-  brief, so it costs nothing and never contradicts itself between section writers.
+  A deterministic pass selects the requested experience, Studio libraries, mechanics, story beats,
+  setting effects and character states. Names in the request and project story bible become the
+  cast. This is a `data` context fragment ("CREATIVE BRIEF") beside the section contract, not
+  authority. No model call or network; the same input produces the same brief for every writer.
 */
 
 import { GAME_LIB_CUES } from '../skills/creative/game-cues';
@@ -39,6 +32,7 @@ import {
 } from './mural-cues';
 import { accessibilityFor } from './creative-accessibility';
 import { muralKitBrief } from './mural-kit';
+import { MURAL_WORDS, requestedCreativeKind } from './creative-experience';
 
 export type {
   CreativeBeat,
@@ -311,18 +305,15 @@ const HEX_WORDS = [
   'بلاطات سداسية',
 ];
 
-/*
-  A mural named in so many words stays a mural (2026-10-14): «جدارية تحكي قصة ليلى» matched the
-  story genres first and briefed a dialogue box with Next / Play again over the art. The owner:
-  a mural shows no panel or buttons unless the person asks. "scene" / «مشهد» alone decide nothing.
-*/
-const MURAL_WORDS = ['mural', 'murals', 'generative art', 'جدارية', 'جداريات', 'فن توليدي'];
-
-/** The genre rule a text names, most specific first (GENRES order); undefined when none. */
+/** Choose specificity within the requested experience, never from its pictured subjects. */
 function genreOf(words: ReturnType<typeof readRequestWords>): GenreRule | undefined {
-  const found = GENRES.find((candidate) => matches(words, candidate.keywords));
-  if (found?.kind !== 'story' || !matches(words, MURAL_WORDS)) return found;
-  return GENRES.find((candidate) => candidate.genre === 'mural') ?? found;
+  const kind = requestedCreativeKind(words);
+  const found = GENRES.find(
+    (candidate) =>
+      (kind === undefined || candidate.kind === kind) && matches(words, candidate.keywords),
+  );
+  const fallback = kind === 'game' ? 'arcade' : kind === 'story' ? 'chapter-story' : 'mural';
+  return found ?? (kind === undefined ? undefined : GENRES.find(({ genre }) => genre === fallback));
 }
 
 /*
@@ -331,8 +322,13 @@ function genreOf(words: ReturnType<typeof readRequestWords>): GenreRule | undefi
   when both are the same kind (a bedtime page's "interactive story chapter scene" stays a picture
   book); the page's when it names none.
 */
-function sectionRule(own: GenreRule | undefined, page: GenreRule | undefined): GenreRule {
+function sectionRule(
+  own: GenreRule | undefined,
+  page: GenreRule | undefined,
+  ownExperience: boolean,
+): GenreRule {
   if (own === undefined) return page ?? FALLBACK_GENRE;
+  if (!ownExperience && page !== undefined && own.kind !== page.kind) return page;
   if (own.kind !== page?.kind) return own;
   return GENRES.indexOf(own) <= GENRES.indexOf(page) ? own : page;
 }
@@ -379,7 +375,11 @@ function briefFrom(
   const rule =
     page === ''
       ? (genreOf(words) ?? FALLBACK_GENRE)
-      : sectionRule(genreOf(words), genreOf(sets[1] ?? []));
+      : sectionRule(
+          genreOf(words),
+          genreOf(sets[1] ?? []),
+          requestedCreativeKind(words) !== undefined,
+        );
   const settings = SETTINGS.filter((setting) => asked(setting.keywords));
   const memoryCast = options.memory?.characters ?? [];
   // The page's names first: its hero stays the hero of every chapter.

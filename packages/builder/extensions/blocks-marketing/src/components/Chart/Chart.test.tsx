@@ -300,7 +300,8 @@ describe('Chart schema', () => {
     ).toBe(false);
     expect(parse({ series: [{ name: 'S', values: ['12'] }] })).toBe(false);
     expect(parse({ series: [{ name: 'S', values: [Number.NaN] }] })).toBe(false);
-    expect(parse({ chartType: 'bubble' })).toBe(false);
+    expect(parse({ chartType: 'unknown-chart' })).toBe(false);
+    expect(parse({ chartType: 'bubble' })).toBe(true);
     expect(parse({ chartType: 'gauge', maxValue: 100, targetValue: 90 })).toBe(true);
     expect(parse({ series: [{ name: 'S' }] })).toBe(true);
   });
@@ -316,15 +317,24 @@ describe('Chart schema', () => {
     expect([...types].sort()).toEqual([
       'area',
       'bar',
+      'boxplot',
+      'bubble',
+      'bullet',
+      'candlestick',
       'combo',
       'donut',
       'funnel',
       'gauge',
       'hbar',
+      'heatmap',
+      'histogram',
       'line',
+      'lollipop',
       'radar',
       'scatter',
       'sparkline',
+      'treemap',
+      'waterfall',
     ]);
     const arabic = chartExamples.filter((example) => /[؀-ۿ]/u.test(example.prompt));
     expect(arabic.length).toBeGreaterThanOrEqual(4);

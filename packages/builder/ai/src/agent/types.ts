@@ -491,7 +491,7 @@ export interface RunAiBuildOptions
   apply?: 'auto' | 'never';
   /** Most sections to fill. Later ones are reported `not-started`. Default 12. */
   maxTasks?: number;
-  /** Per-section ceiling; only that section's run is aborted. Default 240_000. */
+  /** Attempt ceiling shared by writing/checks/repair; one retry. Default 240_000; scene defaults vary. */
   taskTimeoutMs?: number;
   /**
    * Whole-build ceiling. No section starts (and no retry, and no check repair) once it is spent; a

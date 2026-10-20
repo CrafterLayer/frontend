@@ -248,9 +248,9 @@ export const CK_API_REFERENCE: readonly CkApiMember[] = [
   member(
     's.scroll',
     'property',
-    's.scroll: { progress, velocity, visible }',
-    'Scroll progress 0..1 through the viewport.',
-    'تقدم التمرير من 0 إلى 1 عبر الشاشة.',
+    's.scroll: { progress, velocity, visible, pin(screens=3): () => void }',
+    'Ordinary progress follows the region through the viewport. pin(1..8) keeps the canvas visible across a native scroll span; progress reaches the final scene before release. Returns cleanup. Inert in editor/reduced motion; mural mode:scrub pins automatically.',
+    'التقدم العادي يتبع مرور المنطقة عبر الشاشة. pin(1..8) يبقي اللوحة ظاهرة خلال التمرير الطبيعي حتى المشهد الأخير ويعيد دالة تنظيف. معطل في المحرر وتقليل الحركة؛ وضع الجدارية scrub يفعّله تلقائيًا.',
   ),
   member(
     's.input',

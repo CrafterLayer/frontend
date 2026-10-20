@@ -7,7 +7,7 @@ import { normalizeDigits } from '../data-text';
  * period". A label only: the value beside it is the linear trend's, flagged as a projection.
  */
 
-const EN_MONTHS = [
+export const EN_MONTHS = [
   'january',
   'february',
   'march',
@@ -21,7 +21,7 @@ const EN_MONTHS = [
   'november',
   'december',
 ] as const;
-const AR_MONTHS = [
+export const AR_MONTHS = [
   [
     'يناير',
     'فبراير',

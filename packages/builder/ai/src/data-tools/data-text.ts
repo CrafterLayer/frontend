@@ -222,7 +222,7 @@ function gridOf(
 ): DataGridRead {
   const [header = [], ...rows] = cells;
   const width = header.length;
-  if (width < 2 && rows.every((row) => row.length < 2)) {
+  if (width < 1 || (width < 2 && !rows.some((row) => readNumber(row[0] ?? '') !== undefined))) {
     return { ok: false, error: '"data" needs at least two columns: labels, then values.' };
   }
   for (const [index, row] of rows.entries()) {

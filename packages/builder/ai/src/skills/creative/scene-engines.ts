@@ -33,6 +33,7 @@ for(const b of root.querySelectorAll('[data-physics]')){const name=b.getAttribut
 reset();`;
 
 export const CREATIVE_SCROLL_MURAL_EXAMPLE = `const s=await ck.scene({seed:21,libs:['brush','rough','emitter','viewport']});
+s.scroll.pin();
 const P=s.PIXI,W=2400,H=600,gen=s.lib.rough.generator(),far=new P.Graphics();
 const vp=new s.lib.viewport.Viewport({screenWidth:s.width,screenHeight:s.height,worldWidth:W,worldHeight:H,events:s.app.renderer.events,noTicker:true});
 s.stage.addChild(far,vp);s.canvas.setAttribute('aria-hidden','true');
@@ -90,7 +91,7 @@ export const CREATIVE_SCROLL_MURAL_SKILL: AiSkillDefinitionV1 = {
   name: 'Pixi: scroll murals and parallax journeys',
   description:
     'A wide painted world travelled by page scroll: s.scroll, parallax depth, brush, rough, emitter and a viewport camera.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 44,
@@ -125,7 +126,7 @@ export const CREATIVE_SCROLL_MURAL_SKILL: AiSkillDefinitionV1 = {
   },
   tags: ['pixi', 'mural', 'scroll', 'parallax', 'story'],
   instructions: `SCROLL MURALS: a wide illustrated world the visitor travels by scrolling — a journey, a timeline, a story told as landscape. The page scroll stays the page's: never capture the wheel, preventDefault scrolling or scroll from code. Free code OFF: closed media.add and explain the opt-in; ON: await ck.scene({libs:[…]}).
-s.scroll: progress 0 when the region's top meets the viewport's bottom, 1 when its bottom leaves the top; velocity in viewport heights per second; visible. Read it in s.tick. Give the region a tall css height (120-180vh); DOM captions scroll beside it.
+s.scroll.pin(): call before fitting; canvas stays visible through the final scene. Runtime adds 3 viewport heights (1..8); no tall CSS. Read progress 0..1 and velocity in s.tick. Compact mode:'scrub'/params.scrub pin automatically; editor/calm add no span.
 PARALLAX: far to near, layers built once; t=s.dir>0?progress:1-progress so RTL travels the other way; far layers pale and slow, near ones saturated and fast; one focal object per screen.
 LIBS, only those used: brush → s.lib.brush.getStroke(points,{size,thinning,smoothing}) gives an outline, g.poly(outline.flat()).fill(c) paints it. rough → const gen=s.lib.rough.generator(); s.lib.rough.drawRough(g,gen.rectangle|circle|polygon(…,{fill:'#rrggbb',fillStyle:'hachure',roughness,seed})) with string colours (s.palette.hex(i)). emitter → s.lib.emitter.spawn(s,'snow'|'rain'|'leaves'|'petals'|'magic'|'dust'|'embers'|'fire'|'smoke'|'sparkles'|'bubbles'|'confetti'|'fireworks',{x,y,width,height,parent,colors,intensity,wind}): a tuned, theme-aware emitter, pre-warmed (a still frame holds particles), mirrored with s.dir, halved in the editor, disposed with the scene; omit x,y to fill the view. burst(s,name,{x,y}) is one shot; presets.<name>(s,opts) is the raw config for new s.lib.emitter.Emitter(new PIXI.ParticleContainer(…),cfg). viewport → new s.lib.viewport.Viewport({screenWidth,screenHeight,worldWidth,worldHeight,events:s.app.renderer.events,noTicker:true}) as a camera: moveCenter/setZoom from progress, resize in s.onResize, NO drag, wheel or pinch plugin on a scrolled page; the stage destroys it.
 MURAL STORY («قصة جدارية»): compose it with s.lib.mural (libs:['mural','anim']): s.lib.mural.compose(s,{width:2400,mood,time:['dusk','night'],layers:{far,mid,near:[items]},beats:[3-5 {label,camera,walk:{id:x},time,lights:'on'}],mode:'scrub'}) — illustrated vignettes in far/mid/near layers, the cast walks on anim.rig, beats are one labelled anim.timeline; mode:'scrub' is tl.progress(eased s.scroll.progress), the still its strongest beat. Ready presets desert-caravan, fishing-village, seed-to-forest, souq-morning only when the request clearly is one. NO UI: no buttons, captions or dialogue boxes.

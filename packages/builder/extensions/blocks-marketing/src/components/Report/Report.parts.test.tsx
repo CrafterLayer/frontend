@@ -98,6 +98,16 @@ describe('Report parts', () => {
     expect(partsNamed(container, 'dataset.name')).toHaveLength(4);
   });
 
+  it('keeps the data note editor visible and bound once', () => {
+    const { container } = renderReport(
+      { dataNote: 'Source and bin definitions.' },
+      true,
+      (props) => ({ ...props, dataNote: swapped('dataNote') }),
+    );
+    expectOnce(container, ['dataNote']);
+    expect(partsNamed(container, 'dataNote')[0]?.tagName).toBe('P');
+  });
+
   it('publishes no part markers', () => {
     const { container } = renderReport({}, false);
     expect(

@@ -170,6 +170,7 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
     approvals: new Map(),
     superseded: new Set(),
     builds: new Map(),
+    edits: new Map(),
     collect: null,
     shadows: new Map(),
     unsubscribe: new Map(),

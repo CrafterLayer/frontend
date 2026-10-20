@@ -74,6 +74,8 @@ export function readPlanMessage(
   judge: ((value: unknown) => boolean) | undefined,
   hooks: AnswerHooks = {},
 ): ClaudeOutcome {
+  const raw = answerText(message);
+  hooks.onAnswer?.(raw);
   /*
     A safety decline is a REFUSAL, not an error: the wire has a shape for it,
     the UI shows it as a sentence rather than an outage, and the client marks
@@ -93,14 +95,6 @@ export function readPlanMessage(
         'The plan was cut off before it finished. Ask for a smaller change, or split the request in two.',
     };
   }
-
-  const raw = answerText(message);
-  /*
-    Before parsing, so the host can show what came back even when the answer
-    is refused two layers later: "names unknown command "e"" is all the panel
-    can say, and a bad model and a bad prompt look the same without this.
-  */
-  hooks.onAnswer?.(raw);
 
   if (raw.trim() === '') {
     return { kind: 'invalid-output', message: 'The assistant returned no plan.' };
@@ -190,6 +184,8 @@ export function readPagePlanMessage(
   message: Anthropic.Message,
   hooks: AnswerHooks = {},
 ): PagePlanOutcome {
+  const raw = answerText(message);
+  hooks.onAnswer?.(raw);
   if (message.stop_reason === 'refusal') {
     return {
       kind: 'refusal',
@@ -204,8 +200,6 @@ export function readPagePlanMessage(
     };
   }
 
-  const raw = answerText(message);
-  hooks.onAnswer?.(raw);
   if (raw.trim() === '') {
     return { kind: 'invalid-output', message: 'The assistant returned no page plan.' };
   }

@@ -289,7 +289,7 @@ export function withReadyScenes(
   if (scene?.contract === undefined || !offersReadyScenes(scene.skillIds)) return request;
   const brief = creativeRequestOf(scene.options, scene.contract);
   if (customScene(brief)) return request;
-  if (attempt === 1 && explicitScenes(brief).length === 0 && composesWithKit(brief)) {
+  if (explicitScenes(brief).length === 0 && composesWithKit(brief)) {
     return [request, '', MURAL_KIT_WRITER_LINE].join('\n');
   }
   // A preset named for the lead scene must not force an unrelated later mural into that preset.

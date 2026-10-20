@@ -297,7 +297,15 @@ export interface BuildActionsView {
 
 /** A whole run's failure (SPEC §4.14 class table): not the same set as a section's `FailureClass`. */
 export type ErrorClass =
-  'unreachable' | 'timeout' | 'busy' | 'declined' | 'invalid' | 'tooLarge' | 'offline' | 'unknown';
+  | 'unreachable'
+  | 'timeout'
+  | 'busy'
+  | 'declined'
+  | 'invalid'
+  | 'tooLarge'
+  | 'offline'
+  | 'unknown'
+  | 'sourceChanged';
 
 /**
  * The one page-state sentence every error carries (SPEC §4.14 `error.page.*`). `kept`

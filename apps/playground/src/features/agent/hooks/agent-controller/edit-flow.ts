@@ -84,6 +84,7 @@ export async function runEdit(
   const activity: RunActivity = apply === 'auto' ? 'edit' : 'proposal';
   const slot = claim(flow, placement.sessionId, turnId, activity);
   if (slot === null) return;
+  flow.runtime.edits.set(turnId, kernel);
   followKernel(flow, kernel);
   const request = engineRequest(outgoing);
   const startedAt = flow.clock.now();

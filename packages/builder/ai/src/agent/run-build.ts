@@ -22,7 +22,7 @@ import { agentToolPrompt } from '../tools/agent/catalog-prompt';
 import { expandAgentTools } from '../tools/agent/expand';
 import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
-import { classifyAiRunFailure, type AiRunFailure } from './errors';
+import { classifyAiRunFailure, isTerminalProviderFailure, type AiRunFailure } from './errors';
 import { excludedSkillIdsOf } from './excluded-skills';
 import { checkSection } from './page-plan/check-section';
 import { regionPropAccepts, tidySection } from './page-plan/tidy-section';
@@ -93,7 +93,8 @@ import {
 import { runAiAgent } from './run-agent';
 import { sharedStepOptions } from './build-step-options';
 import { withInheritedRunDeadline, withScaffoldRun } from './run-deadline';
-import { settleOnAbort } from './settle-on-abort';
+import { SectionAttemptError, underDeadline } from './section-deadline';
+import { readySections } from './ready-sections';
 import type { AiPagePlanDraftEvent, AiPlan, AiPlanProvider, AiPlanStep } from '../types';
 import type {
   AiAgentEvent,
@@ -575,21 +576,6 @@ const STOPPED_BEFORE_LANDING =
   'The build was stopped before this section landed; nothing of it was applied.';
 
 /**
- * A section attempt that failed for a reason the build names itself, as data
- * (E5): a timeout, or a writer that wrote nothing inside its region.
- */
-class SectionAttemptError extends Error {
-  override readonly name = 'SectionAttemptError';
-
-  constructor(
-    readonly code: AiBuildSkipReasonCode,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-/**
  * Why a section failed, as data a UI can translate (E5). The prose `reason`
  * stays English and exact; this is what a host shows in the person's language.
  */
@@ -605,72 +591,6 @@ function skipReasonCode(cause: unknown): AiBuildSkipReasonCode {
       return 'invalid';
     default:
       return 'unknown';
-  }
-}
-
-/**
- * Run `work` under the section's own deadline, WITH the caller's signal
- * chained in.
- *
- * It used to be the deadline alone — "an outer abort ends the build after
- * this section" — and measured on 2026-09-28 that meant Stop did not stop:
- * all five sections in flight landed up to 1.7 s after it, their provider
- * requests ran (and cost) to the end, and a person's Stop took as long as
- * the slowest writer (up to 240 s, 480 s with a retry). Nothing is torn out
- * from under the kernel by aborting here: a fill only PROPOSES, and nothing
- * it proposed lands after a stop.
- *
- * A deadline that fired is re-thrown as a `timeout`, so the report can say
- * the section ran out of time rather than that something went wrong.
- */
-async function underDeadline<T>(
-  options: RunAiBuildOptions,
-  task: AiBuildTask,
-  taskTimeoutMs: number,
-  work: (signal: AbortSignal) => Promise<T>,
-  /**
-   * The section's own abort (the streamed build's): a speculative write whose
-   * contract changed in the final plan is cancelled through it, and nothing
-   * else is.
-   */
-  jobSignal?: AbortSignal,
-): Promise<T> {
-  const deadline = new AbortController();
-  // A property, not a local: the flag is set in a timer the checker cannot see.
-  const state = { timedOut: false };
-  const timer = setTimeout(() => {
-    state.timedOut = true;
-    const timeout = new Error(
-      `Section "${task.title}" exceeded its ${String(taskTimeoutMs)}ms budget.`,
-    );
-    timeout.name = 'AbortError';
-    deadline.abort(timeout);
-  }, taskTimeoutMs);
-  const outer = options.signal;
-  const forwardStop = (): void => {
-    deadline.abort(outer?.reason);
-  };
-  if (outer?.aborted === true) forwardStop();
-  else outer?.addEventListener('abort', forwardStop, { once: true });
-  const forwardJob = (): void => {
-    deadline.abort(jobSignal?.reason);
-  };
-  if (jobSignal?.aborted === true) forwardJob();
-  else jobSignal?.addEventListener('abort', forwardJob, { once: true });
-  try {
-    return await settleOnAbort(deadline.signal, work);
-  } catch (cause) {
-    if (state.timedOut && outer?.aborted !== true) {
-      throw new SectionAttemptError(
-        'timeout',
-        `Section "${task.title}" exceeded its ${String(taskTimeoutMs)}ms budget.`,
-      );
-    }
-    throw cause;
-  } finally {
-    clearTimeout(timer);
-    outer?.removeEventListener('abort', forwardStop);
-    jobSignal?.removeEventListener('abort', forwardJob);
   }
 }
 
@@ -852,9 +772,8 @@ function runFill(
       policy: { ...options.policy, allowedCommands: FILL_COMMANDS },
       composition: fillComposition(options),
       /*
-      GENERATE only. Sections are written concurrently but must LAND in order,
-      so the proposal comes back here and `applyAiPlan` runs it when its turn
-      arrives. Safe because apply re-validates against the LIVE kernel, not
+      GENERATE only. Sections are written concurrently and LAND serially when ready.
+      The proposal comes back here and `applyAiPlan` runs against the LIVE kernel, not
       against the document the proposal was made from — and because the target
       guard (`guardFill`) keeps each fill inside its own region, so nothing two
       of them touch overlaps.
@@ -1183,7 +1102,7 @@ interface SectionJob {
   readonly brief?: (attempt: 1 | 2) => FillBrief;
   readonly finishAnswer?: (answer: AiPlan, request: string) => AiPlan;
   /** Step E: contract and scene check (and the scene's run); absent on a scaffold build. */
-  readonly check?: (landed: LandedSection) => WrittenIssues;
+  readonly check?: (landed: LandedSection, signal?: AbortSignal) => WrittenIssues;
   /** Whether its writer writes a scene: started first, given the longer deadline. */
   readonly scene?: () => boolean;
   /**
@@ -1318,6 +1237,20 @@ function stepEmitter(build: BuildRun, step: string): (payload: AgentEventPayload
   };
 }
 
+/** Confirmed runtime failures outrank advisory design and layout findings. */
+function blocksSceneDelivery({ code }: SectionCheckIssue): boolean {
+  return code === 'scene-runtime' || code === 'scene-blank';
+}
+
+function worseSectionCheck(
+  before: readonly SectionCheckIssue[],
+  after: readonly SectionCheckIssue[],
+): boolean {
+  const blockedBefore = before.some(blocksSceneDelivery);
+  const blockedAfter = after.some(blocksSceneDelivery);
+  return blockedBefore === blockedAfter ? after.length > before.length : blockedAfter;
+}
+
 /**
  * Step E, BEFORE landing (agent-audit §3.1, evaluator-optimizer): hold the
  * written section to its contract, and when it misses, send exactly what it
@@ -1325,8 +1258,8 @@ function stepEmitter(build: BuildRun, step: string): (payload: AgentEventPayload
  * lands once — never a wrong section followed by a second transaction that
  * fixes it.
  *
- * The repaired answer is kept only when it is inside the region and misses no
- * more than the first; otherwise the first lands, its issues on the report.
+ * A usable repair outranks a crashing/blank scene; otherwise keep the answer with
+ * fewer findings. Confirmed runtime failures are refused before landing.
  * No repair runs after Stop, on a spent budget, or for a provider that cannot
  * repair.
  */
@@ -1339,6 +1272,7 @@ async function checkAndRepair(
   placeholder: AiBuildSectionValues,
   budgetSpent: () => boolean,
   invocation: number,
+  remainingMs: () => number,
   jobSignal?: AbortSignal,
 ): Promise<{
   readonly guarded: GuardedFill;
@@ -1351,11 +1285,27 @@ async function checkAndRepair(
       ? wrote
       : { ...wrote, commands: tidied, tidied: true };
   const first = { guarded, proposal: landingProposal(run, guarded) };
-  if (job.check === undefined) return first;
-  const issues = await checkedIssues(job, candidateSection(guarded.commands, placeholder));
+  if (job.check === undefined || remainingMs() <= 0) return first;
+  const check = (commands: AiPlan['commands']) =>
+    underDeadline(
+      build.options,
+      job.task,
+      remainingMs(),
+      (signal) =>
+        Promise.resolve(checkedIssues(job, candidateSection(commands, placeholder), signal)),
+      jobSignal,
+    );
+  const issues = await check(guarded.commands).catch(() => undefined);
+  // A check that cannot finish never discards the already validated proposal.
+  if (issues === undefined) return first;
   if (issues.length === 0) return { ...first, check: Object.freeze({ issues, repaired: false }) };
   const { options } = build;
-  if (options.provider.repair === undefined || build.personStopped() || budgetSpent()) {
+  if (
+    options.provider.repair === undefined ||
+    build.personStopped() ||
+    budgetSpent() ||
+    remainingMs() <= 0
+  ) {
     return { ...first, check: Object.freeze({ issues, repaired: false }) };
   }
 
@@ -1368,7 +1318,7 @@ async function checkAndRepair(
     const repaired = await underDeadline(
       options,
       job.task,
-      sectionTimeoutMs(build, job, request),
+      remainingMs(),
       (signal) => {
         const repair = options.provider.repair?.bind(options.provider);
         let reported = false;
@@ -1426,9 +1376,11 @@ async function checkAndRepair(
     const remaining =
       second.commands.length === 0
         ? undefined
-        : await checkedIssues(job, candidateSection(second.commands, placeholder));
+        : remainingMs() <= 0
+          ? undefined
+          : await check(second.commands);
     emit({ type: 'run.completed', status: 'proposed' });
-    if (remaining === undefined || remaining.length > issues.length) {
+    if (remaining === undefined || worseSectionCheck(issues, remaining)) {
       return { ...first, check: Object.freeze({ issues, repaired: true }) };
     }
     const proposal = createAiValidatedProposal({
@@ -1461,13 +1413,12 @@ interface FilledSections {
 }
 
 /**
- * WRITTEN concurrently, LANDED in order.
+ * WRITTEN concurrently, LANDED serially as ready.
  *
  * Two jobs. The pool writes up to `fillConcurrency` sections at a time — the
- * expensive part, minutes each — and nothing else bounds it. The lander walks
- * the list from the top and applies each section only when every section
- * above it has settled, so the page fills top to bottom however the model
- * finishes and the transaction log reads in page order.
+ * expensive part, minutes each. Each validated section lands without waiting
+ * for an unrelated slow writer. Document position and final report order stay
+ * in page order; the transaction log records actual application order.
  *
  * There used to be a WINDOW as well: a writer could run at most
  * `fillConcurrency` sections ahead of the section currently landing. Its
@@ -1668,11 +1619,14 @@ function startFill(
       const brief = job.brief?.(attempt);
       if (brief === undefined) break;
       try {
+        const timeoutMs = sectionTimeoutMs(build, job, brief.request);
+        const endsAt = performance.now() + timeoutMs;
+        const remainingMs = (): number => Math.max(0, Math.ceil(endsAt - performance.now()));
         const invocation = ++slot.invocations;
         const run = await underDeadline(
           options,
           task,
-          sectionTimeoutMs(build, job, brief.request),
+          timeoutMs,
           (deadline) =>
             runFill(options, build.shared, task, position, total, brief, deadline, invocation),
           signal,
@@ -1697,9 +1651,22 @@ function startFill(
           placeholder,
           budgetSpent,
           invocation,
+          remainingMs,
           signal,
         );
         if (stale()) return undefined;
+        const blocked = checked.check?.issues.filter(blocksSceneDelivery);
+        // A measured crash or blank scene is not a delivered section. The bounded repair
+        // already had its chance; preserve siblings without starting another paid writer.
+        if (blocked !== undefined && blocked.length > 0) {
+          return {
+            kind: 'failed',
+            reason: blocked.map(({ code, message }) => `${code}: ${message}`).join('\n'),
+            reasonCode: 'invalid',
+            outOfScope: checked.guarded.outOfScope,
+            attempts: attempt,
+          };
+        }
         return {
           kind: 'ready',
           proposal: checked.proposal,
@@ -1711,6 +1678,8 @@ function startFill(
       } catch (cause) {
         if (stale()) return undefined;
         failure = cause;
+        const classified = classifyAiRunFailure(cause);
+        if (isTerminalProviderFailure(classified)) break;
       }
     }
     return {
@@ -1795,18 +1764,10 @@ function startFill(
   const land = async (): Promise<FilledSections> => {
     await gate;
     if (cancelled) return NOTHING_FILLED;
-    for (const [index, job] of jobs.entries()) {
+    for await (const [index, written] of readySections(slots.map((slot) => slot.written))) {
+      const job = jobs[index];
+      if (job === undefined) continue;
       const { task, position, total } = job;
-      const slot = slots[index];
-      const written: Written =
-        slot === undefined
-          ? {
-              kind: 'not-started',
-              reason: notStartedReason('max-tasks'),
-              reasonCode: 'budget',
-              attempts: 0,
-            }
-          : await slot.written;
       const facts = job.facts?.() ?? [];
       const ledger = {
         ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
@@ -1874,7 +1835,7 @@ function startFill(
       }
       /*
         THE LANDER'S OWN CHECK. A section that finished writing before Stop and
-        was waiting for the one above it to land is still work the person
+        was waiting for the final-plan gate is still work the person
         stopped: nothing lands after Stop, however it got here.
       */
       if (personStopped()) {
@@ -1975,6 +1936,8 @@ function startFill(
     if (personStopped()) void drained();
     else await drained();
 
+    const positions = new Map(jobs.map(({ task, position }) => [task.id, position]));
+    reports.sort((a, b) => (positions.get(a.id) ?? 0) - (positions.get(b.id) ?? 0));
     const unfilled: readonly AiBuildUnfilledSection[] = Object.freeze(
       reports
         .filter(({ status }) => status !== 'applied')
@@ -2717,6 +2680,9 @@ async function planStep(
     planStepEvents(build, emit),
   );
   if (!('plan' in result)) {
+    if (isTerminalProviderFailure(result.error)) {
+      throw Object.assign(new Error(result.error.message), { failure: result.error });
+    }
     return {
       failure: planFallback(
         'plan',
@@ -2871,6 +2837,7 @@ function planJobs(
             completeKitSteps(current, contract, answer),
             rootPropNames(options, task.id),
             request,
+            options.freeCode === true,
           );
     };
     jobs.push({
@@ -2940,10 +2907,12 @@ function planJobs(
               ...(completeStep === undefined ? {} : { completeStep }),
             };
       },
-      check: (section) => {
+      check: (section, signal) => {
         const current = planFor(key);
         const contract = contractOf(current, key);
-        return contract === undefined ? [] : checkWritten(current, contract, section, checkOptions);
+        return contract === undefined
+          ? []
+          : checkWritten(current, contract, section, { ...checkOptions, signal });
       },
       scene: () => briefingFor(planFor(key))?.scene === true,
       // Palette classes, and every repair the check's own instruction names exactly (tidy-section.ts).
@@ -3729,6 +3698,8 @@ async function buildFromScaffold(
     );
   } catch (cause) {
     if (options.signal?.aborted === true) throw cause;
+    const failure = classifyAiRunFailure(cause);
+    if (isTerminalProviderFailure(failure)) throw cause;
     scaffoldFailure = errorMessage(cause);
   }
 

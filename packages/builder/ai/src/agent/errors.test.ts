@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AiContextBudgetError } from '../plan/generate-plan';
+import { AiValidatedProposalError } from '../plan/validated-proposal';
 import { AiProviderError } from '../provider';
 import { AiCommandPolicyError } from '../skills';
 import { classifyAiRunFailure } from './errors';
@@ -51,6 +52,15 @@ describe('classifyAiRunFailure', () => {
       retryable: false,
     });
     expect(Object.isFrozen(failure)).toBe(true);
+  });
+
+  it('allows a fresh retry after a source conflict without weakening integrity refusals', () => {
+    expect(
+      classifyAiRunFailure(new AiValidatedProposalError('stale-source', 'Newer content kept.')),
+    ).toMatchObject({ source: 'context', code: 'stale-source', retryable: true });
+    expect(
+      classifyAiRunFailure(new AiValidatedProposalError('proposal-integrity-mismatch', 'Invalid.')),
+    ).toMatchObject({ source: 'policy', retryable: false });
   });
 
   it('uses one stable unknown classification for unexpected thrown values', () => {

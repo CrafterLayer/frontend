@@ -7,6 +7,7 @@ import { valueFormatOf } from './chart-model';
 import { gaugeEnds } from './chart-polar';
 import { isTranslucent, toneOf, type SeriesTone } from './chart-palette';
 import type { ChartProps } from './schema';
+import { advancedRole } from './advanced-contract';
 
 /** A printed number between the prefix and suffix parts; `host` shows them while they are edited in place. */
 export function valueText(digits: string, { props, part }: Drawing, host: boolean) {
@@ -54,6 +55,10 @@ export function seriesLegend({ props, part }: Drawing) {
         >
           {swatch(toneOf(props.palette, index), swatchShape(drawnType(props), index))}
           <span {...part('dataset.name', { index: [index] })}>{entry.name}</span>
+          {advancedRole(props.chartType, index) !== undefined &&
+          committed(entry.name) !== advancedRole(props.chartType, index) ? (
+            <span className="text-xs opacity-70">({advancedRole(props.chartType, index)})</span>
+          ) : null}
         </li>
       ))}
     </ul>
@@ -76,10 +81,14 @@ export function dataTable(props: ChartProps) {
       {caption === '' ? null : <caption>{caption}</caption>}
       <thead>
         <tr>
-          <td />
+          {kind === 'bubble' ? <th scope="col">X</th> : <td />}
           {series.map((entry, index) => (
             <th key={index} scope="col">
               {committed(entry.name)}
+              {advancedRole(kind, index) !== undefined &&
+              committed(entry.name) !== advancedRole(kind, index)
+                ? ` (${advancedRole(kind, index) ?? ''})`
+                : ''}
             </th>
           ))}
           {dial?.target === undefined ? null : <th scope="col">{committed(props.targetLabel)}</th>}
@@ -91,7 +100,13 @@ export function dataTable(props: ChartProps) {
             <th scope="row">{committed(category)}</th>
             {series.map((entry, index) => {
               const value = entry.values[categoryIndex];
-              const text = value === undefined ? '' : formatValue(value, format);
+              const text =
+                value === undefined
+                  ? ''
+                  : formatValue(
+                      value,
+                      kind === 'histogram' || (kind === 'bubble' && index === 1) ? {} : format,
+                    );
               return (
                 <td key={index}>
                   {dial === undefined || text === ''

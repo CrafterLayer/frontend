@@ -97,4 +97,79 @@ describe('Stats', () => {
     );
     expect(statsSchema.props.safeParse({ headerLayout: 'sidebar' }).success).toBe(false);
   });
+  it('shows sourced trends, comparison meaning and accessible progress without relying on color', () => {
+    render(
+      <Stats
+        node={node}
+        props={statsSchema.props.parse({
+          items: [
+            {
+              value: '$120k',
+              label: 'Revenue',
+              change: '+20% vs plan',
+              sentiment: 'positive',
+              trend: [80, 95, 120],
+              progress: 80,
+              progressLabel: '80% of annual goal',
+            },
+          ],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    expect(screen.getByText('+20% vs plan')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Positive change' })).toHaveTextContent('✓');
+    expect(screen.getByRole('img', { name: 'Revenue' })).toHaveAccessibleDescription(
+      '80 → 95 → 120',
+    );
+    expect(screen.getByRole('progressbar', { name: '80% of annual goal' })).toHaveAttribute(
+      'aria-valuenow',
+      '80',
+    );
+    expect(screen.getByText('80% of annual goal')).toBeVisible();
+  });
+
+  it('uses the complete target caption without inventing a second capped percentage', () => {
+    render(
+      <Stats
+        node={node}
+        props={statsSchema.props.parse({
+          items: [
+            { value: '$130k', label: 'Revenue', progress: 100, progressLabel: '130% of target' },
+            { value: '18', label: 'Milestones', progress: 75 },
+          ],
+        })}
+        slots={{}}
+        data={{}}
+        isCanvas={false}
+      />,
+    );
+    const bar = screen.getByRole('progressbar', { name: '130% of target' });
+    expect(bar).toHaveAttribute('aria-valuenow', '100');
+    expect(bar).toHaveAttribute('aria-valuetext', '130% of target');
+    expect(screen.getByText('130% of target')).toBeVisible();
+    expect(screen.queryByText('100%')).not.toBeInTheDocument();
+    expect(screen.getByText('75%')).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: 'Milestones' })).toHaveAttribute(
+      'aria-valuetext',
+      '75%',
+    );
+  });
+
+  it.each([
+    { progress: -1 },
+    { progress: 101 },
+    { progress: Infinity },
+    { trend: [1, NaN] },
+    { trend: Array.from({ length: 25 }, () => 1) },
+    { change: 'x'.repeat(41) },
+    { sentiment: 'great' },
+  ])('rejects invalid metric enhancements: %j', (enhancement) => {
+    expect(
+      statsSchema.props.safeParse({ items: [{ value: '1', label: 'Count', ...enhancement }] })
+        .success,
+    ).toBe(false);
+  });
 });

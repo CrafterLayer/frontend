@@ -128,6 +128,17 @@ afterEach(() => {
 });
 
 describe('studioSceneProbe (in the preview document)', () => {
+  it('reports the runtime scroll span independently of canvas coverage', async () => {
+    const probe = frame('<canvas width="800" height="450" data-ck-scroll-pinned="true"></canvas>');
+    place(probe.region, { x: 0, y: 0, width: 800, height: 1800 });
+    place(probe.doc.querySelector('canvas')!, { x: 0, y: 0, width: 800, height: 450 });
+    paint(probe.win, () => true);
+    run(probe);
+    const report = await reported(probe);
+    expect(report.canvas?.scrollPinned).toBe(true);
+    expect(report.covers).toBe(false);
+  });
+
   it('measures the region, its canvas and controls, and reports every error the bridge saw', async () => {
     const probe = frame(
       '<button id="next">Next</button><a id="more" href="#more">Read more</a><button id="gone" style="display:none">Gone</button><canvas width="800" height="450"></canvas>',
@@ -160,6 +171,7 @@ describe('studioSceneProbe (in the preview document)', () => {
       rect: { x: 0, y: 0, width: 800, height: 450 },
       width: 800,
       height: 450,
+      scrollPinned: false,
     });
     expect(report.covers).toBe(true);
     expect(report.controls).toEqual([

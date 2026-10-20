@@ -1,21 +1,10 @@
 /**
- * The controller (SPEC §7.3, §8 WP-16), held to the honesty rules of SPEC §6.5 with real
- * engines: real kernels through the real door, the real `runAiBuild` / `runAiAgent` /
- * `planAiPage`, and scripted providers (`testing/scripted-engine.ts`).
- *
- * - build → drafted → ordered landing: ink only after `task.completed`, in page order;
- * - Stop → zero writes after it, and the queue pauses;
- * - Ask → nothing written before Build, and an edited plan is built verbatim;
- * - Plan mode → nothing written, and Build builds the plan on the card;
- * - the queue is revalidated against the page before it runs;
- * - row Undo touches only its section and says `changedSince` when it cannot;
- * - successor runs write exactly the named sections, in place;
- * - a question writes nothing; an Ask edit writes only on Apply;
- * - a direct edit asks no model; a model edit runs on the host's fast model; a picked
- *   catalog suggestion is answered from the catalog;
- * - Improve replaces the draft, Restore brings it back, typing forgets it;
- * - an unclear request runs nothing until its questions are answered, and "Send as
- *   written" runs the words untouched.
+ * Controller honesty (SPEC §6.5, §7.3, §8 WP-16), using real kernels and engines:
+ * ready sections land serially, Stop forbids late writes, and partial work is retained.
+ * Ask/Plan never apply before Build; queue continuation revalidates the current page.
+ * Undo and successor actions target only their named sections. Questions never edit.
+ * Direct edits/catalog suggestions avoid model calls; model edits use the fast model.
+ * Improve/Restore and clarification preserve the person's exact draft.
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { AiBuildOwnEvent, BuilderKernel } from '@craftkit/builder';
@@ -111,20 +100,24 @@ async function settled(c: () => AgentController): Promise<void> {
 }
 
 describe('useAgentController: builds', () => {
-  it('lands sections in page order, a finished draft waits its turn and is never ink', async () => {
+  it('lands independent ready sections while preserving row and document order', async () => {
     const kernel = createBuildKernel();
     const script = scriptBuild(kernel, THREE, { hold: ['Hero'] });
     const { c } = mount({ kernel, provider: script.provider });
 
     ask(c, BUILD_REQUEST);
 
-    // Proof and Pricing are written while Hero is held: drafted, not landed (SPEC §1).
+    // Proof and Pricing reach the canvas while the unrelated Hero writer is held.
     await waitFor(() => {
-      expect(states(build(c))).toEqual(['writing', 'drafted', 'drafted']);
+      expect(states(build(c))).toEqual(['writing', 'landed', 'landed']);
     }, WAIT);
-    expect(build(c).landed).toBe(0);
-    expect(regionsOf(kernel)).toEqual({ Hero: '', Proof: '', Pricing: '' });
-    expect(c().state.run?.statusKey).toBe('build.blocked');
+    expect(build(c).landed).toBe(2);
+    expect(regionsOf(kernel)).toEqual({
+      Hero: '',
+      Proof: 'Body for Proof.',
+      Pricing: 'Body for Pricing.',
+    });
+    expect(build(c).rows.map((row) => row.title)).toEqual(THREE);
 
     act(() => {
       script.gates.get('Hero')?.resolve(fillFor(kernel, 'Hero'));
@@ -133,12 +126,12 @@ describe('useAgentController: builds', () => {
 
     expect(build(c).phase).toBe('done');
     expect(build(c).landed).toBe(3);
-    // The transaction log reads top to bottom: every section landed in page order.
+    // Transactions record application order; moving a section never occurs.
     expect(historyLabels(kernel)).toEqual([
       'Assistant: page skeleton',
-      'Assistant: 1/3 — Hero',
       'Assistant: 2/3 — Proof',
       'Assistant: 3/3 — Pricing',
+      'Assistant: 1/3 — Hero',
     ]);
     expect(c().state.announcement?.key).toBe('build.done');
   }, 60_000);
@@ -150,7 +143,7 @@ describe('useAgentController: builds', () => {
 
     ask(c, BUILD_REQUEST);
     await waitFor(() => {
-      expect(regionsOf(kernel)['Hero']).toBe('Body for Hero.');
+      expect(build(c).landed).toBe(2);
     }, WAIT);
     // A request typed while it runs becomes the one queued request.
     ask(c, 'how do I change the font on this page?');
@@ -171,11 +164,15 @@ describe('useAgentController: builds', () => {
 
     expect(kernel.transactions()).toHaveLength(writesAtStop);
     expect(events.slice(eventsAtStop).map((event) => event.type)).not.toContain('task.completed');
-    expect(regionsOf(kernel)).toEqual({ Hero: 'Body for Hero.', Proof: '', Pricing: '' });
+    expect(regionsOf(kernel)).toEqual({
+      Hero: 'Body for Hero.',
+      Proof: '',
+      Pricing: 'Body for Pricing.',
+    });
     const record = build(c);
     expect(record.phase).toBe('stopped');
-    expect(states(record)).toEqual(['landed', 'notWritten', 'notWritten']);
-    expect(record.actions).toMatchObject({ finishRest: 2, removeEmpty: 2 });
+    expect(states(record)).toEqual(['landed', 'notWritten', 'landed']);
+    expect(record.actions).toMatchObject({ finishRest: 1, removeEmpty: 1 });
     // FR-054: the queued request waits for Continue, and the composer is free again.
     expect(c().state.queue).toMatchObject({ status: 'paused' });
     expect(c().state.draft).toBe('');
@@ -201,7 +198,7 @@ describe('useAgentController: builds', () => {
 
     ask(c, BUILD_REQUEST);
     await waitFor(() => {
-      expect(regionsOf(kernel)['Hero']).toBe('Body for Hero.');
+      expect(build(c).landed).toBe(2);
     }, WAIT);
     act(() => {
       c().stop();
@@ -221,8 +218,8 @@ describe('useAgentController: builds', () => {
     }, WAIT);
     await settled(c);
 
-    // Only the two unwritten sections were asked for, and Hero was not touched.
-    expect(script.fills.slice(asked).sort()).toEqual(['Pricing', 'Proof']);
+    // Only the unwritten section is asked for; both applied sections stay intact.
+    expect(script.fills.slice(asked)).toEqual(['Proof']);
     expect(regionList(kernel)).toEqual([
       ['Hero', 'Body for Hero.'],
       ['Proof', 'Body for Proof.'],
@@ -230,13 +227,13 @@ describe('useAgentController: builds', () => {
     ]);
     expect(build(c).landed).toBe(3);
     const telemetry = c().state.turns.find((turn) => turn.kind === 'build')?.telemetry;
-    expect(Object.values(telemetry?.attempts ?? {})).toHaveLength(6);
+    expect(Object.values(telemetry?.attempts ?? {})).toHaveLength(5);
     expect(
       Object.values(telemetry?.attempts ?? {}).reduce(
         (sum, usage) => sum + (usage?.inputTokens ?? 0),
         0,
       ),
-    ).toBe(60);
+    ).toBe(50);
     // A successor is an action, never a sentence posted as the person's turn.
     expect(turnsOf(c, 'user')).toHaveLength(bubbles);
   }, 60_000);
@@ -395,7 +392,7 @@ describe('useAgentController: builds', () => {
 
     ask(c, BUILD_REQUEST);
     await waitFor(() => {
-      expect(regionsOf(kernel)['Hero']).toBe('Body for Hero.');
+      expect(build(c).landed).toBe(2);
     }, WAIT);
     act(() => {
       c().stop();
@@ -406,7 +403,10 @@ describe('useAgentController: builds', () => {
     act(() => {
       c().removeEmpty(build(c).turnId);
     });
-    expect(regionList(kernel)).toEqual([['Hero', 'Body for Hero.']]);
+    expect(regionList(kernel)).toEqual([
+      ['Hero', 'Body for Hero.'],
+      ['Pricing', 'Body for Pricing.'],
+    ]);
     expect(kernel.transactions()).toHaveLength(before + 1);
     expect(build(c).actions.removeEmpty).toBe(0);
   }, 60_000);

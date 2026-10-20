@@ -170,6 +170,7 @@ export function analyseMeasure(
   input: MeasureInput,
   labels: readonly string[],
   timeSeries: boolean,
+  regularPeriods = true,
 ): MeasureAnalysis | undefined {
   const { values } = input;
   const known = present(values);
@@ -179,7 +180,8 @@ export function analyseMeasure(
   const firstIndex = values.findIndex((value) => value !== undefined);
   const lastIndex =
     values.length - 1 - [...values].reverse().findIndex((value) => value !== undefined);
-  const trend = known.length >= 2 ? linearTrend(values) : undefined;
+  const trend =
+    known.length >= 2 && (!timeSeries || regularPeriods) ? linearTrend(values) : undefined;
   const additive = isAdditive(input.kind);
   return {
     column: input.column,
@@ -203,7 +205,7 @@ export function analyseMeasure(
     growth: growthSeries(values),
     /* A rate compounds as points, not as growth: no CAGR for a percent column. */
     cagr:
-      timeSeries && input.kind !== 'percent'
+      timeSeries && regularPeriods && input.kind !== 'percent'
         ? cagr(first.value, last.value, lastIndex - firstIndex)
         : undefined,
     shares: additive ? shares(values) : undefined,

@@ -27,8 +27,14 @@ export interface KpiModel {
   readonly value: number | undefined;
   /** The number as printed, without the prefix and suffix (they render as parts around it). */
   readonly digits: string;
-  /** Only a `last` KPI has one: the last row against the row before it. */
+  /** The explicit baseline, or the previous row for a `last` KPI. */
   readonly change: KpiChange | undefined;
+  readonly comparisonValue: number | undefined;
+  readonly unitless: boolean;
+  readonly trend: readonly number[];
+  readonly target:
+    | { readonly value: number; readonly met: boolean; readonly percent: number | undefined }
+    | undefined;
 }
 
 /* Past this, a card's number shortens ("1.2M"): a card is read at a glance. */
@@ -42,13 +48,28 @@ export function columnValues(props: ReportData, series: number): number[] {
 }
 
 function measured(values: readonly number[], measure: ReportProps['kpis'][number]['measure']) {
-  if (values.length === 0) return undefined;
+  if (values.length === 0) return measure === 'count' ? 0 : undefined;
   const total = values.reduce((sum, value) => sum + value, 0);
   switch (measure) {
     case 'total':
       return total;
     case 'average':
-      return total / values.length;
+      return Number.isFinite(total)
+        ? total / values.length
+        : values.reduce((sum, value) => sum + value / values.length, 0);
+    case 'count':
+      return values.length;
+    case 'median': {
+      const sorted = [...values].sort((a, b) => a - b);
+      const middle = Math.floor(sorted.length / 2);
+      const upper = sorted[middle];
+      const lower = sorted[middle - 1];
+      if (sorted.length % 2 === 1) return upper;
+      if (lower === undefined || upper === undefined) return undefined;
+      const pair = lower + upper;
+      // Divide after addition when possible: dividing subnormal values first loses them.
+      return Number.isFinite(pair) ? pair / 2 : lower / 2 + upper / 2;
+    }
     case 'max':
       return Math.max(...values);
     case 'min':
@@ -66,7 +87,9 @@ export function changeOf(
   const last = values.at(-1);
   const previous = values.at(-2);
   if (last === undefined || previous === undefined || previous === 0) return undefined;
-  const tenths = Math.round(((last - previous) / Math.abs(previous)) * 1000) / 10;
+  const ratio = last / Math.abs(previous) - previous / Math.abs(previous);
+  const tenths = Math.round(ratio * 1000) / 10;
+  if (!Number.isFinite(tenths)) return undefined;
   if (tenths === 0) return { direction: 'flat', good: undefined, text: '0%' };
   const direction: KpiDirection = tenths > 0 ? 'up' : 'down';
   const sign = direction === 'up' ? '+' : '−';
@@ -81,7 +104,13 @@ export function changeOf(
 export function kpiModels(props: Pick<ReportProps, 'categories' | 'series' | 'kpis'>): KpiModel[] {
   return props.kpis.map((kpi, index) => {
     const values = columnValues(props, kpi.series);
-    const value = measured(values, kpi.measure);
+    const measuredValue = measured(values, kpi.measure);
+    const value =
+      measuredValue !== undefined && Number.isFinite(measuredValue) ? measuredValue : undefined;
+    const ratio =
+      kpi.target !== undefined && kpi.target > 0 && value !== undefined && value >= 0
+        ? (value / kpi.target) * 100
+        : undefined;
     return {
       index,
       value,
@@ -89,7 +118,23 @@ export function kpiModels(props: Pick<ReportProps, 'categories' | 'series' | 'kp
         value === undefined
           ? ''
           : formatValue(value, {}, Math.abs(value) >= COMPACT_FROM ? 'compact' : 'plain'),
-      change: kpi.measure === 'last' ? changeOf(values, kpi.better) : undefined,
+      change:
+        kpi.comparisonValue !== undefined && value !== undefined
+          ? changeOf([kpi.comparisonValue, value], kpi.better)
+          : kpi.measure === 'last'
+            ? changeOf(values, kpi.better)
+            : undefined,
+      comparisonValue: kpi.comparisonValue,
+      unitless: kpi.measure === 'count',
+      trend: kpi.measure === 'count' ? [] : values,
+      target:
+        kpi.target === undefined || value === undefined
+          ? undefined
+          : {
+              value: kpi.target,
+              met: kpi.better === 'down' ? value <= kpi.target : value >= kpi.target,
+              percent: ratio !== undefined && Number.isFinite(ratio) ? ratio : undefined,
+            },
     };
   });
 }
@@ -108,6 +153,10 @@ export interface ReportHosts {
   readonly affixKpi: number;
   /** The KPI index whose change hosts `changeLabel`; -1 when no card shows a change. */
   readonly changeKpi: number;
+  /** The first explicit baseline hosts its separate comparison caption. */
+  readonly comparisonKpi: number;
+  /** First goal caption hosts its editor; the chart otherwise owns it. */
+  readonly targetKpi: number;
   /** Whether the table shows (and so hosts) every category and column name. */
   readonly labelsInTable: boolean;
 }
@@ -116,14 +165,20 @@ export function reportHosts(
   props: Pick<ReportProps, 'categories' | 'series' | 'showTable'>,
   kpis: readonly KpiModel[],
 ): ReportHosts {
-  const affixKpi = kpis.findIndex((kpi) => kpi.value !== undefined);
+  const affixKpi = kpis.findIndex(
+    (kpi) => (kpi.value !== undefined || kpi.comparisonValue !== undefined) && !kpi.unitless,
+  );
   const labelsInTable = props.showTable && props.categories.length > 0 && props.series.length > 0;
   const tableHasValue =
     labelsInTable && props.series.some((_, series) => columnValues(props, series).length > 0);
   return {
     affixes: affixKpi >= 0 ? 'kpis' : tableHasValue ? 'table' : 'chart',
     affixKpi,
-    changeKpi: kpis.findIndex((kpi) => kpi.change !== undefined),
+    changeKpi: kpis.findIndex(
+      (kpi) => kpi.change !== undefined && kpi.comparisonValue === undefined,
+    ),
+    comparisonKpi: kpis.findIndex((kpi) => kpi.comparisonValue !== undefined),
+    targetKpi: kpis.findIndex((kpi) => kpi.target !== undefined),
     labelsInTable,
   };
 }
@@ -155,13 +210,23 @@ function committedText(value: ReactNode | undefined): string | undefined {
  */
 export function reportChartProps(
   props: ReportProps,
-  shown: { readonly labels: 'raw' | 'committed'; readonly affixes: 'raw' | 'committed' },
+  shown: {
+    readonly labels: 'raw' | 'committed';
+    readonly affixes: 'raw' | 'committed';
+    readonly target?: 'raw' | 'committed';
+  },
 ): ChartProps {
   const labels = shown.labels === 'raw';
   const affixes = shown.affixes === 'raw';
   return {
     ...CHART_DEFAULTS,
     chartType: props.chartType,
+    maxValue: props.maxValue,
+    targetValue: props.targetValue,
+    targetLabel:
+      shown.target === 'committed'
+        ? committed(props.targetLabel ?? CHART_DEFAULTS.targetLabel)
+        : (props.targetLabel ?? CHART_DEFAULTS.targetLabel),
     categories: labels ? props.categories : props.categories.map((category) => committed(category)),
     series: labels
       ? props.series

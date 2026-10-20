@@ -1,4 +1,9 @@
-import { CUSTOM_CODE_SCENES, CUSTOM_CODE_TIMELINE_RECIPES, ELEMENT_RECIPE_IDS, GALLERY_LAYOUTS } from '@craftkit/builder-schema';
+import {
+  CUSTOM_CODE_SCENES,
+  CUSTOM_CODE_TIMELINE_RECIPES,
+  ELEMENT_RECIPE_IDS,
+  GALLERY_LAYOUTS,
+} from '@craftkit/builder-schema';
 
 import { DATA_SHOW_AS } from '../../data-tools/data-show';
 import { scenePresetMenu } from './builtin/scene-preset';
@@ -35,11 +40,13 @@ export const AGENT_TOOL_PROMPT_MAX_CHARS = 900;
 // tool keeps the shape it had. Not in build: +789 does not fit its 1,270 (a 62% rise for one tool).
 // T230b (2026-10-12): edit 3250 → 3294, measured: nav.pages at its signature (+47). At 3,250 it
 // pushed kit.section and image.set down to bare names; every other tool keeps the shape it had.
+// Reports (2026-10-20): +140 in build/edit retains existing signatures alongside nine new
+// chart names and the compact report update/display fields. No bundle/file-size budget change.
 export const AGENT_TOOL_PROMPT_LANE_MAX_CHARS: Readonly<Record<AgentToolLane, number>> = {
-  build: 1_270,
+  build: 1_410,
   // Eight shared presets add a bounded capability line; retain usable tool signatures.
   section: 1_976,
-  edit: 3_294,
+  edit: 3_434,
   seo: AGENT_TOOL_PROMPT_MAX_CHARS,
 };
 
@@ -80,7 +87,8 @@ const DETAILS: Readonly<Record<string, string>> = {
   // bare name (+12) in both lanes; its inputs are taught by the data-viz skill.
   'report.build': `report.build data like data.show → title, KPIs (last + change vs prior row; kpis?:['Revenue']), chart, table`,
   // i18n (2026-10-12): the texts are the page's own words, all of them, or the tool refuses.
-  'page.translate': 'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
+  'page.translate':
+    'page.translate texts: every text on the page as shown → its translation (names map to themselves); sets dir too',
   // creative-power F (2026-10-12): the catalogue's ids by category; the shared params, then each preset's own.
   'scene.preset': `scene.preset ${scenePresetMenu()}; params: palette,seed,speed,density + its own; behind:id fills that region under its content, id swaps its scene`,
 };

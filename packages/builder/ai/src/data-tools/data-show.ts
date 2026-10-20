@@ -52,7 +52,16 @@ export interface DataShowInput {
 
 const KEYS = ['data', 'as', 'id', 'after', 'title', 'caption'] as const;
 /* Drawn from the first series only. */
-const FIRST_ONLY: ReadonlySet<string> = new Set(['pie', 'donut', 'funnel', 'gauge']);
+const FIRST_ONLY: ReadonlySet<string> = new Set([
+  'pie',
+  'donut',
+  'funnel',
+  'gauge',
+  'treemap',
+  'waterfall',
+  'histogram',
+  'lollipop',
+]);
 
 function no<T>(error: string): AgentToolParse<T> {
   return { ok: false, error };
@@ -171,14 +180,16 @@ function chartProps(
   input: DataShowInput,
   current: unknown,
 ): { readonly props: Record<string, unknown>; readonly notes: readonly string[] } | string {
-  const base = chartData(input.grid);
-  if (typeof base === 'string') return base;
   const words = [input.title, input.caption, input.grid.header[0]].join(' ');
+  const base = input.as === 'auto' && !isChartType(current) ? chartData(input.grid) : undefined;
+  if (typeof base === 'string') return base;
   const chartType: ChartType =
     input.as === 'auto' || input.as === 'table'
       ? isChartType(current)
         ? current
-        : autoChart(input.grid, base, words)
+        : base === undefined
+          ? 'bar'
+          : autoChart(input.grid, base, words)
       : input.as;
   const data = chartDataFor(input.grid, chartType);
   if (typeof data === 'string') return data;
@@ -189,7 +200,11 @@ function chartProps(
     props: {
       ...chartPropsOf(data, chartType),
       ...(input.title === undefined ? {} : { title: input.title }),
-      ...(input.caption === undefined ? {} : { description: input.caption }),
+      ...(input.caption === undefined
+        ? data.notes.length === 0
+          ? {}
+          : { description: data.notes.join(' · ').slice(0, 240) }
+        : { description: input.caption }),
     },
     notes,
   };
@@ -247,7 +262,12 @@ function run(input: DataShowInput, context: AgentToolContext): AgentToolRun {
       160,
     );
   if (node !== undefined) {
-    const steps: AgentToolStep[] = Object.entries(props).map(([key, value]) =>
+    const next = { ...props };
+    if (kind === 'chart')
+      for (const key of ['valuePrefix', 'valueSuffix']) {
+        if (node.props[key] !== undefined && props[key] === undefined) next[key] = ' ';
+      }
+    const steps: AgentToolStep[] = Object.entries(next).map(([key, value]) =>
       setProp(node.id, key, value),
     );
     const [first, ...rest] = steps;

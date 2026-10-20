@@ -68,4 +68,139 @@ export const reportExamples: { prompt: string; node: JsonValue }[] = [
       },
     },
   },
+  {
+    prompt: 'financial report with median monthly revenue, comparison baseline and goal',
+    node: {
+      type: 'report',
+      props: {
+        title: 'Finance review: revenue and costs',
+        summary:
+          'Illustrative four-month ledger in USD. Targets and comparison baselines are supplied by the finance team.',
+        categories: ['Jan', 'Feb', 'Mar', 'Apr'],
+        series: [
+          {
+            name: 'Revenue',
+            values: [80000, 95000, 100000, 120000],
+          },
+          {
+            name: 'Costs',
+            values: [65000, 70000, 80000, 72000],
+          },
+        ],
+        valuePrefix: '$',
+        kpis: [
+          {
+            label: 'Latest revenue',
+            series: 0,
+            target: 100000,
+            detail: 'Monthly minimum plan',
+          },
+          {
+            label: 'Latest costs',
+            series: 1,
+            better: 'down',
+            target: 75000,
+            detail: 'Monthly spending ceiling',
+          },
+          {
+            label: 'Median revenue',
+            series: 0,
+            measure: 'median',
+            comparisonValue: 85000,
+          },
+          {
+            label: 'Observed months',
+            series: 0,
+            measure: 'count',
+          },
+        ],
+        showTrends: true,
+        chartType: 'combo',
+        palette: 'mixed',
+        targetLabel: 'Plan',
+        changeLabel: 'vs previous month',
+        comparisonLabel: 'vs supplied baseline',
+      },
+    },
+  },
+  {
+    prompt: 'project throughput report with delivery targets and weekly trends',
+    node: {
+      type: 'report',
+      props: {
+        title: 'Delivery throughput by sprint',
+        summary:
+          'Illustrative completed work items. Target applies to the latest sprint; the median describes all four sprints.',
+        categories: ['Sprint 1', 'Sprint 2', 'Sprint 3', 'Sprint 4'],
+        series: [
+          {
+            name: 'Completed tasks',
+            values: [18, 24, 21, 30],
+          },
+        ],
+        kpis: [
+          {
+            label: 'Latest delivery',
+            target: 28,
+            detail: 'Work items completed in sprint four',
+          },
+          {
+            label: 'Typical sprint',
+            measure: 'median',
+          },
+          {
+            label: 'Total completed',
+            measure: 'total',
+          },
+          {
+            label: 'Sprints observed',
+            measure: 'count',
+            target: 4,
+          },
+        ],
+        chartType: 'lollipop',
+        showTrends: true,
+        palette: 'accent',
+      },
+    },
+  },
+  {
+    prompt: 'تقرير زيارات تسويقي عربي مع الوسيط والأهداف والاتجاهات',
+    node: {
+      type: 'report',
+      props: {
+        title: 'نمو الزيارات المؤهلة خلال الشهر',
+        summary: 'أرقام توضيحية لأربعة أسابيع من نفس مصدر التحليلات؛ الهدف الأسبوعي هو ١٥٠٠ جلسة.',
+        categories: ['الأسبوع ١', 'الأسبوع ٢', 'الأسبوع ٣', 'الأسبوع ٤'],
+        series: [
+          {
+            name: 'الجلسات المؤهلة',
+            values: [900, 1200, 1100, 1800],
+          },
+        ],
+        kpis: [
+          {
+            label: 'آخر أسبوع',
+            target: 1500,
+            detail: 'جلسات تستوفي تعريف الزيارة المؤهلة',
+          },
+          {
+            label: 'وسيط الزيارات',
+            measure: 'median',
+          },
+          {
+            label: 'إجمالي الزيارات',
+            measure: 'total',
+            comparisonValue: 4000,
+          },
+        ],
+        chartType: 'area',
+        showTrends: true,
+        targetLabel: 'الهدف',
+        changeLabel: 'عن الأسبوع السابق',
+        comparisonLabel: 'مقارنة بالفترة المرجعية',
+        tone: 'light',
+      },
+    },
+  },
 ];

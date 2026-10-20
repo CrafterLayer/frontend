@@ -119,7 +119,7 @@ describe('live build worker selection', () => {
       await waitFor(() => {
         expect(hook.result.current.state.run).toBeNull();
       }, WAIT);
-      expect(historyLabels(kernel).slice(1)).toEqual(
+      expect(historyLabels(kernel).slice(1).sort()).toEqual(
         TITLES.map((title, index) => `Assistant: ${String(index + 1)}/6 — ${title}`),
       );
       hook.unmount();
@@ -340,10 +340,12 @@ describe('live build worker selection', () => {
       }, WAIT);
       const settled = hook.result.current.state.turns.find((turn) => turn.kind === 'build');
       if (settled?.telemetry === undefined) throw new Error('Missing combined receipt');
+      // One scaffold, six terminal refusals, and six explicitly requested successor writes.
+      expect(script.calls()).toBe(13);
       expect(telemetryTotals(settled.telemetry)).toMatchObject({
-        requests: 19,
-        inputTokens: mode === 'unknown' ? null : mode === 'cached' ? 260 : 380,
-        outputTokens: mode === 'unknown' ? null : mode === 'cached' ? 104 : 152,
+        requests: script.calls(),
+        inputTokens: mode === 'unknown' ? null : mode === 'cached' ? 140 : 260,
+        outputTokens: mode === 'unknown' ? null : mode === 'cached' ? 56 : 104,
         cachedReplies: mode === 'cached' ? 6 : 0,
         costUsd: null,
       });

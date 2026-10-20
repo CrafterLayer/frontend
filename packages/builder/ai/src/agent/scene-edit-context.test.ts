@@ -239,6 +239,65 @@ function runPrepare(prepared: readonly AiSkillPrepareOptions[]): AiSkillPrepareO
 }
 
 describe('runAiAgent — a creative edit gets the scene’s playbooks and brief', () => {
+  it('supplies complete current scene source and preservation guidance, including code past the cue scan', async () => {
+    const code = `${STORY_JS}\n/*${'existing '.repeat(4200)}*/\n// UNIQUE_AUTHORED_END`;
+    const { provider, contexts } = recording();
+    await runAiAgent(
+      options(
+        kernelFor([['tale', 'My custom tale', '<section><p>Keep this copy</p></section>', code]]),
+        provider,
+        { policy: { maxContextTokens: 60_000 } },
+      ),
+    );
+    const source = contexts[0]?.document.nodes.find(({ id }) => id === 'tale');
+    expect(source?.props['js']).toBe(code);
+    const instruction = contexts[0]?.fragments.find(
+      ({ source }) => source === 'craftkit:scene-continuation',
+    );
+    expect(instruction).toMatchObject({ kind: 'instruction', trust: 'reviewed' });
+    expect(instruction?.body).toContain('Keep the same target node');
+    expect(instruction?.body).not.toContain('UNIQUE_AUTHORED_END');
+  });
+
+  it('applies an addition to the same artifact, preserves siblings/markup/styles, and undoes it', async () => {
+    const kernel = kernelFor();
+    const before = kernel.getDocument();
+    const updated = `${STORY_JS}\n// Added another beat to the existing tale.`;
+    const plan: AiPlan = {
+      rationale: 'Extend the current tale.',
+      commands: [{ command: 'setProp', args: { id: 'tale', key: 'js', value: updated } }],
+    };
+    await runAiAgent(
+      options(kernel, recording(plan).provider, {
+        apply: 'auto',
+        request: 'Add another beat to it',
+      }),
+    );
+    const after = kernel.getDocument();
+    expect(Object.keys(after.nodes)).toEqual(Object.keys(before.nodes));
+    expect(after.nodes['tale']?.props['js']).toBe(updated);
+    for (const key of ['tree', 'css', 'label'])
+      expect(after.nodes['tale']?.props[key]).toEqual(before.nodes['tale']?.props[key]);
+    expect(after.nodes['hero']).toEqual(before.nodes['hero']);
+    expect(after.nodes['contact']).toEqual(before.nodes['contact']);
+    kernel.undo();
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
+  it('does not offer creation presets when an edit has no scene source to continue', async () => {
+    const { provider, contexts } = recording();
+    await runAiAgent(
+      options(kernelFor(PLAIN_PAGE), provider, {
+        selection: [],
+        request: 'Make the mural calmer',
+      }),
+    );
+    expect(contexts[0]?.fragments.some(({ source }) => source === 'craftkit:ready-scenes')).toBe(
+      false,
+    );
+    expect(contexts[0]?.fragments.some(({ body }) => body.includes('READY SCENES'))).toBe(false);
+  });
+
   it('a selected story region and words that name nothing pin the story, director and core playbooks, with the brief', async () => {
     const { provider, contexts } = recording();
     const result = await runAiAgent(options(kernelFor(), provider));

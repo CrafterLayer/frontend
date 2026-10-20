@@ -310,8 +310,8 @@ describe('runAiBuild — looking at the scene before it lands (visual self-revie
     expect(request?.brief?.setting).toMatch(/·/u);
     // Pictures only for the first run of the scene; the repaired one is run, never looked at.
     expect(contexts).toEqual([
-      { lang: 'en', dir: 'ltr', thumbnails: true },
-      { lang: 'en', dir: 'ltr' },
+      { lang: 'en', dir: 'ltr', thumbnails: true, signal: expect.any(AbortSignal) as unknown },
+      { lang: 'en', dir: 'ltr', signal: expect.any(AbortSignal) as unknown },
     ]);
     expect(script.repairs).toHaveLength(1);
     expect(script.repairs[0]?.map(({ message }) => message)).toEqual([
@@ -355,7 +355,9 @@ describe('runAiBuild — looking at the scene before it lands (visual self-revie
     const blind = scripted(SCENE, SCRIMMED);
     const { probe, contexts } = recordingProbe();
     await runAiBuild(build(blind.provider, probe));
-    expect(contexts).toEqual([{ lang: 'en', dir: 'ltr' }]);
+    expect(contexts).toEqual([
+      { lang: 'en', dir: 'ltr', signal: expect.any(AbortSignal) as unknown },
+    ]);
   });
 
   it('claims its one look at the first check: a scene the static check sends back is never looked at', async () => {
@@ -365,7 +367,9 @@ describe('runAiBuild — looking at the scene before it lands (visual self-revie
     const result = await runAiBuild(build(script.provider, probe));
     expect(review).not.toHaveBeenCalled();
     // Only the repaired scene ran, without pictures; the repair landed.
-    expect(contexts).toEqual([{ lang: 'en', dir: 'ltr' }]);
+    expect(contexts).toEqual([
+      { lang: 'en', dir: 'ltr', signal: expect.any(AbortSignal) as unknown },
+    ]);
     expect(result.tasks.find(({ sectionKey }) => sectionKey === 'hero')?.check).toEqual({
       issues: [],
       repaired: true,

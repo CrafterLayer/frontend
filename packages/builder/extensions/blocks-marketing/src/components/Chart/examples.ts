@@ -1,4 +1,5 @@
 import type { JsonValue } from '@craftkit/builder-schema';
+import { advancedExamples } from './advanced-examples';
 
 export const chartExamples: { prompt: string; node: JsonValue }[] = [
   {
@@ -192,4 +193,5 @@ export const chartExamples: { prompt: string; node: JsonValue }[] = [
       },
     },
   },
+  ...advancedExamples,
 ];

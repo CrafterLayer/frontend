@@ -102,7 +102,10 @@ export function readEnhanceResult(raw: unknown): EnhanceResult {
   const seen = new Set<string>();
   const questions: EnhanceQuestion[] = [];
   const listed: unknown = record['questions'];
-  for (const [index, item] of (Array.isArray(listed) ? (listed as readonly unknown[]) : []).entries()) {
+  for (const [index, item] of (Array.isArray(listed)
+    ? (listed as readonly unknown[])
+    : []
+  ).entries()) {
     if (!isRecord(item)) continue;
     const question = text(item['text']);
     const choices = texts(item['choices'], MAX_CLARIFY_CHOICES);
@@ -220,7 +223,10 @@ export function answersOf(questions: readonly ClarifyQuestionView[]): readonly E
  * the person's own words, then their own answers, one per line. Their words and their
  * choices, never a sentence the panel wrote for them.
  */
-export function requestWithAnswers(request: string, questions: readonly ClarifyQuestionView[]): string {
+export function requestWithAnswers(
+  request: string,
+  questions: readonly ClarifyQuestionView[],
+): string {
   const answers = answersOf(questions).map((entry) => entry.answer);
   return [request.trim(), ...answers].join('\n');
 }
@@ -241,6 +247,7 @@ export function enhanceFailureOf(errorClass: ErrorClass): FailureClass {
       return 'invalid';
     case 'tooLarge':
     case 'unknown':
+    case 'sourceChanged':
       return 'unknown';
   }
 }

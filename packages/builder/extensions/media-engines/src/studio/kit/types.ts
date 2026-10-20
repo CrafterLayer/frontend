@@ -131,6 +131,8 @@ export interface SceneApp {
   };
   render(): void;
   resize?(): void;
+  /** Temporarily disabled while the scene owns a scroll viewport smaller than its runway. */
+  resizeTo?: HTMLElement | Window | undefined;
 }
 
 export type SceneLibs = Partial<Record<Exclude<StudioLibKey, 'kit'>, unknown>>;

@@ -5,9 +5,9 @@ import { fastestModel } from './model-policy';
  * baseline.
  */
 
-/** `cli:` (the subscription), `api:` (the API key), or '' for an OpenRouter slug. */
+/** Local subscription/API route, or '' for an OpenRouter slug. */
 export function routeOf(model: string): string {
-  return /^(cli|api):/u.exec(model)?.[1] ?? '';
+  return /^(cli|codex|api):/u.exec(model)?.[1] ?? '';
 }
 
 /*

@@ -31,7 +31,7 @@ import type { FailureClass } from './view-types';
  *   that belief attributed one writer's events to another's section.
  * - A writer that FINISHED is not a section that LANDED. `fill-N` emits
  *   `run.completed {status: 'proposed'}` when its draft is done; the section lands
- *   later, in page order, on `task.completed`. v1 had no word between "Working" and
+ *   after validation, as ready, on `task.completed`. v1 had no word between "Working" and
  *   "Done", so a finished draft waiting its turn read as still working.
  * - Tasks keep attempt start times (the estimate measures writes, SPEC §4.8) and the
  *   landing record from `build.completed` (row Undo is keyed by its transaction id).

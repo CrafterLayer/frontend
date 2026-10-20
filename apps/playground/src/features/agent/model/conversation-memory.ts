@@ -18,7 +18,7 @@
  */
 import type { AiChatTurn, AiSkillPrepareOptions, AiSkillRegistry } from '@craftkit/builder';
 
-import type { Turn, UserTurn } from './turns';
+import { outcomeKeyOf, type BuildTurn, type Turn, type UserTurn } from './turns';
 
 /** The most messages sent as history; past this, the window steps forward. */
 export const HISTORY_MAX_MESSAGES = 40;
@@ -39,26 +39,56 @@ function sectionList(titles: readonly string[]): string {
   return named.length === 0 ? '' : ` Sections: ${named.join(', ')}.`;
 }
 
+/** Historical receipts describe execution, never substitute for the current document. */
+function buildWords(turn: BuildTurn): string {
+  const applied: string[] = [];
+  const pending: string[] = [];
+  for (const task of turn.progress.tasks) {
+    const undone = turn.undone === true || turn.outcomes[outcomeKeyOf(task)]?.kind === 'undone';
+    if (task.status === 'landed' && !undone) applied.push(`${clip(task.title, 80)} [${task.id}]`);
+    else pending.push(`${clip(task.title, 80)} (${undone ? 'undone' : task.status})`);
+  }
+  return [
+    `Build ${turn.undone === true ? 'undone' : turn.status}.`,
+    applied.length === 0 ? 'No applied sections.' : `Applied sections: ${applied.join(', ')}.`,
+    ...(pending.length === 0 ? [] : [`Not applied: ${pending.join(', ')}.`]),
+    ...(turn.revived === true
+      ? ['Restored history; verify these nodes in the current document.']
+      : []),
+    ...(turn.progress.direction.trim() === ''
+      ? []
+      : [`Direction: ${turn.progress.direction.trim()}`]),
+  ].join(' ');
+}
+
 /** The assistant's line for one turn: what it said, or what it did, in its own words. */
 export function assistantWords(turn: Exclude<Turn, UserTurn>): string | null {
   switch (turn.kind) {
-    case 'build': {
-      const sections = sectionList(turn.progress.tasks.map((task) => task.title));
-      const words = `${turn.progress.direction.trim()}${sections}`.trim();
-      return words === '' ? null : words;
+    case 'build':
+      return buildWords(turn);
+    case 'edit': {
+      const status =
+        turn.outcome?.kind === 'undone'
+          ? 'Edit undone.'
+          : turn.status === 'done'
+            ? `Edit applied${turn.targetNodeId === undefined ? '' : ` to [${turn.targetNodeId}]`}.`
+            : turn.status === 'noChange'
+              ? 'No change applied.'
+              : `Edit ${turn.status}; completion not confirmed.`;
+      const restored = turn.revived === true ? ' Restored history; verify current document.' : '';
+      const summary = turn.summary?.trim() ?? '';
+      return `${status}${restored}${summary === '' ? '' : ` ${summary}`}`;
     }
-    case 'edit':
-      return turn.summary ?? null;
     case 'proposal':
-      return turn.plan?.rationale ?? null;
+      return `Proposal only; not applied.${turn.pageTouched === true ? ' Earlier preparation touched the page.' : ''} ${turn.plan?.rationale ?? ''}`.trim();
     case 'page-plan': {
       const mood = turn.direction?.mood.trim() ?? '';
       const words = `${mood}${sectionList(turn.sections.map((section) => section.title))}`;
-      return words.trim() === '' ? null : words.trim();
+      return `Proposed page plan; not applied.${turn.pageTouched === true ? ' Earlier preparation touched the page.' : ''} ${words}`.trim();
     }
     case 'step-plan':
       // The plan the assistant just wrote IS the answer: "do option two" needs it.
-      return turn.text;
+      return `Proposed steps; not applied. ${turn.text}`;
     case 'answer':
       return turn.text;
     case 'error':

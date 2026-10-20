@@ -12,6 +12,7 @@ import type { AiPlan, AiPlanStep } from '../types';
 import { sceneInitializationIds } from '../provider/scene-init-wire';
 import { instantiatePlanKit, planKit } from './page-plan/kits';
 import type { PagePlan, SectionContract } from './page-plan/types';
+import { completeSceneKitSteps } from './scene-kit-initializer';
 import { readyScenes } from './scene-ready';
 
 /** The copy has an opaque theme surface; a busy picture cannot reduce its contrast. */
@@ -124,6 +125,7 @@ function paramsOf(preset: ScenePreset, raw: unknown): CustomCodeJsParams {
  * Complete a compact marker answer locally, before the ordinary command door sees it. Only the
  * captured region's last JS write selects a preset; custom JS and unknown markers remain intact.
  * A supplied tree/CSS stays authored. Every generated setting must be declared by the block.
+ * Scene kits additionally require the coordinator's explicit free-code build capability.
  */
 export function completeReadyScene(
   plan: PagePlan,
@@ -132,7 +134,10 @@ export function completeReadyScene(
   answer: AiPlan,
   declaredProps: readonly string[],
   initializationRequest = '',
+  allowSceneKits = false,
 ): AiPlan {
+  if (allowSceneKits)
+    answer = completeSceneKitSteps(plan, contract, regionId, answer, declaredProps);
   const written: unknown = (answer as { readonly commands?: unknown }).commands;
   const allowed = sceneInitializationIds(initializationRequest);
   if (!Array.isArray(written)) {

@@ -53,7 +53,9 @@ describe('report.build', () => {
       expect(agentToolsForLane(lane).map(({ name }) => name)).toContain('report.build');
       const prompt = agentToolPrompt(lane);
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));
-      expect(prompt).toContain('report.build {data,title?,summary?,kpis?:[column],as?,after?}');
+      expect(prompt).toContain(
+        'report.build {data,title?,summary?,kpis?,as?,id?,after?,showTrends?,showTable?,stacked?}',
+      );
       expect(prompt).toContain('report.build data like data.show → title, KPIs (last + change');
     }
   });
@@ -121,18 +123,21 @@ describe('report.build', () => {
     });
   });
 
-  it('keeps at most four cards and draws bars where the data asks for a gauge', () => {
+  it('keeps four automatic cards and respects the gauge selected for target data', () => {
     const wide = build({ data: 'Q,A,B,C,D,E\nQ1,1,2,3,4,5\nQ2,2,3,4,5,6' });
     expect((report(wide.applied).node?.props['kpis'] as unknown[]).length).toBe(4);
     const gauge = build({ data: 'Metric,Score,Max\nNPS,72,100' });
-    expect(report(gauge.applied).node?.props['chartType']).toBe('bar');
+    expect(report(gauge.applied).node?.props['chartType']).toBe('gauge');
   });
 
   it.each([
     [{ data: MONTHS, kpis: ['Profit'] }, 'no numeric column "Profit"; use one of Revenue, Costs'],
-    [{ data: MONTHS, kpis: ['A', 'B', 'C', 'D', 'E'] }, 'at most 4 column headings'],
-    [{ data: MONTHS, kpis: [{ column: 'Revenue', measure: 'median' }] }, '"measure" is one of'],
-    [{ data: MONTHS, as: 'gauge' }, '"as" is one of auto, bar'],
+    [
+      { data: MONTHS, kpis: Array.from({ length: 9 }, () => 'Revenue') },
+      'at most 8 column headings',
+    ],
+    [{ data: MONTHS, kpis: [{ column: 'Revenue', measure: 'invented' }] }, '"measure" is one of'],
+    [{ data: MONTHS, as: 'sankey' }, '"as" is one of auto, bar'],
     [{ data: 'Name,Role\nAda,Engineer' }, 'use data.show with "as":"table"'],
     [{ data: MONTHS, after: 'nope' }, '"after": no section "nope"'],
     [{ data: MONTHS, colour: 'red' }, 'unknown keys colour'],

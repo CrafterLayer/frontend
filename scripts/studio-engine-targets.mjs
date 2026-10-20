@@ -23,8 +23,9 @@ export const TARGETS = {
     entry: 'src/studio/kit-entry.ts',
     factory: 'createKitLibrary',
     pixi: true,
-    budget: 15_800,
-    version: '1.1.0',
+    // 1.2: native scroll pinning + nested viewport/pointer/cleanup; measured 16,442 + 5%.
+    budget: 17_300,
+    version: '1.2.0',
     vendored: [
       {
         name: 'webgl-noise',

@@ -10,7 +10,11 @@ import {
   type ReportLang,
   type Unit,
 } from './analysis';
-import { LIMITS, chartPropsOf, type ChartType } from './data-chart';
+import { normalizeIntentText } from '../intent/normalize-arabic';
+import { timelineOf } from './analysis/timeline';
+import { LIMITS, chartDataFor, chartPropsOf, type ChartType } from './data-chart';
+import type { DataGrid } from './data-text';
+import type { ReportPageChart } from './report-page-options';
 import type { PageWords } from './report-page-words';
 
 /**
@@ -24,7 +28,7 @@ import type { PageWords } from './report-page-words';
  */
 
 export interface ChartSection {
-  readonly key: 'trend' | 'ranking' | 'share' | 'pivot' | 'comparison';
+  readonly key: 'trend' | 'ranking' | 'share' | 'pivot' | 'comparison' | 'selected';
   readonly props: Record<string, unknown>;
 }
 
@@ -154,10 +158,10 @@ function changeText(measure: MeasureAnalysis, lang: ReportLang, words: PageWords
 }
 
 function trendChart(a: Analysis, words: PageWords, lang: ReportLang): ChartSection | undefined {
-  const main = a.measures[0];
+  const main = a.measures.find((measure) => measure.missing === 0);
   if (main === undefined) return undefined;
   const same = a.measures
-    .filter((measure) => sameUnit(measure.unit, main.unit))
+    .filter((measure) => measure.missing === 0 && sameUnit(measure.unit, main.unit))
     .slice(0, LIMITS.series);
   const plot = fitRows(a.labels, same, a.timeSeries, words);
   const heading = a.profile.label === undefined ? '#' : (a.grid.header[a.profile.label] ?? '');
@@ -289,7 +293,8 @@ function breakdownChart(a: Analysis, words: PageWords, lang: ReportLang): ChartS
 function pivotChart(a: Analysis, words: PageWords): ChartSection | undefined {
   const pivot = a.pivot;
   const main = a.measures.find((measure) => measure.column === pivot?.measure);
-  if (pivot === undefined || main === undefined) return undefined;
+  if (pivot === undefined || pivot.incomplete === true || main === undefined || main.missing > 0)
+    return undefined;
   return chart(
     'pivot',
     'line',
@@ -320,6 +325,7 @@ function comparisonChart(
       const profit = derived.kind === 'profit' ? derived.measures[0] : undefined;
       const measures = profit === undefined ? [first, second] : [first, second, profit];
       const insight = a.insights.find((each) => each.kind === derived.kind);
+      if (measures.some((measure) => measure.missing > 0)) return undefined;
       return chart(
         'comparison',
         'combo',
@@ -361,4 +367,57 @@ export function pageCharts(a: Analysis, words: PageWords, lang: ReportLang): Cha
     pivotChart(a, words),
     comparisonChart(a, words, lang),
   ].filter((section): section is ChartSection => section !== undefined);
+}
+
+/** Source headings identify chart roles exactly; ambiguous or duplicate headings are rejected. */
+function selectColumns(grid: DataGrid, names: readonly string[] | undefined): DataGrid | string {
+  if (names === undefined) return grid;
+  const fold = (value: string) => normalizeIntentText(value).trim();
+  const indices: number[] = [];
+  for (const name of names) {
+    const found = grid.header.flatMap((heading, index) =>
+      fold(heading) === fold(name) ? [index] : [],
+    );
+    if (found.length !== 1)
+      return found.length === 0
+        ? `no source column "${name}"; use one of ${grid.header.join(', ')}.`
+        : `source column "${name}" is ambiguous; give each column a unique heading.`;
+    const index = found[0];
+    if (index === undefined) continue;
+    if (indices.includes(index))
+      return `source column "${name}" is selected twice; select each role once.`;
+    indices.push(index);
+  }
+  return {
+    header: indices.map((index) => grid.header[index] ?? ''),
+    rows: grid.rows.map((row) => indices.map((index) => row[index] ?? '')),
+  };
+}
+
+/** Explicit chart selections are fully prepared before the tool emits any document writes. */
+export function selectedPageCharts(
+  grid: DataGrid,
+  selections: readonly ReportPageChart[],
+  words: PageWords,
+): ChartSection[] | string {
+  const charts: ChartSection[] = [];
+  for (const [index, selection] of selections.entries()) {
+    const prefix = `charts[${String(index)}] (${selection.as}): `;
+    const selected = selectColumns(grid, selection.columns);
+    if (typeof selected === 'string') return `${prefix}${selected}`;
+    const temporal = ['line', 'area', 'combo', 'sparkline', 'candlestick'].includes(selection.as);
+    const source = temporal ? timelineOf(selected, 0).grid : selected;
+    const data = chartDataFor(source, selection.as);
+    if (typeof data === 'string') return `${prefix}${data}`;
+    charts.push({
+      key: 'selected',
+      props: {
+        ...chartPropsOf(data, selection.as),
+        title: selection.title ?? clip(selected.header.join(' · '), 90),
+        ...(data.notes.length === 0 ? {} : { description: clip(data.notes.join('; '), 240) }),
+        otherLabel: clip(words.other, 24),
+      },
+    });
+  }
+  return charts;
 }

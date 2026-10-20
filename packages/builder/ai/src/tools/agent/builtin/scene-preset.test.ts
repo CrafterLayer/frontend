@@ -411,6 +411,87 @@ describe('scene.preset — game and story kits', () => {
 });
 
 describe('scene.preset — params', () => {
+  it.each(['id', 'behind', 'into'] as const)(
+    'retunes the same mural through %s without replacing authored code or other settings',
+    (placement) => {
+      const kernel = sceneKernel();
+      const slots = rootSlots(kernel);
+      land(kernel, { preset: SILK.id, params: { speed: 2, seed: 9 } });
+      const id = rootSlots(kernel).find((slot) => !slots.includes(slot)) ?? '';
+      const original = props(kernel, id);
+      kernel.dispatchGroup(
+        [
+          {
+            command: 'setProp',
+            args: { id, key: 'js', value: `${SILK.code}\n// Authored scene additions stay.` },
+          },
+          {
+            command: 'setProp',
+            args: { id, key: 'css', value: `${String(original['css'])}\n.credits{color:red}` },
+          },
+          {
+            command: 'setProp',
+            args: {
+              id,
+              key: 'jsMeta',
+              value: { ...(original['jsMeta'] as object), name: { en: 'My mural', ar: 'جداريتي' } },
+            },
+          },
+          { command: 'setProp', args: { id, key: 'label', value: 'My mural' } },
+        ],
+        { author: 'user', label: 'Personalize mural' },
+      );
+      const before = kernel.getDocument();
+      const retuned = land(kernel, {
+        preset: SILK.id,
+        [placement]: id,
+        params: { density: 0.3 },
+      });
+      expect(retuned.steps.map(({ args }) => args['key'])).toEqual(['jsParams']);
+      expect(props(kernel, id)).toEqual({
+        ...before.nodes[id]?.props,
+        jsParams: { speed: 2, seed: 9, density: 0.3 },
+      });
+      expect(rootSlots(kernel)).toEqual(before.nodes['root']?.slots?.['default']);
+      for (const sibling of slots)
+        expect(kernel.getDocument().nodes[sibling]).toEqual(before.nodes[sibling]);
+      kernel.undo();
+      expect(kernel.getDocument()).toEqual(before);
+    },
+  );
+
+  it('retunes a localized quiz without resetting authored questions, code, or unrelated params', () => {
+    const kernel = sceneKernel({ locale: 'ar' });
+    const slots = rootSlots(kernel);
+    land(kernel, {
+      preset: 'quiz',
+      params: { question1: 'من أضاف هذا السؤال؟ | أنا | القالب', time: 0 },
+    });
+    const id = rootSlots(kernel).find((slot) => !slots.includes(slot)) ?? '';
+    const initial = props(kernel, id);
+    expect((initial['jsParams'] as Record<string, unknown>)['question2']).toBe(
+      scenePreset('quiz')?.region?.params?.ar?.['question2'],
+    );
+    kernel.dispatchGroup(
+      [
+        {
+          command: 'setProp',
+          args: { id, key: 'js', value: `${String(initial['js'])}\n// Custom quiz behavior.` },
+        },
+      ],
+      { author: 'user', label: 'Extend quiz' },
+    );
+    const before = kernel.getDocument();
+    const retuned = land(kernel, { preset: 'quiz', id, params: { sound: true } });
+    expect(retuned.steps.map(({ args }) => args['key'])).toEqual(['jsParams']);
+    expect(props(kernel, id)).toEqual({
+      ...before.nodes[id]?.props,
+      jsParams: { ...(initial['jsParams'] as object), sound: true },
+    });
+    kernel.undo();
+    expect(kernel.getDocument()).toEqual(before);
+  });
+
   it('merges the given values over the defaults and stores only what differs', () => {
     const result = door(sceneKernel(), {
       preset: SILK.id,

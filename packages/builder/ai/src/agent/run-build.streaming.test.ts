@@ -554,7 +554,7 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     expect(result.tasks.every(({ status }) => status === 'applied')).toBe(true);
   });
 
-  it('lands in page order even when a lower section is written first', async () => {
+  it('lands a ready lower section after the final-plan gate while the hero is still pending', async () => {
     const live = kernel();
     let releaseHero!: () => void;
     const heroGate = new Promise<void>((resolve) => {
@@ -582,14 +582,14 @@ describe('the streamed build — the skeleton at the outline, writers at their b
       'the menu to be written',
     );
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0));
-    // The menu is written and the plan is in; the hero above it is not written, so nothing landed.
-    expect(sectionPositions(live)).toEqual([]);
+    // The final plan is validated: the ready menu is visible before the slow hero.
+    expect(sectionPositions(live)).toEqual([3]);
     releaseHero();
     await building;
 
     const positions = sectionPositions(live);
-    expect(positions.slice(0, 2)).toEqual([2, 3]);
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(positions.slice(0, 2)).toEqual([3, 2]);
+    expect(new Set(positions).size).toBe(positions.length);
   });
 
   it('rewrites exactly the section whose brief changed in the final plan, once', async () => {

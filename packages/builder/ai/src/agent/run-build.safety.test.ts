@@ -619,7 +619,7 @@ describe('P0-4 — Ask never writes before approval', () => {
 });
 
 describe('P1-8 — a slow first section does not hold back the writers behind it', () => {
-  it('writes every section while the hero is still being written, and lands in page order (hol.mjs)', async () => {
+  it('lands completed sections while the hero is still being written, keeping page/report order', async () => {
     const live = kernel();
     let inFlight = 0;
     let peak = 0;
@@ -652,20 +652,20 @@ describe('P1-8 — a slow first section does not hold back the writers behind it
     });
 
     await settle(() => arrived.length === EIGHT.length);
-    // Every section reached a writer while the hero was still out…
     expect([...arrived].sort((left, right) => left - right)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    // …with the pool still bounded (five, as set)…
     expect(peak).toBeLessThanOrEqual(5);
-    // …and nothing landed out of order: section 2 waits for the hero to land.
-    expect(live.transactions()).toHaveLength(1);
+    await settle(() => live.transactions().length === EIGHT.length);
+    expect(live.transactions()).toHaveLength(EIGHT.length);
 
     releaseHero();
     const result = await building;
     expect(result.applied).toBe(EIGHT.length);
-    expect(live.transactions().map(({ command }) => command)).toEqual([
-      'Assistant: page skeleton',
-      ...EIGHT.map((title, index) => `Assistant: ${String(index + 1)}/8 — ${title}`),
-    ]);
+    expect(live.transactions().at(-1)?.command).toBe('Assistant: 1/8 — Hero');
+    expect(result.tasks.map(({ title }) => title)).toEqual(EIGHT);
+    const document = live.getDocument();
+    expect(document.nodes[document.rootId]?.slots?.['default']).toEqual(
+      result.tasks.map(({ id }) => id),
+    );
   });
 });
 

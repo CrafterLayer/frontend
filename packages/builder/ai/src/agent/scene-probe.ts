@@ -25,7 +25,7 @@ export interface SceneProbeRect {
 
 export interface SceneProbeFrame {
   readonly region: SceneProbeRect | null;
-  readonly canvas: { readonly rect: SceneProbeRect } | null;
+  readonly canvas: { readonly rect: SceneProbeRect; readonly scrollPinned?: boolean } | null;
   readonly controls: readonly {
     readonly label: string;
     readonly tag: string;
@@ -234,7 +234,7 @@ function layoutFindings(
       ['right', after, region.width],
     ];
     for (const [side, gap, extent] of gaps) {
-      if (gap / extent < 0.15) continue;
+      if (gap / extent < 0.15 || (side === 'lower' && canvas.scrollPinned === true)) continue;
       add(
         `gap-${side}`,
         4,

@@ -32,13 +32,14 @@ const FIGURE_CLASSES: Readonly<Record<ReportProps['variant'], string>> = {
 };
 
 /**
- * One dataset as a report section: a title and summary, up to four KPI cards
+ * One dataset as a report section: a title and summary, up to eight KPI cards
  * computed from the data, one chart drawn by the Chart block's own figures
  * (accessible SVG, no script), and an optional table of the numbers.
  */
 export function Report({ node, props, isCanvas }: BlockRenderProps<ReportProps>) {
   const titleId = `${node.id}-title`;
   const summaryId = `${node.id}-summary`;
+  const dataNoteId = `${node.id}-data-note`;
   /* Each inner element is a part: addressable on the canvas, stylable per part. */
   const part = blockPartProps({ node, props, isCanvas }, reportSchema.parts);
   const { class: motionClassName, ...motionData } = sectionMotionAttributes(props);
@@ -49,12 +50,20 @@ export function Report({ node, props, isCanvas }: BlockRenderProps<ReportProps>)
       ? undefined
       : { ...colorStyle, ...spacingStyle };
   const hasSummary = props.summary !== undefined;
+  // Keep inline-editor elements visible; a blank stored note means it was cleared.
+  const hasDataNote =
+    props.dataNote !== undefined &&
+    (typeof props.dataNote !== 'string' || props.dataNote.trim() !== '');
+  const descriptionIds = [hasSummary ? summaryId : undefined, hasDataNote ? dataNoteId : undefined]
+    .filter((id) => id !== undefined)
+    .join(' ');
   const kpis = kpiModels(props);
   const hosts = reportHosts(props, kpis);
   /* The chart shows a label as it is only while nothing else (the table, a card) hosts it. */
   const chartProps = reportChartProps(props, {
     labels: hosts.labelsInTable ? 'committed' : 'raw',
     affixes: hosts.affixes === 'chart' ? 'raw' : 'committed',
+    target: hosts.targetKpi >= 0 ? 'committed' : 'raw',
   });
   const kind = drawnType(chartProps);
   const hasData = hasChartData(chartProps);
@@ -65,7 +74,7 @@ export function Report({ node, props, isCanvas }: BlockRenderProps<ReportProps>)
   const svgLabel: SvgLabel = {
     role: 'img',
     'aria-labelledby': titleId,
-    ...(hasSummary ? { 'aria-describedby': summaryId } : {}),
+    ...(descriptionIds === '' ? {} : { 'aria-describedby': descriptionIds }),
   };
   const drawing: Drawing = {
     props: chartProps,
@@ -156,6 +165,20 @@ export function Report({ node, props, isCanvas }: BlockRenderProps<ReportProps>)
             </div>
           </figure>
         )}
+        {hasDataNote ? (
+          <p
+            {...part('dataNote', {
+              id: dataNoteId,
+              className: cx(
+                'm-0 w-full text-sm leading-relaxed',
+                props.tone === 'dark' ? 'text-inherit opacity-80' : 'text-text-muted',
+              ),
+            })}
+            data-report-note=""
+          >
+            {props.dataNote}
+          </p>
+        ) : null}
         {hosts.labelsInTable ? reportTable(view, titleId) : null}
       </div>
     </section>

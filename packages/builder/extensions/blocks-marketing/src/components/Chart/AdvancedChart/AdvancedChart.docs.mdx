@@ -1,0 +1,56 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import * as Stories from './AdvancedChart.stories';
+
+<Meta of={Stories} />
+
+# AdvancedChart
+
+Chart-owned, script-free SVG rendering for nine bounded analytical chart families. This component is
+also reached by compact Reports through the same chart renderer. Use Chart for normal block
+insertion; this component accepts the existing `Drawing` contract (parsed props, bound part helper,
+accessible SVG name, canvas flag and theme ground/text roles).
+
+## Data contracts
+
+All types support at most 24 categories and six series. Every plotted role needs one finite value
+per category; missing values never become zero. Invalid input renders a visible `role="status"`
+explanation. Empty specialized charts explain the required data even outside the editor.
+
+| Type        | Interpretation                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Waterfall   | First series contains signed increments from a zero starting total. Connectors show running totals. A final total must not be repeated as another increment. |
+| Heatmap     | Categories are columns; series are rows; opacity follows the common minimum/maximum scale.                                                                   |
+| Treemap     | First series contains flat nonnegative weights; at least one must be positive. Zero weights remain in the key/table, with no area.                           |
+| Histogram   | First series contains nonnegative integer counts for precomputed equal-width bin labels. Raw observations belong to the AI data preparation tool.            |
+| Bubble      | Numeric X categories, then exactly Y and nonnegative Size series. Area is proportional to Size. Global units apply to Y only.                                |
+| Boxplot     | Exactly Min, Q1, Median, Q3, Max series, ordered at every category. Whiskers show supplied min/max; outliers and sample quantiles are not invented.          |
+| Candlestick | Exactly Open, High, Low, Close series with Low ≤ Open/Close ≤ High. Hollow bodies mean close ≥ open; filled bodies mean close &lt; open.                     |
+| Lollipop    | Exactly one signed series; stems start at zero.                                                                                                              |
+| Bullet      | Exactly nonnegative Actual then Target series. One common scale includes both. An optional maxValue must include every mark.                                 |
+
+## Presentation and accessibility
+
+The named SVG scales to its container. HTML labels use logical positioning and the SVG mirrors in
+RTL, leaving text readable. No gestures, focus stops, loading requests, keyboard interactions or
+client effects are needed. The parent Chart supplies an accessible data table with role-aware
+headings. SVG tooltips include the underlying values; the canvas leaves them out to preserve one
+inline editor per text binding. Numeric coordinates, Size and histogram counts are not decorated
+with unrelated currency units.
+
+Category and series names use the existing block parts. When a numeric bubble X label is being
+edited to a transient nonnumber, the error state retains its editable category label; it does not
+invent a point. The prefix/suffix editor is hosted by the first numeric axis label, first treemap
+key value, or heatmap scale/value.
+
+`showValues` displays labels only for up to 24 marks. Treemap keys always carry values. Heatmaps
+show their scale. Candlestick body meaning and bubble role meaning are printed below the plot.
+Bullet row height grows with category count so labels remain separated. Marks use palette theme
+roles; no literal colors or plotting dependencies are added.
+
+## Limitations
+
+The treemap is flat, not a hierarchy. Histograms do not infer bin widths from arbitrary labels.
+Boxplots use supplied summaries, not an implicit outlier convention. Bubble X coordinates use plain
+decimal/scientific numeric text; localized formatted numbers must be normalized upstream. There is
+no zoom, pan, animation or chart network request. For dense labels use a detailed report table; all
+numbers remain available in the parent Chart's accessible table.

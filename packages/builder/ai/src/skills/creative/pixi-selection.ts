@@ -8,6 +8,7 @@ import { compileKeyword, readRequestWords, requestHasKeyword } from '../keyword-
 import type { AiSkillRegistry } from '../types';
 import { GAME_LIB_CUES } from './game-cues';
 import { PIXI_PAGE_SHAPES_ID } from './page-shapes';
+import { creativeCreationSkill } from './creation-skills';
 
 /** Playbooks a request activates by its own words (most specific experience first). */
 const PIXI_PRIMARY_IDS = [
@@ -108,6 +109,13 @@ export function pixiSkillIdsFor(
   if (registry === undefined) return [];
   const words = readRequestWords(request);
   const primary: string[] = PIXI_PRIMARY_IDS.filter((id) => matched(registry, words, id));
+  const creation = creativeCreationSkill(request);
+  if (
+    creation !== undefined &&
+    registry.get(creation)?.activation.mode === 'auto' &&
+    !primary.includes(creation)
+  )
+    primary.unshift(creation);
   // A story asked for at bedtime, in any word order (creative-activation.ts).
   if (!primary.includes(STORIES_ID) && hasAny(words, STORY_WORDS) && hasAny(words, BEDTIME_WORDS))
     primary.push(STORIES_ID);

@@ -27,9 +27,6 @@ import type {
   EditStageKey,
   EndNoteKey,
   EndNoteView,
-  ErrorClass,
-  ErrorPageState,
-  ErrorView,
   FactView,
   FailureClass,
   Locale,
@@ -395,7 +392,12 @@ export function buildCollapsed(locale: Locale): BuildRecordView {
 export function buildAfterRowUndo(locale: Locale): BuildRecordView {
   const view = buildDone(locale);
   const rows = view.rows.map((row) => {
-    if (row.position === 2) return { ...row, state: 'undone' as const, undo: { kind: 'redo' as const, transactionId: 'tx-undo-2' } };
+    if (row.position === 2)
+      return {
+        ...row,
+        state: 'undone' as const,
+        undo: { kind: 'redo' as const, transactionId: 'tx-undo-2' },
+      };
     if (row.position === 3)
       return { ...row, undo: { kind: 'unavailable' as const, why: 'changedSince' as const } };
     return row;
@@ -429,7 +431,12 @@ export const MANY_CHANGES: Readonly<Record<Locale, readonly ChangeLineView[]>> =
   ],
   ar: [
     ...HERO_CHANGES.ar,
-    { kind: 'changed', label: 'العنوان', before: 'أهلًا بكم', after: 'ابتسامتك الجديدة تبدأ اليوم' },
+    {
+      kind: 'changed',
+      label: 'العنوان',
+      before: 'أهلًا بكم',
+      after: 'ابتسامتك الجديدة تبدأ اليوم',
+    },
     { kind: 'removed', label: 'العنوان الفرعي', value: 'احجز خلال دقيقة' },
     { kind: 'restyled', label: 'القسم', value: 'الواجهة' },
   ],
@@ -441,7 +448,10 @@ export const TITLE_CHANGE: Readonly<Record<Locale, readonly ChangeLineView[]>> =
   ar: [{ kind: 'changed', label: 'العنوان', before: 'الأسئلة الشائعة', after: 'أسئلة' }],
 };
 
-function edit(locale: Locale, rest: Partial<EditRecordView> & Pick<EditRecordView, 'phase'>): EditRecordView {
+function edit(
+  locale: Locale,
+  rest: Partial<EditRecordView> & Pick<EditRecordView, 'phase'>,
+): EditRecordView {
   return {
     turnId: `edit-${rest.phase}`,
     origin: 'request',
@@ -514,7 +524,11 @@ export function editUndone(locale: Locale): EditRecordView {
 
 /** Done, read back after a reload: Undo is shown unavailable, and explained. */
 export function editRevived(locale: Locale): EditRecordView {
-  return { ...editDone(locale), turnId: 'edit-revived', undo: { kind: 'unavailable', why: 'revived' } };
+  return {
+    ...editDone(locale),
+    turnId: 'edit-revived',
+    undo: { kind: 'unavailable', why: 'revived' },
+  };
 }
 
 /** Done, but the page moved since: Undo cannot run cleanly (`changedSince`). */
@@ -535,7 +549,14 @@ export function editApplied(locale: Locale): EditRecordView {
     target: locale === 'ar' ? 'الأسئلة الشائعة' : 'FAQ',
     changes:
       locale === 'ar'
-        ? [{ kind: 'changed', label: 'العنوان', before: 'الأسئلة الشائعة', after: 'أسئلة يطرحها المرضى' }]
+        ? [
+            {
+              kind: 'changed',
+              label: 'العنوان',
+              before: 'الأسئلة الشائعة',
+              after: 'أسئلة يطرحها المرضى',
+            },
+          ]
         : [{ kind: 'changed', label: 'Heading', before: 'FAQ', after: 'Questions patients ask' }],
     elapsedMs: 18_000,
     revealNodeId: 'sec-7',
@@ -555,8 +576,22 @@ export function editPageWide(locale: Locale, phase: 'running' | 'done' = 'done')
       ? {
           changes:
             locale === 'ar'
-              ? [{ kind: 'changed' as const, label: 'اتجاه الصفحة', before: 'من اليسار إلى اليمين', after: 'من اليمين إلى اليسار' }]
-              : [{ kind: 'changed' as const, label: 'Page direction', before: 'Left to right', after: 'Right to left' }],
+              ? [
+                  {
+                    kind: 'changed' as const,
+                    label: 'اتجاه الصفحة',
+                    before: 'من اليسار إلى اليمين',
+                    after: 'من اليمين إلى اليسار',
+                  },
+                ]
+              : [
+                  {
+                    kind: 'changed' as const,
+                    label: 'Page direction',
+                    before: 'Left to right',
+                    after: 'Right to left',
+                  },
+                ],
         }
       : {}),
   };
@@ -574,59 +609,7 @@ export function editUnlisted(locale: Locale): EditRecordView {
   });
 }
 
-/* ── Errors (SPEC §4.14) ──────────────────────────────────────────────────── */
-
-/** Every failure class, in SPEC §4.14's order. */
-export const ERROR_CLASSES = [
-  'unreachable',
-  'timeout',
-  'busy',
-  'declined',
-  'invalid',
-  'tooLarge',
-  'offline',
-  'unknown',
-] as const satisfies readonly ErrorClass[];
-
-const RETRYABLE: Readonly<Record<ErrorClass, boolean>> = {
-  unreachable: true,
-  timeout: true,
-  busy: true,
-  declined: false,
-  invalid: true,
-  tooLarge: true,
-  offline: true,
-  unknown: true,
-};
-
-/** An error record of `failure`, leaving the page as `pageState` says. */
-export function errorView(
-  failure: ErrorClass,
-  pageState: ErrorPageState = { kind: 'unchanged' },
-): ErrorView {
-  return {
-    turnId: `error-${failure}-${pageState.kind}`,
-    failure,
-    pageState,
-    retryable: RETRYABLE[failure],
-    // Technical text: the clipboard's, never the screen's (SPEC §4.14).
-    details: `remote/${failure}: fill-3 exceeded 45000ms; setProp craftkit.hero ~11.2k tokens`,
-    menu: ['reuse', 'copyError'],
-  };
-}
-
-/**
- * §3.11 as drawn: the error with its run's final time (`0:31`) at the head's end. `ErrorView`
- * has no field for the time yet; ErrorRecord reads `elapsedMs` structurally, so this fixture
- * shows the frame the producer will reach once it sends one.
- */
-export function errorViewTimed(
-  failure: ErrorClass,
-  elapsedMs: number,
-  pageState: ErrorPageState = { kind: 'unchanged' },
-): ErrorView & { readonly elapsedMs: number } {
-  return { ...errorView(failure, pageState), elapsedMs };
-}
+export { ERROR_CLASSES, errorView, errorViewTimed } from './error-record-fixtures';
 
 /* ── Answers and endings (SPEC §4.10) ─────────────────────────────────────── */
 

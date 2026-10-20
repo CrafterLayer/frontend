@@ -26,6 +26,18 @@ function renderError(view: ErrorView, locale: Locale = 'en') {
 }
 
 describe('ErrorRecord', () => {
+  it.each(['en', 'ar'] as const)(
+    'explains retained newer edits in %s with a visible retry',
+    (locale) => {
+      renderError(errorView('sourceChanged'), locale);
+      expect(
+        screen.getByRole('article', { name: t(locale, 'error.sourceChanged.title') }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(t(locale, 'error.sourceChanged.cause'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: t(locale, 'error.retry') })).toBeInTheDocument();
+    },
+  );
+
   it.each(ERROR_CLASSES)('%s: title, cause and page state, in words', (failure) => {
     const view = errorView(failure);
     const { container } = renderError(view);
@@ -56,12 +68,16 @@ describe('ErrorRecord', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(actions.tryAgain).toHaveBeenCalledExactlyOnceWith(view.turnId);
     expect(actions.removeEmpty).not.toHaveBeenCalled();
-    expect(screen.getByRole('heading', { level: 3, name: "Couldn't reach the model" })).toHaveFocus();
+    expect(
+      screen.getByRole('heading', { level: 3, name: "Couldn't reach the model" }),
+    ).toHaveFocus();
   });
 
   it('says what landed before the error, counted', () => {
     renderError(errorView('timeout', { kind: 'kept', landed: 3 }));
-    expect(screen.getByText('What landed before the error stays on the page (3).')).toBeInTheDocument();
+    expect(
+      screen.getByText('What landed before the error stays on the page (3).'),
+    ).toBeInTheDocument();
   });
 
   it('offers to remove an empty layout it left behind', async () => {

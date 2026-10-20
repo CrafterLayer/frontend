@@ -38,6 +38,8 @@ export interface Pivot {
   readonly series: readonly { readonly name: string; readonly values: readonly number[] }[];
   /** How many groups were folded into the last series. */
   readonly folded: number;
+  /** A group/period cell has no observed number; never draw it as an observed zero. */
+  readonly incomplete?: true;
 }
 
 export const GROUP_LIMITS = {
@@ -120,6 +122,11 @@ export function pivotOf(grid: DataGrid, profile: GridProfile, measure: number): 
   }
   if (periods.length < 2 || periods.length > GROUP_LIMITS.pivotPeriods || cells.size < 2)
     return undefined;
+  const incomplete = [...cells.values()].some((byTime) =>
+    periodKeys.some((key) => !byTime.has(key)),
+  )
+    ? { incomplete: true as const }
+    : {};
   const line = (byTime: ReadonlyMap<string, number[]>) =>
     periodKeys.map((key) => {
       const values = byTime.get(key) ?? [];
@@ -130,7 +137,8 @@ export function pivotOf(grid: DataGrid, profile: GridProfile, measure: number): 
     .sort((a, b) => sum(b.values) - sum(a.values));
   const kept = ranked.slice(0, GROUP_LIMITS.pivotSeries);
   const rest = ranked.slice(GROUP_LIMITS.pivotSeries);
-  if (rest.length === 0 || !additive) return { by, measure, periods, series: kept, folded: 0 };
+  if (rest.length === 0 || !additive)
+    return { by, measure, periods, series: kept, folded: 0, ...incomplete };
   const other = periodKeys.map((_, index) => sum(rest.map((entry) => entry.values[index] ?? 0)));
   return {
     by,
@@ -138,5 +146,6 @@ export function pivotOf(grid: DataGrid, profile: GridProfile, measure: number): 
     periods,
     series: [...kept, { name: '', values: other }],
     folded: rest.length,
+    ...incomplete,
   };
 }

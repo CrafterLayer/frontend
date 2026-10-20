@@ -1,4 +1,5 @@
 import {
+  customCodeJsParamsSchema,
   paramsDiffFromDefaults,
   validateParamValues,
   type CustomCodeJsMeta,
@@ -103,16 +104,54 @@ export function codeSteps(
 
 // ── A kit in a region that is already there ───────────────────────────────────
 
-/** The builtin preset a region's jsMeta names, if any. */
-function presetIdOf(context: AgentToolContext, id: string): string | undefined {
+/**
+ * Retuning an existing preset is a settings edit. Keep its authored program, metadata,
+ * translated copy and unrelated settings, including additions made after creation.
+ */
+export function retuneSameScene(
+  input: ScenePresetInput,
+  context: AgentToolContext,
+  id: string,
+  declared: readonly string[],
+): AgentToolRun | undefined {
+  const current = context.readProp(id, 'js');
+  if (typeof current !== 'string' || current.trim() === '') return undefined;
   const meta = context.readProp(id, 'jsMeta');
   const ref = isRecord(meta) ? meta['ref'] : undefined;
-  return isRecord(ref) && typeof ref['id'] === 'string' ? ref['id'] : undefined;
+  const same = isRecord(ref) && ref['tier'] === 'builtin' && ref['id'] === input.preset.id;
+  if (!same && current !== input.preset.code) return undefined;
+  if (!declared.includes('jsParams')) {
+    return { ok: false, error: 'This region has no jsParams property for retuning its scene.' };
+  }
+  const before = customCodeJsParamsSchema.safeParse(context.readProp(id, 'jsParams') ?? {});
+  if (!before.success)
+    return {
+      ok: false,
+      error: 'The current scene settings are invalid; preserve its authored code.',
+    };
+  const merged = customCodeJsParamsSchema.safeParse({ ...before.data, ...input.values });
+  if (!merged.success)
+    return { ok: false, error: 'The merged scene settings exceed the supported limits.' };
+  const stored = clone(merged.data);
+  return {
+    ok: true,
+    steps: [
+      {
+        ...setProp(id, 'jsParams', stored),
+        title:
+          `${isArabicLocale(context) ? 'مشهد' : 'Scene'} · ${title(context, input.preset)}`.slice(
+            0,
+            160,
+          ),
+      },
+    ],
+    note: note(input, `retunes ${id}`, stored),
+  };
 }
 
 /**
  * A kit by `id`: the region keeps its id and becomes the kit — tree, css, code, meta and params —
- * unless it already holds this kit, when only the code and the params change (its words stay).
+ * unless it already holds this kit, when only the requested settings change.
  */
 export function kitInRegion(
   input: ScenePresetInput,
@@ -153,12 +192,14 @@ export function kitInRegion(
       error: `"${id}" holds page content, not a scene, and a ${preset.category} kit brings its own · send "after":"${id}" to add it as a new section below it.`,
     };
   }
+  const retuned = retuneSameScene(input, context, id, declared);
+  if (retuned !== undefined) return retuned;
   const values = kitValues(preset, input.values, context);
   const stored = storedParams(preset, values);
-  const same = presetIdOf(context, id) === preset.id;
-  const steps: AgentToolStep[] = same
-    ? []
-    : [setProp(id, 'tree', clone(region.tree[kitLang(context)])), setProp(id, 'css', region.css)];
+  const steps: AgentToolStep[] = [
+    setProp(id, 'tree', clone(region.tree[kitLang(context)])),
+    setProp(id, 'css', region.css),
+  ];
   steps.push(...codeSteps(context, id, preset, stored, declared));
   const label = `${isArabicLocale(context) ? 'مشهد' : 'Scene'} · ${title(context, preset)}`;
   const [first, ...rest] = steps;
@@ -167,10 +208,6 @@ export function kitInRegion(
   return {
     ok: true,
     steps: [{ ...first, title: label.slice(0, 160) }, ...rest],
-    note: note(
-      { ...input, values },
-      same ? `retunes ${id}` : `replaces the scene of ${id}`,
-      stored,
-    ),
+    note: note({ ...input, values }, `replaces the scene of ${id}`, stored),
   };
 }

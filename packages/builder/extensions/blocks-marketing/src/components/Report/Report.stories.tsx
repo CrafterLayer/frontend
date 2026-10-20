@@ -150,3 +150,52 @@ export const Mobile: Story = {
     await expect(scroller?.getBoundingClientRect().width).toBeLessThanOrEqual(390);
   },
 };
+
+export const FinancialGoals: Story = {
+  args: { ...MonthlySales.args, props: exampleProps(3) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('progressbar', { name: 'Latest revenue — Plan: ≥ $100,000' }),
+    ).toHaveAttribute('aria-valuetext', '120% (Plan: ≥ $100,000)');
+  },
+};
+
+export const ProjectDelivery: Story = {
+  args: { ...MonthlySales.args, props: exampleProps(4) },
+};
+
+export const MarketingMobileRtl: Story = {
+  globals: { direction: 'rtl' },
+  args: { ...MonthlySales.args, props: exampleProps(5) },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: 390, maxInlineSize: '100%', marginInline: 'auto' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('progressbar', { name: 'آخر أسبوع — الهدف: ≥ 1,500' }),
+    ).toHaveAttribute('aria-valuetext', '120% (الهدف: ≥ 1,500)');
+  },
+};
+
+export const ExplicitBaseline: Story = {
+  args: {
+    ...MonthlySales.args,
+    props: reportSchema.props.parse({
+      title: 'Compare against the approved reference',
+      categories: ['Jan', 'Feb'],
+      series: [{ name: 'Revenue', values: [100, 120] }],
+      valuePrefix: '$',
+      comparisonLabel: 'vs approved reference',
+      kpis: [{ label: 'Latest revenue', comparisonValue: 80 }, { label: 'Monthly change' }],
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('vs approved reference')).toBeVisible();
+    await expect(canvasElement.querySelector('[data-report-baseline]')).toHaveTextContent('$80');
+    await expect(within(canvasElement).getByText('vs previous')).toBeVisible();
+  },
+};

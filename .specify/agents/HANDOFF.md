@@ -1,5 +1,215 @@
 # Active Work Handoff
 
+## Current continuation — professional reports, charts and Key Stats, 2026-10-20
+
+Status: **idle for this local increment**. RP1–RP7 / T303–T309 implemented, locally verified,
+independently reviewed and converged. The user selected all three domains: finance/sales, project/
+team delivery and marketing/web analytics. Changes are uncommitted; no stage, push or deployment.
+
+Scope: marketing Chart/Stats/Report and two complete internal UI components; builder-ai data tools,
+skill routing and bounded tool menus; one browser QA script. No new dependencies or migrations.
+Preserve all earlier feature-014 work and concurrent AI-server/specs/apps changes.
+
+Completed: 21 chart families including nine new specialized types; five detailed report
+presentations and explicit chart/column selections. Stats adds truthful comparisons, sparklines and
+progress. Report adds eight KPIs, median/count, explicit baselines/targets and trends. Compact
+refreshes preserve compatible configurations by source name and require explicit replacements for
+incompatible source/goal units. Computed provenance stays separate from authored summary. Invalid
+shapes, missing observations and unsupported role units refuse before mutation. Section writers
+select specialized chart skills automatically; prompt caps add 140 characters in build/edit only.
+
+Evidence: [scope](../../specs/workspace/014-professional-builder-agent/report-capabilities-2026-10-20.md),
+[research](../../specs/workspace/014-professional-builder-agent/research-report-capabilities-2026-10-20.md),
+[verification](../../specs/workspace/014-professional-builder-agent/verification-report-capabilities-2026-10-20.md).
+AI: 595 behaviors covered across main run/corrected menu rerun. Marketing: 224 tests plus overlapping
+28-case advanced/SSR suite. Full-catalog readiness: 3. Storybook browser interaction/a11y: 5 files /
+63 tests. Actual tool/kernel/DocumentView browser: 56/56, installed Chrome, app styles/fonts,
+desktop and Arabic 390px; zero page errors/provider requests. Four owner/consumer typechecks,
+scoped lint/format, Playground build and initial-load budgets, Storybook build and workspace /
+component / file-size / boundary checks passed. Final independent review has no actionable finding.
+No baseline increased; final scoped convergence complete. No external CLI/workflow-engine pass.
+
+Re-run browser: `node apps/evals/src/browser/report-capabilities.mjs http://127.0.0.1:5174`.
+Evidence and six screenshots are under `/tmp/craftkit-report-capabilities-*` (machine-local).
+The primary inspected finance and Arabic mobile output. Earlier timeouts under concurrent work
+were rerun without relaxing timeouts; interrupted checks are not passes. Browser uses a focused
+harness, not composer keyboard input. No live-model adherence, artistic quality, provider billing /
+latency, full CI, physical-touch or whole standalone-export packaging proof. Specialized figures
+pass server-rendered SVG tests. Other device unchanged.
+
+Limits: finite catalog; flat treemap, equal-width histogram bins, supplied five-number summaries,
+OHLC candles; no plotting runtime or pan/zoom. Detailed report pages remain separate editable
+sections. No saved document is rewritten. Rollback is source-only. Prior 115 staged files remain
+unchanged (5,919 insertions / 672 deletions); new report work stays unstaged. No implementation next
+step remains for T303–T309; rollout/live-provider evaluation is a separate action.
+
+## Local Codex CLI route — 2026-10-20
+
+Status: **complete for the scoped development adapter**, uncommitted. The existing
+`pnpm --filter @craftkit/ai-server dev` command and `scripts/dev.sh` are unchanged.
+`codex:` is available beside Claude in the ordinary model allowlist on port 8787; the local
+`.env` gained that one entry and retains the existing Claude default. No separate launcher/server.
+The existing dev command was started and left running; catalog and a real Codex-selected prompt
+enhancement both returned 200. No Playground endpoint or saved data changed.
+
+Adapter tests, app checks, independent read-only review and scoped convergence completed;
+see [verification](../../specs/apps/ai-server/001-codex-cli/verification.md) and the adjacent
+spec/plan/tasks. Preserve the unrelated feature-014 staged and unstaged work below. No commit,
+push or deployment. Rollback: remove `codex:` from the local allowlist and restart the same dev
+command. Multiple explicit Codex IDs currently share the “Codex” UI label; no frontend work here.
+
+## Current continuation — second prompts and report integrity, 2026-10-20
+
+Status: **idle for this local increment**. Q1–Q5 / T298–T302 complete, locally verified and
+independently reviewed. The user confirmed second-prompt failures occur both during and after the
+first run. The original other-device trace is unavailable; local reproductions establish repaired
+code defects, not the exact cause of that unseen incident.
+
+Scope: Playground request ownership, queue/landing/clarification and conversation receipts;
+builder-ai deterministic report analysis and existing report rendering; one browser QA script.
+No new dependency/component/schema or saved-document rewrite.
+
+Completed: queued follow-ups retain page/conversation identity and bind to the active predecessor's
+actual result, including single-section fallback. Explicit selection wins; failed predecessors
+cannot revive older targets. Build leases start before host page creation. Stop prevents late AI
+writes. Clarification races retain the originating conversation. History now distinguishes applied,
+proposed, no-change, failed, stopped and undone work. Report calculations preserve chronological
+comparability, compatible units and paired observations; visible quality notes explain missingness,
+bounds and aggregation. Incomplete chart series no longer fabricate zeros.
+
+Evidence: [requirements and verification](../../specs/workspace/014-professional-builder-agent/second-prompt-reports-2026-10-20.md),
+[primary-source research](../../specs/workspace/014-professional-builder-agent/research-second-prompt-reports-2026-10-20.md).
+Final controller regression: 7 files / 84 tests, including 12 new continuity cases. Memory/turns/
+existing follow-up: 3 files / 70 tests. Reports: 11 files / 246 tests before final period repairs;
+final affected group 5 files / 75 tests. Counts overlap. Three owner/consumer typechecks, scoped
+lint/format, Playground production build and initial-load budgets passed. Workspace/components/
+file-sizes/boundaries passed; no baseline increased. Fresh native review repaired four Medium
+findings and closed without actionable findings. Scoped convergence is complete; no external CLI
+or professional-sdd engine pass is claimed.
+
+Browser: `node apps/evals/src/browser/agent-continuation-reports.mjs http://127.0.0.1:5174` passed
+4/4 cases in installed Chrome, including the primary's rerun after final production repairs.
+Actual controller/kernel/renderer, scripted responses; English desktop and Arabic 390px reports.
+Zero page errors and zero live provider calls. This is not a composer keyboard journey, original
+device reproduction, live-model creative/adherence/cost benchmark, full CI or deployment.
+
+Limits: host `addPage` has no abort signal, so Stop cannot cancel page creation already started by
+the host. Runtime queue ownership is not persisted. Ambiguous dates use category analysis; missing
+chart series are omitted. `report.page` still creates sections; no dedicated report-group replacement
+API was introduced. Existing captured-source guards retain their documented scope.
+
+Repository: preserve the 115 previously staged files (5,919 insertions / 672 deletions) and the
+concurrent `apps/ai-server` Codex-backend changes and `specs/apps/` work. New work here is unstaged;
+unrelated server changes were not edited/reviewed. No stage, commit, push, deployment or paid
+provider request. No implementation task remains for T298–T302. Any rollout or live-provider
+benchmark is a separate action; the other device is unchanged. Rollback is source-only.
+
+The following completed increments are retained as historical evidence. The queued-anaphora and
+no-new-browser limitations in the next entry are superseded by this continuation.
+
+## Current continuation — edit the existing creative artifact, 2026-10-20
+
+Status: **idle for this local increment**. F1–F5 / T293–T297 complete, locally verified and
+independently reviewed. All changes remain uncommitted on `main`; preserve earlier T282–T292.
+No commit, push, deployment or paid provider call.
+
+Follow-up additions route to editing their existing destination. Explicit new-artifact requests
+retain creation behavior with the established selection precedence. Playground captures grounded
+successful targets after deselection, preserves them in queues/Retry, resolves destination versus
+added-object wording, and asks locally when ownership is ambiguous. Exact runtime kernel ownership
+protects send/Retry/Ask Apply/Preview across site pages with shared logs and colliding IDs. Targeted
+retries without surviving runtime ownership require selection and resending.
+
+Focused source is complete; preservation guidance and no creation-only starter catalog for missing
+edit source keep the writer grounded. Retuning the same preset merges parameters without resetting
+custom JS/tree/CSS/metadata. Authenticated proposals compare affected current-page custom-code
+properties against the original writer source immediately before applying. Newer conflicting edits
+stay intact, with localized guidance and a fresh Retry; unrelated edits and Undo remain supported.
+
+Evidence and exact commands:
+[creative follow-up](../../specs/workspace/014-professional-builder-agent/creative-followup-2026-10-20.md).
+Intent 2,200, plan/agent 426, build 90 and app 243 tests passed; post-extraction app 115 passed.
+These groups overlap. Independent review and copy/fixture addendum closed without actionable
+findings. Four owner/consumer typechecks, scoped lint/format, production AI-server/Playground,
+initial-load budgets, workspace/components/file sizes/boundaries and diff checks passed. No size
+baseline increased; new copy/error-fixture modules preserve public exports.
+
+Limits: no new browser run, live-model artistic/adherence/cost benchmark or full CI. Guard covers
+captured current-page source properties, not general subtree topology or foreign script pages;
+explicit plan+policy compatibility remains unchanged. A deselected anaphoric request queued during
+a different unfinished run can still refer to the last completed target; explicit selection wins.
+The other device is unchanged. Rollback is source-only; no migration or saved-document rewrite.
+
+## Current continuation — scroll murals and creative delivery, 2026-10-20
+
+Status: **idle for this local increment**. Implemented, verified and independently reviewed,
+uncommitted on `main`. S1–S5 / T288–T292 complete. Preserve earlier T282–T287
+changes below. No commit, push, paid request or deployment.
+
+Native scroll now keeps compact scrub/legacy scrub-param murals visible through their final beat,
+including nested scrollers and auto-height clipping wrappers. Normal page scroll remains native;
+editor/calm scenes add no runway. Cleanup preserves authored edits. Arbitrary saved custom scripts
+using only ordinary `s.scroll.progress` still need `s.scroll.pin()` before fitting; no document
+source is rewritten. Runtime pin metadata prevents false lower-gap probe repairs.
+
+Agent planning preserves the requested medium despite subject cues; retries retain suitable mural
+composition. Confirmed crashing/blank scenes do not land after bounded repair; usable repairs win
+before warning counts. Successful siblings remain. New regression groups passed: media 102,
+AI planning/delivery 137, skills/presets/probe 133, renderer 49 (overlapping groups, not a total).
+Final actual-browser suite: 5/5 in offline installed Chrome, including visible first/middle/final,
+reverse/exit, nested RTL phone, wrapper, resize, calm and cleanup; physical touch not tested.
+Seven owner/consumer TypeScript checks, production Playground/AI-server builds and initial-load
+budgets passed. Fresh repaired-source
+review has no remaining actionable findings. Twenty unchanged historical lint diagnostics were
+verified against HEAD in create-scene/pointer; no new ones. Full CI is not claimed.
+
+Evidence: [verification](../../specs/workspace/014-professional-builder-agent/verification-scroll-mural-2026-10-20.md),
+[scope](../../specs/workspace/014-professional-builder-agent/mural-scroll-2026-10-20.md).
+The other device is unchanged until a separately authorized rollout. The affected saved mural and
+original provider trace were unavailable, so live quality, timing and billing remain unmeasured.
+
+## Current continuation — creative agent reliability, 2026-10-20
+
+Status: **idle for this local increment**. R1–R5 / T282–T287 implemented, locally verified and
+independently reviewed. Changes are uncommitted on `main`; no push, deployment or paid provider
+request occurred. Historical feature release tasks below remain separate.
+
+The user reported long charged failures, missing visible output and short prompts stopping, and
+requested research plus faster automatic creative skills/helpers. The concrete prompt was
+`اصنع لعبه` on another device; model and trace are unavailable. Do not present current-code
+reproductions as the cause of that unobserved run.
+
+Scope: `packages/builder/ai` scheduling, shared attempt deadlines, creative intent/skills,
+build-only scene-kit initialization and remote errors; `apps/ai-server` terminal error metadata and
+diagnostic answer capture; existing Playground consumer regression tests; evals browser fixtures.
+No new component, dependency, engine, permission grant, migration or governance system.
+
+Completed: independent validated sections land serially as ready after the final-plan gate.
+Reports retain document order; Stop and per-section undo remain intact. Checks/repair share the
+remaining attempt budget. Terminal provider errors avoid futile fallback/retries. Short creation
+requests select built-in expertise automatically. Eleven existing game/story kits initialize
+inside an owned region only with explicit free-code capability; generic edit protections remain.
+Bounded JSON errors preserve actionable reasons and terminal metadata.
+
+Evidence: [verification](../../specs/workspace/014-professional-builder-agent/verification-reliability-2026-10-20.md),
+[research](../../specs/workspace/014-professional-builder-agent/research-reliability-2026-10-20.md),
+[requirements](../../specs/workspace/014-professional-builder-agent/reliability-2026-10-20.md).
+Controller 10 files / 85 tests passed. Build/provider 21 files / 221 tests had one load-related
+5-second test timeout; its isolated rerun passed all 3 cases without code/timeout changes.
+Intent/skills, server/provider and kit owner checks passed; exact overlapping counts are in the
+verification report. Five owner/consumer typechecks, changed-file lint/format, production server
+and Playground builds, initial-load budgets and workspace/component/size/boundary checks passed.
+Browser: 4/4 actual initialized game/story interactions passed offline in installed Chrome,
+1280px LTR and 390px RTL, reduced motion. Pinned Playwright Chromium was unavailable.
+
+Fresh native independent review found no remaining actionable issue. The continuing local-only
+review preference was honored; no external CLI review is claimed. Scoped convergence is complete.
+No implementation next step is pending for T282–T287. Any deployment or live provider benchmark
+is a separate action; source changes do not update the other device. No live cost, latency or
+bespoke artistic quality was measured. Revert source without migration; preserve applied documents.
+
+The following continuations are historical context, not unfinished work in this increment.
+
 ## Current continuation — analytical report pages, 2026-10-14 (h)
 
 Done and pushed (T273–T274): Excel/JSON drop on the agent panel (dc41055) and `report.page` with a

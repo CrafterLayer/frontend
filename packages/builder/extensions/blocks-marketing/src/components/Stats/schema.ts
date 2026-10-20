@@ -25,7 +25,7 @@ const defaultStats = [
 export const statsSchema = defineBlockSchema({
   type: 'stats',
   description:
-    'A proof-oriented metrics section with quantified outcomes, supporting context, and responsive card, minimal, or contrast treatments.',
+    'A proof-oriented metrics section with quantified outcomes, supporting context, comparison badges, source trends, target progress, and responsive card, minimal, or contrast treatments.',
   surfaces: ['site', 'store'],
   props: z.object({
     eyebrow: z.string().min(1).max(40).default('Measured impact'),
@@ -41,6 +41,11 @@ export const statsSchema = defineBlockSchema({
           value: z.string().min(1).max(24),
           label: z.string().min(1).max(56),
           detail: z.string().min(1).max(100).optional(),
+          change: z.string().min(1).max(40).optional(),
+          sentiment: z.enum(['positive', 'negative', 'neutral']).optional(),
+          trend: z.array(z.number()).max(24).optional(),
+          progress: z.number().min(0).max(100).optional(),
+          progressLabel: z.string().min(1).max(80).optional(),
         }),
       )
       .max(8)
@@ -125,6 +130,18 @@ export const statsSchema = defineBlockSchema({
       bind: 'items.*.label',
       label: { en: 'Metric label', ar: 'اسم المؤشر' },
       aliases: ['label', 'name', 'caption', 'الاسم', 'التسمية'],
+    },
+    'item.change': {
+      kind: 'text',
+      bind: 'items.*.change',
+      label: { en: 'Metric comparison', ar: 'مقارنة المؤشر' },
+      aliases: ['change', 'comparison', 'delta', 'التغير', 'المقارنة'],
+    },
+    'item.progressLabel': {
+      kind: 'text',
+      bind: 'items.*.progressLabel',
+      label: { en: 'Progress label', ar: 'تسمية التقدم' },
+      aliases: ['target', 'goal', 'progress', 'الهدف', 'التقدم'],
     },
     'item.detail': {
       kind: 'text',

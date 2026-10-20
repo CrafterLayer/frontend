@@ -10,13 +10,19 @@ import {
 import { blockName } from '../../model/block-name';
 import { answersOf, requestWithAnswers } from '../../model/enhance';
 import { consumeMentionFragment } from '../../model/mentions';
-import { queueRequest } from '../../model/queue';
 import { routeRequest } from '../../model/runs';
 
 import { type Flow, selectionKey } from './controller-state';
 import type { Outgoing } from './exchange';
 import { say } from './run-outcomes';
-import { drainQueue, enhanceInputOf, outgoingOf, send } from './send';
+import {
+  answerTargetQuestion,
+  drainQueue,
+  enhanceInputOf,
+  outgoingOf,
+  queuedOutgoing,
+  send,
+} from './send';
 import { patchTurn } from './turn-plumbing';
 
 export function composerActions(flow: Flow) {
@@ -36,12 +42,7 @@ export function composerActions(flow: Flow) {
       const outgoing = outgoingOf(flow, text);
       flow.ui.setState((state) => ({
         ...state,
-        queue: queueRequest(
-          text,
-          outgoing.context,
-          env().options.kernel.getDocument(),
-          outgoing.skillSnapshot,
-        ),
+        queue: queuedOutgoing(flow, outgoing),
       }));
       say(flow, 'queue.queued');
       return;
@@ -163,6 +164,20 @@ export function composerActions(flow: Flow) {
   const answerClarify = (questionId: string, answer: string): void => {
     const clarify = flow.ui.getState().clarify;
     if (clarify?.status !== 'asking' || answer.trim() === '') return;
+    if (clarify.origin !== undefined && clarify.origin.kernel !== env().options.kernel) {
+      answerTargetQuestion(
+        flow,
+        {
+          text: clarify.request,
+          context: clarify.context,
+          pointed: clarify.pointed,
+          skillSnapshot: clarify.skillSnapshot,
+        },
+        { sessionId: clarify.origin.sessionId },
+        'missing',
+      );
+      return;
+    }
     const questions = clarify.questions.map((question) =>
       question.id === questionId ? { ...question, answer: answer.trim() } : question,
     );
@@ -215,7 +230,12 @@ export function composerActions(flow: Flow) {
             ? {}
             : { skillSnapshot: { ...clarify.skillSnapshot, request: text } }),
         },
-        { skipClarify: true, route },
+        {
+          skipClarify: true,
+          route,
+          kernel: clarify.origin?.kernel,
+          sessionId: clarify.origin?.sessionId,
+        },
       );
     })();
   };
@@ -232,7 +252,12 @@ export function composerActions(flow: Flow) {
         pointed: clarify.pointed,
         skillSnapshot: clarify.skillSnapshot,
       },
-      { skipClarify: true, route: clarify.route },
+      {
+        skipClarify: true,
+        route: clarify.route,
+        kernel: clarify.origin?.kernel,
+        sessionId: clarify.origin?.sessionId,
+      },
     );
   };
 

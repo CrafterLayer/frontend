@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { CLI_EFFORT_LEVELS, createCliClient } from './cli-client';
+import { createCodexClient, type CodexClient } from './codex-client';
+import { CODEX_DEFAULT_MODEL, codexEffort } from './codex-config';
 import { createCliWarmPool, type CliWarmPool } from './cli-warm-pool';
 import { createCodeRuntimeService } from './code-runtime-service';
 import { createAuthoredRunCoordinator } from './authored-run';
@@ -17,7 +19,13 @@ import {
   probeOpenRouterModels,
   type OpenRouterModelFacts,
 } from './openrouter-client';
-import { createRoutingClient, isApiModel, isCliModel } from './routing-client';
+import {
+  createRoutingClient,
+  isApiModel,
+  isCliModel,
+  isCodexModel,
+  isLocalModel,
+} from './routing-client';
 import { batchBackendFor, createApiBackend, logLocalBackends } from './api-models';
 import { jsonParseError, unwrapJson } from './json-salvage';
 import { createNodeServer } from './server';
@@ -31,21 +39,8 @@ import {
   type ModelCapabilityProbe,
 } from './model-policy';
 
-/**
- * The runnable entry: configuration from the environment, then listen.
- *
- * Everything with behaviour lives in `handler.ts` (the contract) and
- * `server.ts` (the Node adapter), both of which are tested without a network
- * or a key. This file is the only one that reads `process.env` and the only
- * one that binds a port, which is what keeps it too small to hide a bug in.
- */
-
-/*
-  `--env-file` turns a blank `KEY=` line into `''`, which `??` does not treat
-  as absent — `Number('')` is `0`, not NaN, so an empty `PORT=` would silently
-  bind port 0 rather than falling back to 8787. Every optional var reads
-  through this so a blank line means "unset" everywhere, not just for PORT.
-*/
+/** Environment-driven composition; handler.ts owns the wire and server.ts the Node adapter. */
+// Blank .env values mean unset (Number('') would otherwise select port 0).
 function setting(name: string): string | undefined {
   const value = process.env[name];
   return value === undefined || value === '' ? undefined : value;
@@ -59,7 +54,9 @@ function refuseToStart(message: string): never {
 
 const port = Number(setting('PORT') ?? 8787);
 const authToken = setting('CRAFTKIT_AI_TOKEN');
-const model = setting('CRAFTKIT_AI_MODEL');
+const rawBackend = setting('CRAFTKIT_AI_BACKEND') ?? 'sdk';
+const model =
+  setting('CRAFTKIT_AI_MODEL') ?? (rawBackend === 'codex' ? CODEX_DEFAULT_MODEL : undefined);
 const lunaModel = setting('CRAFTKIT_AI_LUNA_MODEL');
 const terraModel = setting('CRAFTKIT_AI_TERRA_MODEL');
 const solModel = setting('CRAFTKIT_AI_SOL_MODEL');
@@ -72,29 +69,11 @@ const roleModelNames = {
 };
 const configuredRoleModels = Object.values(roleModelNames);
 let openRouterModelFacts: ReadonlyMap<string, OpenRouterModelFacts> = new Map();
-/*
-  The models a request may name in `x-craftkit-ai-model`, beyond the default.
-  The server owns this list, not the browser: the panel's picker only offers
-  what its own env says, and anything outside this list is refused with 400.
-*/
 const models = (setting('CRAFTKIT_AI_MODELS') ?? '')
   .split(',')
   .map((entry) => entry.trim())
   .filter((entry) => entry !== '');
-/*
-  The output ceiling per answer. Unset ⇒ claude.ts's 32k, which fits a
-  full-page plan; raise it for models that can write more (the OpenRouter
-  backend clamps to what each model actually allows). A blank or unparseable
-  value keeps the default rather than silently becoming 0.
-*/
-/*
-  The reasoning budget for a build's section writers — the part of a build
-  whose time is mostly thinking under a direction already decided. `low`
-  unless set; `default` hands them the backend's own budget. A value the
-  backends do not know is refused here, not silently ignored per call: the
-  Messages API takes it as `output_config.effort`, the CLI as `--effort`,
-  and OpenRouter — which has no `max` — asks for its highest, `xhigh`.
-*/
+// Section effort defaults to low; `default` retains the selected backend's budget.
 /* The page plan thinks only when asked (speed first; handler.ts `planThinking`). */
 const planThinking = setting('CRAFTKIT_AI_PLAN_THINKING') === 'on';
 const rawSectionEffort = setting('CRAFTKIT_AI_SECTION_EFFORT') ?? 'low';
@@ -118,14 +97,10 @@ if (!planDrafts) {
   );
 }
 
-/*
-  Warm CLI spares (DESIGN §7): after a CLI call starts, one pre-spawned
-  `claude -p` of the same shape waits for the next call (at most 3, 60 s
-  each). On unless `off`. Made on the first CLI client, so only a server that
-  reaches the CLI (the cli backend, or cli: entries behind the router) has one.
-*/
+// Claude warm spares are allocated only when a Claude CLI route is used.
 const cliWarm = setting('CRAFTKIT_AI_CLI_WARM') !== 'off';
 let cliWarmPool: CliWarmPool | undefined;
+let codexClient: CodexClient | undefined;
 function sharedWarmPool(): CliWarmPool | undefined {
   if (!cliWarm) return undefined;
   if (cliWarmPool === undefined) {
@@ -136,13 +111,10 @@ function sharedWarmPool(): CliWarmPool | undefined {
   }
   return cliWarmPool;
 }
-/*
-  Spares run detached, in their own process groups, so a Ctrl-C in the
-  terminal never reaches them: they are killed here, or they outlive the
-  server. A signal handler replaces Node's default exit, so it exits itself.
-*/
+// Detached CLI children must be disposed explicitly on shutdown.
 process.once('exit', () => {
   cliWarmPool?.dispose();
+  codexClient?.dispose();
 });
 for (const [signal, code] of [
   ['SIGINT', 130],
@@ -150,6 +122,7 @@ for (const [signal, code] of [
 ] as const) {
   process.once(signal, () => {
     cliWarmPool?.dispose();
+    codexClient?.dispose();
     process.exit(code);
   });
 }
@@ -168,17 +141,8 @@ const allowedOriginsSetting = setting('CRAFTKIT_AI_ALLOWED_ORIGINS');
 // Refuses a malformed list here, at startup, rather than at the first browser.
 const allowedOrigins = parseAllowedOrigins(allowedOriginsSetting);
 
-/*
-  Which backend answers. `sdk` (the default) is the Anthropic Messages API;
-  `openrouter` reaches any model behind one OpenRouter key; `cli` is the
-  DEV-ONLY escape hatch that routes plans through the local `claude` CLI so
-  `prompt.ts` can be tested before any key exists (see cli-client.ts for what
-  stops being faithful — never set it in a deployment anyone but you talks to).
-  An unknown value is refused rather than silently becoming `sdk`, because a
-  typo here would bill a different account than the one intended.
-*/
-const BACKENDS = ['sdk', 'cli', 'openrouter'] as const;
-const rawBackend = setting('CRAFTKIT_AI_BACKEND') ?? 'sdk';
+// Explicit selection: a typo must never bill a different provider.
+const BACKENDS = ['sdk', 'cli', 'codex', 'openrouter'] as const;
 const backend =
   BACKENDS.find((name) => name === rawBackend) ??
   refuseToStart(`CRAFTKIT_AI_BACKEND="${rawBackend}" is not one of ${BACKENDS.join(', ')}.`);
@@ -226,6 +190,22 @@ function createCliBackend(
   });
 }
 
+function sharedCodexBackend(): CodexClient {
+  const name = (slug: string): string => slug.replace(/^codex:/u, '') || CODEX_DEFAULT_MODEL;
+  const effort = codexEffort(rawEffort);
+  codexClient ??= createCodexClient({
+    model: backend === 'codex' && model !== undefined ? name(model) : CODEX_DEFAULT_MODEL,
+    allowedModels: [model, ...models]
+      .filter(
+        (slug): slug is string => slug !== undefined && (backend === 'codex' || isCodexModel(slug)),
+      )
+      .map(name),
+    ...(effort === undefined ? {} : { effort }),
+    ...(cliTimeoutMs === undefined ? {} : { timeoutMs: cliTimeoutMs }),
+  });
+  return codexClient;
+}
+
 /*
   The free OpenRouter models as OpenRouter lists them now (free-models.ts), shared by the
   picker's list (`GET /v1/models`), the allowlist (a listed free slug may be named without
@@ -270,21 +250,21 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
     unless the picker says otherwise); anything else must be an OpenRouter
     slug, `vendor/model`.
   */
-  if (model === undefined || (!isCliModel(model) && !isApiModel(model) && !model.includes('/'))) {
+  if (model === undefined || (!isLocalModel(model) && !model.includes('/'))) {
     refuseToStart(
       'CRAFTKIT_AI_BACKEND=openrouter needs CRAFTKIT_AI_MODEL set to an OpenRouter slug — vendor/model, ' +
-        `such as anthropic/claude-sonnet-4.5 — or a cli: entry${model === undefined ? '' : `; "${model}" is neither`}.`,
+        `such as anthropic/claude-sonnet-4.5 — or a cli:, codex: or api: entry${model === undefined ? '' : `; "${model}" is neither`}.`,
     );
   }
   const cliSlugs = [...(isCliModel(model) ? [model] : []), ...models.filter(isCliModel)];
   const apiSlugs = [...(isApiModel(model) ? [model] : []), ...models.filter(isApiModel)];
-  const openRouterSlugs = models.filter((entry) => !isCliModel(entry) && !isApiModel(entry));
+  const codexSlugs = [model, ...models].filter(isCodexModel);
+  const openRouterSlugs = models.filter((entry) => !isLocalModel(entry));
   /*
     The OpenRouter shim needs a model of its own only when a request names
     none, which never happens through the handler; when the default is a `cli:` or `api:` entry, the first OpenRouter slug stands in.
   */
-  const openRouterDefault =
-    isCliModel(model) || isApiModel(model) ? (openRouterSlugs[0] ?? model) : model;
+  const openRouterDefault = isLocalModel(model) ? (openRouterSlugs[0] ?? model) : model;
   const api = createApiBackend(apiSlugs, setting('ANTHROPIC_API_KEY'));
   for (const entry of openRouterSlugs) {
     if (!entry.includes('/')) {
@@ -324,7 +304,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   */
   const slugs = [
     ...new Set([openRouterDefault, ...openRouterSlugs, ...configuredRoleModels]),
-  ].filter((slug) => !isCliModel(slug) && !isApiModel(slug));
+  ].filter((slug) => !isLocalModel(slug));
   const facts = await probeOpenRouterModels(slugs, {
     ...(baseUrl === undefined ? {} : { baseUrl }),
   });
@@ -372,9 +352,17 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
       console.log(`[ai-server] ${line}`);
     },
   });
-  if (cliSlugs.length === 0 && apiSlugs.length === 0 && fallback === undefined) return openrouter;
+  if (
+    cliSlugs.length === 0 &&
+    apiSlugs.length === 0 &&
+    codexSlugs.length === 0 &&
+    fallback === undefined
+  )
+    return openrouter;
 
   logLocalBackends(cliSlugs, apiSlugs);
+  for (const slug of codexSlugs)
+    console.log(`[ai-server] ${slug}: local Codex CLI (ChatGPT subscription)`);
   if (fallback !== undefined) {
     console.log(
       `[ai-server] fallback: ${fallback} answers when an OpenRouter model is overloaded or unreachable`,
@@ -383,6 +371,7 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
   return createRoutingClient({
     openrouter,
     cli: createCliBackend,
+    ...(codexSlugs.length === 0 ? {} : { codex: sharedCodexBackend() }),
     ...(api === undefined ? {} : { api }),
     ...(fallback === undefined ? {} : { fallback }),
     onLog: (line) => {
@@ -392,14 +381,10 @@ async function createOpenRouterBackend(): Promise<Anthropic> {
 }
 
 async function createClient(): Promise<Anthropic> {
+  if (backend === 'codex') return sharedCodexBackend();
   if (backend === 'cli') return createCliBackend(model, models);
   if (backend === 'openrouter') return createOpenRouterBackend();
-  /*
-    A bare client. It resolves credentials the way every Anthropic SDK does —
-    ANTHROPIC_API_KEY, then ANTHROPIC_AUTH_TOKEN, then an `ant auth login`
-    profile — so an unset API key is not the same as no credentials, and this
-    file must not second-guess that resolution by demanding one.
-  */
+  // Preserve SDK credential resolution, including an existing login profile.
   return new Anthropic();
 }
 
@@ -444,16 +429,22 @@ const authoredRuns =
           return undefined;
         })
     : undefined;
-if (backend === 'cli') {
+if (backend === 'codex') {
+  console.log(
+    '[ai-server] codex: local ChatGPT login, read-only ephemeral calls, six active requests maximum.',
+  );
+} else if (backend === 'cli') {
   console.warn(
     '[ai-server] CRAFTKIT_AI_BACKEND=cli: plans are being generated by the local `claude` CLI, ' +
       'not the Anthropic API. No structured-output enforcement, no real refusal detection, no ' +
       'usage/cache metrics. Testing only — unset CRAFTKIT_AI_BACKEND once ANTHROPIC_API_KEY is set.',
   );
 } else if (backend === 'openrouter') {
-  const answerer = isCliModel(String(model))
-    ? `the local \`claude\` CLI (${String(model)})`
-    : `${String(model)} through OpenRouter`;
+  const answerer = isCodexModel(String(model))
+    ? `the local \`codex\` CLI (${String(model)})`
+    : isCliModel(String(model))
+      ? `the local \`claude\` CLI (${String(model)})`
+      : `${String(model)} through OpenRouter`;
   console.log(
     `[ai-server] CRAFTKIT_AI_BACKEND=openrouter: plans are generated by ${answerer}` +
       (models.length === 0 ? '.' : `; a request may also name ${models.join(', ')}.`),
@@ -573,12 +564,19 @@ const handle = createHandler({
   },
 });
 
-createNodeServer(withCors(handle, allowedOrigins)).listen(port, () => {
-  console.log(`craftkit ai-server listening on http://localhost:${String(port)}`);
-  console.log(`point the playground at it: VITE_AI_PLAN_ENDPOINT=http://localhost:${String(port)}`);
-  console.log(
-    allowedOriginsSetting === undefined || allowedOriginsSetting.trim() === ''
-      ? 'browser origins allowed: loopback (localhost, 127.0.0.1, [::1]) on any port'
-      : `browser origins allowed: ${allowedOriginsSetting}`,
-  );
-});
+createNodeServer(withCors(handle, allowedOrigins)).listen(
+  {
+    port,
+    ...(backend === 'codex' ? { host: '127.0.0.1' } : {}),
+  },
+  () => {
+    const origin = `http://${backend === 'codex' ? '127.0.0.1' : 'localhost'}:${String(port)}`;
+    console.log(`craftkit ai-server listening on ${origin}`);
+    console.log(`point the playground at it: VITE_AI_PLAN_ENDPOINT=${origin}`);
+    console.log(
+      allowedOriginsSetting === undefined || allowedOriginsSetting.trim() === ''
+        ? 'browser origins allowed: loopback (localhost, 127.0.0.1, [::1]) on any port'
+        : `browser origins allowed: ${allowedOriginsSetting}`,
+    );
+  },
+);

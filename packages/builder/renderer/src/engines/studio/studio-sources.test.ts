@@ -35,7 +35,7 @@ import { VIEWPORT_BANNER, VIEWPORT_SHA256, VIEWPORT_SOURCE } from './viewport-so
 // Budgets (performance pass, 2026-10-12): measured gzip + 5 %, rounded up to 100 bytes, never raised;
 // the same numbers as scripts/studio-engine-targets.mjs.
 const ASSETS = [
-  ['kit', KIT_SOURCE, KIT_BANNER, KIT_SHA256, 15_800],
+  ['kit', KIT_SOURCE, KIT_BANNER, KIT_SHA256, 17_300],
   ['filters', FILTERS_SOURCE, FILTERS_BANNER, FILTERS_SHA256, 24_900],
   // particles and physics (2026-10-13): emitter 12,000 → 17,400 for its 13 presets, atlas and
   // lifecycle (measured 16,545, + 5 %); physics keeps 29,500 with world(s) (measured 29,424).

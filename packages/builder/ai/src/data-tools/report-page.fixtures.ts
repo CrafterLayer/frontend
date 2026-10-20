@@ -59,6 +59,11 @@ export const reportPageBlocks: TrustedExtensionManifest = {
                   value: z.string().min(1).max(24),
                   label: z.string().min(1).max(56),
                   detail: z.string().min(1).max(100).optional(),
+                  change: z.string().min(1).max(40).optional(),
+                  sentiment: z.enum(['positive', 'negative', 'neutral']).optional(),
+                  trend: z.array(z.number()).min(2).max(24).optional(),
+                  progress: z.number().min(0).max(100).optional(),
+                  progressLabel: z.string().min(1).max(80).optional(),
                 }),
               )
               .max(8)

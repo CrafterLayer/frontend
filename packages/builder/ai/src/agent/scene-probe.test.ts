@@ -189,6 +189,20 @@ describe('sceneProbeIssues', () => {
     );
   });
 
+  it('accepts an intentional narrative runway but still reports real width gaps and crashes', () => {
+    const pinned = frame({
+      region: { ...REGION, height: 2880 },
+      canvas: { rect: REGION, scrollPinned: true },
+    });
+    expect(sceneProbeIssues(probed([pass(pinned)]))).toEqual([]);
+    const narrow = { ...pinned, canvas: { rect: { ...REGION, width: 640 }, scrollPinned: true } };
+    expect(sceneProbeIssues(probed([pass(narrow)]))[0]?.message).toContain('right 50% empty');
+    const broken = { ...pinned, errors: [{ message: 'hero is not defined', line: 5 }] };
+    expect(codes(probed([pass(broken)]))).toContain('scene-runtime');
+    const ordinary = { ...pinned, canvas: { rect: REGION } };
+    expect(sceneProbeIssues(probed([pass(ordinary)]))[0]?.message).toContain('lower 75% empty');
+  });
+
   it('flags controls under the canvas, under something else, or outside the region', () => {
     const controls = frame({
       controls: [

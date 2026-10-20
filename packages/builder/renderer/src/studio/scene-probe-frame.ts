@@ -1,12 +1,8 @@
 /**
  * Inside the preview document: the scene probe (creative-power Phase 2 E, 2026-10-12).
  *
- * `buildStudioPreviewHtml({ probe })` hands this to the bridge, which calls it once the region
- * is mounted. It waits for the region's canvas (when the code opens a stage), lets the scene run
- * `settleMs`, then measures what a visitor would meet — the region's and canvas's boxes, the
- * controls outside the region or under something, sideways overflow, a near-uniform (blank)
- * canvas, the frame rate and every error so far — optionally clicks the first visible
- * Start/Next/Play control once, and posts ONE `ck-preview:probe` {report} by `deadline`.
+ * After mounting, waits for the canvas and settleMs, measures geometry/pixels/errors and
+ * optionally clicks Start/Next/Play. Posts ONE `ck-preview:probe` {report} by `deadline`.
  *
  * Serialised with `Function.prototype.toString` like the bridge: self-contained (named function
  * expressions, no module-scope reference, no spread). Never throws into the page. With `thumbnail`
@@ -347,7 +343,12 @@ export function studioSceneProbe(
         canvas:
           canvas === null || canvasBox === null
             ? null
-            : { rect: canvasBox, width: canvas.width, height: canvas.height },
+            : {
+                rect: canvasBox,
+                width: canvas.width,
+                height: canvas.height,
+                scrollPinned: canvas.getAttribute('data-ck-scroll-pinned') === 'true',
+              },
         covers:
           regionBox === null || canvasBox === null
             ? null

@@ -4,6 +4,23 @@
 
 ## Summary
 
+Current implementation:
+[professional reports and chart capabilities](report-capabilities-2026-10-20.md). Extend bounded SVG
+chart contracts, Key Stats and deterministic agent tools without a new runtime.
+
+Current implementation: [second-prompt execution and reports](second-prompt-reports-2026-10-20.md).
+Repair request ownership, truthful continuation history and deterministic analytical correctness.
+
+Current continuation plan: [creative follow-up edits](creative-followup-2026-10-20.md). Trace and
+repair existing-target routing, complete source context and non-destructive application.
+
+Current follow-up plan: [scroll murals and creative build gaps](mural-scroll-2026-10-20.md).
+Runtime-owned scrolling/layout and generation guidance are verified together; prior fixes remain.
+
+Current bounded incident plan: [creative agent reliability](reliability-2026-10-20.md). It preserves
+kernel-only writes and native independent review, and distinguishes local reproduction from the
+unobserved failure on the user's other device.
+
 Current speed implementation and verification scope:
 [scene initialization and server latency](scene-speed-2026-10-13.md).
 

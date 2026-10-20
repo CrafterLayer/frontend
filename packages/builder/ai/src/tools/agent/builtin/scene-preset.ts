@@ -44,6 +44,7 @@ import {
   kitValues,
   metaOf,
   note,
+  retuneSameScene,
   storedParams,
   title,
   type ScenePlacement,
@@ -63,8 +64,8 @@ export type { ScenePlacement, ScenePresetInput } from './scene-preset-region';
  * dialogue) that the kit carries per page language, with its css. A kit lands as its own
  * section in the page's language — on an Arabic page the Arabic tree, and the Arabic values of
  * its word params (the quiz's questions) stored as jsParams — and `id` swaps a region's scene for
- * a kit together with its tree and css (or only its code and params when that region already
- * holds the same kit, so edited words stay). `behind` / `into` are refused for a kit: its
+ * a kit together with its tree and css (or only the requested params when that region already
+ * holds the same kit, preserving authored changes). `behind` / `into` are refused for a kit: its
  * controls cannot live inside another section's content.
  *
  * The preset lands as a customCode region's page code: `js` is its code as catalogued, `jsMeta`
@@ -354,6 +355,8 @@ function sceneInRegion(
   const label = `${isArabicLocale(context) ? 'مشهد' : 'Scene'} · ${title(context, preset)}`;
   const current = context.readProp(id, 'js');
   const running = typeof current === 'string' && current.trim() !== '';
+  const retuned = retuneSameScene(input, context, id, declared);
+  if (retuned !== undefined) return retuned;
   if (running && key !== 'id' && !OPENS_STAGE.test(current)) {
     return {
       ok: false,

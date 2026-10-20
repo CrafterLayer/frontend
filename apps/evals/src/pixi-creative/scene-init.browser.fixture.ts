@@ -14,7 +14,10 @@ export interface InitializedSceneFixture {
 }
 
 /** One marker answer, validated plan, and real locally completed tree/CSS/code/settings. */
-export function initializedScene(dir: 'ltr' | 'rtl'): InitializedSceneFixture {
+export function initializedScene(
+  dir: 'ltr' | 'rtl',
+  preset: 'aurora-curtains' | 'arcade' | 'picture-book' = 'aurora-curtains',
+): InitializedSceneFixture {
   const rtl = dir === 'rtl';
   const title = rtl ? 'أضواء في السماء' : 'Lights across the sky';
   const action = rtl ? 'شاهد التفاصيل' : 'View details';
@@ -70,18 +73,21 @@ export function initializedScene(dir: 'ltr' | 'rtl'): InitializedSceneFixture {
   const section = result.plan.sections[0];
   if (section === undefined) throw new Error('Validated fixture has no hero.');
   const markerAnswer: AiPlan = {
-    rationale: 'Ready aurora initialization',
-    commands: [
-      { command: 'setProp', args: { id: 'kit', key: 'js', value: '@preset:aurora-curtains' } },
-    ],
+    rationale: 'Ready scene initialization',
+    commands:
+      preset === 'aurora-curtains'
+        ? [{ command: 'setProp', args: { id: 'kit', key: 'js', value: `@preset:${preset}` } }]
+        : [{ command: 'tool', args: { name: 'scene.preset', input: { preset } } }],
   };
-  const answer = completeReadyScene(result.plan, section, 'kit', markerAnswer, [
-    'tree',
-    'css',
-    'js',
-    'jsMeta',
-    'jsParams',
-  ]);
+  const answer = completeReadyScene(
+    result.plan,
+    section,
+    'kit',
+    markerAnswer,
+    ['tree', 'css', 'js', 'jsMeta', 'jsParams'],
+    '',
+    preset !== 'aurora-curtains',
+  );
   const values = Object.fromEntries(
     answer.commands.map(({ args }) => {
       if (typeof args !== 'object' || args === null || Array.isArray(args)) {
@@ -109,8 +115,8 @@ export function initializedScene(dir: 'ltr' | 'rtl'): InitializedSceneFixture {
   const params = values['jsParams'] as Record<string, unknown>;
   return {
     kit: {
-      id: 'aurora-curtains',
-      category: 'mural',
+      id: preset,
+      category: preset === 'aurora-curtains' ? 'mural' : preset === 'arcade' ? 'game' : 'story',
       code: values['js'],
       params: [],
       region: { tree: { en: tree, ar: tree }, css: regionCss, params: { en: params, ar: params } },

@@ -99,6 +99,8 @@ function classOfStatus(status: number): 'busy' | 'timeout' | 'unreachable' | 'un
  */
 function classOfCode(failure: RunFailureEvidence): ErrorClass | null {
   switch (failure.code) {
+    case 'stale-source':
+      return 'sourceChanged';
     case 'timeout':
       return 'timeout';
     case 'network':
@@ -134,6 +136,8 @@ function classOfMessage(message: string): ErrorClass | null {
 /** A whole-run class a section can wear; `tooLarge` and `offline` never describe one section. */
 function asSectionClass(errorClass: ErrorClass | null): FailureClass | null {
   switch (errorClass) {
+    case 'sourceChanged':
+      return 'pageChanged';
     case 'timeout':
     case 'invalid':
     case 'unreachable':

@@ -68,11 +68,11 @@ export function sharedUnit(grid: DataGrid, column: number): Unit {
     const number = readNumber(cell);
     return number === undefined ? [] : [number];
   });
-  const prefixes = new Set(read.map((number) => number.prefix));
-  const suffixes = new Set(read.map((number) => number.suffix));
+  const prefixes = new Set(read.map((number) => number.prefix.trim()));
+  const suffixes = new Set(read.map((number) => number.suffix.trim()));
   return {
-    prefix: prefixes.size === 1 ? ([...prefixes][0] ?? '') : '',
-    suffix: suffixes.size === 1 ? ([...suffixes][0] ?? '') : '',
+    prefix: prefixes.size === 1 ? (read[0]?.prefix ?? '') : '',
+    suffix: suffixes.size === 1 ? (read[0]?.suffix ?? '') : '',
   };
 }
 
@@ -153,6 +153,18 @@ export function profileGrid(grid: DataGrid, options: ProfileOptions = {}): GridP
       if (!picked.includes(index)) picked.push(index);
     }
     measures = picked;
+  }
+  for (const column of measures) {
+    const units = new Set(
+      cellsOf(grid, column).flatMap((cell) => {
+        const value = readNumber(cell);
+        return value === undefined
+          ? []
+          : [JSON.stringify([value.prefix.trim(), value.suffix.trim()])];
+      }),
+    );
+    if (units.size > 1)
+      return `"${grid.header[column] ?? ''}" contains mixed units; convert every value to one unit before analysis.`;
   }
   const groups = dimensions.filter((column) => column.repeated).map(({ index }) => index);
   const periodRepeats = period !== undefined && (columns[period]?.repeated ?? false);

@@ -47,6 +47,8 @@ export interface SceneProbeFrameReport {
     readonly rect: SceneProbeRect;
     readonly width: number;
     readonly height: number;
+    /** Runtime narrative canvas; extra region height is its intentional scroll span. */
+    readonly scrollPinned?: boolean;
   } | null;
   /** The canvas covers the region (2 px tolerance); null without both. */
   readonly covers: boolean | null;

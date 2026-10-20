@@ -6,6 +6,22 @@
 
 **Status**: Approved for implementation
 
+Current continuation:
+[professional reports and chart capabilities](report-capabilities-2026-10-20.md), authorized by the
+user's request; RP1–RP7 applies to T303–T309.
+
+Current continuation: [second-prompt execution and reports](second-prompt-reports-2026-10-20.md),
+authorized by the user's follow-up; Q1–Q5 applies to T298–T302.
+
+Current continuation: [editing existing creative artifacts](creative-followup-2026-10-20.md),
+authorized by the user's follow-up; F1–F5 applies to T293–T297.
+
+Current follow-up: [scroll mural visibility and creative build gaps](mural-scroll-2026-10-20.md),
+authorized by the user's new report; S1–S5 applies to T288–T292.
+
+Current incident continuation: [creative agent reliability, 2026-10-20](reliability-2026-10-20.md),
+authorized by the user's request; acceptance R1–R5 applies to T282–T287.
+
 Current scoped speed increment: [scene initialization and server latency](scene-speed-2026-10-13.md)
 (SP-001..004), authorized by the user's 2026-10-13 request. Authorized continuation:
 [deadline/CLI reliability and published marketing styles](scene-speed-2026-10-13.md#authorized-reliability-and-visual-follow-up--2026-10-13)

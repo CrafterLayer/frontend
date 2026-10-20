@@ -68,7 +68,15 @@ import {
   type IntentToken,
 } from './intent-tokens';
 import { normalizeIntentText } from './normalize-arabic';
-import { creativeCreationObject, targetsExistingCreativeObject } from './creative-creation';
+import {
+  creativeCreationObject,
+  creativeObjectKind,
+  namesNewCreativeObject,
+  targetsExistingCreativeObject,
+  type CreativeCreationKind,
+} from './creative-creation';
+import type { IntentRoute, RouteIntentInput } from './route-types';
+export type { IntentDocumentSummary, IntentRoute, RouteIntentInput } from './route-types';
 import { canvasOf, CONFIDENCE, ownable, route } from './routing-decision';
 
 /**
@@ -134,38 +142,6 @@ export type IntentKind = (typeof INTENT_KINDS)[number];
  */
 export type IntentTarget = 'new-page' | 'replace' | 'append';
 
-/** The three facts about a page the router reads (see `summarizeDocumentForIntent`). */
-export interface IntentDocumentSummary {
-  /** Nodes under the root, the root itself excluded. Zero is an empty page. */
-  readonly nodeCount: number;
-  /** Every node is an unfilled build placeholder: nothing a person would keep. */
-  readonly placeholderOnly: boolean;
-  /** The top-level sections' names, in page order. */
-  readonly sectionLabels: readonly string[];
-}
-
-export interface RouteIntentInput {
-  /** What the person typed, as typed. */
-  readonly request: string;
-  /**
-   * The page the request is about. Absent means UNKNOWN, and unknown is read
-   * as a page with content — the reading that never turns an edit into a build.
-   */
-  readonly document?: IntentDocumentSummary;
-  /** Blocks the person pointed at (canvas selection or @mentions), the page root excluded. */
-  readonly selection?: readonly string[];
-}
-
-export interface IntentRoute {
-  readonly kind: IntentKind;
-  /** 0–1: how explicitly the words asked for this. Below ~0.6, confirm before acting. */
-  readonly confidence: number;
-  /** Which rule decided, in words, for logs and tests. Not written for the person. */
-  readonly reason: string;
-  /** Present for a build or a section; absent for an edit or a question. */
-  readonly target?: IntentTarget;
-}
-
 /** Whether the route takes a build — a page or a site — rather than one ordinary run. */
 export function isBuildIntent(route: IntentRoute): boolean {
   return route.kind === 'build-page' || route.kind === 'build-site';
@@ -189,19 +165,21 @@ export function routeIntent(input: RouteIntentInput): IntentRoute {
     : askedOfTheAssistant(routed, opened.tokens, opened.ability);
 }
 
-/** Explicit creative creation grammar shared with execution outcome checks. */
-export function creativeCreationRequest(request: string): boolean {
+/** Explicit creative creation grammar shared with skill selection and outcome checks. */
+export function creativeCreationKind(request: string): CreativeCreationKind | undefined {
   const folded = normalizeIntentText(request);
   const opened = stripOpeners(tokenize(folded));
   const decided = routeIntent({
     request,
     document: { nodeCount: 0, placeholderOnly: false, sectionLabels: [] },
   });
-  return (
-    decided.kind === 'build-page' &&
-    readSignals(opened.tokens, folded, []).createScene !== undefined
-  );
+  return decided.kind === 'build-page'
+    ? creativeObjectKind(readSignals(opened.tokens, folded, []).createScene)
+    : undefined;
 }
+
+export const creativeCreationRequest = (request: string): boolean =>
+  creativeCreationKind(request) !== undefined;
 
 /**
  * A build asked for as a question of ABILITY — "can you…", «هل يمكنك…», «هل
@@ -1265,7 +1243,11 @@ function readSignals(
     ...(newPage === undefined ? {} : { newPage }),
     ...(createPage === undefined ? {} : { createPage }),
     ...(createScene === undefined ? {} : { createScene }),
-    ...(first?.kind === 'add' && createScene !== undefined ? { addScene: createScene } : {}),
+    ...(first !== undefined &&
+    (first.kind === 'add' || namesNewCreativeObject(tokens, first)) &&
+    createScene !== undefined
+      ? { addScene: createScene }
+      : {}),
     ...(definitePage === undefined ? {} : { definitePage }),
     ...(nounPhrase === undefined ? {} : { nounPhrase }),
     ...(partPhrase === undefined ? {} : { partPhrase }),

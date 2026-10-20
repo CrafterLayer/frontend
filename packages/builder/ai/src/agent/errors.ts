@@ -34,6 +34,15 @@ export interface AiRunFailure {
   readonly status?: number;
 }
 
+/** A compact second proposal can repair invalid output, but cannot fix access or refusal. */
+export function isTerminalProviderFailure(failure: AiRunFailure): boolean {
+  return (
+    failure.source === 'provider' &&
+    !failure.retryable &&
+    ['http-status', 'endpoint-policy', 'refusal', 'cancelled'].includes(failure.code)
+  );
+}
+
 function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
@@ -98,10 +107,10 @@ export function classifyAiRunFailure(cause: unknown): AiRunFailure {
   }
   if (cause instanceof AiValidatedProposalError) {
     return failure({
-      source: 'policy',
+      source: cause.code === 'stale-source' ? 'context' : 'policy',
       code: cause.code,
       message: cause.message,
-      retryable: false,
+      retryable: cause.code === 'stale-source',
     });
   }
   if (cause instanceof AiPlanRejectedError) {

@@ -49,9 +49,9 @@ of commands bypasses the invariant this package exists to preserve.
   failures, injected time/run id, real cancellation plus host-owned supersession leases, one repair
   at most, review-only or automatic apply, and exactly one terminal event.
 - `runAiBuild()`, the split-page coordinator: one scaffold followed by section fills that are
-  written concurrently and landed in document order. Its automatic pool starts at three writers,
-  grows by one for each further group of three sections, and stops at six; callers may still pass
-  `fillConcurrency` for an exact fixed pool.
+  written concurrently and landed serially as ready, with reports in document order. Its automatic
+  pool starts at three writers, grows by one for each further group of three sections, and stops at
+  six; callers may still pass `fillConcurrency` for an exact fixed pool.
 
 ## Usage
 
@@ -150,6 +150,27 @@ alone are refused through the existing single repair round. The check rehearses 
 document without changing it; it accepts a drawn scene with a host, a closed scene layer or an SVG
 illustration. It preserves bespoke briefs and ordinary language/style edits. Runtime pixel quality
 remains the scene probe's responsibility.
+
+Follow-up additions inside an existing mural, story or game use the edit route. The writer receives
+the target's full current source and preservation instructions; an edit with missing scene source
+does not receive the new-mural starter catalog. Retuning the same `scene.preset` changes only the
+requested parameters, preserving authored code, markup, styles and other settings. Explicitly
+choosing a different preset still replaces the scene.
+
+The Playground controller keeps a grounded successful target after deselection and records inferred
+ownership with the sent request, including queued requests and Retry. Explicit selection or an
+authored target name wins. Multiple plausible scenes ask for selection locally; a missing prior
+target does not silently widen a Retry to the whole page. This deterministic continuity is separate
+from the model's ability to implement a requested artistic change. Edit/proposal records also retain
+their originating runtime kernel: follow-up, Retry, Apply and Preview cannot infer page identity
+from a shared site transaction log or a reused node ID.
+
+Authenticated proposals also compare the existing region properties they will overwrite against the
+original writer context immediately before application. A conflict raises `stale-source` and keeps
+the newer user edits; Retry generates against the current content. Unrelated properties and sibling
+edits remain allowed. This guard covers current-page `customCode` source; the explicit
+`plan + policy` compatibility API and foreign script pages without captured source keep their
+existing contracts.
 
 Measure local initialization and compact payload size without a model call or listener:
 

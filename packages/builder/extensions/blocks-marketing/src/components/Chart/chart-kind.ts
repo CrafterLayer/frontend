@@ -14,7 +14,15 @@ export const RADAR_MAX = 12;
 export const MAX_GAUGES = 6;
 
 /** Drawn from the first series only: its values are the slices, stages or dials. */
-const FIRST_SERIES_ONLY: ReadonlySet<ChartKind> = new Set(['pie', 'donut', 'funnel', 'gauge']);
+const FIRST_SERIES_ONLY: ReadonlySet<ChartKind> = new Set([
+  'pie',
+  'donut',
+  'funnel',
+  'gauge',
+  'waterfall',
+  'treemap',
+  'histogram',
+]);
 
 /**
  * The type actually drawn. A radar outside three to twelve categories draws as
@@ -37,7 +45,11 @@ export function hasSeriesLegend(
   props: Pick<ChartProps, 'showLegend' | 'series'>,
 ): boolean {
   return (
-    props.showLegend && props.series.length > 1 && !firstSeriesOnly(kind) && kind !== 'sparkline'
+    props.showLegend &&
+    props.series.length > 1 &&
+    !firstSeriesOnly(kind) &&
+    kind !== 'sparkline' &&
+    kind !== 'heatmap'
   );
 }
 

@@ -14,6 +14,7 @@ import {
 import { sectionSpacingGroups, sectionSpacingProps } from '../section-spacing';
 import { sectionTypographyGroups, sectionTypographyProps } from '../section-typography';
 import { chartExamples } from './examples';
+import { advancedChartTypes } from './advanced-contract';
 
 export const chartTypes = [
   'bar',
@@ -29,6 +30,7 @@ export const chartTypes = [
   'funnel',
   'gauge',
   'sparkline',
+  ...advancedChartTypes,
 ] as const;
 /*
   Colour schemes, never colours: each names an ordered set of theme roles
@@ -48,7 +50,7 @@ const defaultSeries = [
 export const chartSchema = defineBlockSchema({
   type: 'chart',
   description:
-    'An accessible SVG chart with no script. `chartType`: bar, hbar (long labels), line, area, combo (first series as bars, the rest as lines), scatter (numeric categories are the x), radar (3-12 categories), funnel, gauge (each value against `maxValue`, optional `targetValue`), sparkline, pie or donut. `categories` label the x axis (or slices, stages, spokes); each of up to six `series` has a name and one number per category. Stacked bars and areas, legend, gridlines, value labels, `valuePrefix`/`valueSuffix` ($, %), theme palettes and a screen-reader table. Pie, donut, funnel and gauge plot the first series.',
+    'Accessible, script-free SVG charts: bar, hbar, line, area, combo (first series bars, rest lines), scatter (numeric X categories), radar (3–12 categories), funnel, gauge (maxValue/targetValue), sparkline, pie, donut, waterfall (first series signed increments), heatmap (series × categories matrix), treemap (first series nonnegative flat weights), histogram (first series precomputed bin counts), bubble (numeric X categories; Y then nonnegative Size series), boxplot (Min, Q1, Median, Q3, Max series), candlestick (Open, High, Low, Close series), lollipop (one signed series), bullet (nonnegative Actual then Target series). At most 24 categories and six series, one finite number per category. Specialized data must match its contract; incompatible data shows an explanation. Theme palettes, optional legend/grid/value labels and a screen-reader table. valuePrefix/valueSuffix apply to Y only for bubble; histogram counts are unitless. Pie, donut, funnel, gauge, waterfall, treemap and histogram use the first series.',
   surfaces: ['site', 'store', 'docs'],
   props: z.object({
     title: z.string().min(1).max(90).optional(),

@@ -93,14 +93,17 @@ function isPending(issues: WrittenIssues): issues is Promise<readonly SectionChe
 
 /** A check that throws or rejects found nothing: the checker never costs a section. */
 export function checkedIssues(
-  job: { readonly check?: ((landed: LandedSection) => WrittenIssues) | undefined },
+  job: {
+    readonly check?: ((landed: LandedSection, signal?: AbortSignal) => WrittenIssues) | undefined;
+  },
   landed: LandedSection,
+  signal?: AbortSignal,
 ): WrittenIssues {
   const { check } = job;
   if (check === undefined) return [];
   let found: WrittenIssues;
   try {
-    found = check(landed);
+    found = check(landed, signal);
   } catch {
     return [];
   }
@@ -134,7 +137,7 @@ export function checkWritten(
   const look = claimSceneReview(host, contract.key) && testedScenePreset(section) === undefined;
   if (scene.length > 0) return found;
   const { lang, dir } = plan.locale;
-  const signal = host === undefined ? options.signal : host.signal;
+  const signal = options.signal ?? host?.signal;
   const context: SceneProbeContext = {
     lang,
     dir,
@@ -144,7 +147,13 @@ export function checkWritten(
   return sceneProbeRun(probe, section, context).then(async ({ issues: ran, report }) => {
     const seen =
       look && host !== undefined
-        ? await sceneReviewFindings(host, plan, contract, report, section)
+        ? await sceneReviewFindings(
+            signal === undefined ? host : { ...host, signal },
+            plan,
+            contract,
+            report,
+            section,
+          )
         : [];
     return [...found, ...ran, ...seen];
   });

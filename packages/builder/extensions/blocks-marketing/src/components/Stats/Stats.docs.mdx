@@ -17,8 +17,21 @@ tabular comparisons.
 
 - `eyebrow`, `heading`, and `body` provide a complete default introduction. Omitting a value uses
   the professional default copy.
-- `items` accepts up to eight `{ value, label, detail? }` entries and defaults to four complete
-  metrics. Values are strings so localized numerals, units, multipliers, and words remain valid.
+- `items` accepts up to eight
+  `{ value, label, detail?, change?, sentiment?, trend?, progress?, progressLabel? }` entries and
+  defaults to four complete metrics. Values are strings so localized numerals, units, multipliers,
+  and words remain valid.
+- `change` is explicit comparison text (up to 40 characters), such as `+12% vs May` or
+  `−0.8 days vs previous sprint`. `sentiment` is `positive`, `negative` or `neutral`; favorable
+  changes may decrease (cost or cycle time), so sentiment never guesses the numerical direction.
+- `trend` contains at most 24 finite source observations. Two or more render a compact accessible
+  sparkline; its minimum/maximum are local to the card. Do not mix units or invent missing values.
+- `progress` is the bounded 0–100 bar position. `progressLabel` is the complete visible and
+  accessible caption, for example `80% of the $150k monthly target` or `130% of target`. When
+  supplied, it replaces the numeric caption; this prevents a capped bar from also claiming "100%"
+  beside an actual 130% result. Without a caption, the bar's percentage is printed. Callers compute
+  and explain any uncapped actual/target ratio; Report KPI targets can compute this from source data
+  and preserve the actual target threshold.
 - `variant = 'cards'` also supports `minimal` and `contrast`.
 - `columns = 'auto'` also supports two, three, or four requested columns.
 - `headerLayout = 'split'` places supporting copy opposite the title in wide containers; `stacked`
@@ -30,7 +43,10 @@ tabular comparisons.
 
 The visible `h2` labels the section. Metrics use a description list with each label represented by
 `dt` and its value and optional detail represented by `dd`, preserving the relationship for screen
-readers. The visual order emphasizes values while source order begins with each label.
+readers. Comparison badges include a distinct symbol with an accessible sentiment name; color is
+supplemental. Progress has an accessible target label and numeric value. Trends expose every source
+observation in their SVG description. The visual order emphasizes values while source order begins
+with each label.
 
 ## Responsive, RTL, and content guidance
 
@@ -59,13 +75,27 @@ per part through `partStyles` (a part's name styles every instance; `name@2` sty
 and wins), and addressable by the agent by name, alias or label. Text and link parts carry
 `dir="auto"`, so an English line on an Arabic page keeps its full stop at the end.
 
-| name          | kind | bind             | label (en / ar)              |
-| ------------- | ---- | ---------------- | ---------------------------- |
-| `eyebrow`     | text | `eyebrow`        | Eyebrow / الشارة             |
-| `heading`     | text | `heading`        | Heading / العنوان            |
-| `body`        | text | `body`           | Body / الوصف (multiline)     |
-| `items`       | list | `items`          | Metrics / المؤشرات           |
-| `item`        | item | `items.*`        | Metric / المؤشر              |
-| `item.value`  | text | `items.*.value`  | Metric value / قيمة المؤشر   |
-| `item.label`  | text | `items.*.label`  | Metric label / اسم المؤشر    |
-| `item.detail` | text | `items.*.detail` | Metric detail / تفصيل المؤشر |
+| name                 | kind | bind                    | label (en / ar)                   |
+| -------------------- | ---- | ----------------------- | --------------------------------- |
+| `eyebrow`            | text | `eyebrow`               | Eyebrow / الشارة                  |
+| `heading`            | text | `heading`               | Heading / العنوان                 |
+| `body`               | text | `body`                  | Body / الوصف (multiline)          |
+| `items`              | list | `items`                 | Metrics / المؤشرات                |
+| `item`               | item | `items.*`               | Metric / المؤشر                   |
+| `item.value`         | text | `items.*.value`         | Metric value / قيمة المؤشر        |
+| `item.label`         | text | `items.*.label`         | Metric label / اسم المؤشر         |
+| `item.detail`        | text | `items.*.detail`        | Metric detail / تفصيل المؤشر      |
+| `item.change`        | text | `items.*.change`        | Metric comparison / مقارنة المؤشر |
+| `item.progressLabel` | text | `items.*.progressLabel` | Progress label / تسمية التقدم     |
+
+## Professional examples
+
+The Finance story combines revenue, operating costs and margin; the Project Delivery story pairs
+completed milestones with cycle time and blockers. Marketing Mobile RTL shows Arabic conversion
+rates and lead targets at a 390px width. All sample figures are illustrative. Comparisons, goals and
+source periods must be supplied or computed from actual user data by the caller. Old documents
+without the optional fields keep their existing presentation.
+
+<Canvas of={StatsStories.FinancialKeyStats} />
+<Canvas of={StatsStories.ProjectDelivery} />
+<Canvas of={StatsStories.MarketingMobileRtl} />

@@ -283,7 +283,7 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     expect(menu?.check).toEqual({ issues: [], repaired: false });
   });
 
-  it('keeps the first checked scene when its repair ignores cancellation and never applies a late repair', async () => {
+  it('shares the writing deadline with repair, keeps the first scene, and rejects a late repair', async () => {
     vi.useFakeTimers();
     const script = scripted('hero', BROKEN, FIXED);
     const stop = new AbortController();
@@ -299,6 +299,11 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
       ...options(script, 'Build a website with a playable 2d game with stars'),
       provider: {
         ...script.provider,
+        propose: async (request, context, live) => {
+          if (request.includes('ROLE: HERO'))
+            await new Promise((resolve) => setTimeout(resolve, 40));
+          return script.provider.propose(request, context, live);
+        },
         repair: (request, _context, _plan, _issues, live) => {
           repairCalls += 1;
           repairSignal = live?.signal;
@@ -324,7 +329,7 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     });
 
     try {
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(51);
       expect(repairSignal?.aborted).toBe(true);
       expect(completed).toBe(true);
       const result = await done;
@@ -352,6 +357,34 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
       await vi.advanceTimersByTimeAsync(0);
       await done;
     }
+  });
+
+  it('cancels a stalled scene probe within the attempt budget and keeps validated work', async () => {
+    vi.useFakeTimers();
+    const script = scripted('hero', FIXED);
+    let probeSignal: AbortSignal | undefined;
+    const build = {
+      ...options(script, 'Build a website with a playable 2d game with stars'),
+      taskTimeoutMs: 50,
+      sceneProbe: (_section: unknown, context: { signal?: AbortSignal }) => {
+        probeSignal = context.signal;
+        return new Promise<never>(() => undefined);
+      },
+    };
+    let completed = false;
+    const done = runAiBuild(build).then((result) => {
+      completed = true;
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(51);
+    expect(completed).toBe(true);
+    expect(probeSignal?.aborted).toBe(true);
+    const result = await done;
+    const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+    expect(hero?.status).toBe('applied');
+    expect(hero?.check).toBeUndefined();
+    expect(build.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(FIXED);
+    expect(script.repairs).toEqual([]);
   });
 
   it('repairs a slip code can fix before the check: no repair round, the repaired scene lands', async () => {

@@ -108,7 +108,7 @@ function play(stillAt,ambient){
   s.tick(function(time){
     if(!still){
       if(p.scrub){
-        sp+=(s.scroll.progress-sp)*Math.min(1,time.dt*5);tl.progress(sp);
+        const target=s.scroll.progress;sp=target===0||target===1?target:sp+(target-sp)*Math.min(1,time.dt*5);tl.progress(sp);
         go+=(Math.min(1,Math.abs(s.scroll.velocity)*6)-go)*Math.min(1,time.dt*4);
         for(const r of rigs)r.speed=r.pace*go;
       }

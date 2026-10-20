@@ -362,3 +362,20 @@ export const ArabicSparklines: Story = {
     await expect(canvasElement.querySelector('[data-chart-axis]')).toBeNull();
   },
 };
+
+export const BusinessCashWaterfall: Story = {
+  args: { node, props: typeProps('waterfall'), slots: {}, data: {}, isCanvas: false },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('[data-chart-mark="waterfall"]')).toHaveLength(5);
+    await expect(within(canvasElement).getByRole('table')).toBeInTheDocument();
+  },
+};
+
+export const TeamDeliveryHeatmap: Story = {
+  globals: { direction: 'rtl' },
+  args: { node, props: typeProps('heatmap'), slots: {}, data: {}, isCanvas: false },
+};
+
+export const MarketingCampaignBubbles: Story = {
+  args: { node, props: typeProps('bubble'), slots: {}, data: {}, isCanvas: false },
+};

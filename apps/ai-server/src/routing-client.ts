@@ -1,12 +1,13 @@
 import type Anthropic from '@anthropic-ai/sdk';
+import { CODEX_DEFAULT_MODEL, CodexBackendError } from './codex-config';
 
 /**
- * The hybrid: one picker, two backends.
+ * The hybrid: one picker, explicit provider routes.
  *
  * A slug that starts with `cli:` is the person's own Claude subscription,
- * reached through the local `claude` CLI (`cli-client.ts`); every other slug
- * is OpenRouter. Both sit behind the same `client.messages.stream` seam, so
- * `claude.ts` and `handler.ts` do not know there are two.
+ * reached through the local `claude` CLI; `codex:` uses the Codex subscription
+ * and `api:` uses Anthropic's API. Every other slug is OpenRouter. All sit
+ * behind the same `client.messages.stream` seam.
  *
  * Optionally, when a free OpenRouter model is overloaded (429) or the wire to
  * it breaks (502), the same request is handed to a `cli:` fallback — and it
@@ -31,6 +32,14 @@ export function isApiModel(slug: string): boolean {
   return slug.startsWith(API_MODEL_PREFIX);
 }
 
+export function isCodexModel(slug: string): boolean {
+  return slug.startsWith('codex:');
+}
+
+export function isLocalModel(slug: string): boolean {
+  return isCliModel(slug) || isApiModel(slug) || isCodexModel(slug);
+}
+
 /**
  * The request as the Messages API will take it. The plan schemas are open where
  * kits differ (a brief's `slots`) and carry more optional fields than the API's
@@ -41,8 +50,7 @@ export function isApiModel(slug: string): boolean {
  */
 export function apiParams(params: Record<string, unknown>, model: string): Record<string, unknown> {
   const outputConfig = params['output_config'] as
-    | { format?: { schema?: unknown }; [key: string]: unknown }
-    | undefined;
+    { format?: { schema?: unknown }; [key: string]: unknown } | undefined;
   const schema = outputConfig?.format?.schema;
   if (outputConfig === undefined || schema === undefined) return { ...params, model };
   const rest = Object.fromEntries(Object.entries(outputConfig).filter(([key]) => key !== 'format'));
@@ -77,6 +85,8 @@ export interface RoutingClientOptions {
   readonly cli: (model: string | undefined) => Anthropic;
   /** The Messages API client for `api:` slugs. Omitted ⇒ an `api:` request fails naming the missing key. */
   readonly api?: Anthropic;
+  /** One shared Codex client owns the concurrency limit across every codex: model. */
+  readonly codex?: Anthropic;
   /** A `cli:` slug to run instead when OpenRouter fails retryably. Omitted ⇒ no fallback. */
   readonly fallback?: string;
   readonly onLog?: (line: string) => void;
@@ -190,6 +200,16 @@ export function createRoutingClient(options: RoutingClientOptions): Anthropic {
       const model = params.model;
       if (model !== undefined && isCliModel(model)) return runCli(model);
       if (model !== undefined && isApiModel(model)) return runApi(model);
+      if (model !== undefined && isCodexModel(model)) {
+        if (options.codex === undefined)
+          throw new CodexBackendError('The Codex route is not configured.', 503, false);
+        return follow(
+          options.codex.messages.stream(
+            { ...params, model: model.slice('codex:'.length) || CODEX_DEFAULT_MODEL } as never,
+            requestOptions,
+          ) as unknown as StreamLike,
+        );
+      }
 
       const primary = options.openrouter.messages.stream(
         params as never,

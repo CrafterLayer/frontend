@@ -21,7 +21,16 @@ const FULL = {
   heading: 'Results that hold up.',
   body: 'Measured from the first session.',
   items: [
-    { value: '98%', label: 'Retention', detail: 'Across all plans.' },
+    {
+      value: '98%',
+      label: 'Retention',
+      detail: 'Across all plans.',
+      change: '+2%',
+      sentiment: 'positive',
+      trend: [90, 95, 98],
+      progress: 98,
+      progressLabel: 'Retention goal',
+    },
     { value: '2x', label: 'Faster launches' },
   ],
 };
@@ -36,6 +45,8 @@ const EXPECTED_BINDS: Readonly<Record<string, readonly string[]>> = {
   'item.value': ['items.0.value', 'items.1.value'],
   'item.label': ['items.0.label', 'items.1.label'],
   'item.detail': ['items.0.detail'],
+  'item.change': ['items.0.change'],
+  'item.progressLabel': ['items.0.progressLabel'],
 };
 
 /* Every text bind FULL fills. */
@@ -48,6 +59,8 @@ const SWAP_PATHS: readonly string[] = [
   'items.0.label',
   'items.1.label',
   'items.0.detail',
+  'items.0.change',
+  'items.0.progressLabel',
 ];
 
 function renderBlock(

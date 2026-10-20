@@ -55,6 +55,7 @@ export function createPointerTracker(
   win: Window,
   now: () => number = () => Date.now(),
   map: PointerMap = (x, y) => [x, y],
+  bounds: () => Element = () => el,
 ): PointerTracker {
   const downFns: PointerListener[] = [];
   const upFns: PointerListener[] = [];
@@ -64,7 +65,7 @@ export function createPointerTracker(
 
   function box(): { left: number; top: number; width: number; height: number } {
     try {
-      const rect = el.getBoundingClientRect();
+      const rect = bounds().getBoundingClientRect();
       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
     } catch {
       return { left: 0, top: 0, width: 0, height: 0 };
@@ -142,7 +143,8 @@ export function createPointerTracker(
     return touch === undefined ? undefined : { clientX: touch.clientX, clientY: touch.clientY };
   }
 
-  const hasPointerEvents = typeof (win as unknown as { PointerEvent?: unknown }).PointerEvent === 'function';
+  const hasPointerEvents =
+    typeof (win as unknown as { PointerEvent?: unknown }).PointerEvent === 'function';
   if (hasPointerEvents) {
     listen('pointermove', (event) => {
       locate(event as PointerEvent, true);

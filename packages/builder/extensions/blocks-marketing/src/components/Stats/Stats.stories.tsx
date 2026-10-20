@@ -89,3 +89,28 @@ export const Parts: Story = {
     );
   },
 };
+
+export const FinancialKeyStats: Story = {
+  args: { ...Default.args, props: exampleProps(2) },
+};
+
+export const ProjectDelivery: Story = {
+  args: { ...Default.args, props: exampleProps(3) },
+};
+
+export const MarketingMobileRtl: Story = {
+  globals: { direction: 'rtl' },
+  args: { ...Default.args, props: exampleProps(4) },
+  decorators: [
+    (Story) => (
+      <div style={{ inlineSize: 390, maxInlineSize: '100%', marginInline: 'auto' }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole('progressbar', { name: '٩٠٪ من الهدف: ٨٠٠ عميل' }),
+    ).toHaveAttribute('aria-valuenow', '90');
+  },
+};

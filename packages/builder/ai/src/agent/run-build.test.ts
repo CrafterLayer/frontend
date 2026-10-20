@@ -458,9 +458,9 @@ describe('runAiBuild', () => {
     ).toEqual(['build-retry/fill-1/attempt-1', 'build-retry/fill-1-2/attempt-1']);
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
-      'Assistant: 1/3 — Hero',
       'Assistant: 2/3 — Proof',
       'Assistant: 3/3 — Pricing',
+      'Assistant: 1/3 — Hero',
     ]);
 
     /*
@@ -499,7 +499,7 @@ describe('runAiBuild', () => {
       buildEvents(events).flatMap((event) =>
         event.type === 'task.completed' ? [event.position] : [],
       ),
-    ).toEqual([1, 2, 3]);
+    ).toEqual([2, 3, 1]);
   });
 
   it('skips a fill that fails twice, keeps earlier work, and still runs the next section', async () => {
@@ -549,9 +549,8 @@ describe('runAiBuild', () => {
     const own = buildEvents(events);
     /*
       Four starts for three sections (Proof is tried twice), then the three
-      endings IN PAGE ORDER: applied, skipped, applied. A section that gives
-      up does not hold up the ones behind it, and does not jump the queue
-      either — its neighbours still land where they belong.
+      endings as ready. A section that gives up does not hold up its neighbours;
+      their document positions stay unchanged.
     */
     expect(own.map(({ type }) => type)).toEqual([
       'build.scaffolding',
@@ -561,8 +560,8 @@ describe('runAiBuild', () => {
       'task.started',
       'task.started',
       'task.completed',
-      'task.skipped',
       'task.completed',
+      'task.skipped',
       'build.completed',
     ]);
     // Never a question: no event ever asks the caller for a decision.
@@ -661,7 +660,7 @@ describe('runAiBuild', () => {
     expect(own.find((event) => event.type === 'build.stopped')).toMatchObject({ reason: 'signal' });
   });
 
-  it('writes several sections at once and still lands them in page order', async () => {
+  it('writes concurrently and applies ready sections without moving their document positions', async () => {
     const live = kernel();
     let inFlight = 0;
     let peak = 0;
@@ -701,13 +700,14 @@ describe('runAiBuild', () => {
 
     expect(peak).toBe(3);
     expect(result.applied).toBe(3);
-    // Finished writing LAST-first; landed FIRST-last. The page is never out of order.
+    // The transaction log follows completion; the final report follows document order.
     expect(live.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
-      'Assistant: 1/3 — Hero',
-      'Assistant: 2/3 — Proof',
       'Assistant: 3/3 — Pricing',
+      'Assistant: 2/3 — Proof',
+      'Assistant: 1/3 — Hero',
     ]);
+    expect(result.tasks.map(({ title }) => title)).toEqual(['Hero', 'Proof', 'Pricing']);
   });
 
   it('automatically raises the writer pool to four for a four-section build', async () => {

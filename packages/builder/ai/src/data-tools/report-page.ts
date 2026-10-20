@@ -12,7 +12,13 @@ import { ANALYSIS_LIMITS, analyzeGrid, type ReportLang } from './analysis';
 import { readDataInput } from './data-input';
 import { blockTypeWith, placeIndex, propKeys } from './data-place';
 import type { DataGrid } from './data-text';
-import { pageCharts } from './report-page-charts';
+import { pageCharts, selectedPageCharts } from './report-page-charts';
+import { reportPageOptions, type ReportPageOptions } from './report-page-options';
+import {
+  presentationCharts,
+  presentationFindings,
+  reportPresentation,
+} from './report-page-presets';
 import {
   dataTable,
   findingsDoc,
@@ -35,7 +41,7 @@ import { pageWords } from './report-page-words';
  * the end above the footer, or after `after`. report.build stays the one-section report.
  */
 
-export interface ReportPageInput {
+export interface ReportPageInput extends ReportPageOptions {
   readonly grid: DataGrid;
   readonly title?: string | undefined;
   readonly summary?: string | undefined;
@@ -45,7 +51,18 @@ export interface ReportPageInput {
   readonly lang?: ReportLang | undefined;
 }
 
-const KEYS = ['data', 'title', 'summary', 'measures', 'period', 'after', 'lang'] as const;
+const KEYS = [
+  'data',
+  'title',
+  'summary',
+  'measures',
+  'period',
+  'after',
+  'lang',
+  'presentation',
+  'charts',
+  'includeData',
+] as const;
 const MAX_MEASURES = 6;
 /** Rows a table shows per page once it is long enough to page. */
 const PAGE_SIZE = 10;
@@ -92,11 +109,14 @@ function parse(input: unknown): AgentToolParse<ReportPageInput> {
     return no(`"measures" is a list of 1 to ${String(MAX_MEASURES)} column headings.`);
   const lang = input['lang'];
   if (lang !== undefined && lang !== 'en' && lang !== 'ar') return no('"lang" is "en" or "ar".');
+  const options = reportPageOptions(input);
+  if (!options.ok) return options;
   return {
     ok: true,
     value: {
       grid: read.grid,
       ...fields,
+      ...options.value,
       ...(measures === undefined
         ? {}
         : { measures: (measures as string[]).map((name) => name.trim()) }),
@@ -177,7 +197,20 @@ function run(input: ReportPageInput, context: AgentToolContext): AgentToolRun {
     lang,
   });
   if (typeof analysis === 'string') return { ok: false, error: analysis };
+  const presentation = reportPresentation(input.presentation);
+  const findings = presentationFindings(analysis, input.presentation);
+  const plots =
+    input.charts === undefined
+      ? presentationCharts(pageCharts(analysis, words, lang), input.presentation)
+      : selectedPageCharts(input.grid, input.charts, words);
+  if (typeof plots === 'string') return { ok: false, error: plots };
   const chart = blockTypeWith(kernel, 'chart', ['categories', 'series', 'chartType']);
+  if (chart === undefined && input.charts !== undefined && input.charts.length > 0)
+    return {
+      ok: false,
+      error:
+        'this site has no chart block for the requested charts; register one or omit "charts".',
+    };
   const table = tableType(kernel);
   if (chart === undefined && table === undefined)
     return {
@@ -189,8 +222,8 @@ function run(input: ReportPageInput, context: AgentToolContext): AgentToolRun {
   const index = placeIndex(context, input.after);
   if (typeof index === 'string') return { ok: false, error: index };
 
-  const header = headerOf(analysis, words, lang, input.title, input.summary);
-  const cards = kpiCards(analysis, words, lang);
+  const header = headerOf(findings, words, lang, input.title, input.summary);
+  const cards = kpiCards(analysis, words, lang, input.presentation);
   const sections: Section[] = [];
   const tools = words.table;
   if (stats !== undefined) {
@@ -214,36 +247,50 @@ function run(input: ReportPageInput, context: AgentToolContext): AgentToolRun {
     });
   }
   if (chart !== undefined) {
-    for (const section of pageCharts(analysis, words, lang)) {
+    for (const section of plots) {
       const props = lang === 'ar' ? { ...section.props, targetLabel: words.target } : section.props;
       sections.push({ type: chart, name: section.key, props });
     }
   }
-  if (analysis.insights.length > 0 || header.leftover !== undefined) {
+  if (
+    analysis.insights.length > 0 ||
+    analysis.quality.length > 0 ||
+    header.leftover !== undefined
+  ) {
     if (rich !== undefined)
       sections.push({
         type: rich,
         name: 'Findings',
-        props: { content: findingsDoc(analysis, words, lang, header.leftover) },
+        props: { content: findingsDoc(findings, words, lang, header.leftover) },
       });
-    else if (table !== undefined && analysis.insights.length > 0)
+    else if (table !== undefined && (analysis.insights.length > 0 || analysis.quality.length > 0))
       sections.push({
         type: table,
         name: 'Findings',
-        props: tableProps(findingsTable(analysis, words, lang), tools),
+        props: tableProps(findingsTable(findings, words, lang), tools),
       });
   }
+  if (presentation.findingsFirst) {
+    const at = sections.findIndex((section) => section.name === 'Findings');
+    const finding = sections[at];
+    if (finding !== undefined) {
+      sections.splice(at, 1);
+      sections.splice(Math.min(1, sections.length), 0, finding);
+    }
+  }
   if (table !== undefined) {
-    sections.push({
-      type: table,
-      name: 'Summary',
-      props: tableProps(summaryTable(analysis, words, lang), tools),
-    });
-    sections.push({
-      type: table,
-      name: 'Data',
-      props: tableProps(dataTable(analysis, words, lang), tools),
-    });
+    if (presentation.summary)
+      sections.push({
+        type: table,
+        name: 'Summary',
+        props: tableProps(summaryTable(analysis, words, lang), tools),
+      });
+    if (input.includeData ?? presentation.data)
+      sections.push({
+        type: table,
+        name: 'Data',
+        props: tableProps(dataTable(analysis, words, lang), tools),
+      });
   }
   const root = rootIdOf(kernel);
   const steps: AgentToolStep[] = sections.map((section, at) => ({
@@ -257,7 +304,7 @@ function run(input: ReportPageInput, context: AgentToolContext): AgentToolRun {
     title: `Report page · ${section.name}${at === 0 ? ` · ${header.heading}` : ''}`.slice(0, 160),
   }));
   const notes = [
-    `report page · ${String(steps.length)} sections · ${String(analysis.rows)} rows × ${String(analysis.columns)} columns · ${String(analysis.insights.length)} findings`,
+    `report page · ${input.presentation ?? 'analytical'} · ${String(steps.length)} sections · ${String(analysis.rows)} rows × ${String(analysis.columns)} columns · ${String(findings.insights.length)} findings`,
     ...(analysis.totalRows > analysis.rows
       ? [`analysed the first ${String(ANALYSIS_LIMITS.rows)} of ${String(analysis.totalRows)} rows`]
       : []),
@@ -269,7 +316,8 @@ export const reportPageTool = defineAgentTool<ReportPageInput>({
   name: 'report.page',
   lanes: ['edit', 'build'],
   summary: 'Rows as a computed, detailed report page',
-  signature: '{data,title?,summary?,measures?:[column],period?:column,after?,lang?:en|ar}',
+  signature:
+    '{data,title?,summary?,measures?,period?,presentation?,charts?:[{as,columns?,title?}],includeData?,after?,lang?}',
   parse,
   run,
 });

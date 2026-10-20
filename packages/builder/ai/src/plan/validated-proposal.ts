@@ -1,4 +1,5 @@
 import { canonicalJsonStringify } from '../internal/canonical-json';
+import type { BuilderDocument } from '@craftkit/builder-schema';
 import {
   DEFAULT_AI_MAX_OPERATIONS,
   type AiEffectiveCommandPolicy,
@@ -6,14 +7,20 @@ import {
 } from '../skills';
 import { sha256Hex } from '../skills/sha256';
 import type { AiPlan, AssembledAiContext } from '../types';
+import {
+  captureCreativeSource,
+  creativeSourceConflict,
+  type CreativeSourceGuard,
+} from './creative-source-guard';
 
-const authenticatedProposals = new WeakSet<object>();
+const authenticatedProposals = new WeakMap<object, CreativeSourceGuard>();
 
 export type AiValidatedProposalErrorCode =
   | 'ambiguous-authority'
   | 'invalid-policy'
   | 'missing-authority'
   | 'proposal-integrity-mismatch'
+  | 'stale-source'
   | 'unauthenticated-proposal';
 
 export class AiValidatedProposalError extends Error {
@@ -169,7 +176,7 @@ export function createAiValidatedProposal(
     ...payload,
     proposalFingerprint: proposalFingerprint(payload),
   });
-  authenticatedProposals.add(proposal);
+  authenticatedProposals.set(proposal, captureCreativeSource(plan, options.context));
   return proposal;
 }
 
@@ -188,6 +195,21 @@ export function assertAuthenticatedAiValidatedProposal(
     return fail(
       'proposal-integrity-mismatch',
       'The AI validated proposal no longer matches its authenticated fingerprint.',
+    );
+  }
+}
+
+/** @internal Check the original writer source immediately before the live mutation. */
+export function assertAiProposalSourceCurrent(
+  proposal: AiValidatedProposal,
+  document: BuilderDocument,
+): void {
+  assertAuthenticatedAiValidatedProposal(proposal);
+  const conflict = creativeSourceConflict(authenticatedProposals.get(proposal) ?? [], document);
+  if (conflict !== undefined) {
+    fail(
+      'stale-source',
+      `The existing content in "${conflict.id}" changed after this edit was prepared. Your newer changes were kept; retry against the current content.`,
     );
   }
 }

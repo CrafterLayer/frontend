@@ -75,7 +75,9 @@ describe('report.page', () => {
       expect(prompt.length).toBeLessThanOrEqual(agentToolPromptMaxChars(lane));
       expect(prompt.split('\n')).toContain('report.page');
       /* report.build and data.show keep their signatures. */
-      expect(prompt).toContain('report.build {data,title?,summary?,kpis?:[column],as?,after?}');
+      expect(prompt).toContain(
+        'report.build {data,title?,summary?,kpis?,as?,id?,after?,showTrends?,showTable?,stacked?}',
+      );
       expect(prompt).toContain('data.show {data,as?,id?,after?,title?,caption?}');
     }
   });

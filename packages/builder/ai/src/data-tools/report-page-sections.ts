@@ -4,6 +4,7 @@ import {
   formatValue,
   PERCENT_UNIT,
   type Analysis,
+  type DerivedMetric,
   type MeasureAnalysis,
   type ReportLang,
   type Unit,
@@ -11,6 +12,7 @@ import {
 import { LIMITS } from './data-chart';
 import { isNumericColumn } from './data-text';
 import { clip } from './report-page-charts';
+import type { ReportPresentation } from './report-page-options';
 import type { PageWords } from './report-page-words';
 
 /**
@@ -26,6 +28,11 @@ export interface Kpi {
   readonly value: string;
   readonly label: string;
   readonly detail?: string | undefined;
+  readonly change?: string | undefined;
+  readonly sentiment?: 'positive' | 'negative' | 'neutral' | undefined;
+  readonly trend?: readonly number[] | undefined;
+  readonly progress?: number | undefined;
+  readonly progressLabel?: string | undefined;
 }
 
 export const MAX_KPIS = 4;
@@ -65,7 +72,13 @@ function lastStep(m: MeasureAnalysis, words: PageWords, lang: ReportLang): strin
  * previous period and the compound growth, and the highest with its period; across categories
  * the total, the average, the highest and the lowest with their categories.
  */
-export function kpiCards(a: Analysis, words: PageWords, lang: ReportLang): Kpi[] {
+export function kpiCards(
+  a: Analysis,
+  words: PageWords,
+  lang: ReportLang,
+  presentation: ReportPresentation = 'analytical',
+): Kpi[] {
+  if (presentation !== 'analytical') return presentationCards(a, words, lang, presentation);
   const m = a.measures[0];
   if (m === undefined) return [];
   const card = (word: string, value: number, detail?: string): Kpi => ({
@@ -102,6 +115,115 @@ export function kpiCards(a: Analysis, words: PageWords, lang: ReportLang): Kpi[]
   return cards.slice(0, MAX_KPIS);
 }
 
+/** A sparkline represents consecutive observed periods, never missing cells or category order. */
+function cardTrend(a: Analysis, m: MeasureAnalysis): readonly number[] | undefined {
+  if (!a.timeSeries || m.missing > 0 || m.count < 2) return undefined;
+  return m.values.slice(-24).filter((value): value is number => value !== undefined);
+}
+
+function measureCard(
+  a: Analysis,
+  m: MeasureAnalysis,
+  words: PageWords,
+  lang: ReportLang,
+  latest: boolean,
+): Kpi {
+  const observedLatest = latest && a.timeSeries && m.values.at(-1) !== undefined;
+  const value = observedLatest ? m.last.value : m.additive ? m.sum : m.mean;
+  const word = observedLatest ? words.latest : m.additive ? words.total : words.average;
+  const trend = cardTrend(a, m);
+  const change = observedLatest ? lastStep(m, words, lang) : undefined;
+  const span =
+    trend === undefined
+      ? undefined
+      : words.trendSpan(a.labels.at(-trend.length) ?? '', m.last.label);
+  const details = [observedLatest ? m.last.label : words.rows(m.count), span].filter(Boolean);
+  return {
+    value: cardValue(value, m.unit, lang),
+    label: clip(`${m.name} · ${word}`, CARD.label),
+    detail: clip(details.join(' · '), CARD.detail),
+    ...(change === undefined
+      ? {}
+      : { change: clip(words.vsPrevious(change), 40), sentiment: 'neutral' }),
+    ...(trend === undefined ? {} : { trend }),
+  };
+}
+
+/** Derived totals use paired source rows; ratio cards use ratios of totals, not means of ratios. */
+function derivedCards(a: Analysis, d: DerivedMetric, words: PageWords, lang: ReportLang): Kpi[] {
+  const first = d.measures[0];
+  if (first === undefined) return [];
+  const trend = cardTrend(a, first);
+  const describe = `${d.from[0].name}: ${formatValue(d.totals[0], d.from[0].unit, lang)} · ${d.from[1].name}: ${formatValue(d.totals[1], d.from[1].unit, lang)}`;
+  if (d.kind === 'profit') {
+    const margin = d.measures[1];
+    return [
+      {
+        value: cardValue(d.totals[0] - d.totals[1], first.unit, lang),
+        label: clip(`${first.name} · ${words.total}`, CARD.label),
+        detail: clip(words.pairedRows, CARD.detail),
+        ...(trend === undefined ? {} : { trend }),
+      },
+      ...(margin === undefined
+        ? []
+        : [
+            {
+              value: cardValue(d.overall, PERCENT_UNIT, lang),
+              label: clip(margin.name, CARD.label),
+              detail: clip(describe, CARD.detail),
+            },
+          ]),
+    ];
+  }
+  const progress =
+    d.kind === 'attainment' && d.totals[0] >= 0 && d.totals[1] > 0
+      ? Math.min(100, Math.max(0, d.overall))
+      : undefined;
+  return [
+    {
+      value: cardValue(d.overall, first.unit, lang),
+      label: clip(first.name, CARD.label),
+      detail: clip(describe, CARD.detail),
+      ...(trend === undefined ? {} : { trend }),
+      ...(progress === undefined
+        ? {}
+        : {
+            progress,
+            progressLabel: clip(
+              `${formatValue(d.overall, PERCENT_UNIT, lang)} ${words.ofTarget}`,
+              80,
+            ),
+          }),
+    },
+  ];
+}
+
+function presentationCards(
+  a: Analysis,
+  words: PageWords,
+  lang: ReportLang,
+  presentation: ReportPresentation,
+): Kpi[] {
+  const latest = presentation === 'operational' || presentation === 'executive';
+  const given = a.measures.map((m) => measureCard(a, m, words, lang, latest));
+  const priority =
+    presentation === 'financial'
+      ? ['profit', 'remaining']
+      : presentation === 'operational'
+        ? ['attainment', 'remaining']
+        : [];
+  const rank = (d: DerivedMetric) => {
+    const index = priority.indexOf(d.kind);
+    return index < 0 ? priority.length : index;
+  };
+  const derived = [...a.derived]
+    .sort((x, y) => rank(x) - rank(y))
+    .flatMap((d) => derivedCards(a, d, words, lang));
+  const max = presentation === 'executive' ? 4 : 6;
+  const count = Math.max(1, max - Math.min(derived.length, max - 1));
+  return [...given.slice(0, count), ...derived, ...given.slice(count)].slice(0, max);
+}
+
 export interface Header {
   readonly eyebrow: string;
   readonly heading: string;
@@ -121,7 +243,10 @@ export function headerOf(
   const eyebrow = a.timeSeries
     ? words.span(a.labels[0] ?? '', a.labels.at(-1) ?? '')
     : words.rows(a.rows);
-  const headline = a.insights[0]?.text[lang] ?? '';
+  const headline =
+    a.insights[0]?.text[lang] ??
+    a.quality[0]?.[lang] ??
+    words.method(a.rows, a.columns, a.rows, a.totalRows, lang);
   const both = summary === undefined ? headline : `${headline} ${summary}`.trim();
   const fits = both.length <= CARD.body;
   return {
@@ -149,6 +274,7 @@ export function findingsDoc(
     content: [
       { type: 'heading', attrs: { level: 2 }, content: text(words.findings) },
       ...(leftover === undefined ? [] : [{ type: 'paragraph', content: text(leftover) }]),
+      ...a.quality.map((note) => ({ type: 'paragraph', content: text(note[lang]) })),
       ...(items.length === 0 ? [] : [{ type: 'bulletList', content: items }]),
     ],
   };
@@ -222,7 +348,7 @@ export function dataTable(a: Analysis, words: PageWords, lang: ReportLang): Tabl
   const rows = a.grid.rows.slice(0, LIMITS.rows);
   return {
     title: words.dataTitle,
-    caption: clip(words.method(a.totalRows, a.columns, rows.length, a.totalRows, lang), 160),
+    caption: clip(words.method(a.rows, a.columns, rows.length, a.totalRows, lang), 160),
     columns: columns.map((label, index) => ({
       label: clip(label === '' ? `#${String(index + 1)}` : label, LIMITS.heading),
       align: index > 0 && isNumericColumn(a.grid, index) ? 'end' : 'start',
@@ -251,6 +377,9 @@ export function findingsTable(a: Analysis, words: PageWords, lang: ReportLang): 
   return {
     title: words.findings,
     columns: [{ label: words.finding, align: 'start', sortAs: 'auto' }],
-    rows: a.insights.map((insight) => ({ cells: [cell(insight.text[lang])] })),
+    rows: [
+      ...a.quality.map((note) => ({ cells: [cell(note[lang])] })),
+      ...a.insights.map((insight) => ({ cells: [cell(insight.text[lang])] })),
+    ],
   };
 }

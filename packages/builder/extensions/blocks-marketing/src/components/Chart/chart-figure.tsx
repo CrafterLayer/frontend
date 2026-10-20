@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 
 import type { Drawing } from './chart-drawing';
+import { AdvancedChart } from './AdvancedChart';
+import { isAdvancedChart } from './advanced-contract';
 import { funnelFigure } from './chart-funnel';
 import { gaugeFigure } from './chart-gauge';
 import { hbarFigure } from './chart-hbar';
@@ -21,6 +23,7 @@ import { sparklineFigure } from './chart-sparkline';
  */
 export function chartPlot(drawing: Drawing): ReactNode {
   const { props } = drawing;
+  if (isAdvancedChart(props.chartType)) return <AdvancedChart drawing={drawing} />;
   switch (drawnType(props)) {
     case 'pie':
     case 'donut':

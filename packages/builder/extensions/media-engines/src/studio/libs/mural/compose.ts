@@ -30,7 +30,7 @@ export interface MuralScene {
   lib?: Record<string, unknown>;
   count?(n: number): number;
   params?: Record<string, unknown>;
-  scroll?: { progress: number; velocity: number };
+  scroll?: { progress: number; velocity: number; pin?(screens?: number): () => void };
   tick?(fn: (time: { dt: number; t: number }) => void): void;
   dispose?(fn: () => void): void;
   onResize?(fn: (w: number, h: number) => void): void;

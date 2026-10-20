@@ -16,6 +16,9 @@ export interface PageWords {
   readonly highest: string;
   readonly lowest: string;
   readonly vsPrevious: (change: string) => string;
+  readonly trendSpan: (first: string, last: string) => string;
+  readonly pairedRows: string;
+  readonly ofTarget: string;
   readonly cagrShort: (value: string) => string;
   readonly top: (label: string, value: string) => string;
   readonly over: (change: string, first: string, last: string) => string;
@@ -73,6 +76,9 @@ const EN: PageWords = {
   highest: 'highest',
   lowest: 'lowest',
   vsPrevious: (change) => `${change} vs previous`,
+  trendSpan: (first, last) => `Trend: ${first} → ${last}`,
+  pairedRows: 'Computed from rows containing both source values',
+  ofTarget: 'of target',
   cagrShort: (value) => `CAGR ${value}`,
   top: (label, value) => `Top: ${label} (${value})`,
   over: (change, first, last) => `${change} from ${first} to ${last}`,
@@ -108,7 +114,9 @@ const EN: PageWords = {
   },
   dataTitle: 'The data',
   method: (rows, columns, shown, total, lang) =>
-    `Computed from the ${formatCount(rows, lang)} rows × ${formatCount(columns, lang)} columns provided; projections are linear.${shown < total ? ` First ${formatCount(shown, lang)} of ${formatCount(total, lang)} rows shown.` : ''}`,
+    rows < total
+      ? `Analysed ${formatCount(rows, lang)} of ${formatCount(total, lang)} rows × ${formatCount(columns, lang)} columns; totals are partial. First ${formatCount(shown, lang)} rows shown.`
+      : `Computed from the ${formatCount(rows, lang)} rows × ${formatCount(columns, lang)} columns provided; projections are linear.${shown < total ? ` First ${formatCount(shown, lang)} of ${formatCount(total, lang)} rows shown.` : ''}`,
   bucketed: 'consecutive periods grouped to fit the chart',
   emptyAsZero: 'empty cells drawn as 0',
   table: {
@@ -134,6 +142,9 @@ const AR: PageWords = {
   highest: 'الأعلى',
   lowest: 'الأدنى',
   vsPrevious: (change) => `${change} عن السابق`,
+  trendSpan: (first, last) => `الاتجاه: ${first} ← ${last}`,
+  pairedRows: 'محسوب من الصفوف التي تحتوي القيمتين الأصليتين',
+  ofTarget: 'من الهدف',
   cagrShort: (value) => `النمو المركب ${value}`,
   top: (label, value) => `الأعلى: ${label} (${value})`,
   over: (change, first, last) => `${change} من ${first} إلى ${last}`,
@@ -169,7 +180,9 @@ const AR: PageWords = {
   },
   dataTitle: 'البيانات',
   method: (rows, columns, shown, total, lang) =>
-    `محسوب من البيانات المقدَّمة (الصفوف: ${formatCount(rows, lang)} · الأعمدة: ${formatCount(columns, lang)})؛ التوقعات خطية.${shown < total ? ` المعروض: أول ${formatCount(shown, lang)} من ${formatCount(total, lang)}.` : ''}`,
+    rows < total
+      ? `حُلّل ${formatCount(rows, lang)} من ${formatCount(total, lang)} صفًا × ${formatCount(columns, lang)} عمودًا؛ الإجماليات جزئية. المعروض: أول ${formatCount(shown, lang)} صفًا.`
+      : `محسوب من البيانات المقدَّمة (الصفوف: ${formatCount(rows, lang)} · الأعمدة: ${formatCount(columns, lang)})؛ التوقعات خطية.${shown < total ? ` المعروض: أول ${formatCount(shown, lang)} من ${formatCount(total, lang)}.` : ''}`,
   bucketed: 'جُمعت فترات متتالية لتتسع في المخطط',
   emptyAsZero: 'الخلايا الفارغة مرسومة صفرًا',
   table: {

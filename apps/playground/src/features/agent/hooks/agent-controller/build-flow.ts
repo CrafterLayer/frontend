@@ -9,6 +9,7 @@ import {
   type IntentRoute,
   type IntentTarget,
   type PagePlan,
+  sitePlanFromRequest,
   summarizeDocumentForIntent,
   validatePagePlan,
 } from '@craftkit/builder';
@@ -25,14 +26,16 @@ import {
   creativeMark,
   engineRequest,
   historyFor,
+  markNotRun,
   openExchange,
   type Outgoing,
   type Placement,
 } from './exchange';
 import { buildPage } from './page-build';
-import { claim, release } from './run-lease';
-import { say } from './run-outcomes';
+import { claim, holds, release } from './run-lease';
+import { failureTurn, say } from './run-outcomes';
 import { runSite } from './site-flow';
+import { patchTurn } from './turn-plumbing';
 
 /* ── Builds ──────────────────────────────────────────────────────────────────── */
 
@@ -55,6 +58,20 @@ interface Landing {
   readonly notes: readonly EndNoteKey[];
   /** A start-over on a page with content: the plan card asks first, even in Auto. */
   readonly confirm: boolean;
+}
+
+/** A host may keep creating a page after Stop; its late result cannot start a build. */
+function untilStopped<T>(work: Promise<T>, signal: AbortSignal): Promise<T | null> {
+  return new Promise((resolve, reject) => {
+    const stopped = () => {
+      resolve(null);
+    };
+    if (signal.aborted) stopped();
+    else signal.addEventListener('abort', stopped, { once: true });
+    void work.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', stopped);
+    });
+  });
 }
 
 /**
@@ -115,14 +132,29 @@ export async function runPage(
   */
   const site = route.kind === 'build-site';
   const opens = flow.env().options.addPage !== undefined;
-  if (site && opens && (await runSite(flow, outgoing, placement, mode))) return;
+  // A declined site fallback must not yield before the page path claims its lease.
+  if (
+    site &&
+    opens &&
+    sitePlanFromRequest(engineRequest(outgoing), { assumeSite: true }) !== null
+  ) {
+    await runSite(flow, outgoing, placement, mode);
+    return;
+  }
   const notes: readonly EndNoteKey[] = site && !opens ? ['siteAsOnePage'] : [];
-  const landing = await landingFor(flow, route.target, outgoing.text, notes);
-  await runBuild(flow, outgoing, placement, {
-    target: landing.target,
-    approval: mode === 'ask' || landing.confirm,
-    kernel: landing.kernel,
-    notes: landing.notes,
+  await runBuild(flow, outgoing, placement, async (signal) => {
+    const landing = await untilStopped(
+      landingFor(flow, route.target, outgoing.text, notes),
+      signal,
+    );
+    return landing === null
+      ? null
+      : {
+          target: landing.target,
+          approval: mode === 'ask' || landing.confirm,
+          kernel: landing.kernel,
+          notes: landing.notes,
+        };
   });
 }
 
@@ -154,19 +186,25 @@ export async function buildPlanned(
     await runPage(flow, outgoing, placement, route, 'auto');
     return;
   }
-  const landing = await landingFor(flow, pagePlan.intent, outgoing.text, []);
-  let plan: PagePlan | undefined = pagePlan;
-  if (landing.target !== undefined && landing.target !== pagePlan.intent) {
-    // Landing elsewhere than planned: the same plan, held to the new intent, or re-planned.
-    const moved = validatePagePlan(pagePlan, { intent: landing.target });
-    plan = moved.ok ? moved.plan : undefined;
-  }
-  await runBuild(flow, outgoing, placement, {
-    ...(plan === undefined ? {} : { pagePlan: plan }),
-    target: landing.target,
-    approval: false,
-    kernel: landing.kernel,
-    notes: landing.notes,
+  await runBuild(flow, outgoing, placement, async (signal) => {
+    const landing = await untilStopped(
+      landingFor(flow, pagePlan.intent, outgoing.text, []),
+      signal,
+    );
+    if (landing === null) return null;
+    let plan: PagePlan | undefined = pagePlan;
+    if (landing.target !== undefined && landing.target !== pagePlan.intent) {
+      // Landing elsewhere than planned: the same plan, held to the new intent, or re-planned.
+      const moved = validatePagePlan(pagePlan, { intent: landing.target });
+      plan = moved.ok ? moved.plan : undefined;
+    }
+    return {
+      ...(plan === undefined ? {} : { pagePlan: plan }),
+      target: landing.target,
+      approval: false,
+      kernel: landing.kernel,
+      notes: landing.notes,
+    };
   });
 }
 
@@ -178,15 +216,15 @@ async function runBuild(
   flow: Flow,
   outgoing: Outgoing,
   placement: Placement,
-  plan: BuildPlan,
+  prepare: BuildPlan | ((signal: AbortSignal) => Promise<BuildPlan | null>),
 ): Promise<void> {
   const env = flow.env();
-  const kernel = plan.kernel ?? env.options.kernel;
   const turnId = placement.recordTurnId ?? env.sessions.nextId('turn');
   const history = historyFor(flow, placement);
   const slot = claim(flow, placement.sessionId, turnId, 'build');
   if (slot === null) return;
   const request = engineRequest(outgoing);
+  const startedAt = flow.clock.now();
   const building: BuildTurn = {
     id: turnId,
     kind: 'build',
@@ -200,6 +238,25 @@ async function runBuild(
   env.mood.beginRun(slot.runId, '');
   say(flow, 'build.started');
   try {
+    const plan = !holds(flow, slot)
+      ? null
+      : typeof prepare === 'function'
+        ? await prepare(slot.controller.signal)
+        : prepare;
+    if (plan === null || !holds(flow, slot)) {
+      patchTurn(flow, slot.sessionId, turnId, () => ({
+        id: turnId,
+        kind: 'end',
+        key: 'stoppedBeforeChange',
+      }));
+      markNotRun(flow, slot.sessionId, anchor);
+      say(flow, 'stopped.none');
+      env.mood.settleTurn({ runId: slot.runId, outcome: 'stopped' });
+      return;
+    }
+    const kernel = plan.kernel ?? env.options.kernel;
+    // Retain actual page authority even if planning/writing fails before settlement.
+    flow.runtime.builds.set(turnId, { kernel });
     const { pointed } = outgoing;
     await buildPage(flow, slot, {
       turnId,
@@ -211,6 +268,11 @@ async function runBuild(
       plan,
       skillSnapshot: outgoing.skillSnapshot,
     });
+  } catch (cause: unknown) {
+    patchTurn(flow, slot.sessionId, turnId, () =>
+      failureTurn(turnId, request, cause, { kind: 'unchanged' }, flow.clock.now() - startedAt),
+    );
+    say(flow, 'failed');
   } finally {
     release(flow, slot);
   }

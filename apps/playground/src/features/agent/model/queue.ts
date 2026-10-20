@@ -1,4 +1,4 @@
-import type { BuilderDocument, NodeId } from '@craftkit/builder';
+import type { BuilderDocument, BuilderKernel, NodeId } from '@craftkit/builder';
 
 import type { SentContext } from './turns';
 import type { PromptSkillSnapshot } from './prompt-skills';
@@ -35,6 +35,13 @@ export interface QueuedRequest {
   /** A revalidation found a target gone; sticky until the queue is removed or re-queued. */
   readonly missing: boolean;
   readonly skillSnapshot?: PromptSkillSnapshot | undefined;
+  /** Ephemeral authority; queues are never persisted with conversation history. */
+  readonly origin?: {
+    readonly kernel: BuilderKernel;
+    readonly sessionId: string;
+    /** An implicit follow-up must wait for this run's actual result. */
+    readonly predecessorTurnId?: string | undefined;
+  };
 }
 
 /** A request queued now, against `document`. */
@@ -43,6 +50,7 @@ export function queueRequest(
   context: readonly SentContext[],
   document: BuilderDocument,
   skillSnapshot?: PromptSkillSnapshot,
+  origin?: QueuedRequest['origin'],
 ): QueuedRequest {
   const targets = context.flatMap((entry): QueuedTarget[] => {
     if (entry.kind === 'page') return [];
@@ -56,6 +64,7 @@ export function queueRequest(
     paused: false,
     missing: false,
     ...(skillSnapshot === undefined ? {} : { skillSnapshot }),
+    ...(origin === undefined ? {} : { origin }),
   };
 }
 

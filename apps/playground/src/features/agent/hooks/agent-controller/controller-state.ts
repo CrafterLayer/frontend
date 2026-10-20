@@ -55,6 +55,7 @@ export interface LiveRun {
 
 /** A request docked above the composer while its questions are answered. */
 interface Clarifying {
+  readonly origin?: { readonly kernel: BuilderKernel; readonly sessionId: string };
   readonly request: string;
   readonly skillSnapshot?: PromptSkillSnapshot | undefined;
   readonly context: readonly SentContext[];
@@ -112,6 +113,8 @@ export interface Runtime {
   /** Plan cards whose held question a newer request answered (not a Discard). */
   readonly superseded: Set<string>;
   readonly builds: Map<string, BuildRecordRuntime>;
+  /** The page captured by each edit/proposal, including failed runs that may be retried. */
+  readonly edits: Map<string, BuilderKernel>;
   /** AI transactions landed while the current run held the lease. */
   collect: { readonly runId: string; readonly ids: string[] } | null;
   /** The kernels whose history the controller follows. */

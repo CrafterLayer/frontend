@@ -207,12 +207,12 @@ describe('createRemoteAiPlanProvider', () => {
     });
   });
 
-  it('reports a non-2xx response by status without inventing a plan', async () => {
+  it('preserves a non-2xx explanation and status without inventing a plan', async () => {
     const { fetchImpl } = fakeFetch(() => jsonResponse({ error: 'boom' }, 503));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
 
     await expect(provider.propose('add a hero', context())).rejects.toMatchObject({
-      message: 'The assistant server answered with status 503.',
+      message: 'boom',
       code: 'http-status',
       retryable: true,
       status: 503,

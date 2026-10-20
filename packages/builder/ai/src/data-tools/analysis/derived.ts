@@ -1,6 +1,8 @@
 import { normalizeIntentText } from '../../intent/normalize-arabic';
+import { readNumber, type DataGrid } from '../data-text';
 import { PERCENT_UNIT, type Unit } from './format';
-import { analyseMeasure, type MeasureAnalysis } from './measures';
+import { analyseMeasure, seriesView, type MeasureAnalysis } from './measures';
+import type { GridProfile } from './profile';
 import { sum, type Cells } from './stats';
 
 /**
@@ -68,8 +70,36 @@ function sums(a: Cells, b: Cells): readonly [number, number] {
   return [sum(pairs.map(([x]) => x)), sum(pairs.map(([, y]) => y))];
 }
 
-function sameUnit(a: Unit, b: Unit): Unit {
-  return a.prefix === b.prefix && a.suffix === b.suffix ? a : { ...a };
+function sameUnit(a: Unit, b: Unit): boolean {
+  return a.prefix.trim() === b.prefix.trim() && a.suffix.trim() === b.suffix.trim();
+}
+
+interface DerivedSource {
+  readonly grid: DataGrid;
+  readonly profile: GridProfile;
+  readonly regularPeriods: boolean;
+}
+
+/** Match both cells on the original row before any long-table totals can hide a missing cell. */
+function paired(
+  a: MeasureAnalysis,
+  b: MeasureAnalysis,
+  source: DerivedSource | undefined,
+): readonly [Cells, Cells] {
+  if (source?.profile.long !== true) return [a.values, b.values];
+  const rows = source.grid.rows.map((row) => {
+    if (
+      readNumber(row[a.column] ?? '') !== undefined &&
+      readNumber(row[b.column] ?? '') !== undefined
+    )
+      return row;
+    return row.map((value, index) => (index === a.column || index === b.column ? '' : value));
+  });
+  const view = seriesView(
+    { ...source.grid, rows },
+    { ...source.profile, measures: [a.column, b.column] },
+  );
+  return [view.values.get(a.column) ?? [], view.values.get(b.column) ?? []];
 }
 
 /** A derived measure: its bilingual name in the page's language, computed values, `given: false`. */
@@ -96,6 +126,7 @@ export function deriveMetrics(
   labels: readonly string[],
   timeSeries: boolean,
   lang: 'en' | 'ar',
+  source?: DerivedSource,
 ): DerivedMetric[] {
   const used = new Set<number>();
   /* Derived measures take negative columns: -1, -2 … in the order they are made. */
@@ -106,12 +137,29 @@ export function deriveMetrics(
       (measure) => measure.additive && !used.has(measure.column) && words.test(fold(measure.name)),
     );
   for (const [kind, firstWords, secondWords] of PAIRS) {
-    const a = find(firstWords);
-    if (a === undefined) continue;
-    used.add(a.column);
-    const b = find(secondWords);
-    if (b === undefined) {
-      used.delete(a.column);
+    const first = find(firstWords);
+    if (first === undefined) continue;
+    used.add(first.column);
+    const second = find(secondWords);
+    if (second === undefined || !sameUnit(first.unit, second.unit)) {
+      used.delete(first.column);
+      continue;
+    }
+    const [aValues, bValues] = paired(first, second, source);
+    const a = analyseMeasure(
+      { ...first, values: aValues },
+      labels,
+      timeSeries,
+      source?.regularPeriods,
+    );
+    const b = analyseMeasure(
+      { ...second, values: bValues },
+      labels,
+      timeSeries,
+      source?.regularPeriods,
+    );
+    if (a === undefined || b === undefined) {
+      used.delete(first.column);
       continue;
     }
     used.add(b.column);
@@ -120,7 +168,7 @@ export function deriveMetrics(
     let overall: number | undefined;
     if (kind === 'profit') {
       const profit = both(a.values, b.values, (x, y) => x - y);
-      const unit = sameUnit(a.unit, b.unit);
+      const unit = a.unit;
       derived.push(
         measureOf(
           --next,
@@ -129,7 +177,7 @@ export function deriveMetrics(
           unit,
           profit,
           labels,
-          timeSeries,
+          timeSeries && (source?.regularPeriods ?? true),
           a.kind === 'currency' ? 'currency' : 'number',
         ),
       );
@@ -141,7 +189,7 @@ export function deriveMetrics(
           PERCENT_UNIT,
           both(a.values, b.values, (x, y) => (x === 0 ? undefined : ((x - y) / x) * 100)),
           labels,
-          timeSeries,
+          timeSeries && (source?.regularPeriods ?? true),
           'percent',
         ),
       );
@@ -155,7 +203,7 @@ export function deriveMetrics(
           PERCENT_UNIT,
           both(a.values, b.values, (x, y) => (y === 0 ? undefined : (x / y) * 100)),
           labels,
-          timeSeries,
+          timeSeries && (source?.regularPeriods ?? true),
           'percent',
         ),
       );
@@ -166,10 +214,10 @@ export function deriveMetrics(
           --next,
           'remaining',
           lang,
-          sameUnit(a.unit, b.unit),
+          a.unit,
           both(a.values, b.values, (x, y) => x - y),
           labels,
-          timeSeries,
+          timeSeries && (source?.regularPeriods ?? true),
           a.kind === 'currency' ? 'currency' : 'number',
         ),
       );

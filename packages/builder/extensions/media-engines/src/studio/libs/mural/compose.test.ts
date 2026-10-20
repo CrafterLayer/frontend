@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createAnimLibrary } from '../anim-entry';
 import { createMuralLibrary } from '../mural-entry';
@@ -38,7 +38,7 @@ function scene(
     palette: { mix: mixRgb, accent: 0x67e8f9, surface: 0x101525 },
     lib: options.anim === false ? {} : { anim: createAnimLibrary() },
     count: (n: number) => n,
-    scroll: { progress: 0, velocity: 0 },
+    scroll: { progress: 0, velocity: 0, pin: vi.fn(() => vi.fn()) },
     tick: (fn: (time: { dt: number; t: number }) => void) => ticks.push(fn),
     dispose: (fn: () => void) => disposers.push(fn),
   };
@@ -239,12 +239,27 @@ describe('s.lib.mural', () => {
   it('scrubs with s.scroll in scrub mode', () => {
     const { s, step } = scene();
     const m = M.compose(s, { ...SPEC, mode: 'scrub' });
+    expect(s.scroll.pin).toHaveBeenCalledOnce();
     step(1);
     expect(m.timeline?.time()).toBe(0);
     s.scroll.progress = 1;
-    step(3);
-    expect(m.timeline?.progress()).toBeGreaterThan(0.9);
+    step(0.05);
+    expect(m.timeline?.progress()).toBe(1);
+    s.scroll.progress = 0;
+    step(0.05);
+    expect(m.timeline?.progress()).toBe(0);
+    m.dispose();
+    expect(s.scroll.pin.mock.results[0]?.value).toHaveBeenCalledOnce();
   });
+
+  it.each([{ editor: true }, { reducedMotion: true }])(
+    'does not pin calm stories %o',
+    (options) => {
+      const { s } = scene(options);
+      M.compose(s, { ...SPEC, mode: 'scrub' });
+      expect(s.scroll.pin).not.toHaveBeenCalled();
+    },
+  );
 
   it('draws without anim and says how to animate', () => {
     const { s } = scene({ anim: false });

@@ -68,6 +68,21 @@ const TRUST_PROOF = 'craftkit.trust-proof';
 
 /** A report or dashboard asked for in the request. */
 const REPORT_WORDS = [
+  'waterfall',
+  'heatmap',
+  'treemap',
+  'histogram',
+  'bubble chart',
+  'boxplot',
+  'candlestick',
+  'lollipop',
+  'bullet chart',
+  'key stats',
+  'خريطة حرارية',
+  'مدرج تكراري',
+  'مخطط شلال',
+  'شموع',
+  'صندوقي',
   'dashboard',
   'report',
   'reports',
@@ -92,6 +107,7 @@ const REPORT_WORDS = [
 
 /** A section whose contract shows numbers as a chart, stats or a report. */
 const CHART_WORDS = [
+  ...REPORT_WORDS,
   'chart',
   'charts',
   'graph',

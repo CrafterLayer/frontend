@@ -17,6 +17,7 @@ import { sectionSpacingStyle } from '../section-spacing';
 import { sectionTypographyClasses } from '../section-typography';
 
 import { committed, type Drawing, type SvgLabel } from './chart-drawing';
+import { advancedIssue, isAdvancedChart } from './advanced-contract';
 import { chartPlot } from './chart-figure';
 import { dataTable, seriesLegend } from './chart-keys';
 import { drawnType, hasSeriesLegend } from './chart-kind';
@@ -45,7 +46,7 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
   const hasTitle = props.title !== undefined;
   const hasDescription = props.description !== undefined;
   const kind = drawnType(props);
-  const hasData = hasChartData(props);
+  const hasData = hasChartData(props) && advancedIssue(props) === undefined;
   const names = props.series.map((entry) => committed(entry.name)).filter((name) => name !== '');
   /* Named by the visible title; without one, by its series, so the picture always has a name. */
   const svgLabel: SvgLabel = {
@@ -75,7 +76,9 @@ export function Chart({ node, props, isCanvas }: BlockRenderProps<ChartProps>) {
   const ink = props.variant === 'card' ? 'text-text' : undefined;
 
   let plot: ReactNode = null;
-  if (!hasData) {
+  if (isAdvancedChart(props.chartType)) {
+    plot = chartPlot(drawing);
+  } else if (!hasData) {
     /* Nothing to draw: the canvas shows where the chart will be; a published page shows nothing. */
     plot = isCanvas ? (
       <div

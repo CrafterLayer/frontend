@@ -23,7 +23,6 @@ import type {
   AnnouncementKey,
   BuildPhase,
   BuildStopReason,
-  ErrorClass,
   ErrorPageState,
   PlanProblem,
   QueueStatus,
@@ -35,9 +34,12 @@ import type {
 
 import type { PluralCategory } from './format';
 import { EDIT_RESULT_KEYS } from './edit-results';
+import { FOLLOWUP_KEYS } from './followup-copy';
+export { ERROR_CAUSE_KEY } from './followup-copy';
 
 /** Every catalog key, grouped by the SPEC section that owns it. */
 export const KEYS = [
+  ...FOLLOWUP_KEYS,
   // §4.2 AgentHeader and the phone sheet's header
   'header.name',
   'header.conversations',
@@ -858,18 +860,6 @@ export const JUMP_LABEL_KEY = {
   proposal: 'jump.working',
   answer: 'jump.working',
 } as const satisfies Readonly<Record<RunActivity, Key>>;
-
-/** ErrorRecord's cause line by class; `unknown` has none (SPEC §4.14). */
-export const ERROR_CAUSE_KEY = {
-  unreachable: 'error.unreachable.cause',
-  timeout: 'error.timeout.cause',
-  busy: 'error.busy.cause',
-  declined: 'error.declined.cause',
-  invalid: 'error.invalid.cause',
-  tooLarge: 'error.tooLarge.cause',
-  offline: 'error.offline.cause',
-  unknown: null,
-} as const satisfies Readonly<Record<ErrorClass, Key | null>>;
 
 /**
  * ErrorRecord's page-state line by what the error left on the page (SPEC §4.14): `kept`

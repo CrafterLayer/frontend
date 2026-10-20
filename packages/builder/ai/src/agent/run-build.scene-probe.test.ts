@@ -162,6 +162,7 @@ const STATIC_BROKEN = `${FIXED}\ndocument.getElementById('score');`;
 
 function scripted(sceneJs: string, repairJs: string) {
   const repairs: (readonly AiPlanValidationIssue[])[] = [];
+  const proposals: string[] = [];
   const writes = (request: string, js: string | undefined): AiPlan => {
     const id = /REGION ID: (\S+)/u.exec(request)?.[1] ?? 'missing';
     return {
@@ -178,8 +179,10 @@ function scripted(sceneJs: string, repairJs: string) {
     };
   };
   const provider: AiPlanProvider = {
-    propose: (request) =>
-      Promise.resolve(writes(request, request.includes('ROLE: HERO') ? sceneJs : undefined)),
+    propose: (request) => {
+      proposals.push(request);
+      return Promise.resolve(writes(request, request.includes('ROLE: HERO') ? sceneJs : undefined));
+    },
     repair(request, _context, _plan, issues) {
       repairs.push(issues);
       return Promise.resolve(writes(request, repairJs));
@@ -190,7 +193,7 @@ function scripted(sceneJs: string, repairJs: string) {
       return Promise.resolve({ pagePlan: PLAN, rationale: 'A roastery with a game.' });
     },
   };
-  return { provider, repairs };
+  return { provider, repairs, proposals };
 }
 
 /** What `probeScene` would report: the throw, at its line, when the code still has it. */
@@ -266,7 +269,11 @@ describe('runAiBuild — running the scene before it lands (creative-power Phase
     );
     // The hero alone carries a scene: it ran as written, then as repaired — in the page's language.
     expect(calls.map(({ js }) => js)).toEqual([THROWS, FIXED]);
-    expect(calls[0]?.context).toEqual({ lang: 'en', dir: 'ltr' });
+    expect(calls[0]?.context).toEqual({
+      lang: 'en',
+      dir: 'ltr',
+      signal: expect.any(AbortSignal) as unknown,
+    });
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
     expect(hero?.check).toEqual({ issues: [], repaired: true });
     expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(FIXED);
@@ -290,18 +297,138 @@ describe('runAiBuild — running the scene before it lands (creative-power Phase
     expect(hero?.check).toEqual({ issues: [], repaired: true });
   });
 
-  it('never runs a second repair round: a scene still throwing lands with its issue reported', async () => {
+  it('skips a scene still throwing after one repair and keeps its successful siblings', async () => {
     const probe: SceneProbe = (section) => Promise.resolve(report(section));
     const script = scripted(THROWS, THROWS);
+    const options = build(script, probe);
 
-    const result = await runAiBuild(build(script, probe));
+    const result = await runAiBuild(options);
 
     expect(script.repairs).toHaveLength(1);
+    expect(script.proposals.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(1);
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
-    expect(hero?.status).toBe('applied');
-    expect(hero?.check?.repaired).toBe(true);
-    expect(hero?.check?.issues.map(({ code }) => code)).toEqual(['scene-runtime']);
+    expect(hero).toMatchObject({ status: 'skipped', reasonCode: 'invalid', attempts: 1 });
+    expect(hero?.reason).toContain('scene-runtime: The scene threw "hero is not defined"');
+    expect(hero?.landing).toBeUndefined();
+    expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).not.toBe(THROWS);
+    expect(result.skipped).toBe(1);
+    expect(result.applied).toBe(result.tasks.length - 1);
+    expect(
+      result.tasks
+        .filter((task) => task.id !== hero?.id)
+        .every(({ status }) => status === 'applied'),
+    ).toBe(true);
   });
+
+  it('skips a confirmed blank scene after one repair without another writer call', async () => {
+    const probe: SceneProbe = (section) => {
+      const measured = report(section);
+      return Promise.resolve({
+        ...measured,
+        passes: measured.passes.map((pass) => ({
+          ...pass,
+          report: pass.report === null ? null : { ...pass.report, canvas: null, waitedMs: 2_000 },
+        })),
+      });
+    };
+    const script = scripted(FIXED, FIXED);
+    const options = build(script, probe);
+
+    const result = await runAiBuild(options);
+
+    expect(script.repairs).toHaveLength(1);
+    expect(script.proposals.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(1);
+    const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+    expect(hero).toMatchObject({ status: 'skipped', reasonCode: 'invalid', attempts: 1 });
+    expect(hero?.reason).toContain('scene-blank: The scene drew nothing');
+    expect(hero?.landing).toBeUndefined();
+    expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).not.toBe(FIXED);
+    expect(result.applied).toBe(result.tasks.length - 1);
+  });
+
+  it.each(['missing', 'rejected'] as const)(
+    'skips a confirmed runtime failure when repair is %s',
+    async (repair) => {
+      const script = scripted(THROWS, FIXED);
+      const withoutRepair = { ...script.provider };
+      delete withoutRepair.repair;
+      const failedRepair = vi.fn(() => Promise.reject(new Error('Repair unavailable.')));
+      const options = {
+        ...build(script, (section) => Promise.resolve(report(section))),
+        provider: repair === 'missing' ? withoutRepair : { ...withoutRepair, repair: failedRepair },
+      };
+
+      const result = await runAiBuild(options);
+
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      expect(hero).toMatchObject({ status: 'skipped', reasonCode: 'invalid', attempts: 1 });
+      expect(hero?.reason).toContain('scene-runtime');
+      expect(script.proposals.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(1);
+      expect(failedRepair).toHaveBeenCalledTimes(repair === 'missing' ? 0 : 1);
+      expect(result.applied).toBe(result.tasks.length - 1);
+    },
+  );
+
+  it('keeps a usable scene when only nonfatal layout findings remain after repair', async () => {
+    const probe: SceneProbe = (section) => {
+      const measured = report(section);
+      return Promise.resolve({
+        ...measured,
+        passes: measured.passes.map((pass) => ({
+          ...pass,
+          report: pass.report === null ? null : { ...pass.report, overflowX: 20 },
+        })),
+      });
+    };
+    const script = scripted(FIXED, FIXED);
+    const options = build(script, probe);
+
+    const result = await runAiBuild(options);
+
+    const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+    expect(script.repairs).toHaveLength(1);
+    expect(hero?.status).toBe('applied');
+    expect(hero?.check?.issues.map(({ code }) => code)).toEqual(['scene-layout']);
+    expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(FIXED);
+    expect(result.skipped).toBe(0);
+    expect(result.applied).toBe(result.tasks.length);
+  });
+
+  it.each(['fixes', 'introduces'] as const)(
+    'ranks scene usability before warning counts when a repair %s a runtime failure',
+    async (repair) => {
+      const probe: SceneProbe = (section) => {
+        const measured = report(section);
+        if (section.js === THROWS) return Promise.resolve(measured);
+        return Promise.resolve({
+          ...measured,
+          passes: measured.passes.map((pass) => ({
+            ...pass,
+            report:
+              pass.report === null
+                ? null
+                : {
+                    ...pass.report,
+                    overflowX: 20,
+                    canvas: { rect: { x: 0, y: 0, width: 1280, height: 350 } },
+                  },
+          })),
+        });
+      };
+      const script = repair === 'fixes' ? scripted(THROWS, FIXED) : scripted(FIXED, THROWS);
+      const options = build(script, probe);
+
+      const result = await runAiBuild(options);
+
+      const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
+      expect(script.repairs).toHaveLength(1);
+      expect(script.proposals.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(1);
+      expect(hero?.status).toBe('applied');
+      expect(hero?.check?.issues.map(({ code }) => code)).toEqual(['scene-layout', 'scene-layout']);
+      expect(options.kernel.getDocument().nodes[hero?.id ?? '']?.props['js']).toBe(FIXED);
+      expect(result.skipped).toBe(0);
+    },
+  );
 
   it('costs nothing when the probe fails, and runs nothing without one', async () => {
     const failing = scripted(THROWS, FIXED);

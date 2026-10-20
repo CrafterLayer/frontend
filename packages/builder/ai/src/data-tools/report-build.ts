@@ -1,14 +1,20 @@
 import { normalizeIntentText } from '../intent/normalize-arabic';
-import { isRecord, rootIdOf, unknownKeys } from '../tools/agent/shared';
+import { isRecord, rootIdOf, setProp, unknownKeys } from '../tools/agent/shared';
 import {
   defineAgentTool,
   type AgentToolContext,
   type AgentToolParse,
   type AgentToolRun,
 } from '../tools/agent/types';
-import { autoChart, chartData, chartDataFor, chartPropsOf, type ChartType } from './data-chart';
+import { CHART_TYPES, autoChart, chartData, chartDataFor, chartPropsOf } from './data-chart';
 import { blockTypeWith, placeIndex } from './data-place';
-import { readDataRows, readDataText, type DataGrid } from './data-text';
+import {
+  columnUnit,
+  isNumericColumn,
+  readDataRows,
+  readDataText,
+  type DataGrid,
+} from './data-text';
 
 /**
  * report.build (2026-10-12) — one dataset as a whole report section in one call: a title (and a
@@ -20,29 +26,21 @@ import { readDataRows, readDataText, type DataGrid } from './data-text';
  * types a report draws. Inserted after `after`, else at the end above the footer.
  */
 
-export const REPORT_CHART_TYPES = [
-  'bar',
-  'hbar',
-  'line',
-  'area',
-  'combo',
-  'scatter',
-  'radar',
-  'funnel',
-  'pie',
-  'donut',
-] as const;
+export const REPORT_CHART_TYPES = CHART_TYPES;
 export const REPORT_AS = ['auto', ...REPORT_CHART_TYPES] as const;
 export type ReportAs = (typeof REPORT_AS)[number];
 
-const MEASURES = ['last', 'total', 'average', 'max', 'min'] as const;
-const MAX_KPIS = 4;
+const MEASURES = ['last', 'total', 'average', 'max', 'min', 'median', 'count'] as const;
+const MAX_KPIS = 8;
 
 export interface ReportKpiInput {
   readonly column: string;
   readonly label?: string | undefined;
   readonly measure?: (typeof MEASURES)[number] | undefined;
   readonly better?: 'up' | 'down' | undefined;
+  readonly comparisonValue?: number | undefined;
+  readonly target?: number | undefined;
+  readonly detail?: string | undefined;
 }
 
 export interface ReportBuildInput {
@@ -50,12 +48,37 @@ export interface ReportBuildInput {
   readonly as: ReportAs;
   readonly title?: string | undefined;
   readonly summary?: string | undefined;
+  readonly comparisonLabel?: string | undefined;
   readonly kpis?: readonly ReportKpiInput[] | undefined;
   readonly after?: string | undefined;
+  readonly id?: string | undefined;
+  readonly showTrends?: boolean | undefined;
+  readonly showTable?: boolean | undefined;
+  readonly stacked?: boolean | undefined;
 }
 
-const KEYS = ['data', 'title', 'summary', 'kpis', 'as', 'after'] as const;
-const KPI_KEYS = ['column', 'label', 'measure', 'better'] as const;
+const KEYS = [
+  'data',
+  'title',
+  'summary',
+  'comparisonLabel',
+  'kpis',
+  'as',
+  'after',
+  'id',
+  'showTrends',
+  'showTable',
+  'stacked',
+] as const;
+const KPI_KEYS = [
+  'column',
+  'label',
+  'measure',
+  'better',
+  'comparisonValue',
+  'target',
+  'detail',
+] as const;
 
 /* A column whose falling is good news: costs, refunds, churn, complaints (folded Arabic). */
 const LOWER_IS_BETTER =
@@ -93,6 +116,15 @@ function kpiOf(value: unknown, index: number): AgentToolParse<ReportKpiInput> {
   const better = value['better'];
   if (better !== undefined && better !== 'up' && better !== 'down')
     return no('"better" is "up" or "down".');
+  const detail = text(value['detail'], 'detail', 120);
+  if (!detail.ok) return detail;
+  for (const key of ['comparisonValue', 'target'] as const) {
+    if (
+      value[key] !== undefined &&
+      (typeof value[key] !== 'number' || !Number.isFinite(value[key]))
+    )
+      return no(`"${key}" must be a finite number in the KPI's unit.`);
+  }
   return {
     ok: true,
     value: {
@@ -100,6 +132,9 @@ function kpiOf(value: unknown, index: number): AgentToolParse<ReportKpiInput> {
       label: label.value,
       measure: measure as ReportKpiInput['measure'],
       better,
+      comparisonValue: value['comparisonValue'] as number | undefined,
+      target: value['target'] as number | undefined,
+      detail: detail.value,
     },
   };
 }
@@ -127,11 +162,21 @@ function parse(input: unknown): AgentToolParse<ReportBuildInput> {
   for (const [key, max] of [
     ['title', 90],
     ['summary', 320],
+    ['comparisonLabel', 40],
     ['after', 120],
+    ['id', 120],
   ] as const) {
     const field = text(input[key], key, max);
     if (!field.ok) return field;
     fields[key] = field.value;
+  }
+  if (fields['id'] !== undefined && fields['after'] !== undefined)
+    return no('"id" updates a report; "after" inserts a new one. Use only one.');
+  const flags: { showTrends?: boolean; showTable?: boolean; stacked?: boolean } = {};
+  for (const key of ['showTrends', 'showTable', 'stacked'] as const) {
+    const value = input[key];
+    if (value !== undefined && typeof value !== 'boolean') return no(`"${key}" must be a boolean.`);
+    if (typeof value === 'boolean') flags[key] = value;
   }
   let kpis: ReportKpiInput[] | undefined;
   if (input['kpis'] !== undefined) {
@@ -150,6 +195,7 @@ function parse(input: unknown): AgentToolParse<ReportBuildInput> {
       grid: read.grid,
       as: as as ReportAs,
       ...fields,
+      ...flags,
       ...(kpis === undefined ? {} : { kpis }),
     },
   };
@@ -165,7 +211,7 @@ function kpiCards(
   asked: readonly ReportKpiInput[] | undefined,
 ): Record<string, unknown>[] | string {
   const wanted: readonly ReportKpiInput[] =
-    asked ?? names.slice(0, MAX_KPIS).map((column) => ({ column }));
+    asked ?? names.slice(0, 4).map((column) => ({ column }));
   const cards: Record<string, unknown>[] = [];
   for (const kpi of wanted) {
     const series = names.findIndex((name) => fold(name) === fold(kpi.column));
@@ -177,13 +223,57 @@ function kpiCards(
       series,
       measure: kpi.measure ?? 'last',
       better: kpi.better ?? (LOWER_IS_BETTER.test(fold(names[series] ?? '')) ? 'down' : 'up'),
+      ...(kpi.target === undefined ? {} : { target: kpi.target }),
+      ...(kpi.comparisonValue === undefined ? {} : { comparisonValue: kpi.comparisonValue }),
+      ...(kpi.detail === undefined ? {} : { detail: kpi.detail }),
     });
   }
   return cards;
 }
 
-function isReportType(type: ChartType): type is (typeof REPORT_CHART_TYPES)[number] {
-  return (REPORT_CHART_TYPES as readonly string[]).includes(type);
+/** A data refresh retains the author's cards, matching source names instead of column positions. */
+function retainedKpis(
+  props: Readonly<Record<string, unknown>>,
+  names: readonly string[],
+  unit: { readonly prefix?: string | undefined; readonly suffix?: string | undefined },
+): readonly ReportKpiInput[] | string | undefined {
+  const prior = props['kpis'];
+  const series = props['series'];
+  if (!Array.isArray(prior) || !Array.isArray(series)) return undefined;
+  const sameUnit = ['prefix', 'suffix'].every((part) => {
+    const old = props[part === 'prefix' ? 'valuePrefix' : 'valueSuffix'];
+    const next = part === 'prefix' ? unit.prefix : unit.suffix;
+    return (typeof old === 'string' ? old.trim() : '') === (next?.trim() ?? '');
+  });
+  const cards: ReportKpiInput[] = [];
+  for (const card of prior) {
+    if (!isRecord(card) || typeof card['series'] !== 'number')
+      return 'existing KPI configuration is incompatible; supply "kpis" explicitly.';
+    const source: unknown = series[card['series']];
+    const name = isRecord(source) ? source['name'] : undefined;
+    if (
+      typeof name !== 'string' ||
+      names.filter((entry) => fold(entry) === fold(name)).length !== 1
+    )
+      return 'existing KPI source columns changed or are ambiguous; supply "kpis" explicitly.';
+    if (!sameUnit && (card['target'] !== undefined || card['comparisonValue'] !== undefined))
+      return 'KPI units changed; supply "kpis" with targets and comparisons in the new unit.';
+    const parsed = kpiOf(
+      {
+        column: name,
+        ...Object.fromEntries(
+          KPI_KEYS.filter((key) => key !== 'column' && card[key] !== undefined).map((key) => [
+            key,
+            card[key],
+          ]),
+        ),
+      },
+      cards.length,
+    );
+    if (!parsed.ok) return parsed.error;
+    cards.push(parsed.value);
+  }
+  return cards;
 }
 
 function run(input: ReportBuildInput, context: AgentToolContext): AgentToolRun {
@@ -194,29 +284,86 @@ function run(input: ReportBuildInput, context: AgentToolContext): AgentToolRun {
       ok: false,
       error: 'this site has no report block; use data.show for a chart or a table.',
     };
-  const base = chartData(input.grid);
+  const existing = input.id === undefined ? undefined : kernel.getDocument().nodes[input.id];
+  if (input.id !== undefined && existing?.type !== type)
+    return { ok: false, error: '"id" must identify an existing report block on this page.' };
+  const units = new Set(
+    input.grid.header.flatMap((_, column) =>
+      column > 0 && isNumericColumn(input.grid, column)
+        ? [columnUnit(input.grid, column) ?? 'mixed']
+        : [],
+    ),
+  );
+  if (units.size > 1 || units.has('mixed'))
+    return {
+      ok: false,
+      error:
+        'a compact report uses one value unit; use report.page for measures with different units.',
+    };
+  const priorType = existing?.props['chartType'];
+  const as =
+    input.as === 'auto' &&
+    typeof priorType === 'string' &&
+    (CHART_TYPES as readonly string[]).includes(priorType)
+      ? (priorType as ReportAs)
+      : input.as;
+  const base = as === 'auto' ? chartData(input.grid) : undefined;
   if (typeof base === 'string')
     return { ok: false, error: base.replace('send as "table"', 'use data.show with "as":"table"') };
   const words = [input.title, input.summary, input.grid.header[0]].join(' ');
-  const picked = input.as === 'auto' ? autoChart(input.grid, base, words) : input.as;
-  /* A gauge or sparkline is what the cards already are: the report draws bars instead. */
-  const chartType = isReportType(picked) ? picked : 'bar';
+  const chartType =
+    as === 'auto' ? (base === undefined ? 'bar' : autoChart(input.grid, base, words)) : as;
   const data = chartDataFor(input.grid, chartType);
   if (typeof data === 'string') return { ok: false, error: data };
+  const names = data.series.map((entry) => entry.name);
+  const retained =
+    input.kpis === undefined && existing !== undefined
+      ? retainedKpis(existing.props, names, data)
+      : undefined;
+  if (typeof retained === 'string') return { ok: false, error: retained };
   const kpis = kpiCards(
-    data.series.map((entry) => entry.name),
-    input.kpis,
+    names,
+    input.kpis ??
+      retained ??
+      (chartType === 'histogram'
+        ? [{ column: 'Count', label: 'Observations', measure: 'total' }]
+        : undefined),
   );
   if (typeof kpis === 'string') return { ok: false, error: kpis };
   const index = placeIndex(context, input.after);
   if (typeof index === 'string') return { ok: false, error: index };
-  const title = (input.title ?? data.series.map((entry) => entry.name).join(' · ')).slice(0, 90);
+  const title = (
+    input.title ??
+    (typeof existing?.props['title'] === 'string' ? existing.props['title'] : undefined) ??
+    data.series.map((entry) => entry.name).join(' · ')
+  ).slice(0, 90);
   const props = {
     ...chartPropsOf(data, chartType),
+    ...(existing?.props['valuePrefix'] !== undefined && data.prefix === undefined
+      ? { valuePrefix: ' ' }
+      : {}),
+    ...(existing?.props['valueSuffix'] !== undefined && data.suffix === undefined
+      ? { valueSuffix: ' ' }
+      : {}),
     title,
     kpis,
+    ...(chartType === 'histogram'
+      ? { dataNote: data.notes.join(' · ').slice(0, 320) }
+      : existing?.props['dataNote'] === undefined
+        ? {}
+        : { dataNote: ' ' }),
     ...(input.summary === undefined ? {} : { summary: input.summary }),
+    ...(input.comparisonLabel === undefined ? {} : { comparisonLabel: input.comparisonLabel }),
+    ...(input.showTrends === undefined ? {} : { showTrends: input.showTrends }),
+    ...(input.showTable === undefined ? {} : { showTable: input.showTable }),
+    ...(input.stacked === undefined ? {} : { stacked: input.stacked }),
   };
+  if (existing !== undefined)
+    return {
+      ok: true,
+      steps: Object.entries(props).map(([key, value]) => setProp(existing.id, key, value)),
+      note: `updated report ${existing.id} · ${String(kpis.length)} KPIs · ${chartType}`,
+    };
   return {
     ok: true,
     steps: [
@@ -242,7 +389,7 @@ export const reportBuildTool = defineAgentTool<ReportBuildInput>({
   name: 'report.build',
   lanes: ['edit', 'build'],
   summary: 'Rows as KPI cards, chart and table',
-  signature: '{data,title?,summary?,kpis?:[column],as?,after?}',
+  signature: '{data,title?,summary?,kpis?,as?,id?,after?,showTrends?,showTable?,stacked?}',
   parse,
   run,
 });

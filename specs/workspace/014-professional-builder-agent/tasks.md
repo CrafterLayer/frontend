@@ -1,5 +1,67 @@
 # Tasks: Professional Builder and Agent
 
+## Professional reports and charts — 2026-10-20
+
+Acceptance and ownership: [RP1–RP7](report-capabilities-2026-10-20.md).
+
+- [x] T303 Research primary chart/report patterns and establish deterministic contracts.
+- [x] T304 Implement nine additional chart families with schema, rendering and complete UI
+      artifacts.
+- [x] T305 Strengthen Stats/Report cards with trends, comparisons, targets and summary measures.
+- [x] T306 Connect every chart family to validated data tools and agent skills/request routing.
+- [x] T307 Add detailed report presentations/chart selection and compact report updates by ID.
+- [x] T308 Verify owners/consumers, Storybook, app builds and browser-visible examples across
+      domains.
+- [x] T309 Review independently, repair, converge and update shared handoff.
+
+## Second-prompt execution and reports — 2026-10-20
+
+Acceptance and scope: [Q1–Q5](second-prompt-reports-2026-10-20.md).
+
+- [x] T298 Research primary GitHub patterns and reproduce second-request/report failures.
+- [x] T299 Repair queued request ownership and active-predecessor continuation.
+- [x] T300 Ground conversation history in actual execution outcomes.
+- [x] T301 Repair chronological, unit-compatible and paired report calculations and quality notes.
+- [x] T302 Verify affected owners/consumers, review independently, repair and hand off.
+
+## Creative follow-up editing — 2026-10-20
+
+Acceptance and scope: [F1–F5](creative-followup-2026-10-20.md).
+
+- [x] T293 Reproduce edit/create and existing-target continuity failures.
+- [x] T294 Repair grounded follow-up routing/target selection without breaking explicit creation.
+- [x] T295 Ensure current source reaches the edit writer and repair demonstrated replacement paths.
+- [x] T296 Verify actual same-target updates, preserved content/undo and owner/consumer checks.
+- [x] T297 Independent review, convergence, evidence and final handoff.
+
+## Scroll mural and build follow-up — 2026-10-20
+
+Acceptance and scope: [S1–S5](mural-scroll-2026-10-20.md).
+
+- [x] T288 Reproduce scroll mural visibility failure and implement bounded narrative scroll
+      layout/progress with native page scrolling, nested containers and lifecycle cleanup.
+- [x] T289 Connect compact mural composition/presets and creative guidance to the supported scroll
+      contract; preserve ordinary scenes, editor and reduced-motion behavior.
+- [x] T290 Audit adjacent agent/build paths and repair concrete reproducible gaps.
+- [x] T291 Verify first/final scene visibility, reverse scrolling, phone/RTL, resize and cleanup
+      with real runtime browser fixtures; run owner/consumer checks and regenerate affected assets.
+- [x] T292 Review independently, converge against S1–S5, record evidence and refresh handoff.
+
+## Current incident continuation — 2026-10-20
+
+Acceptance and ownership: [creative agent reliability](reliability-2026-10-20.md).
+
+- [x] T282 Research official implementations and record evidence-backed recommendations and limits.
+- [x] T283 Apply independent validated sections as ready, preserving ordered reports and Stop.
+- [x] T284 Bound repeated work and prevent terminal provider refusals from triggering futile
+      retries.
+- [x] T285 Route short creative requests and choose skills automatically, including `اصنع لعبه`;
+      initialize existing game/story kits locally within the owned build region (R3/R5).
+- [x] T286 Preserve bounded actionable server errors across the remote provider boundary.
+- [x] T287 Verify reproductions, owner/consumer contracts, review independently and update handoff.
+
+Local evidence and limits: [verification](verification-reliability-2026-10-20.md).
+
 Current scoped speed tasks SP-T1..5:
 [scene initialization and server latency](scene-speed-2026-10-13.md#tasks).
 
@@ -952,35 +1014,34 @@ history.
 ## Increment 2026-10-14 (h) — analytical report pages
 
 - [x] T273 Excel and JSON on the agent panel (dc41055): a dropped `.xlsx` is read in the tab by
-      `model/xlsx-rows.ts` (fflate unzip, MIT, lazy chunk; the browser's XML parser) — first
-      sheet, shared/inline strings, numbers without float noise, percentages, ISO dates (1900 and
-      1904) — and goes into the draft as CSV under the instruction line. Bounded: each inflated
-      part capped, 5,000 rows x 40 columns, 2 MB file, 20 KB of rows; a damaged workbook gets an
-      "unreadable" refusal (EN/AR). `.json` files are taken as they are.
+      `model/xlsx-rows.ts` (fflate unzip, MIT, lazy chunk; the browser's XML parser) — first sheet,
+      shared/inline strings, numbers without float noise, percentages, ISO dates (1900 and 1904) —
+      and goes into the draft as CSV under the instruction line. Bounded: each inflated part capped,
+      5,000 rows x 40 columns, 2 MB file, 20 KB of rows; a damaged workbook gets an "unreadable"
+      refusal (EN/AR). `.json` files are taken as they are.
 - [x] T274 `report.page` and the deterministic analysis engine (6b7e7d3): `data-tools/analysis/`
       computes every figure (totals, averages, median/spread, change, growth, CAGR, shares, trend
       with R² and a worded projection, outliers, correlations, group-by, pivot, profit/margin,
-      attainment, budget remaining) and ranks EN/AR findings. One call (~47 tokens) appends a
-      stats header with up to four key-stat cards, charts chosen from the analysis, a findings
-      list, and interactive summary and data tables (sortable by column kind, sticky header,
-      search and pages past ten rows). `readDataText` reads JSON; the zero-token path routes
-      "detailed report / dashboard page / analyse" and the Arabic wording to it; data-viz 1.2.0
-      teaches it. ai-server `handler.test.ts` "answers a unary page plan…" fails on dc41055 with
-      or without this change (it expects a `restart` subscription the handler no longer makes);
-      left for the owner.
+      attainment, budget remaining) and ranks EN/AR findings. One call (~47 tokens) appends a stats
+      header with up to four key-stat cards, charts chosen from the analysis, a findings list, and
+      interactive summary and data tables (sortable by column kind, sticky header, search and pages
+      past ten rows). `readDataText` reads JSON; the zero-token path routes "detailed report /
+      dashboard page / analyse" and the Arabic wording to it; data-viz 1.2.0 teaches it. ai-server
+      `handler.test.ts` "answers a unary page plan…" fails on dc41055 with or without this change
+      (it expects a `restart` subscription the handler no longer makes); left for the owner.
 - [x] T275 Brand logos, cartoon characters and illustrations (d0272af): verified catalogs generated
       by `scripts/build-art-catalog.mjs` into `packages/builder/ai/src/art-catalog/` — Simple Icons
       16.33.0 (3,335 brands, trademark note), DiceBear 9.x styles needing no credit (CC0 or free for
       commercial use; CC BY styles refused), Fluent Emoji Flat (MIT) — hotlinked https like the
-      photo catalog, loaded lazily (62 KB gzip chunk; +640 B first load). The model writes
-      `logo:` / `character:` / `illustration:` specs in media.add, kit slots, part.image and
-      image.set; LogoCloud items take a logo; testimonials kits an avatar; the section check admits
-      verified art. Open: the Testimonials block has no image field; the edit lane sees the ART
-      teaching only when the host selects photo-direction (playground `features/agent` skill
-      code); cdn.simpleicons.org serves the latest release, not the pin.
+      photo catalog, loaded lazily (62 KB gzip chunk; +640 B first load). The model writes `logo:` /
+      `character:` / `illustration:` specs in media.add, kit slots, part.image and image.set;
+      LogoCloud items take a logo; testimonials kits an avatar; the section check admits verified
+      art. Open: the Testimonials block has no image field; the edit lane sees the ART teaching only
+      when the host selects photo-direction (playground `features/agent` skill code);
+      cdn.simpleicons.org serves the latest release, not the pin.
 - [x] T276 A mural ships no explanation card or Next/Restart buttons unless asked (696a1a6): the
-      creative brief gave every kind the game/story accessibility lines (controls and story text
-      in the DOM, manual navigation, dialogue choices); a scene now gets its own
+      creative brief gave every kind the game/story accessibility lines (controls and story text in
+      the DOM, manual navigation, dialogue choices); a scene now gets its own
       (`creative/creative-accessibility.ts`), a request naming a mural stays a mural even when it
       tells a story (no dialogue box), and the mural playbook says no UI unless asked.
 - [x] T277 Mural scale on every screen (e58ce1c), on the owner's word "use pixi-viewport": measured
@@ -994,18 +1055,18 @@ history.
       `skills/request-skills.ts` (host, page-plan, section, edit lanes), new auto skills
       `craftkit.art-names` (logo/character/illustration specs) and `craftkit.logo-design` (an
       original SVG mark + wordmark), dialect folding («سويلي», «اعمل لي»), keyword fixes,
-      `excludedSkillIds`; the page plan sheds the request's skills before its own; writers get
-      their own section's skills instead of the page's matched defaults. Open: the kit
-      header/footer `brand` slot is text-only (no SVG mark); «صمم لي شعار لمقهى» on a blank page
-      routes as a page build; per-person switches for built-ins need a UI.
+      `excludedSkillIds`; the page plan sheds the request's skills before its own; writers get their
+      own section's skills instead of the page's matched defaults. Open: the kit header/footer
+      `brand` slot is text-only (no SVG mark); «صمم لي شعار لمقهى» on a blank page routes as a page
+      build; per-person switches for built-ins need a UI.
 - [x] T279 Built-in skill switches (ce010ba): a "Built-in skills" group in the Skills tab (grouped,
       filter, reset, EN/AR, RTL, stories), stored per viewer as `ck-agent-builtin-skills:v1`, and
-      `excludedSkillIds` respected in the edit lane, host ids, page plan, scaffold, writers and scene
-      pins; engine-required skills stay on; a /skill pick wins. Open: `ALWAYS_ON_SKILL_IDS` in the
-      playground mirrors the engine's `ENGINE_REQUIRED_SKILL_IDS`.
+      `excludedSkillIds` respected in the edit lane, host ids, page plan, scaffold, writers and
+      scene pins; engine-required skills stay on; a /skill pick wins. Open: `ALWAYS_ON_SKILL_IDS` in
+      the playground mirrors the engine's `ENGINE_REQUIRED_SKILL_IDS`.
 - [x] T280 Illustrated mural stories (e82d670): `s.lib.anim` timelines gain from/fromTo, stagger,
-      labels, relative positions, seek/progress/time (scroll scrub); GSAP stays out (licence). Set F:
-      desert-caravan, fishing-village, seed-to-forest, souq-morning — painted panoramas on one
+      labels, relative positions, seek/progress/time (scroll scrub); GSAP stays out (licence). Set
+      F: desert-caravan, fishing-village, seed-to-forest, souq-morning — painted panoramas on one
       labelled timeline, no UI, loop or scrub; playbooks and planner teach the mural-story form.
 - [x] T281 Any mural on demand (818758a, 37961b6): `s.lib.mural` composes a mural from a 1-3k
       character spec (moods, time arc, five parallax layers, 61 illustrated items, a cast and 3-5

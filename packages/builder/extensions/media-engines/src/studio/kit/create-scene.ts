@@ -45,39 +45,10 @@ import type {
   ScriptParamValue,
 } from './types';
 
-export const KIT_VERSION = '1.1.0';
+import { SILENT_BANDS, SILENT_SOUND } from './silent-sound';
+export { SILENT_SOUND } from './silent-sound';
 
-const SILENT_BANDS: Readonly<SceneAudioBands> = Object.freeze({
-  level: 0,
-  bass: 0,
-  mid: 0,
-  treble: 0,
-  beat: false,
-  active: false,
-});
-
-/** ck.sound when the host has none (older runtimes, tests): every call is a silent no-op. */
-export const SILENT_SOUND: SceneSound = Object.freeze({
-  play(): boolean {
-    return false;
-  },
-  ambient(): () => void {
-    return function stop(): void {
-      /* nothing plays */
-    };
-  },
-  analyser(): SceneAudioBands {
-    return { ...SILENT_BANDS };
-  },
-  muted: true,
-  unlocked: false,
-  setMuted(): void {
-    /* silent */
-  },
-  onChange(): void {
-    /* silent */
-  },
-});
+export const KIT_VERSION = '1.2.0';
 
 /** Context losses per region element (a rerun keeps the count; the second loss goes still). */
 const contextLosses = new WeakMap<Element, number>();
@@ -148,6 +119,13 @@ export function createScene(
 
   /* ── palette ─────────────────────────────────────────────────────────── */
   const palette = buildScenePalette(readPaletteRoles(root), paletteOverride(params['palette']));
+  const scrollTracker = createScrollTracker(root, win, {
+    canvas,
+    app,
+    calm: editor || reducedMotion,
+    scrub: params['scrub'] === true,
+  });
+  cleanups.push(scrollTracker.dispose);
 
   /* ── design mode (responsive scenes, 2026-10-13): s.world in design units, kit/design.ts ── */
   const designed = options.design
@@ -164,17 +142,19 @@ export function createScene(
   if (designed !== undefined) cleanups.push(designed.dispose);
 
   /* ── pointer, scroll, clock, governor ───────────────────────────────── */
-  const pointerTracker = createPointerTracker(root, win, undefined, designed?.map);
+  const pointerTracker = createPointerTracker(
+    root,
+    win,
+    undefined,
+    designed?.map,
+    scrollTracker.pointerElement,
+  );
   const input = createSceneInput(root, canvas, editor);
   cleanups.push(() => {
     input.dispose();
   });
   cleanups.push(() => {
     pointerTracker.dispose();
-  });
-  const scrollTracker = createScrollTracker(root, win);
-  cleanups.push(() => {
-    scrollTracker.dispose();
   });
   const clock = createClock();
   const governor = createGovernor({ mode: options.quality ?? 'auto' });

@@ -319,6 +319,18 @@ describe('classifyRunFailure', () => {
   it('reads a missing failure as unknown', () => {
     expect(classifyRunFailure(undefined)).toBe('unknown');
   });
+
+  it('explains stale source as retained newer edits and permits a fresh retry', () => {
+    const failure = {
+      source: 'context',
+      code: 'stale-source',
+      message: 'The authored source changed.',
+      retryable: true,
+    } as const;
+    expect(classifyRunFailure(failure)).toBe('sourceChanged');
+    expect(classifySectionFailure({ failure })).toBe('pageChanged');
+    expect(isRetryableErrorClass('sourceChanged')).toBe(true);
+  });
 });
 
 describe('isRetryableErrorClass', () => {

@@ -7,8 +7,9 @@ import * as ChartStories from './Chart.stories';
 # Chart
 
 A data chart drawn as hand-built, accessible SVG: bar, horizontal bar, line, area, combo, scatter,
-radar, funnel, gauge, sparkline, pie or donut. It needs no chart library and no client script, so
-the published page shows the same picture the canvas does.
+radar, funnel, gauge, sparkline, pie, donut, waterfall, heatmap, treemap, histogram, bubble,
+boxplot, candlestick, lollipop and bullet. It needs no chart library and no client script, so the
+published page shows the same picture the canvas does.
 
 ## Content model
 
@@ -17,20 +18,29 @@ the published page shows the same picture the canvas does.
   chart is named by its series.
 - `chartType = 'bar'`, one of:
 
-  | type        | use it for                                 | draws                                                                 |
-  | ----------- | ------------------------------------------ | --------------------------------------------------------------------- |
-  | `bar`       | comparing items                            | grouped (or stacked) columns                                          |
-  | `hbar`      | comparing items with long labels           | bars across, each label beside its row (stacks too)                   |
-  | `line`      | change over time                           | lines with ringed markers                                             |
-  | `area`      | change over time when the total matters    | washed bands (stacks too)                                             |
-  | `combo`     | a volume and a rate on one axis            | the first series as bars, the rest as lines                           |
-  | `scatter`   | how two measures move together             | points; categories that read as numbers are the x axis                |
-  | `radar`     | one profile over 3-12 criteria             | a web with one closed shape per series; outside 3-12 it draws as bars |
-  | `funnel`    | stages that narrow                         | centred stages of the first series with each one's share of the first |
-  | `gauge`     | one value against a maximum (and a target) | a half dial per category of the first series (at most six)            |
-  | `sparkline` | a compact trend                            | one small line per series with its name and last value, no axes       |
-  | `pie`       | shares of one whole                        | slices of the first series                                            |
-  | `donut`     | shares of one whole, with the total        | a ring of the first series                                            |
+  | type          | use it for                                     | draws                                                                 |
+  | ------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
+  | `bar`         | comparing items                                | grouped (or stacked) columns                                          |
+  | `hbar`        | comparing items with long labels               | bars across, each label beside its row (stacks too)                   |
+  | `line`        | change over time                               | lines with ringed markers                                             |
+  | `area`        | change over time when the total matters        | washed bands (stacks too)                                             |
+  | `combo`       | a volume and a rate on one axis                | the first series as bars, the rest as lines                           |
+  | `scatter`     | how two measures move together                 | points; categories that read as numbers are the x axis                |
+  | `radar`       | one profile over 3-12 criteria                 | a web with one closed shape per series; outside 3-12 it draws as bars |
+  | `funnel`      | stages that narrow                             | centred stages of the first series with each one's share of the first |
+  | `gauge`       | one value against a maximum (and a target)     | a half dial per category of the first series (at most six)            |
+  | `sparkline`   | a compact trend                                | one small line per series with its name and last value, no axes       |
+  | `pie`         | shares of one whole                            | slices of the first series                                            |
+  | `donut`       | shares of one whole, with the total            | a ring of the first series                                            |
+  | `waterfall`   | signed changes contributing to a running total | first series increments, starting at zero; connectors between steps   |
+  | `heatmap`     | intensity across a matrix                      | categories as columns, each series as one row with a common scale     |
+  | `treemap`     | relative weights across categories             | flat nonnegative first-series weights as proportional areas           |
+  | `histogram`   | distribution of observations                   | first-series integer counts in precomputed equal-width bins           |
+  | `bubble`      | relationship between three measures            | numeric X categories, Y series, then nonnegative Size series          |
+  | `boxplot`     | spread with a five-number summary              | Min, Q1, Median, Q3, Max series, ordered at every category            |
+  | `candlestick` | price/open-close intervals                     | Open, High, Low, Close series with consistent bounds                  |
+  | `lollipop`    | sparse signed category comparisons             | one signed series with zero-based stems and endpoint dots             |
+  | `bullet`      | actual results against targets                 | nonnegative Actual then Target series on one common scale             |
 
 - `categories`: up to 24 labels — the x axis, or the slices of a pie.
 - `series`: up to six `{ name, values: number[] }`, one value per category. Values past the last
@@ -48,6 +58,14 @@ the published page shows the same picture the canvas does.
   `variant: 'card' | 'plain' = 'card'`, plus the shared section props.
 - `otherLabel = 'Other'` names the slice a pie folds its smallest values into past eight slices.
 
+Specialized charts require complete finite values for their plotted roles. Invalid specialized data
+shows a visible accessible explanation instead of another chart type. Empty specialized input also
+explains the required shape. These checks do not change how existing saved chart types render.
+Bubble X and Size and histogram counts remain unitless; value affixes apply to bubble Y only.
+Treemap zero weights remain in the key/table but occupy no area. Bullet `maxValue`, when supplied,
+must include all Actual and Target values. Candle fill direction and table role headings provide
+meaning beyond color. Advanced types share the complete `AdvancedChart` component contract.
+
 Inserted from the Library, the block starts as a four-quarter, two-series bar chart.
 
 ## How it is drawn
@@ -60,6 +78,10 @@ and gauge) and `chart-spark.ts` — compute everything. `chart-plot.tsx`, `chart
 `chart-funnel.tsx`, `chart-radar.tsx`, `chart-gauge.tsx`, `chart-sparkline.tsx`, `chart-pie.tsx` and
 `chart-keys.tsx` only map those models to elements, and `Chart.tsx` frames them. None of these is in
 `schema.ts`'s import chain.
+
+`AdvancedChart/` owns the nine specialized families. `advanced-contract.ts` supplies the lightweight
+type vocabulary and validation, while interval/matrix models calculate bounded normalized SVG
+geometry without a runtime chart dependency. Schema discovery never imports those render models.
 
 - **Size.** A bar, line or area plot is as wide as its column and as tall as `height` says (`h-48`,
   `h-64`, `h-80`): the SVG stretches to that box (`preserveAspectRatio="none"`), so a chart in a

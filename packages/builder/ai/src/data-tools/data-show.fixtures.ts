@@ -78,6 +78,8 @@ export const dataFixtureBlocks: TrustedExtensionManifest = {
           props: z.object({
             title: z.string().min(1).max(90).default('Report'),
             summary: z.string().min(1).max(320).optional(),
+            dataNote: z.string().min(1).max(320).optional(),
+            comparisonLabel: z.string().min(1).max(40).optional(),
             categories: z.array(z.string().min(1).max(40)).max(24).default([]),
             series: z
               .array(
@@ -95,13 +97,23 @@ export const dataFixtureBlocks: TrustedExtensionManifest = {
                 z.object({
                   label: z.string().min(1).max(40),
                   series: z.number().int().min(0).max(5).default(0),
-                  measure: z.enum(['last', 'total', 'average', 'max', 'min']).default('last'),
+                  measure: z
+                    .enum(['last', 'total', 'average', 'max', 'min', 'median', 'count'])
+                    .default('last'),
                   better: z.enum(['up', 'down']).default('up'),
+                  comparisonValue: z.number().optional(),
+                  target: z.number().optional(),
+                  detail: z.string().max(120).optional(),
                 }),
               )
-              .max(4)
+              .max(8)
               .default([]),
             chartType: z.enum(REPORT_CHART_TYPES).default('bar'),
+            showTrends: z.boolean().optional(),
+            showTable: z.boolean().optional(),
+            stacked: z.boolean().optional(),
+            maxValue: z.number().optional(),
+            targetValue: z.number().optional(),
           }),
           examples: [],
         }),

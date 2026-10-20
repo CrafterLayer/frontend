@@ -33,6 +33,7 @@ import { isArabicPage } from './plan-page';
 import { pinningRegistry } from './pinning-registry';
 import { createReadyScenesContextProvider, offersReadyScenes } from './scene-ready';
 import type { RunAiAgentOptions } from './types';
+import { SCENE_CONTINUATION_CONTEXT } from './scene-continuation-context';
 
 /*
   Creative EDITS get what creative builds get (creative-power Phase 2 H, 2026-10-12).
@@ -396,7 +397,10 @@ function sceneEditOptions(
     ...(focus === undefined ? {} : { focus }),
   };
   const regions = sceneRegionsFor(input);
-  if (regions.length === 0) return newMuralOptions(options, registry, own);
+  if (regions.length === 0)
+    return creativeCreationRequest(options.request) || reading.route.kind === 'add-section'
+      ? newMuralOptions(options, registry, own)
+      : own;
   let scene: SceneEditContext | undefined;
   const read = (): SceneEditContext | undefined => {
     if (scene !== undefined) return scene;
@@ -433,14 +437,11 @@ function sceneEditOptions(
             excludedSkillIdsOf(options),
           ),
         }),
-    ...(servesBrief(options)
-      ? {}
-      : {
-          additionalContextProviders: [
-            ...(own.additionalContextProviders ?? []),
-            lazyBrief(read, options.request),
-          ],
-        }),
+    additionalContextProviders: [
+      ...(own.additionalContextProviders ?? []),
+      ...(reading.route.kind === 'edit' ? [SCENE_CONTINUATION_CONTEXT] : []),
+      ...(servesBrief(options) ? [] : [lazyBrief(read, options.request)]),
+    ],
   };
 }
 

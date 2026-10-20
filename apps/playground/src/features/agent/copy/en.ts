@@ -14,8 +14,10 @@
  */
 import type { EnEntry, Key } from './keys';
 import { EDIT_RESULT_EN } from './edit-results';
+import { FOLLOWUP_EN } from './followup-copy';
 
 export const en = {
+  ...FOLLOWUP_EN,
   /* §4.2 AgentHeader and the phone sheet */
   'header.name': 'Abu Ghadab',
   'header.conversations': 'Conversations',

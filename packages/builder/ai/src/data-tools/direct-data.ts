@@ -17,7 +17,12 @@ import type { DataShowAs } from './data-show';
 
 export interface DataReading {
   readonly tool: 'data.show' | 'report.build' | 'report.page';
-  readonly input: { readonly data: string; readonly as?: DataShowAs };
+  readonly input: {
+    readonly data: string;
+    readonly as?: DataShowAs;
+    readonly presentation?: 'executive' | 'financial' | 'operational' | 'comparison';
+    readonly charts?: readonly { readonly as: Exclude<DataShowAs, 'auto' | 'table'> }[];
+  };
   readonly label: { readonly ar: string; readonly en: string };
 }
 
@@ -34,6 +39,15 @@ const PAGE =
 
 /** The form each word asks for; folded Arabic (أ→ا, ة→ه), first match wins. */
 const FORMS: readonly (readonly [RegExp, DataShowAs])[] = [
+  [/\bwaterfall\b|شلال/u, 'waterfall'],
+  [/\bheat\s?map\b|خريطه حراريه/u, 'heatmap'],
+  [/\btree\s?map\b|خريطه شجريه/u, 'treemap'],
+  [/\bhistogram\b|مدرج تكراري/u, 'histogram'],
+  [/\bbubble\b|فقاع/u, 'bubble'],
+  [/\bbox\s?plot\b|صندوقي|صندوق وشعيرات/u, 'boxplot'],
+  [/\bcandlestick|\bohlc\b|شموع/u, 'candlestick'],
+  [/\blollipop\b|مصاصه/u, 'lollipop'],
+  [/\bbullet\b|مخطط رصاصي/u, 'bullet'],
   [/\b(?:pie)\b|دائري|كعكه/u, 'pie'],
   [/\b(?:donut|doughnut|ring)\b|حلقي/u, 'donut'],
   [/\b(?:funnel)\b|قمع/u, 'funnel'],
@@ -69,11 +83,33 @@ export function readDataRequest(request: string): DataReading | undefined {
     .replace(/[:：؛.!]+$/u, '')
     .trim();
   if (!ASKS.test(folded) || folded.includes('?') || folded.includes('؟')) return undefined;
+  // Do not let a generic "chart" word silently override a named unsupported family.
+  if (
+    /\b(?:sankey|sunburst|violin|choropleth|network graph|3d|gantt)\b|سانكي|خريطه جغرافيه|مخطط جانت/u.test(
+      folded,
+    )
+  )
+    return undefined;
   if (!readDataText(data).ok) return undefined;
-  if (PAGE.test(folded)) {
+  const as = FORMS.find(([words]) => words.test(folded))?.[1];
+  const chart = as === undefined || as === 'auto' || as === 'table' ? undefined : as;
+  const presentation = /\bexecutive\b|تنفيذي/u.test(folded)
+    ? 'executive'
+    : /\bfinancial\b|تقرير مالي/u.test(folded)
+      ? 'financial'
+      : /\boperational\b|تشغيلي/u.test(folded)
+        ? 'operational'
+        : /\bcomparison report\b|تقرير مقارنه/u.test(folded)
+          ? 'comparison'
+          : undefined;
+  if (PAGE.test(folded) || (REPORT.test(folded) && presentation !== undefined)) {
     return {
       tool: 'report.page',
-      input: { data },
+      input: {
+        data,
+        ...(presentation === undefined ? {} : { presentation }),
+        ...(chart === undefined ? {} : { charts: [{ as: chart }] }),
+      },
       label: {
         ar: 'إضافة صفحة تقرير محسوبة من البيانات',
         en: 'Add a computed report page from the data',
@@ -83,11 +119,10 @@ export function readDataRequest(request: string): DataReading | undefined {
   if (REPORT.test(folded)) {
     return {
       tool: 'report.build',
-      input: { data },
+      input: { data, ...(chart === undefined ? {} : { as: chart }) },
       label: { ar: 'إضافة تقرير من البيانات', en: 'Add a report from the data' },
     };
   }
-  const as = FORMS.find(([words]) => words.test(folded))?.[1];
   if (as === undefined) return undefined;
   return {
     tool: 'data.show',

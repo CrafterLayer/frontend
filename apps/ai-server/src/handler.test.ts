@@ -1811,6 +1811,6 @@ describe('page-plan drafts', () => {
       rationale: PAGE_PLAN_EXAMPLE.rationale,
       pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
     });
-    expect(live.subscribed).toContain('restart'); // Cache/progress subscription; the response is JSON.
+    expect(live.subscribed).not.toContain('restart'); // Unary responses have no draft observer.
   });
 });

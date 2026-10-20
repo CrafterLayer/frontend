@@ -14,6 +14,14 @@ import type {
 } from '../types';
 import { AiProviderError } from './errors';
 import { RemoteAiProviderError, remoteStatusError } from './remote-errors';
+import {
+  assertContentLengthWithinLimit,
+  cancelAndReleaseReader,
+  cancelResponseBody,
+  countChunk,
+  readHttpStatusError,
+  readJsonResponse,
+} from './remote-response';
 import { remoteSceneReview } from './remote-scene-review';
 import { remoteSitePlan } from './remote-site-plan';
 import { AiTaskUnsupportedError, type AiRemoteTask } from './remote-task';
@@ -81,80 +89,6 @@ function callerAbortError(signal: AbortSignal | undefined): Error | undefined {
 function throwIfCallerAborted(signal: AbortSignal | undefined): void {
   const error = callerAbortError(signal);
   if (error !== undefined) throw error;
-}
-
-function responseTooLarge(maxResponseBytes: number): RemoteAiProviderError {
-  return new RemoteAiProviderError(
-    `The assistant server response exceeded the maximum response size of ${String(maxResponseBytes)} bytes.`,
-    { code: 'response-limit', retryable: false },
-  );
-}
-
-function assertContentLengthWithinLimit(response: Response, maxResponseBytes: number): void {
-  const header = response.headers.get('content-length');
-  if (header === null) return;
-  const declaredBytes = Number(header);
-  if (Number.isFinite(declaredBytes) && declaredBytes > maxResponseBytes) {
-    throw responseTooLarge(maxResponseBytes);
-  }
-}
-
-function countChunk(currentBytes: number, chunk: Uint8Array, maxResponseBytes: number): number {
-  const nextBytes = currentBytes + chunk.byteLength;
-  if (nextBytes > maxResponseBytes) throw responseTooLarge(maxResponseBytes);
-  return nextBytes;
-}
-
-function cancelAndReleaseReader(reader: ReadableStreamDefaultReader<Uint8Array>): void {
-  try {
-    void reader.cancel().catch(() => undefined);
-  } catch {
-    // Reader cleanup must never replace the provider's real terminal outcome.
-  }
-  try {
-    reader.releaseLock();
-  } catch {
-    // A host stream may already have released its lock while aborting.
-  }
-}
-
-function cancelResponseBody(response: Response): void {
-  try {
-    void response.body?.cancel().catch(() => undefined);
-  } catch {
-    // Response cleanup is best-effort and must not mask the classified error.
-  }
-}
-
-async function readBoundedText(response: Response, maxResponseBytes: number): Promise<string> {
-  if (response.body === null) return '';
-  const reader = response.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let text = '';
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytes = countChunk(bytes, value, maxResponseBytes);
-      text += decoder.decode(value, { stream: true });
-    }
-    return text + decoder.decode();
-  } finally {
-    cancelAndReleaseReader(reader);
-  }
-}
-
-async function readJsonResponse(response: Response, maxResponseBytes: number): Promise<unknown> {
-  const text = await readBoundedText(response, maxResponseBytes);
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    throw new RemoteAiProviderError('The assistant server answer was not valid JSON.', {
-      code: 'invalid-output',
-      retryable: true,
-    });
-  }
 }
 
 /**
@@ -374,7 +308,11 @@ async function readSseResponse(
       // A failure after the stream began, with the status a plain answer would have carried.
       if (resultSeen || !isRecord(payload) || typeof payload['status'] !== 'number') return;
       const said = payload['message'];
-      throw remoteStatusError(payload['status'], typeof said === 'string' ? said : undefined);
+      throw remoteStatusError(
+        payload['status'],
+        typeof said === 'string' ? said : undefined,
+        payload['retryable'],
+      );
     } else if (event === 'draft') {
       if (resultSeen || onDraft === undefined || !isRecord(payload)) return;
       if (payload['reset'] === true) {
@@ -583,8 +521,13 @@ export function createRemoteAiPlanProvider(options: RemoteAiPlanProviderOptions)
       }
 
       if (!response.ok) {
-        cancelResponseBody(response);
-        throw remoteStatusError(response.status);
+        try {
+          const failure = await readHttpStatusError(response, maxResponseBytes, controller.signal);
+          throwIfEnded(live, timedOut, exchange.timeoutMs);
+          throw failure;
+        } catch (cause) {
+          throw abortAware(cause, live, timedOut, exchange.timeoutMs);
+        }
       }
 
       try {

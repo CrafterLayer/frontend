@@ -36,6 +36,7 @@ function isMissingCredentials(cause: unknown): boolean {
  */
 const BACKEND_ERROR_NAMES: ReadonlySet<string> = new Set([
   'CliBackendError',
+  'CodexBackendError',
   'OpenRouterBackendError',
   'PlanCallTimeoutError',
 ]);
@@ -67,6 +68,9 @@ export function describeFailure(cause: unknown): string {
   if (cause instanceof Anthropic.AuthenticationError) {
     return 'The assistant server is not configured with a valid API key.';
   }
+  if (cause instanceof Anthropic.PermissionDeniedError) {
+    return 'The assistant provider denied access to this model or request.';
+  }
   if (isMissingCredentials(cause)) {
     return NO_CREDENTIALS_MESSAGE;
   }
@@ -82,21 +86,38 @@ export function describeFailure(cause: unknown): string {
   return 'The assistant server failed unexpectedly.';
 }
 
-/**
- * HTTP status carries the RETRYABILITY, which is the part the client acts on:
- * `remote-provider` maps 429 and 5xx to retryable and 4xx to terminal.
- */
+/** Terminal deployment failures retain their HTTP status without triggering model retries. */
+export function terminalFailure(cause: unknown): boolean {
+  return (
+    cause instanceof Anthropic.AuthenticationError ||
+    cause instanceof Anthropic.PermissionDeniedError ||
+    isMissingCredentials(cause) ||
+    (isBackendFailure(cause) && (cause as Error & { retryable?: unknown }).retryable === false)
+  );
+}
+
+/** HTTP status remains the default retry policy; terminal metadata can restrict it. */
 export function errorResponse(cause: unknown): Response {
   if (cause instanceof Error && cause.name === 'AbortError') {
     // The caller hung up. Nothing to send; nothing to log as a failure.
     return new Response(null, { status: 499 });
   }
   const message = describeFailure(cause);
-  if (isBackendFailure(cause)) return json({ error: message }, backendStatusOf(cause));
-  if (cause instanceof Anthropic.RateLimitError) return json({ error: message }, 429);
+  const body = { error: message, ...(terminalFailure(cause) ? { retryable: false } : {}) };
+  if (isBackendFailure(cause)) return json(body, backendStatusOf(cause));
+  if (cause instanceof Anthropic.RateLimitError) return json(body, 429);
   if (cause instanceof Anthropic.AuthenticationError || isMissingCredentials(cause)) {
-    return json({ error: message }, 500);
+    return json(body, 500);
   }
-  if (cause instanceof Anthropic.BadRequestError) return json({ error: message }, 400);
-  return json({ error: message }, 502);
+  if (cause instanceof Anthropic.BadRequestError) return json(body, 400);
+  return json(body, 502);
+}
+
+/** The streamed equivalent retains both status and terminal retry restrictions. */
+export function errorFrame(cause: unknown) {
+  return {
+    status: errorResponse(cause).status,
+    message: describeFailure(cause),
+    ...(terminalFailure(cause) ? { retryable: false } : {}),
+  };
 }

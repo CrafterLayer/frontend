@@ -12,19 +12,29 @@ export class RemoteAiProviderError extends AiProviderError {
   }
 }
 
-/**
- * A status the server answered with: on the response itself, or, once a stream has begun and
- * the status line is spent, in an `error` frame (2026-10-12). Before the frame a failure
- * mid-stream reached the client as an invalid answer, so a rate limit or an outage spent a
- * repair call and was never classed as retryable. `message` is the server's own sentence,
- * already free of SDK text and stacks.
- */
-export function remoteStatusError(status: number, message?: string): RemoteAiProviderError {
+export const MAX_REMOTE_ERROR_MESSAGE_LENGTH = 1_000;
+
+/** Only bounded plain text is suitable for the host's error presentation. */
+function safeMessage(message: string | undefined): string | undefined {
+  if (message === undefined || /<\/?[a-z][^>]*>/iu.test(message)) return undefined;
+  const text = message.replace(/\s+/gu, ' ').trim();
+  return text === '' ? undefined : text.slice(0, MAX_REMOTE_ERROR_MESSAGE_LENGTH);
+}
+
+/** JSON and SSE failures share bounded prose, HTTP classification and terminal restrictions. */
+export function remoteStatusError(
+  status: number,
+  message?: string,
+  retryable?: unknown,
+): RemoteAiProviderError {
   return new RemoteAiProviderError(
-    message ?? `The assistant server answered with status ${String(status)}.`,
+    safeMessage(message) ?? `The assistant server answered with status ${String(status)}.`,
     {
       code: 'http-status',
-      retryable: status === 408 || status === 425 || status === 429 || status >= 500,
+      // Server metadata may forbid a retry; it cannot make a terminal status retryable.
+      retryable:
+        retryable !== false &&
+        (status === 408 || status === 425 || status === 429 || status >= 500),
       status,
     },
   );

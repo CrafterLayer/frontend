@@ -56,7 +56,7 @@ export function logLocalBackends(cliSlugs: readonly string[], apiSlugs: readonly
  * Anything else is a sentence naming what is missing, which `/batch` answers with a 501.
  */
 export function batchBackendFor(
-  backend: 'sdk' | 'cli' | 'openrouter',
+  backend: 'sdk' | 'cli' | 'codex' | 'openrouter',
   client: Anthropic,
   models: readonly string[],
   key: string | undefined,
@@ -68,6 +68,12 @@ export function batchBackendFor(
             'Background batches need the Anthropic Messages API: set ANTHROPIC_API_KEY in apps/ai-server/.env and restart.',
         }
       : { client, route: 'sdk' };
+  }
+  if (backend === 'codex') {
+    return {
+      unavailable:
+        'Background batches are unavailable through Codex CLI. This server uses your ChatGPT login and does not fall back to a paid API.',
+    };
   }
   if (backend === 'cli') {
     return {

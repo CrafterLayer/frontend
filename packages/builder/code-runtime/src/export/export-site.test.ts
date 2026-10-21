@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CompiledPageArtifact, ExportPage, ManagedCatalog, RuntimeSnapshot } from '../contracts';
+import type {
+  CompiledPageArtifact,
+  ExportPage,
+  ManagedCatalog,
+  RuntimeSnapshot,
+} from '../contracts';
 import { compileProject } from '../compiler/compile-project';
 import { exportSite } from './export-site';
 
@@ -74,7 +79,8 @@ async function built(address = '/'): Promise<CompiledPageArtifact> {
   return result.artifact;
 }
 
-const prerender = () => Promise.resolve({ html: '<main><h1>مرحبا</h1></main>', hasPrimaryContent: true });
+const prerender = () =>
+  Promise.resolve({ html: '<main><h1>مرحبا</h1></main>', hasPrimaryContent: true });
 
 function arabicPage(overrides: Partial<ExportPage> = {}): ExportPage {
   return {
@@ -190,7 +196,42 @@ describe('code page export: Unicode routes and the SEO head', () => {
   });
 
   it('ignores stored seo that does not parse instead of failing the export', async () => {
-    const { file } = await exportOne(arabicPage({ seo: { pageKind: 'not-a-kind' } }), 'https://example.com');
+    const { file } = await exportOne(
+      arabicPage({ seo: { pageKind: 'not-a-kind' } }),
+      'https://example.com',
+    );
     expect(file('قائمة-الطعام/index.html')).toContain('<html lang="ar" dir="rtl">');
+  });
+
+  it.each([undefined, 'server', 'client'] as const)(
+    'preserves indexable HTML and marks %s prerender provenance for reactivation',
+    async (renderMode) => {
+      const page = arabicPage({ address: '/' });
+      const artifact = await built('/');
+      const result = await exportSite([page], {
+        catalog,
+        artifacts: new Map([['home', artifact]]),
+        prerender: async () => ({
+          ...(await prerender()),
+          ...(renderMode === undefined ? {} : { renderMode }),
+        }),
+      });
+      if (!result.ok) throw new Error(JSON.stringify(result.diagnostics));
+      const html = result.files.find((file) => file.path === 'index.html')?.content;
+      expect(html).toContain(`data-craftkit-render-mode="${renderMode ?? 'server'}"`);
+      expect(html).toContain('<main><h1>مرحبا</h1></main>');
+    },
+  );
+
+  it('refuses invalid prerender modes before emitting HTML', async () => {
+    const result = await exportSite([arabicPage({ address: '/' })], {
+      catalog,
+      artifacts: new Map([['home', await built('/')]]),
+      prerender: async () => ({ ...(await prerender()), renderMode: 'invalid' as 'client' }),
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      diagnostics: [{ message: 'Unsupported prerender mode.' }],
+    });
   });
 });

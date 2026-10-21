@@ -309,6 +309,8 @@ export {
   DESIGN_MATERIAL_TEACHING,
 } from './skills/design-libraries';
 export { AUTHORED_DESIGN_TEACHING } from './skills/authored-design';
+export { BASE_UI_DESIGN_TEACHING } from './skills/base-ui-design';
+export { RADIX_PALETTE_TEACHING } from './tools/agent/builtin/radix-palette';
 export {
   PIXI_CREATIVE_SKILLS,
   PIXI_GAME_EXAMPLE,

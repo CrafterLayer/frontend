@@ -1,5 +1,15 @@
 # Tasks: Professional Builder and Agent
 
+## Researched page design libraries — 2026-10-21
+
+Acceptance: [DL1–DL5](design-libraries-2026-10-21.md).
+
+- [x] T321 Research official libraries, compatibility, license and existing runtime fit.
+- [x] T322 Install exact owned dependencies and admit bounded Base UI modules to managed pages.
+- [x] T323 Wire semantic Radix palette selection into measured theme tooling.
+- [x] T324 Teach actual APIs and verify real generated-page/export behavior and consumer gates.
+- [x] T325 Review independently, repair, converge and refresh shared continuity.
+
 ## Design freedom and failed-request recovery — 2026-10-21
 
 Acceptance: [DR1–DR5](design-recovery-2026-10-21.md).

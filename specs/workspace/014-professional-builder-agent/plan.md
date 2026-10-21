@@ -1,5 +1,8 @@
 # Implementation Plan: Professional Builder and Agent
 
+Current continuation: [researched page design libraries](design-libraries-2026-10-21.md), DL1–DL5 /
+T321–T325, with bounded runtime admission and measured integration.
+
 Current continuation: [design freedom and failure recovery](design-recovery-2026-10-21.md), DR1–DR5
 / T316–T320. See the increment for exact package ownership and verification boundaries.
 

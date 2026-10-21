@@ -1,6 +1,7 @@
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import {
   DESIGN_LIBRARY_TEACHING,
+  RADIX_PALETTE_TEACHING,
   DESIGN_MATERIAL_TEACHING,
   DESIGN_QUALITY_TEACHING,
   UTILITY_VOCABULARY,
@@ -207,7 +208,7 @@ Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (luci
 
 Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and a deliberate palette applied the same way in every section.
 ${DESIGN_QUALITY_TEACHING}
-${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING}
+${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING} ${RADIX_PALETTE_TEACHING}
 
 ## Refusing
 
@@ -260,7 +261,7 @@ ${REGION_CSS}
 
 ${EDIT_TOOL_PROMPT}
 ${TOOL_PREFERENCE}
-${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING}
+${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING} ${RADIX_PALETTE_TEACHING}
 
 ${EDIT_SCRIPTS}
 

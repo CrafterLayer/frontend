@@ -81,6 +81,7 @@ async function prerender(
     const rendered = {
       html,
       hasPrimaryContent: text?.trim() !== '' || semanticElements > 0,
+      renderMode: 'client' as const,
     };
     if (!pageInput.noIndex && !rendered.hasPrimaryContent) {
       throw new Error(`Page ${pageInput.pageId} rendered no primary content.`);

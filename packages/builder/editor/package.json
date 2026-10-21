@@ -39,6 +39,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@base-ui/react": "catalog:",
     "@craftkit/builder-aceternity": "workspace:*",
     "@craftkit/builder-ai": "workspace:*",
     "@craftkit/builder-blocks-marketing": "workspace:*",

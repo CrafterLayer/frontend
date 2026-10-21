@@ -12,6 +12,7 @@ import {
 import { fixedClock, seededIds } from '@craftkit/builder/testing';
 import {
   composeManagedCatalog,
+  referenceManagedCatalog,
   type CompiledPageArtifact,
   type ManagedCatalog,
   type RuntimeSnapshot,
@@ -47,26 +48,9 @@ function catalog(): ManagedCatalog {
     manifest: {
       catalogVersion: 'craftkit-managed-reference-v1',
       runtimeProfile: 'craftkit-react-v1',
-      packages: [
-        {
-          packageId: 'react',
-          version: '19.2.8',
-          importSpecifiers: ['react', 'react/jsx-runtime'],
-          sourceArtifactId: 'react-reference-runtime',
-          cssArtifactIds: [],
-          license: 'MIT',
-          integrity: 'reference-react-integrity',
-        },
-        {
-          packageId: 'react-dom',
-          version: '19.2.8',
-          importSpecifiers: ['react-dom/client'],
-          sourceArtifactId: 'react-dom-reference-runtime',
-          cssArtifactIds: [],
-          license: 'MIT',
-          integrity: 'reference-react-dom-integrity',
-        },
-      ],
+      packages: referenceManagedCatalog.manifest.packages.filter(({ packageId }) =>
+        ['react', 'react-dom', '@base-ui/react'].includes(packageId),
+      ),
     },
     modules: {
       react: {
@@ -150,6 +134,11 @@ describe('professional builder M0 code-page vertical slice', () => {
     expect(kernel.validate()).toMatchObject({ ok: true });
 
     const firstSnapshot = snapshot(kernel.getSite());
+    expect(firstSnapshot.project.dependencyLock.packages).toEqual({
+      react: '19.2.9',
+      'react-dom': '19.2.9',
+      '@base-ui/react': '1.9.0',
+    });
     const firstCompile = await compileProject(firstSnapshot, { catalog: catalog() });
     expect(firstCompile.ok).toBe(true);
     if (!firstCompile.ok) throw new Error(firstCompile.diagnostics[0]?.message);

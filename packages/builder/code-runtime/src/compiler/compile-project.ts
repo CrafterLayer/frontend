@@ -71,7 +71,7 @@ export async function compileProject(
     const sourceElements: SourceElement[] = [];
     const entry = resolveProjectModule(snapshot, options.catalog, snapshot.entry);
     modules.set(`project:${entry.path}`, entry);
-    const bootstrap = `import * as React from 'react'; import {createRoot,hydrateRoot} from 'react-dom/client'; import Page from 'craftkit:entry'; const root=document.getElementById('root'); if(!root)throw new Error('Missing page root'); const page=React.createElement(Page,${JSON.stringify(snapshot.inputs).replace(/</gu, '\\u003c')}); if(root.hasChildNodes())hydrateRoot(root,page);else createRoot(root).render(page);`;
+    const bootstrap = `import * as React from 'react'; import {createRoot,hydrateRoot} from 'react-dom/client'; import Page from 'craftkit:entry'; const root=document.getElementById('root'); if(!root)throw new Error('Missing page root'); const page=React.createElement(Page,${JSON.stringify(snapshot.inputs).replace(/</gu, '\\u003c')}); if(root.hasChildNodes()&&root.getAttribute('data-craftkit-render-mode')!=='client')hydrateRoot(root,page);else createRoot(root).render(page);`;
     build = await context({
       stdin: { contents: bootstrap, loader: 'js', sourcefile: 'craftkit-bootstrap.js' },
       bundle: true,

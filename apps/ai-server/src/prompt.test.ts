@@ -415,6 +415,13 @@ describe('prompt content', () => {
     expect(rules).toContain('holds nothing but `customCode`');
   });
 
+  it('teaches the available optional Radix scale tool without imposing layout', () => {
+    const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
+    expect(rules).toContain('radixScale');
+    expect(rules).toContain('Existing elements must read the kit tokens');
+    expect(rules).toContain('no imposed header/navbar/footer composition');
+  });
+
   it('explains what a detail-free catalog entry means, since index mode sends many', () => {
     const rules = buildPrompt(wireRequest()).system[0]?.text ?? '';
 
@@ -564,10 +571,10 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20, Open Props material 10-21.
-    'a bare request': '2ade3da758761f0b8b795dcab27b0d6dfc5ce586918ec604d81e3197eed477ed',
-    'a large catalog': '71610f3842573dece3e0e60750e77129b7c0c71b5e1c48e22cc45c544c229bcd',
-    'every branch at once': '6e128f15caac2ae1921af5412e3294d804886a18053777b656e45bb59f8518e6',
+    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20, Open Props + optional Radix scales 10-21.
+    'a bare request': 'a74f5ad16ff39a074cc7a8e9db985d36b6c1b4dda28c0668de306f41d0a03162',
+    'a large catalog': '0c705a9a181064bf0dd15b0c75a4651bc0a4430456746b5ccf5fc3108be89c98',
+    'every branch at once': 'c5e4791fd5a6a61c9ca3994ca8a221a7458b061a5ba4dc6877067f8ec29e66d2',
   };
 
   it.each(FIXTURES)('builds %s with the recorded design-capability prefix', (name, build) => {

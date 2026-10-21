@@ -5,12 +5,12 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-design-recovery-locally-implemented-release-open",
+    "phase": "professional-builder-agent-014-design-libraries-locally-implemented-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "main",
-    "gitCommitCount": 212
+    "gitCommitCount": 213
   },
   "technologyBaseline": {
     "react": {
@@ -228,19 +228,20 @@
     ]
   },
   "currentWork": {
-    "status": "idle-local-design-recovery-implemented",
-    "scope": "builder-ai design material, report context/routing, planner recovery/checker; ai-server prompt; Playground recovery regressions; editor/code-runtime React patch compatibility",
+    "status": "idle-local-design-libraries-implemented",
+    "scope": "builder catalog Base UI admission/provenance; builder-ai optional Radix theme/tool and teaching; source/edit server prefixes; new Playground code-page locks; code-runtime client prerender reactivation; evals browser/export proof",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "activeIncrement": "specs/workspace/014-professional-builder-agent/design-recovery-2026-10-21.md",
-    "verification": "specs/workspace/014-professional-builder-agent/verification-design-recovery-2026-10-21.md",
-    "completedTasks": "T316..T320 / DR1..DR5 locally implemented and independently reviewed. One malformed-output repair, varied chrome/composition, custom report intent plus calculated context, installed Open Props1.7.23, React/DOM19.2.9 with exact legacy-lock aliases.",
-    "nextUncompletedTask": "No implementation task remains in this bounded increment. Original immediate-Stop incident is unconfirmed; live model design/report-quality evaluation and deployment remain unperformed.",
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/design-libraries-2026-10-21.md",
+    "research": "specs/workspace/014-professional-builder-agent/design-library-research-2026-10-21.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-design-libraries-2026-10-21.md",
+    "completedTasks": "T321..T325 / DL1..DL5 locally implemented. Base UI1.9.0 seven shared namespaces, Radix Colors3.0.0 ten optional light/dark palettes, actual agent teaching, client-prerender provenance and compiler cache identity repair.",
+    "nextUncompletedTask": "No implementation task remains in the bounded library increment. Live provider design-quality evaluation, cross-browser coverage and deployment remain unperformed.",
     "reviewDecision": {
       "date": "2026-10-21",
-      "result": "Fresh independent native review found missing-data contract and report-language defects; both fixed and probed, final no open production findings. Local-only review preference preserved; no external CLI/workflow-engine pass."
+      "result": "Fresh independent native review converged without unresolved production findings after CJS React-peer and client-prerender useId repairs. No external CLI/workflow-engine pass claimed."
     },
-    "verificationLimits": "Focused checks/types/lint/build/budgets and scripted browser20/20 passed. Broad AI suite not green;17 failures reproduced in isolated source-only HEAD baseline. Original stopped-after-failure trace not reproduced, live artistry/adherence/cost/latency unmeasured; custom report fact adherence prompt-guided. Full CI and physical touch unrun.",
-    "continuation": "Started clean53617867; current changes uncommitted. Open Props installed and matching React patch updated. No migration, provider call, commit, push or deployment. Temporary local QA server stopped after verification; existing services untouched."
+    "verificationLimits": "Owner/consumer types, changed lint/format, scoped tests, builds/budgets and workspace gates passed. Browser8 preview/export scenarios plus2 no-JS static checks, EN/AR phone/desktop, axe/keyboard/focus/labels/unique IDs. Installed Chrome used because managed Chromium is absent. Real child-browser run, live-provider design quality/cost/latency, physical touch, cross-browser and full CI unrun. Prior broad AI failures remain documented.",
+    "continuation": "Based on HEAD922cdc61 (213 commits); current library changes uncommitted. Existing recovery work preserved. Packages installed and builds refreshed; running user services untouched. Client snapshots retain static HTML before JS then replace early DOM state on mount. Existing saved locks and server-mode prerender ports preserved. No provider calls, migration, commit, push or deployment."
   },
   "qualityGates": {
     "governanceConfigured": true,

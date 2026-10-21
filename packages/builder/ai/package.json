@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@radix-ui/colors": "catalog:",
     "@craftkit/builder-core": "workspace:*",
     "@craftkit/builder-schema": "workspace:*",
     "@jitl/quickjs-wasmfile-release-sync": "catalog:",

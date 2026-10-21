@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { build } from 'esbuild';
 import { fingerprint } from '@craftkit/builder-code-runtime/compiler';
 import type { ManagedCatalog } from '@craftkit/builder-code-runtime';
+import { BASE_UI_ENTRY_SOURCE, BASE_UI_PACKAGE, BASE_UI_VERSION } from './base-ui-catalog';
+import { bundledNotices } from './bundled-notices';
 
 import {
   MANAGED_REACT_VERSION,
@@ -45,6 +47,7 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
     { name: 'tailwindcss', version: '4.3.3', resolver: require },
     { name: 'motion', version: '13.1.1', resolver: motionRequire },
     { name: 'embla-carousel', version: '8.6.0', resolver: carouselRequire },
+    { name: BASE_UI_PACKAGE, version: BASE_UI_VERSION, resolver: require },
   ];
   const licenses: Record<string, string> = {};
   for (const { name, version, resolver } of pins) {
@@ -84,22 +87,26 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
   const source = result.outputFiles[0]?.text;
   if (source === undefined) throw new Error('The trusted runtime build produced no module.');
   const integrity = await fingerprint(source);
-  const [lucideBundle, motionBundle, carouselBundle, theme, preflight] = await Promise.all([
-    buildLibrary('lucide-react'),
-    buildLibrary('@craftkit/builder-motion/react'),
-    buildLibrary('@craftkit/builder-media-engines/carousel', true),
-    readFile(require.resolve('tailwindcss/theme.css'), 'utf8'),
-    readFile(require.resolve('tailwindcss/preflight.css'), 'utf8'),
-  ]);
+  const [lucideBundle, motionBundle, carouselBundle, baseUiBundle, theme, preflight] =
+    await Promise.all([
+      buildLibrary('lucide-react'),
+      buildLibrary('@craftkit/builder-motion/react'),
+      buildLibrary('@craftkit/builder-media-engines/carousel', true),
+      buildLibrary(BASE_UI_PACKAGE),
+      readFile(require.resolve('tailwindcss/theme.css'), 'utf8'),
+      readFile(require.resolve('tailwindcss/preflight.css'), 'utf8'),
+    ]);
   const lucide = (licenses['lucide-react'] ?? '') + lucideBundle;
   const motion = (licenses['motion'] ?? '') + motionBundle;
   const carousel = (licenses['embla-carousel'] ?? '') + carouselBundle;
+  const baseUi = (licenses[BASE_UI_PACKAGE] ?? '') + baseUiBundle;
   const stylesheet = `${licenses['tailwindcss'] ?? ''}@layer theme, base, components, utilities;\n@layer theme {${theme}}\n@layer base {${preflight}}\n@layer utilities { @tailwind utilities; }`;
   const librarySources: Record<string, string> = {
     'lucide-react': lucide,
     motion,
     tailwindcss: stylesheet,
     'embla-carousel': carousel,
+    [BASE_UI_PACKAGE]: baseUi,
   };
   const packages = await Promise.all(
     referenceManagedCatalog.manifest.packages.map(async (entry) => ({
@@ -122,6 +129,7 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
       'lucide-react': { language: 'js', source: lucide },
       'motion/react': { language: 'js', source: motion },
       'embla-carousel': { language: 'js', source: carousel },
+      [BASE_UI_PACKAGE]: { language: 'js', source: baseUi },
       tailwindcss: { language: 'css', source: stylesheet },
     },
     stylesheet,
@@ -130,13 +138,29 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
 
 async function buildLibrary(
   specifier:
-    'lucide-react' | '@craftkit/builder-motion/react' | '@craftkit/builder-media-engines/carousel',
+    | 'lucide-react'
+    | '@craftkit/builder-motion/react'
+    | '@craftkit/builder-media-engines/carousel'
+    | typeof BASE_UI_PACKAGE,
   defaultExport = false,
 ): Promise<string> {
   const result = await build({
     absWorkingDir: catalogDirectory,
+    metafile: specifier === BASE_UI_PACKAGE,
+    // The external-store shim is published as CJS. Resolve only its known React peer locally;
+    // never use an ambient browser require or bundle a second React/context identity.
+    ...(specifier === BASE_UI_PACKAGE
+      ? {
+          banner: {
+            js: "import * as sharedReact from 'react'; const require = (name) => { if (name === 'react') return sharedReact; throw new Error('Unsupported trusted peer: ' + name); };",
+          },
+        }
+      : {}),
     stdin: {
-      contents: `export * from '${specifier}';${defaultExport ? ` export { default } from '${specifier}';` : ''}`,
+      contents:
+        specifier === BASE_UI_PACKAGE
+          ? BASE_UI_ENTRY_SOURCE
+          : `export * from '${specifier}';${defaultExport ? ` export { default } from '${specifier}';` : ''}`,
       resolveDir: catalogDirectory,
       loader: 'js',
     },
@@ -154,5 +178,7 @@ async function buildLibrary(
   });
   const source = result.outputFiles[0]?.text;
   if (source === undefined) throw new Error(`Managed library did not build: ${specifier}`);
-  return source;
+  return specifier === BASE_UI_PACKAGE
+    ? `${await bundledNotices(Object.keys(result.metafile?.inputs ?? {}), catalogDirectory)}\n${source}`
+    : source;
 }

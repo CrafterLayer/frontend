@@ -89,6 +89,8 @@ export interface ExportPage extends RuntimeSnapshot {
 export interface PrerenderResult {
   readonly html: string;
   readonly hasPrimaryContent: boolean;
+  /** Browser-rendered HTML cannot be hydrated as server HTML: React useId uses a different scheme. */
+  readonly renderMode?: 'client' | 'server';
 }
 
 export interface ExportOptions {

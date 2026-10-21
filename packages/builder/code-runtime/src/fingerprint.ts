@@ -2,7 +2,7 @@ import type { RuntimeSnapshot, ManagedCatalog } from './contracts';
 
 /** The Tailwind plugins are part of the compiler (compiler/tailwind-plugins.ts): a new one is a new artifact. */
 export const COMPILER_VERSION =
-  'craftkit-code-1/esbuild-0.28.2/typescript-6.0.3/tailwind-4.3.3/typography-0.5.20/forms-0.5.11';
+  'craftkit-code-1/esbuild-0.28.2/typescript-6.0.3/tailwind-4.3.3/typography-0.5.20/forms-0.5.11/prerender-mode-1';
 
 /** Only JSON is accepted; insertion order does not affect identity. */
 export function canonicalJson(value: unknown): string {

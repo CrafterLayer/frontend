@@ -10,6 +10,7 @@ import {
   type SitePage,
   type Transaction,
 } from '@craftkit/builder';
+import { referenceManagedCatalog } from '@craftkit/builder/code-runtime';
 
 export const REFERENCE_CODE_PROJECT_ID = 'reference-react-project';
 export const REFERENCE_CODE_PAGE_ID = 'home';
@@ -202,7 +203,11 @@ export function createReferenceCodePageFixture(
     runtimeProfile: 'craftkit-react-v1',
     dependencyLock: {
       catalogVersion: options.catalogVersion ?? REFERENCE_CATALOG_VERSION,
-      packages: { react: '19.2.8', 'react-dom': '19.2.8' },
+      packages: Object.fromEntries(
+        referenceManagedCatalog.manifest.packages
+          .filter(({ packageId }) => ['react', 'react-dom', '@base-ui/react'].includes(packageId))
+          .map(({ packageId, version }) => [packageId, version]),
+      ),
     },
     revision: options.projectRevision ?? REFERENCE_CODE_PROJECT_REVISION,
     files: {

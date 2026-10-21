@@ -1,53 +1,53 @@
 # Active Work Handoff
 
-Status: **idle for the bounded local design/recovery increment**, implemented2026-10-21.
+Status: **idle for the bounded local design-library increment**, implemented2026-10-21.
 
-## Scope and source of truth
+## Scope and sources
 
-User wants professional varied design, stronger reports and package support, reliable application
-and subsequent prompts. Active [increment](../../specs/workspace/014-professional-builder-agent/design-recovery-2026-10-21.md),
-[verification](../../specs/workspace/014-professional-builder-agent/verification-design-recovery-2026-10-21.md),
-[spec](../../specs/workspace/014-professional-builder-agent/spec.md),
-[plan](../../specs/workspace/014-professional-builder-agent/plan.md) and
-[tasks](../../specs/workspace/014-professional-builder-agent/tasks.md), DR1–DR5/T316–T320.
+User explicitly invoked `ecc:deep-research`, requested GitHub research and package installation to
+strengthen page design. Active [increment](../../specs/workspace/014-professional-builder-agent/design-libraries-2026-10-21.md),
+[research](../../specs/workspace/014-professional-builder-agent/design-library-research-2026-10-21.md),
+[verification](../../specs/workspace/014-professional-builder-agent/verification-design-libraries-2026-10-21.md)
+and feature014 spec/plan/tasks; DL1–DL5/T321–T325 complete locally.
 
 ## Implemented
 
-Malformed page-plan output receives one bounded correction. Header/footer/page skills no longer
-impose their former layouts. Custom report instructions survive shortcut routing; planner, section
-writer and edit contexts receive bounded untrusted computed report facts. Actual Open Props1.7.23
-spacing/type/measure values reach design contexts. Truthful missing-data contracts agree across
-planner/writer/copy/checker. Arabic derived measures localize; other RTL languages do not become
-Arabic. React/DOM19.2.9 runtime and exact trusted19.2.8 lock compatibility are tested/fingerprinted.
+Installed exact MIT Base UI1.9.0 and Radix Colors3.0.0 with existing installation policies. Seven
+Base UI namespaces share one trusted runtime/context and React identity, exact locks, notices and
+fingerprints. New code pages admit the package; saved project locks stay unchanged. Actual source
+agent guidance teaches its APIs, free styling, RTL and portals. Optional theme.apply selects ten
+light/dark Radix palettes with explicit overrides, existing AA checks and grouped Undo. Existing
+hardcoded authored colors do not consume tokens and therefore do not change automatically.
+
+Browser checks drove two fixes: a local fixed React-peer bridge for the published CJS shim, and
+renderMode provenance for browser-prerendered HTML. The browser worker reports client; those static
+snapshots mount with createRoot, avoiding useId collisions. Omitted/server ports still hydrate.
+Compiler identity bumped to invalidate old bootstraps. Static HTML remains before JS; early DOM
+state is replaced on client mounting. No new production UI component or schema migration.
 
 ## Evidence and limits
 
-See verification for exact commands and overlapping reruns. Final focused401, build/page-plan43,
-report-integrity19, controller14, server123, runtime31, managed catalog/composition13 passed.
-Skill/report worker908 passed; these counts overlap and must not be summed. Owner/consumer types,
-changed-source lint, builds/budgets and workspace/component/file-size/boundary checks passed.
-Scripted browser20/20, six builds, twelve EN/AR desktop/phone screenshots, follow-up/Undo and real
-JS keyboard/mouse behavior; zero provider calls or page errors. Google fonts blocked; app fonts used.
+See verification for commands and overlapping counts: focused AI35, catalog14, runtime/export25,
+server prompt/authored93, workers4, Playground12; color worker101 and independent regression168
+include overlaps. Owner/consumer types, changed lint/format, builds/budgets and workspace gates
+passed. Real browser8 preview/export cases plus2 no-JS checks: EN/AR390/1280, keyboard/focus,
+accessible names, unique IDs, no overflow, axe blocking/incomplete0 and no pageerrors. Eight plain
+capability screenshots in /tmp/craftkit-design-library-qa; Arabic phone export inspected.
 
-Fresh independent native review found two defects, repaired and re-reviewed with no open production
-finding. Original immediate stopped-after-failure trace is unconfirmed: real controller regressions
-prove current error/Retry and successful distinct second prompt, not the unknown incident cause.
-Live model artistry/adherence/cost/latency and generated report fact fidelity remain unmeasured.
-
-Full builder-ai suite is not green: unrestricted run interrupted after failures;17 failures reproduced
-in an isolated HEAD source baseline under `/tmp/craftkit-design-baseline` with identical dependencies.
-Do not hide these old kit/order/skill-budget failures or claim full CI. A load-related report-integrity
-timeout passed19/19 when rerun alone. No full Storybook build or physical touch verification.
+Fresh independent native reviews converged without unresolved production findings. Live provider
+artistry/adherence/cost/latency, cross-browser/physical touch, full Storybook/CI and actual child
+prerender browser launch remain unverified. Local QA explicitly used installed Chrome because
+Playwright's managed Chromium binary is absent. Do not equate these fixtures with a 10/10 visual
+score. Prior broad builder-ai failures remain in the previous verification artifact.
 
 ## Continuation
 
-Started clean at53617867; changes remain uncommitted. Install completed with existing provenance,
-release-age and build policies. No migration, saved-lock rewrite, provider invocation, external CLI
-review, commit, push or deployment. Temporary Vite QA server5194 stopped; existing services preserved.
-Changes to an already running built AI server require its normal restart for activation; no restart
-was performed. Next useful work is live provider/design evaluation and obtaining the exact failed
-request trace if the Stop symptom recurs. Do not reopen unrelated feature014 work or revert these
-changes. Rollback is source/dependency-only with preserved saved-project compatibility.
+Base HEAD922cdc61,213 commits. Current library changes uncommitted; previous recovery work intact.
+No migration, saved-lock rewrite, provider invocation, external CLI review, commit, push or deploy.
+No user service was restarted or replaced. Builds refreshed locally; an already-running built AI
+server needs its normal restart for new instructions. No temporary server remains. No bounded
+implementation work remains. Roll back source/dependencies together and rebuild artifacts while
+preserving saved locks. Prior recovery verification remains the incident/older-suite reference.
 
 Reviewed commit proposal (not executed):
-`fix(ai): improve design freedom and recover malformed page plans`.
+`feat(ai): add researched design libraries and reliable page export`

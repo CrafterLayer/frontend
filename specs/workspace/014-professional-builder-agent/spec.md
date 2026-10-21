@@ -1,5 +1,8 @@
 # Feature Specification: Professional Builder and Agent
 
+Current continuation: [researched page design libraries](design-libraries-2026-10-21.md), DL1–DL5 /
+T321–T325, authorized by the user's research/install request.
+
 Current continuation: [design freedom and failure recovery](design-recovery-2026-10-21.md), DR1–DR5
 / T316–T320, authorized by the user's implementation request.
 

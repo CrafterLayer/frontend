@@ -115,6 +115,9 @@ describe('authored run coordinator', () => {
     expect(system).toContain('Never imply authentication');
     expect(system).toContain('embla-carousel-react');
     expect(system).toContain('only inside allowedPaths');
+    expect(system).toContain('@base-ui/react/direction-provider');
+    expect(system).toContain('Controls are unstyled');
+    expect(system).toContain('No other Base UI subpath is admitted');
     expect(caches.prompt.metrics()).toMatchObject({ cacheReadTokens: 80, cacheWriteTokens: 20 });
     expect(ledger.summary()).toMatchObject({
       attempts: 1,

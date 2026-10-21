@@ -27,7 +27,12 @@ const EXPORT_ROUTE = /^\/(?:[\p{L}\p{N}_-]+\/)*[\p{L}\p{N}_-]*$/u;
 function routePath(address: string): string {
   if (!EXPORT_ROUTE.test(address)) throw new Error(`Route cannot be exported: ${address}`);
   const first = address.replace(/^\//u, '').split('/')[0]?.toLowerCase() ?? '';
-  if (first === 'assets' || first === '404.html' || first === 'sitemap.xml' || first === 'robots.txt')
+  if (
+    first === 'assets' ||
+    first === '404.html' ||
+    first === 'sitemap.xml' ||
+    first === 'robots.txt'
+  )
     throw new Error(`Route cannot be exported: ${address} collides with a generated file.`);
   return address === '/'
     ? 'index.html'
@@ -64,7 +69,9 @@ function validOrigin(value: string | undefined): string | undefined {
 function canonicalOrigin(value: string | undefined): string | undefined {
   if (value === undefined || !URL.canParse(value)) return undefined;
   const url = new URL(value);
-  return url.protocol === 'https:' && url.username === '' && url.password === '' ? url.origin : undefined;
+  return url.protocol === 'https:' && url.username === '' && url.password === ''
+    ? url.origin
+    : undefined;
 }
 
 function safeDecode(path: string): string {
@@ -81,8 +88,16 @@ function normalRoute(address: string): string {
 }
 
 const NOT_FOUND_COPY = {
-  ar: { title: 'الصفحة غير موجودة', lead: 'لم نجد الصفحة التي تبحث عنها.', home: 'العودة إلى الصفحة الرئيسية' },
-  en: { title: 'Page not found', lead: 'We could not find the page you were looking for.', home: 'Back to the home page' },
+  ar: {
+    title: 'الصفحة غير موجودة',
+    lead: 'لم نجد الصفحة التي تبحث عنها.',
+    home: 'العودة إلى الصفحة الرئيسية',
+  },
+  en: {
+    title: 'Page not found',
+    lead: 'We could not find the page you were looking for.',
+    home: 'Back to the home page',
+  },
 } as const;
 
 /** A minimal, self-contained 404 in the home page's language; noindex, no canonical, no JSON-LD. */
@@ -167,6 +182,9 @@ export async function exportSite(
         structuredClone(artifact),
         options.signal,
       );
+      const renderMode: unknown = rendered.renderMode ?? 'server';
+      if (renderMode !== 'client' && renderMode !== 'server')
+        throw new Error('Unsupported prerender mode.');
       options.signal?.throwIfAborted();
       if (!page.noIndex && (!rendered.hasPrimaryContent || rendered.html.trim() === ''))
         throw new Error(`Page ${page.pageId} has no indexable primary content.`);
@@ -186,7 +204,9 @@ export async function exportSite(
       const seo = parsePageSeo(page.seo);
       const pageOrigin = canonical?.origin ?? origin;
       const canonicalPath =
-        canonical === undefined ? undefined : safeDecode(canonical.pathname.replace(/\/$/u, '') || '/');
+        canonical === undefined
+          ? undefined
+          : safeDecode(canonical.pathname.replace(/\/$/u, '') || '/');
       const head = buildSeoHead({
         title: page.title,
         description: page.description,
@@ -195,21 +215,31 @@ export async function exportSite(
         site: { ...site, ...(pageOrigin === undefined ? {} : { origin: pageOrigin }) },
         page: {
           ...(seo ?? {}),
-          ...(canonicalPath === undefined || seo?.canonicalPath !== undefined ? {} : { canonicalPath }),
+          ...(canonicalPath === undefined || seo?.canonicalPath !== undefined
+            ? {}
+            : { canonicalPath }),
         },
         noIndex: page.noIndex === true,
         image: page.socialImage,
         socialTitle: page.socialTitle,
         socialDescription: page.socialDescription,
       });
-      const html = `<!doctype html><html lang="${language}" dir="${direction}"><head>${head}${styles}</head><body><div id="root">${rendered.html}</div>${scripts}</body></html>`;
-      exported.push({ route: normalRoute(page.address), language, direction, noIndex: page.noIndex === true, seo });
+      const html = `<!doctype html><html lang="${language}" dir="${direction}"><head>${head}${styles}</head><body><div id="root" data-craftkit-render-mode="${renderMode}">${rendered.html}</div>${scripts}</body></html>`;
+      exported.push({
+        route: normalRoute(page.address),
+        language,
+        direction,
+        noIndex: page.noIndex === true,
+        seo,
+      });
       files.push({ path, content: html, integrity: await fingerprint(html) });
       artifactIds.push(artifact.artifactId);
     }
     if (pages.length === 0) throw new Error('Export requires at least one page.');
     const home = exported.find(({ route }) => route === '/') ?? exported[0];
-    files.push(siteFile('404.html', notFoundPage(home?.language ?? 'en', home?.direction ?? 'ltr', site)));
+    files.push(
+      siteFile('404.html', notFoundPage(home?.language ?? 'en', home?.direction ?? 'ltr', site)),
+    );
     if (origin !== undefined) {
       const lastmod = (options.now ?? new Date()).toISOString().slice(0, 10);
       const entries = exported
@@ -223,7 +253,9 @@ export async function exportSite(
           return {
             loc,
             lastmod,
-            ...(alternates.length === 0 ? {} : { alternates: [{ lang: language, href: loc }, ...alternates] }),
+            ...(alternates.length === 0
+              ? {}
+              : { alternates: [{ lang: language, href: loc }, ...alternates] }),
           };
         });
       files.push(siteFile('sitemap.xml', sitemapXml(entries)));

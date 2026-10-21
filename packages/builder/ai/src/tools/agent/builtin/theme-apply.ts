@@ -25,6 +25,7 @@ import {
   unknownKeys,
 } from '../shared';
 import { defineAgentTool, type AgentToolContext, type AgentToolRun } from '../types';
+import { RADIX_SCALES, radixPalette, type RadixAppearance, type RadixScale } from './radix-palette';
 
 /**
  * theme.apply — recolour the page by rewriting its `--ck-*` kit tokens.
@@ -44,6 +45,8 @@ export interface ThemeApplyInput {
   readonly surface?: string;
   readonly radius?: PagePlanRadius;
   readonly deckRow?: string;
+  readonly radixScale?: RadixScale;
+  readonly appearance?: RadixAppearance;
 }
 
 const COLOUR_KEYS = ['accent', 'bg', 'ink', 'surface'] as const;
@@ -51,15 +54,27 @@ type ColourInput = (typeof COLOUR_KEYS)[number];
 
 function parse(input: unknown) {
   const record = inputRecord(input);
-  if (record === undefined) return fail<ThemeApplyInput>('input must be an object like {"accent":"emerald-700"}.');
-  const extra = unknownKeys(record, [...COLOUR_KEYS, 'radius', 'deckRow']);
-  if (extra.length > 0) return fail<ThemeApplyInput>(`unknown keys ${extra.join(', ')}; use accent, bg, ink, surface, radius, deckRow.`);
+  if (record === undefined)
+    return fail<ThemeApplyInput>('input must be an object like {"accent":"emerald-700"}.');
+  const extra = unknownKeys(record, [
+    ...COLOUR_KEYS,
+    'radius',
+    'deckRow',
+    'radixScale',
+    'appearance',
+  ]);
+  if (extra.length > 0)
+    return fail<ThemeApplyInput>(
+      `unknown keys ${extra.join(', ')}; use accent, bg, ink, surface, radius, deckRow, radixScale, appearance.`,
+    );
   const out: Record<string, string> = {};
   for (const key of COLOUR_KEYS) {
     const value = record[key];
     if (value === undefined) continue;
     if (typeof value !== 'string' || colourHex(value) === undefined) {
-      return fail<ThemeApplyInput>(`"${key}" must be #rrggbb or a palette shade such as emerald-700.`);
+      return fail<ThemeApplyInput>(
+        `"${key}" must be #rrggbb or a palette shade such as emerald-700.`,
+      );
     }
     out[key] = value.trim().toLowerCase();
   }
@@ -73,12 +88,35 @@ function parse(input: unknown) {
   const deckRow = record['deckRow'];
   if (deckRow !== undefined) {
     if (typeof deckRow !== 'string' || !DIRECTION_DECK_ROWS.some(({ id }) => id === deckRow)) {
-      return fail<ThemeApplyInput>(`"deckRow" is one of ${DIRECTION_DECK_ROWS.map(({ id }) => id).join(', ')}.`);
+      return fail<ThemeApplyInput>(
+        `"deckRow" is one of ${DIRECTION_DECK_ROWS.map(({ id }) => id).join(', ')}.`,
+      );
     }
     out['deckRow'] = deckRow;
   }
+  const radixScale = record['radixScale'];
+  if (radixScale !== undefined) {
+    if (
+      typeof radixScale !== 'string' ||
+      !(RADIX_SCALES as readonly string[]).includes(radixScale)
+    ) {
+      return fail<ThemeApplyInput>(`"radixScale" is one of ${RADIX_SCALES.join(', ')}.`);
+    }
+    if (deckRow !== undefined)
+      return fail<ThemeApplyInput>('choose radixScale or deckRow, not both.');
+    out['radixScale'] = radixScale;
+  }
+  const appearance = record['appearance'];
+  if (appearance !== undefined) {
+    if (radixScale === undefined) return fail<ThemeApplyInput>('"appearance" requires radixScale.');
+    if (appearance !== 'light' && appearance !== 'dark')
+      return fail<ThemeApplyInput>('"appearance" is light or dark.');
+    out['appearance'] = appearance;
+  }
   if (Object.keys(out).length === 0) {
-    return fail<ThemeApplyInput>('name at least one of accent, bg, ink, surface, radius or deckRow.');
+    return fail<ThemeApplyInput>(
+      'name at least one of accent, bg, ink, surface, radius, deckRow or radixScale.',
+    );
   }
   return okParse(out as ThemeApplyInput);
 }
@@ -87,7 +125,8 @@ function parse(input: unknown) {
 function deckState(rowId: string, base: PageKitState, arabic: boolean): PageKitState {
   const row = DIRECTION_DECK_ROWS.find(({ id }) => id === rowId);
   if (row === undefined) return base;
-  const hex = (name: string, fallback: string) => PAGE_PLAN_PALETTE_HEX[name] ?? colourHex(name) ?? fallback;
+  const hex = (name: string, fallback: string) =>
+    PAGE_PLAN_PALETTE_HEX[name] ?? colourHex(name) ?? fallback;
   const p = row.palette;
   const bg = hex(p.ground, base.colours.bg);
   const ink = hex(p.ink, base.colours.ink);
@@ -129,10 +168,18 @@ function derive(base: KitColours, named: Partial<Record<ColourInput, string>>): 
   const accent = named.accent ?? base.accent;
   const onAccent = readable([base.onAccent, '#ffffff', '#000000'], [accent]);
   const accentInk = readable(
-    [accent, base.accentInk, mix(accent, ink, 0.7), mix(accent, ink, 0.5), mix(accent, ink, 0.3), ink],
+    [
+      accent,
+      base.accentInk,
+      mix(accent, ink, 0.7),
+      mix(accent, ink, 0.5),
+      mix(accent, ink, 0.3),
+      ink,
+    ],
     grounds,
   );
-  const border = named.bg !== undefined || named.ink !== undefined ? mix(ink, bg, 0.15) : base.border;
+  const border =
+    named.bg !== undefined || named.ink !== undefined ? mix(ink, bg, 0.15) : base.border;
   return { bg, surface, ink, muted, accent, onAccent, accentInk, border };
 }
 
@@ -148,26 +195,41 @@ const KEY_NAMES: Readonly<Record<KitColourKey, string>> = {
 };
 
 /** A refusal naming the failing pair and the nearest palette shade of the named colour that passes. */
-function refusal(colours: KitColours, named: Partial<Record<ColourInput, string>>): string | undefined {
+function refusal(
+  colours: KitColours,
+  named: Partial<Record<ColourInput, string>>,
+): string | undefined {
   const failures = failingPairs(colours);
   const first = failures[0];
   if (first === undefined) return undefined;
-  const namedKey = (key: KitColourKey): key is ColourInput => (COLOUR_KEYS as readonly string[]).includes(key) && named[key as ColourInput] !== undefined;
-  const change: KitColourKey = namedKey(first.fg) ? first.fg : namedKey(first.bg) ? first.bg : first.fg;
+  const namedKey = (key: KitColourKey): key is ColourInput =>
+    (COLOUR_KEYS as readonly string[]).includes(key) && named[key as ColourInput] !== undefined;
+  const change: KitColourKey = namedKey(first.fg)
+    ? first.fg
+    : namedKey(first.bg)
+      ? first.bg
+      : first.fg;
   const other = change === first.fg ? first.bg : first.fg;
   const written = namedKey(change) ? named[change] : undefined;
-  const suggestion = nearestShades(colours[change], written).find(([, hex]) => ratio(hex, colours[other]) >= AA);
+  const suggestion = nearestShades(colours[change], written).find(
+    ([, hex]) => ratio(hex, colours[other]) >= AA,
+  );
   const pair = `${KEY_NAMES[first.fg]} ${colours[first.fg]} on ${KEY_NAMES[first.bg]} ${colours[first.bg]}`;
   return `${pair} is ${first.ratio.toFixed(2)}:1, below WCAG AA 4.5:1.${
-    suggestion === undefined ? '' : ` Use ${change} "${suggestion[0]}" (${suggestion[1]}), which passes.`
+    suggestion === undefined
+      ? ''
+      : ` Use ${change} "${suggestion[0]}" (${suggestion[1]}), which passes.`
   }`;
 }
 
 /** Whether two kit states draw the same page: colours, radius and faces. */
 function sameLook(left: PageKitState, right: PageKitState): boolean {
-  const face = ({ family, weights }: PageKitState['display']) => `${family}:${[...weights].sort().join(';')}`;
+  const face = ({ family, weights }: PageKitState['display']) =>
+    `${family}:${[...weights].sort().join(';')}`;
   return (
-    (Object.keys(left.colours) as KitColourKey[]).every((key) => left.colours[key] === right.colours[key]) &&
+    (Object.keys(left.colours) as KitColourKey[]).every(
+      (key) => left.colours[key] === right.colours[key],
+    ) &&
     left.radius === right.radius &&
     face(left.display) === face(right.display) &&
     face(left.body) === face(right.body)
@@ -182,6 +244,9 @@ function run(input: ThemeApplyInput, context: AgentToolContext): AgentToolRun {
   const read = readPageKit(pageCss, arabic);
   let { state } = read;
   if (input.deckRow !== undefined) state = deckState(input.deckRow, state, arabic);
+  if (input.radixScale !== undefined) {
+    state = { ...state, colours: radixPalette(input.radixScale, input.appearance ?? 'light') };
+  }
   const named: Partial<Record<ColourInput, string>> = {};
   for (const key of COLOUR_KEYS) {
     const value = input[key];
@@ -196,7 +261,11 @@ function run(input: ThemeApplyInput, context: AgentToolContext): AgentToolRun {
   const colours = derive(state.colours, hexNamed);
   const refused = refusal(colours, named);
   if (refused !== undefined) return { ok: false, error: refused };
-  const next: PageKitState = { ...state, colours, ...(input.radius === undefined ? {} : { radius: input.radius }) };
+  const next: PageKitState = {
+    ...state,
+    colours,
+    ...(input.radius === undefined ? {} : { radius: input.radius }),
+  };
   /*
     colour-target fix: the kit is compared as values, not text. `writePageKit`
     re-emits the font imports as one URL, so a rewrite with the values the page
@@ -204,7 +273,8 @@ function run(input: ThemeApplyInput, context: AgentToolContext): AgentToolRun {
   */
   const same = read.hasKit && sameLook(read.state, next);
   const css = writePageKit(pageCss, next, context.locale);
-  if (same || css === pageCss) return { ok: true, steps: [], note: 'the theme already has these values' };
+  if (same || css === pageCss)
+    return { ok: true, steps: [], note: 'the theme already has these values' };
   return { ok: true, steps: [setProp(rootId, 'pageCss', css)] };
 }
 
@@ -212,7 +282,8 @@ export const themeApplyTool = defineAgentTool<ThemeApplyInput>({
   name: 'theme.apply',
   lanes: ['edit'],
   summary: 'Recolour the page, AA checked',
-  signature: '{accent?,bg?,ink?,surface?:#hex|shade,radius?,deckRow?}',
+  signature:
+    '{accent?,bg?,ink?,surface?:#hex|shade,radius?,deckRow?,radixScale?,appearance?:light|dark}',
   parse,
   run: (input, context) => run(input, context),
 });

@@ -1,4 +1,5 @@
 import type { ManagedCatalog } from '@craftkit/builder-code-runtime';
+import { BASE_UI_FACADES, BASE_UI_MANIFEST } from './base-ui-catalog';
 
 // Additive admission retains the existing lock/profile version. Full catalog content is hashed
 // into every artifact identity, so adding Embla invalidates caches without breaking saved locks.
@@ -105,11 +106,13 @@ export const referenceManagedCatalog: ManagedCatalog = {
         license: 'MIT',
         integrity: 'unbuilt',
       },
+      BASE_UI_MANIFEST,
     ],
   },
   // Saved v1 projects keep their original lock; the bundled runtime is always the patched pin.
   compatibleLockVersions: { react: ['19.2.8'], 'react-dom': ['19.2.8'] },
   modules: {
+    ...BASE_UI_FACADES,
     react: {
       language: 'js',
       source: `import { React } from '${MANAGED_RUNTIME_SPECIFIER}';\nexport default React;\n${reactExports.map((name) => `export const ${name} = React.${name};`).join('\n')}`,

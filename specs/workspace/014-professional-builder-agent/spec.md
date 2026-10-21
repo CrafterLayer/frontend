@@ -1,5 +1,8 @@
 # Feature Specification: Professional Builder and Agent
 
+Current continuation: [screen design freedom](screen-design-freedom-2026-10-21.md), SF1–SF5 /
+T326–T330, authorized by the user's constraint audit and repair request.
+
 Current continuation: [researched page design libraries](design-libraries-2026-10-21.md), DL1–DL5 /
 T321–T325, authorized by the user's research/install request.
 

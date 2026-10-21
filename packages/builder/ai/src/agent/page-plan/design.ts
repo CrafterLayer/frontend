@@ -134,7 +134,7 @@ export function designBriefLines(plan: PagePlan, section: SectionContract): read
     ...(composition === 'bespoke'
       ? [
           'AUTHOR THIS COMPOSITION: write semantic tree and scoped CSS for the chosen layout. Existing blocks and kit recipes are optional references, not required shapes. A single region may hold a complete page with sidebars, overlapping grids and multiple semantic sections. Keep DOM reading order meaningful and adapt the composition to narrow screens.',
-          'Use the page tokens as defaults; own spacing, typography scale, grid, responsive rules and visual rhythm. Include working interactions when requested using the supported JS runtime if enabled. Do not add generic cards, sales bands or decorative effects by habit.',
+          'Use the page tokens as defaults; own spacing, typography scale, grid, responsive rules and visual rhythm. Dashboards, editors and workflows organize tasks and states; the hero role owns h1 without requiring a banner. Mixed widths, phone grids and accessible local table scrolling are valid. Additional fonts must be verified, script-capable and loaded with shipped weights through approved font imports in scoped CSS. Include working interactions when requested using the supported JS runtime if enabled. Do not add generic cards, sales bands or decorative effects by habit.',
           ...(section.slots === undefined
             ? []
             : [

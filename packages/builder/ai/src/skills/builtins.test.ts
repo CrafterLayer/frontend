@@ -659,12 +659,12 @@ describe('Craftkit built-in AI skills', () => {
       },
     );
 
-    it('names five AI defaults, the SaaS kit and the template chrome among them', () => {
+    it('uses subject-led hierarchy without banning styles or counting signatures', () => {
       const taste = registry.readSkill('craftkit.visual-direction');
-      expect(taste).toContain('FIVE DEFAULTS');
-      expect(taste).toMatch(/\(4\)[^(]*identical cards/u);
-      expect(taste).toMatch(/\(5\)[^(]*eyebrow/u);
-      expect(taste).toMatch(/never a glow, blob or gradient circle/iu);
+      expect(taste).toContain('OPTIONAL STYLES');
+      expect(taste).toContain('not only the accent');
+      expect(taste).toContain('No fixed signature count');
+      expect(taste).not.toContain('THE FIVE DEFAULTS');
     });
 
     /*

@@ -1,5 +1,15 @@
 # Tasks: Professional Builder and Agent
 
+## Screen design freedom — 2026-10-21
+
+Acceptance: [SF1–SF5](screen-design-freedom-2026-10-21.md).
+
+- [x] T326 Audit active fixed-style guidance and remove contradictory design recipes/quotas.
+- [x] T327 Let explicit redesign change composition while keeping narrow edits targeted.
+- [x] T328 Align planner/writer/source guidance and descriptions around task-led varied screens.
+- [x] T329 Admit verified additional fonts for bespoke composition with focused validation tests.
+- [x] T330 Verify, independently review, repair, converge and refresh shared continuity.
+
 ## Researched page design libraries — 2026-10-21
 
 Acceptance: [DL1–DL5](design-libraries-2026-10-21.md).

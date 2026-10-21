@@ -125,7 +125,7 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.8.0',
+  version: '3.9.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
@@ -612,8 +612,8 @@ const VISUAL_DIRECTION: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.visual-direction',
   name: 'Distinctive visual direction',
   description:
-    'Design leadership: ground the page in its subject, avoid the five AI defaults, pair type deliberately, spend the boldness on one signature element.',
-  version: '1.1.1',
+    'Design leadership: content-led identity, deliberate type and hierarchy, meaningful redesign without prescribed styles or signature counts.',
+  version: '3.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 52,
@@ -643,18 +643,16 @@ const VISUAL_DIRECTION: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['design', 'identity', 'typography', 'visual'],
-  instructions: `You are the design lead. This page must not be mistakable for any other page you have made.
-SUBJECT FIRST: before choosing anything, name in the rationale (≤12 words) the subject, its audience and the page's ONE job. Palette, words and imagery come from that subject's own world — its materials, tools, artefacts, vocabulary. A bakery and a security audit must not share a palette.
-THE FIVE DEFAULTS, avoid unless the request names one: (1) cream ground (bg-stone-50) + serif display + amber or orange accent; (2) bg-slate-950 + one acid lime-400 or rose-500 accent; (3) hairline broadsheet rules, rounded-none, dense columns; (4) the SaaS kit — identical cards, one radius, one soft shadow, gradient washes, purple into indigo; (5) template chrome — an uppercase eyebrow over every heading, "A · B · C" meta strings, an arrow on every link. Each arrives by habit; if you land on one, change one axis and say which in the rationale.
-HERO IS A THESIS: open with the most characteristic thing in the subject's world — the real headline, the real artefact, one real number in its context. Big stat + gradient + two buttons is the template answer.
-TYPE CARRIES THE PERSONALITY: pair a display face with a body face on purpose — the pair the direction names when there is one. Load them in pageCss — @import url("https://fonts.googleapis.com/css2?family=Fraunces:wght@600&display=swap"); or fonts.bunny.net, those two hosts only — then .ck-display{font-family:'Fraunces',var(--t-font-family-serif)}. Arabic: the pair the direction names, never Cairo by habit; never a Latin face on Arabic text.
-STRUCTURE IS INFORMATION: eyebrows, dividers, numbers must encode something true. 01/02/03 only when the content really is a sequence.
-ONE SIGNATURE: exactly one element carries the boldness — an oversized type lockup, a full-bleed photo, an overlapping card, a diagonal split — and everything around it stays quiet; never a glow, blob or gradient circle behind the headline.
-COMPLEXITY MATCHES THE VISION: elegance is executing the chosen vision, not adding to it.
-BEFORE YOU FINISH: remove one accessory — the decoration that survives only because you made it. Floor, always: responsive at sm/md/lg, alt on every image, visible focus, motion-reduce on anything that moves.`,
+  instructions: `You are the design lead. Derive this screen's identity from its purpose, audience, content and supplied references.
+SUBJECT FIRST: explain the useful spatial decision in the rationale. Brand and explicit user choices win; different subjects may share colours when appropriate, but do not recycle a composition by habit.
+OPTIONAL STYLES: editorial, warm, dark, minimal, playful, glass, gradients and mixed surfaces are all available. A style is justified by the brief, not selected or rejected from a fixed list. Compare with the supplied current screen before proposing another look: change meaningful hierarchy, geometry or density when asked for a new direction, not only the accent.
+OPENING: make the screen's job clear through its heading, navigation, data, workspace or imagery. An app screen does not need a marketing hero, sales band or CTA sequence.
+TYPE: use the pair the direction names unless the request changes it; choose scale and measure by reading role. Load named faces through supported font mechanisms; never a Latin-only face on Arabic text. Additional declared faces follow the verified-loading contract.
+STRUCTURE IS INFORMATION: dividers, labels, numbers and decoration serve real content. Repeated rows/cards are valid for repeated records; avoid unrelated content forced into identical cards.
+FOCAL HIERARCHY: distribute emphasis according to the task. No fixed signature count, accessory removal rule or ban on glows, gradients and asymmetry. Keep controls clear, phone/RTL flow useful, alt text and focus visible, and reduced-motion content complete.`,
   references: {
     'checks/direction.md':
-      "Subject, audience and the page's one job named in the rationale; palette and type derived from the subject rather than from the five defaults; hero opens with the characteristic thing; display and body faces paired and loaded from an allowed host; numbering only for real sequences; exactly one signature element; one decoration removed; responsive, alt text, visible focus, motion-reduce.",
+      'Content-led identity; requested style respected; meaningful composition changes for redesign; useful emphasis and repetition; loaded script-capable fonts; responsive, accessible and reduced-motion behavior.',
   },
 });
 
@@ -663,8 +661,8 @@ const DESIGN_DIRECTION: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.design-direction',
   name: 'Coherent design direction',
   description:
-    'One named visual direction applied everywhere: five palette recipes, contrast pairs, four type sizes, one spacing scale, restyle rules.',
-  version: '2.3.0',
+    'Content-led visual direction, responsive screen geometry, semantic colours and scoped redesign rules.',
+  version: '3.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 50,
@@ -701,20 +699,15 @@ const DESIGN_DIRECTION: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['colour', 'design', 'typography', 'visual'],
-  instructions: `Pick one direction, name it in the rationale in ≤6 words, apply it identically in every region you touch. With no hue named, the subject picks among B–E, or a palette from its own world.
-A SITE THEME, only when the request asks for the site's or brand's own colours (or under colourPolicy 'tokens', where the palette is refused): bg-surface text-text; muted text-text-muted; cards bg-surface ring-1 ring-black/5; accent bg-accent text-accent-text; dark band bg-surface-inverse text-text-inverse — it re-themes with the site.
-B EDITORIAL: bg-white text-slate-900; muted text-slate-600; accent indigo-600; rounded-lg; border border-black/10, shadow-none; headings text-5xl tracking-tight; headline font via css .ck-serif{font-family:var(--t-font-family-serif)}.
-C SOFT PRODUCT: bg-slate-50; cards bg-white rounded-2xl ring-1 ring-black/5; accent emerald-700 or sky-700; the bold surface is one solid band in the accent on the final action, never a purple gradient.
-D DARK TECH: bg-slate-950 text-slate-100; muted text-slate-400; cards bg-slate-900 ring-1 ring-white/10; text-sky-400 for accent text and icons, bg-sky-400 text-slate-950 for the action; the signature is type or one framed photo, never a glow.
-E WARM: bg-white text-stone-900; muted text-stone-600; accent red-800, terracotta rather than amber on cream; rounded-3xl; cards bg-orange-50 ring-1 ring-black/5.
-CONTRAST: on white or *-50, body text is *-600 or darker and headings *-900; on *-900/*-950, body is *-300 or lighter and headings white; never *-400/*-500 for body text; text over a photo needs a darkening layer via ck- css background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url(https://…) center/cover, or an absolute inset-0 bg-black/50 layer over the image.
-TYPE, exactly: display text-4xl md:text-6xl font-bold leading-tight; h2 text-3xl md:text-4xl font-semibold; h3 text-xl font-semibold; body text-base md:text-lg leading-relaxed; caption text-sm text-text-muted. tracking-tight only on Latin display text.
-SPACING: section py-16 md:py-24 (the hero py-24 md:py-32), gutter px-4 md:px-8, columns gap-8, card p-6 md:p-8, inside a card gap-4. SURFACES: one radius for cards, one for actions; one shadow at rest; hover is one shade step (hover:bg-indigo-700 on bg-indigo-600), hover:opacity-90, hover:shadow-xl, or hover:-translate-y-1 transition duration-200.
-MODE: no dark: variant; a page is one mode — a requested dark mode is D, or pageCss @media (prefers-color-scheme: dark) rules on ck- classes. Fonts: font-sans follows the site face; a display face is font-family in css from var(--t-font-family-sans|serif|mono) or a loaded family; @font-face with url(https://…) in pageCss; @import only from fonts.googleapis.com or fonts.bunny.net (every other host is refused).
-RESTYLE an existing region with editTree, never a rewrite: quote each class attribute that changes and replace only its values, keeping text, ids and node order; page-wide rules once in pageCss as .ck- classes.`,
+  instructions: `Choose a coherent visual direction from the brief and current screen; explicit brand/style references win. Recipes are optional inspiration, never required palettes, type sizes, spacing, radii, shadows or density.
+COLOUR: use semantic roles for brand, surfaces, text, states and data. Multiple accent hues and light/dark regions are valid when their roles stay clear. Use site-theme roles only when requested; otherwise preserve the authored palette or change it when the request asks. Keep text contrast measured and readable; no shade number guarantees contrast.
+TYPE AND GEOMETRY: choose readable type scales and spacing for the content: a dashboard, editor, report and storefront need different density. Mixed container widths, sidebars, wide tables, compact toolbars and phone grids are valid; adapt without losing reading order or essential controls. No fixed hero or section dimensions.
+MODE AND FONTS: use only variants the supplied utility context generates; scoped CSS may express explicit or prefers-color-scheme modes. Fonts use the supported loading path, verified families/weights and script coverage; generic fallbacks remain available.
+EDIT SCOPE: a colour, font, spacing or text request stays surgical with editTree and preserves unrelated structure. An explicit redesign/recomposition may reorder or replace the authorized region's tree and CSS when needed. Preserve required content, stable destination ids, actions, bindings, facts and all unrelated regions; a selected span never grants page-wide scope.
+ANOTHER LOOK: compare the supplied current layout. Change the relevant hierarchy, geometry, navigation or density for the requested new direction; do not rotate a canned list or substitute recolouring for a composition request.`,
   references: {
     'checks/consistency.md':
-      'Direction named once, never mixed; same treatment for the same role everywhere; four type sizes only; spacing on the one scale; one radius, one rest shadow; one accent fill per section; contrast pairs from the table; no dark: variant; an existing region restyled with editTree, its text and order untouched.',
+      'Content-led direction with optional recipes; clear semantic colours and readable contrast; task-appropriate type/geometry; narrow edits remain surgical; explicit redesign may recompose only authorized targets while preserving content, ids, actions and unrelated work.',
   },
 });
 
@@ -834,7 +827,7 @@ const ACCESSIBILITY: AiSkillDefinitionV1 = builtin({
   name: 'Accessible structure and contrast',
   description:
     'Landmarks, heading order, link and image naming, icon labelling, contrast pairs, motion and language rules for assistive tech.',
-  version: '2.2.0',
+  version: '2.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 40,
@@ -864,15 +857,15 @@ const ACCESSIBILITY: AiSkillDefinitionV1 = builtin({
   tags: ['accessibility', 'content', 'quality'],
   instructions: `Structure that a screen reader, a keyboard and a printer can all follow.
 LANDMARKS: the page root is already <main>. Inside a region: header for the site head only, nav aria-label='…' around link groups, section aria-label='…' or a heading as its first child, footer, article for self-contained items (a job, a project, a testimonial), aside for tangents. Use the tag that exists instead of div: blockquote + figcaption for a testimonial, time datetime for dates, ol for ordered steps, figure/figcaption for captioned images.
-HEADINGS: one h1 on the whole page (read every region already in the document); h2 per section, h3 per card, never skip a level, never pick a tag for its size; an sr-only h2 when a section needs a name without a visible heading.
-NAMES: img alt = what it shows in ≤12 words, alt='' only for pure decoration; icon label only when it stands alone (role=img), omitted when text beside it says the same (aria-hidden), never both; aria-label on section/nav is a short noun phrase in the page language; no aria-label on div/span/p (ignored or harmful).
-LINKS AND BUTTONS: link text names the destination ("See pricing", never "click here"); <a href> for anything with a destination; <button> only for an affordance the host will wire later — it does nothing yet, say so in followUp; target='_blank' only when the text says it opens elsewhere; clickable areas at least py-3 px-4.
-CONTRAST: body text text-text or palette 700+ on 50/100 surfaces; text-text-muted only at ≥text-sm and never over an {accent} fill or a photo; on bg-surface-inverse use text-text-inverse; white text only on palette 600+; never 300/400 palette text on white; never grey text on a gradient. State is never colour alone: pair it with an icon (circle-check, circle-alert) or a word.
+HEADINGS: one h1 on the whole page (read every region already in the document); use meaningful heading hierarchy and labels without a heading on every record/card; never pick a tag for its size. Name major sections visibly or accessibly.
+NAMES: img alt = a concise meaningful description, alt='' only for pure decoration; icon label only when it stands alone (role=img), omitted when text beside it says the same (aria-hidden), never both; aria-label on section/nav is a short noun phrase in the page language; no aria-label on div/span/p (ignored or harmful).
+LINKS AND BUTTONS: links name real destinations; buttons perform supported native behavior or permitted scoped JavaScript when enabled. Keep accessible names, keyboard operation and visible focus. Without an integration, never claim a server write. A new window is announced; touch targets remain comfortably usable.
+CONTRAST: measure text against its actual surface, image or gradient: 4.5:1 normal text, 3:1 large text; no palette shade number or panel style guarantees readability. Choose colours/surfaces from the brief and correct failing contrast without silently replacing brand intent. State never depends on colour alone.
 MOTION: animate-spin/ping/pulse/bounce only on decoration; an animate-in entrance ends at rest and carries motion-reduce:animate-none; motion-reduce:transform-none on anything moved by transform; hover:scale-* on cards only, never on text; no animate-ping/bounce beside text people read.
 LANGUAGE: page prop lang set ('ar', 'en'); dir matches it; no text-justify; leading-relaxed in paragraphs; max-w-prose for reading columns, or prose around long text.`,
   references: {
     'checks/accessibility.md':
-      'No nested main; one h1, no skipped levels; alt on every img; icon label xor neighbouring text; aria-label only on section/nav/article; link text names destination; contrast pairs from the table; motion-reduce on transforms; lang and dir set.',
+      'No nested main; one h1, no skipped levels; alt on every img; icon label xor neighbouring text; aria-label only on section/nav/article; links name destinations and buttons use supported working behavior; measured contrast on actual surfaces; motion-reduce on transforms; lang and dir set.',
   },
 });
 
@@ -955,7 +948,7 @@ const UI_UX_PRO: AiSkillDefinitionV1 = builtin({
   name: 'Delivery-quality UI review',
   description:
     'The polish checklist: pointer and touch affordances, reading type, contrast both ways, focus and feedback, container discipline, restrained motion.',
-  version: '1.1.0',
+  version: '2.0.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 38,
@@ -975,17 +968,17 @@ const UI_UX_PRO: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['quality', 'review', 'ux'],
-  instructions: `Polish is a checklist, not a feeling — run it before calling a page finished.
-POINTER AND TOUCH: every clickable card or row carries cursor-pointer, and an interactive thing with no hover change reads as dead. Hover moves colour, border or shadow (transition-colors duration-200 ease-out), never a size that shoves its neighbours. Keep a tap target near h-12 w-12 even when the mark drawn inside it is smaller.
-TYPE FOR READING: paragraphs at text-base or larger on phones — text-sm belongs to eyebrows and captions, never body — with leading-relaxed and a measure of roughly 65-75 characters (max-w-prose on a column; class prose sets it for long text and styles its headings, lists and quotes in the site's colours). One h1 per page; a bigger heading is text-4xl md:text-6xl, never a smaller tag dressed up.
-CONTRAST BOTH WAYS: secondary copy stops at text-text-muted and goes no lighter, and body text holds 4.5:1 against whatever sits behind it. A translucent panel needs real fill (bg-surface opacity-80, not opacity-10) and a border that survives a light background (border-2, not a hairline).
-STATE AND FEEDBACK: never remove the focus outline, because keyboard users navigate by it; an action drawn as a mark with no words needs a label so it is announced; an error message belongs beside its own field, not stacked at the top of the page.
-LAYOUT DISCIPLINE: one container width for the whole page (max-w-6xl), not a new one per section. Content under a fixed bar needs padding past that bar's height, and a floating bar sits inset from the edges (top-4 start-4 end-4) rather than glued to them. Read the page at 375, 768, 1024 and 1440 wide: nothing scrolls sideways, nothing hides under a bar.
-MARKS AND IMAGES: never an emoji standing in for a drawn mark; take marks from the one Lucide set at one size beside text, and give every meaningful img an alt.
-MOTION RESTRAINT: 150-300ms on state changes, transform and opacity only, and every animated rule guarded by @media (prefers-reduced-motion:reduce).`,
+  instructions: `Review the finished screen against its task and requested visual direction.
+POINTER AND TOUCH: make actions recognizable with feedback and generous touch areas. Hover never substitutes for keyboard or touch, and feedback does not shove neighbouring content.
+TYPE FOR READING: choose readable sizes and line height by role, screen and script; compact data labels and expressive display type need different scales. Long prose gets a comfortable measure; dense tables and toolbars need not inherit that width. Maintain semantic heading hierarchy.
+CONTRAST: measure text against the actual ground, including transparent surfaces and imagery. Do not infer readability from a shade name or prescribe one universal panel opacity/border.
+STATE AND FEEDBACK: retain visible focus, accessible names, nearby field errors and honest loading/empty/success states. Preserve input across steps; no unconnected action claims a server write.
+LAYOUT: choose widths and responsive rearrangement from content. Full-bleed, reading columns, dense workspaces, phone grids and locally scrollable data tables are valid. At 375/768/1024/1440, essential controls stay reachable and no accidental page-level overflow or bar obstruction occurs.
+MARKS AND IMAGES: use intentional, consistent symbols from available assets; label meaningful icon-only actions and give meaningful images alt text.
+MOTION: use timing and effects suited to feedback and the brief; prefer efficient properties, avoid distracting simultaneous activity and provide reduced-motion behavior. No fixed effect count or single animation style.`,
   references: {
     'checks/delivery.md':
-      'cursor-pointer on every clickable; hover feedback that does not move layout; body at text-base with a 65-75 character measure; secondary copy no lighter than the muted role; visible focus; labelled mark-only actions; one container width; nothing under a fixed bar; no sideways scroll at 375/768/1024/1440; no emoji marks; reduced-motion guard present.',
+      'Recognizable touch/keyboard actions; readable task-specific typography; measured contrast; visible focus and honest states; responsive content-led widths; only purposeful local overflow; semantic imagery and reduced-motion support.',
   },
 });
 

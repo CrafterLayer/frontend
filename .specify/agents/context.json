@@ -5,12 +5,12 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-design-libraries-locally-implemented-release-open",
+    "phase": "professional-builder-agent-014-screen-design-freedom-locally-implemented-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "main",
-    "gitCommitCount": 213
+    "gitCommitCount": 214
   },
   "technologyBaseline": {
     "react": {
@@ -228,20 +228,19 @@
     ]
   },
   "currentWork": {
-    "status": "idle-local-design-libraries-implemented",
-    "scope": "builder catalog Base UI admission/provenance; builder-ai optional Radix theme/tool and teaching; source/edit server prefixes; new Playground code-page locks; code-runtime client prerender reactivation; evals browser/export proof",
+    "status": "idle-local-screen-design-freedom-implemented",
+    "scope": "builder-ai active skills/defaults/fill/redesign and repair lessons; bespoke additional-font checker; ai-server planner/source teaching; Playground descriptions; evals capability proof",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "activeIncrement": "specs/workspace/014-professional-builder-agent/design-libraries-2026-10-21.md",
-    "research": "specs/workspace/014-professional-builder-agent/design-library-research-2026-10-21.md",
-    "verification": "specs/workspace/014-professional-builder-agent/verification-design-libraries-2026-10-21.md",
-    "completedTasks": "T321..T325 / DL1..DL5 locally implemented. Base UI1.9.0 seven shared namespaces, Radix Colors3.0.0 ten optional light/dark palettes, actual agent teaching, client-prerender provenance and compiler cache identity repair.",
-    "nextUncompletedTask": "No implementation task remains in the bounded library increment. Live provider design-quality evaluation, cross-browser coverage and deployment remain unperformed.",
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/screen-design-freedom-2026-10-21.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-screen-design-freedom-2026-10-21.md",
+    "completedTasks": "T326..T330 / SF1..SF5 locally verified. Removed active aesthetic quotas/fixed recipes and narrow-restyle prohibition; task-led app screens, flexible responsive composition and verified additional bespoke fonts; repair/metadata contradictions corrected.",
+    "nextUncompletedTask": "No task remains in this bounded increment. Live-provider artistry/adherence, external font delivery, broader release and deployment remain unmeasured/unperformed.",
     "reviewDecision": {
       "date": "2026-10-21",
-      "result": "Fresh independent native review converged without unresolved production findings after CJS React-peer and client-prerender useId repairs. No external CLI/workflow-engine pass claimed."
+      "result": "Fresh native independent review found stale discovery/repair/accessibility instructions; repaired, re-reviewed with no unresolved production findings. No external CLI/workflow-engine pass."
     },
-    "verificationLimits": "Owner/consumer types, changed lint/format, scoped tests, builds/budgets and workspace gates passed. Browser8 preview/export scenarios plus2 no-JS static checks, EN/AR phone/desktop, axe/keyboard/focus/labels/unique IDs. Installed Chrome used because managed Chromium is absent. Real child-browser run, live-provider design quality/cost/latency, physical touch, cross-browser and full CI unrun. Prior broad AI failures remain documented.",
-    "continuation": "Based on HEAD922cdc61 (213 commits); current library changes uncommitted. Existing recovery work preserved. Packages installed and builds refreshed; running user services untouched. Client snapshots retain static HTML before JS then replace early DOM state on mount. Existing saved locks and server-mode prerender ports preserved. No provider calls, migration, commit, push or deployment."
+    "verificationLimits": "Primary829 and consumer115 focused AI tests, server122 passed (worker/reviewer counts overlap); owner/consumer types and changed lint/format passed; final builds/budgets/workspace gates passed. Browser8 hand-authored capability cases: workspace/editorial x EN/AR x390/1280, working filters, phone2columngrid, keyboardlocaltablescroll, no pageoverflow/errors. Phoneclippedcell axe incompletecontrast supplemented by all computed pairs>=4.5. No model artistry score, externalfontdelivery, fullCSS cascade, newexport/crossbrowser/touch/Storybook/fullCI proof. Earlier broad AI failures remain separately documented.",
+    "continuation": "Base HEADfd558ca9 (214 commits), clean at start, current increment uncommitted. Previous library/recovery changes intact. No dependency install, migration, saved-data rewrite, provider call, user service restart, commit, push or deploy. Final builds refreshed locally. Additional font checks reuse approved hosts/verified discrete normal weights and keep legacy/hybrid behavior; running built server needs its normal restart."
   },
   "qualityGates": {
     "governanceConfigured": true,

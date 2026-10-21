@@ -571,10 +571,10 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20, Open Props + optional Radix scales 10-21.
-    'a bare request': 'a74f5ad16ff39a074cc7a8e9db985d36b6c1b4dda28c0668de306f41d0a03162',
-    'a large catalog': '0c705a9a181064bf0dd15b0c75a4651bc0a4430456746b5ccf5fc3108be89c98',
-    'every branch at once': 'c5e4791fd5a6a61c9ca3994ca8a221a7458b061a5ba4dc6877067f8ec29e66d2',
+    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20, Open Props + Radix scales + flexible screen guidance 10-21.
+    'a bare request': '9a96698fad3e1f12f20ddd2ce531808b504051168183a3f1405c7c864fe4f0dd',
+    'a large catalog': '1cdf881df6f1375c41a41cc913470929cbe24eb3a3ea2578b16d01d66336b2f3',
+    'every branch at once': '540d46cd5e76f9010687c0cf47d0565b747d16379c88fa1be95da0fce5c6c5d3',
   };
 
   it.each(FIXTURES)('builds %s with the recorded design-capability prefix', (name, build) => {

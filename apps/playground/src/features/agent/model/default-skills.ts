@@ -44,7 +44,7 @@ const ARABIC: Readonly<Record<string, { readonly name: string; readonly descript
   'craftkit.type-colour': {
     name: 'الخطوط والألوان',
     description:
-      'أزواج خطوط موثوقة حسب الطابع، لاتينية وعربية، وقواعد الألوان: لون مميّز واحد، وتباين كافٍ، وهوية العلامة أولًا.',
+      'خطوط موثوقة ولوحات ألوان بحسب المحتوى، مع ألوان دلالية متعددة وتباين مقروء وهوية العلامة أولًا؛ دون وصفة شكل ثابتة.',
   },
   'craftkit.forms-convert': {
     name: 'نماذج يكملها الناس',

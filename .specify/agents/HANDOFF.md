@@ -1,53 +1,54 @@
 # Active Work Handoff
 
-Status: **idle for the bounded local design-library increment**, implemented2026-10-21.
+Status: **idle for the bounded screen design freedom increment**, implemented2026-10-21.
 
-## Scope and sources
+## Sources and scope
 
-User explicitly invoked `ecc:deep-research`, requested GitHub research and package installation to
-strengthen page design. Active [increment](../../specs/workspace/014-professional-builder-agent/design-libraries-2026-10-21.md),
-[research](../../specs/workspace/014-professional-builder-agent/design-library-research-2026-10-21.md),
-[verification](../../specs/workspace/014-professional-builder-agent/verification-design-libraries-2026-10-21.md)
-and feature014 spec/plan/tasks; DL1–DL5/T321–T325 complete locally.
+User asked to inspect/remove design constraints causing repeated weak screens and repair them.
+Active [increment](../../specs/workspace/014-professional-builder-agent/screen-design-freedom-2026-10-21.md),
+[verification](../../specs/workspace/014-professional-builder-agent/verification-screen-design-freedom-2026-10-21.md),
+feature014spec/plan/tasks. SF1–SF5/T326–T330 complete locally.
 
 ## Implemented
 
-Installed exact MIT Base UI1.9.0 and Radix Colors3.0.0 with existing installation policies. Seven
-Base UI namespaces share one trusted runtime/context and React identity, exact locks, notices and
-fingerprints. New code pages admit the package; saved project locks stay unchanged. Actual source
-agent guidance teaches its APIs, free styling, RTL and portals. Optional theme.apply selects ten
-light/dark Radix palettes with explicit overrides, existing AA checks and grouped Undo. Existing
-hardcoded authored colors do not consume tokens and therefore do not change automatically.
+Removed conflicting fixed widths/phone stacking, type/space/radius/shadow recipes, single-accent
+ratios/mood hues, style bans, photo frames/counts and motion/signature quotas from active skills.
+Bespoke and requested composition outrank optional recipes; explicit exact recipes still work.
+Redesign may recompose the authorized target, while text/color-only edits remain surgical.
+Planner/source/writer guidance supports task-led app screens, dense data, mixed widths, phone grids
+and locally scrollable tables. Hero role remains heading ownership, not a required banner.
 
-Browser checks drove two fixes: a local fixed React-peer bridge for the published CJS shim, and
-renderMode provenance for browser-prerendered HTML. The browser worker reports client; those static
-snapshots mount with createRoot, avoiding useId collisions. Omitted/server ports still hydrate.
-Compiler identity bumped to invalidate old bootstraps. Static HTML remains before JS; early DOM
-state is replaced on client mounting. No new production UI component or schema migration.
+Bespoke font validation now accepts additional correctly loaded verified Google/Bunny families,
+normal shipped discrete weights and Arabic coverage on Arabic pages. Legacy/hybrid basefont
+behavior remains. Imports follow actual renderer hoisting. Unsupported/unloaded faces/weights and
+malformed/insecure imports fail. Full CSS cascade/italic/variable axes are not inferred.
+Checker shrank1898→1804lines. Discovery metadata and repair lessons preserve these freedoms,
+measured contrast, truthful facts and working button/link semantics. No runtime permissions widened.
 
 ## Evidence and limits
 
-See verification for commands and overlapping counts: focused AI35, catalog14, runtime/export25,
-server prompt/authored93, workers4, Playground12; color worker101 and independent regression168
-include overlaps. Owner/consumer types, changed lint/format, builds/budgets and workspace gates
-passed. Real browser8 preview/export cases plus2 no-JS checks: EN/AR390/1280, keyboard/focus,
-accessible names, unique IDs, no overflow, axe blocking/incomplete0 and no pageerrors. Eight plain
-capability screenshots in /tmp/craftkit-design-library-qa; Arabic phone export inspected.
+Primary8-file AI run829/829,4consumer files115/115,server3files122/122 passed. Worker251 and reviewer36
+runs overlap these; do not sum. Actual scripted runAiAgent test delivers redesign guidance, applies
+new target tree/CSS with required content/destination and unrelated nodes preserved, then one Undo
+restores the original. Owner/consumer types, changed lint/format, final builds/budgets and workspace
+checks passed. Fresh independent native reviews converged without unresolved production findings.
 
-Fresh independent native reviews converged without unresolved production findings. Live provider
-artistry/adherence/cost/latency, cross-browser/physical touch, full Storybook/CI and actual child
-prerender browser launch remain unverified. Local QA explicitly used installed Chrome because
-Playwright's managed Chromium binary is absent. Do not equate these fixtures with a 10/10 visual
-score. Prior broad builder-ai failures remain in the previous verification artifact.
+Browser8 cases: two hand-authored workspace/editorial screens ×EN/AR ×390/1280, working filters,
+phone2columnmetrics, keyboard-reachable local table overflow, no accidental pageoverflow/errors.
+Axe blocking0; phone offscreen th/td incompletecontrast is explicitly bounded and every computed
+opaque cell pair passes4.5. Other scenarios require0incomplete. Eight screenshots under
+/tmp/craftkit-screen-freedom-qa; Arabic phone workspace and English desktop editorial inspected.
+These are capability examples, not provider outputs or shipped page templates. No actual font
+network/render, live-model artistry/adherence/cost/latency, fullcascade, newexport, crossbrowser/touch,
+Storybook or fullCI run. Previous library export and old broad AI failure evidence remain separate.
 
 ## Continuation
 
-Base HEAD922cdc61,213 commits. Current library changes uncommitted; previous recovery work intact.
-No migration, saved-lock rewrite, provider invocation, external CLI review, commit, push or deploy.
-No user service was restarted or replaced. Builds refreshed locally; an already-running built AI
-server needs its normal restart for new instructions. No temporary server remains. No bounded
-implementation work remains. Roll back source/dependencies together and rebuild artifacts while
-preserving saved locks. Prior recovery verification remains the incident/older-suite reference.
+Started clean atHEADfd558ca9,214commits; current increment uncommitted. Prior libraries/recovery
+preserved. No install, migration, saved-data rewrite, provider call, external CLI review, user service
+restart, commit, push or deploy. Final builds refreshed; an already running built AI server needs its
+normal restart. No temporary server remains and no bounded implementation task remains. Rollback
+this source increment and rebuild; keep saved legacy contracts.
 
 Reviewed commit proposal (not executed):
-`feat(ai): add researched design libraries and reliable page export`
+`fix(ai): remove repetitive screen design constraints`

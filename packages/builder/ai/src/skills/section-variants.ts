@@ -148,7 +148,7 @@ export const SECTION_VARIANTS: readonly SectionVariant[] = [
     id: 'pricing',
     role: 'offer',
     recipe:
-      "div grid items-stretch gap-6 md:grid-cols-3 > div flex flex-col CARD p-8 (h3 + p text-sm text-{muted} + p mt-6 text-5xl font-bold tabular-nums + ul mt-8 mb-8 space-y-3 > li flex gap-2 with icon check size 20 shrink-0 text-{accent-ink} + the action mt-auto); the one recommended tier: bg-{band} text-{band-text} shadow-2xl md:-mt-4; comparing features: table w-full text-sm",
+      'div grid items-stretch gap-6 md:grid-cols-3 > div flex flex-col CARD p-8 (h3 + p text-sm text-{muted} + p mt-6 text-5xl font-bold tabular-nums + ul mt-8 mb-8 space-y-3 > li flex gap-2 with icon check size 20 shrink-0 text-{accent-ink} + the action mt-auto); the one recommended tier: bg-{band} text-{band-text} shadow-2xl md:-mt-4; comparing features: table w-full text-sm',
   },
   {
     id: 'menu',
@@ -243,27 +243,24 @@ export const SECTION_VARIANTS_SKILL: AiSkillDefinitionV1 = {
   schemaVersion: 1,
   id: 'craftkit.section-variants',
   name: 'Named section layouts',
-  description:
-    'Named section layouts as exact class recipes.',
-  version: '1.1.0',
+  description: 'Optional named layout references, or exact recipes when explicitly requested.',
+  version: '1.2.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 92,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'layout', 'sections'],
-  instructions: `Build the variant the direction names; with none, the one the content fits, not the previous section's.
-A recipe is the skeleton: keep its classes, write real content, inside the manual's region shell unless it opens with section or footer. A NAME in capitals is a part: ${Object.entries(
-    SECTION_VARIANT_PARTS,
-  )
+  instructions: `BESPOKE: concept/layout wins; recipes optional. EXACT REQUEST: keep named recipe classes only when expressly requested.
+Reusable parts, not a compulsory shell: ${Object.entries(SECTION_VARIANT_PARTS)
     .map(([name, part]) => `${name} = ${part}`)
     .join(
       '; ',
     )}. Classes after a part add to it, replacing one of the same property (H1 md:text-7xl drops md:text-6xl).
 SLOTS name the direction's palette: {ground} {card} {ink} {muted} {band} {band-text}, and {accent} {on-accent} as the manual says. {accent-ink} is accent text and icons (4.5:1 on ground and card; the fill when none is named); on {band}, {band-muted}. On a dark ground, white/10 for black/10 or black/5.
-HIERARCHY: one lead item outweighs the rest; never three identical cards as the second section.
+HIERARCHY: emphasize priorities; repeated records may share rows/cards without repeating recipes for unrelated content.
 ${renderVariants()}`,
   references: {
     'checks/variants.md':
-      'Named variant, its classes, slot colours, a lead item, initials not photos, local links.',
+      'Bespoke concept before optional recipes; exact requested recipes preserved; meaningful hierarchy/repetition, accessible colours and real links.',
   },
 };

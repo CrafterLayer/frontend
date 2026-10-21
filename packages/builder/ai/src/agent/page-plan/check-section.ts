@@ -3,6 +3,7 @@ import { contrastRatio } from '@craftkit/builder-schema';
 import { isVerifiedImageUrl } from '../../art-catalog/verified-image';
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
+import { checkSectionFonts } from './additional-section-fonts';
 import { PAGE_PLAN_PALETTE_HEX } from './palette';
 import { sectionButtonActions } from './section-button-actions';
 import { missingFactAdvice, plainMissingFact } from './section-missing-facts';
@@ -633,27 +634,6 @@ const FIELD_NAMES: ReadonlyMap<string, 'phone' | 'email' | 'name' | 'address'> =
 const LABEL_TAGS = new Set(['label', 'dt', 'th', 'legend', 'option', 'caption']);
 const EMAIL_VALUE = /[^\s@]+@[^\s@]+\.[^\s@]+/u;
 
-const GENERIC_FAMILIES = new Set([
-  'serif',
-  'sans-serif',
-  'monospace',
-  'cursive',
-  'fantasy',
-  'system-ui',
-  'ui-sans-serif',
-  'ui-serif',
-  'ui-monospace',
-  'ui-rounded',
-  'emoji',
-  'math',
-  'fangsong',
-  'inherit',
-  'initial',
-  'unset',
-  'revert',
-]);
-const SITE_FACE_CLASSES = new Set(['font-sans', 'font-serif']);
-
 /*
   Words a paraphrase drops or swaps without changing the claim. Negations are
   NOT among them (no, not, لا, بدون, غير): "بدون رسوم إضافية" said as "رسوم
@@ -1121,19 +1101,6 @@ function cssDeclarations(css: string): readonly [string, string][] {
   return found;
 }
 
-function cssImports(css: string): readonly string[] {
-  return [...css.matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s;]+)/giu)].map(
-    (match) => match[1] ?? '',
-  );
-}
-
-/** Families a css2 URL asks for: `family=Noto+Kufi+Arabic:wght@…` → Noto Kufi Arabic. */
-function importedFamilies(url: string): readonly string[] {
-  return [...url.matchAll(/family=([^:&]+)/gu)].map((match) =>
-    decodeURIComponent((match[1] ?? '').replaceAll('+', ' ')),
-  );
-}
-
 function cssUrls(css: string): readonly string[] {
   const withoutImports = css.replace(/@import[^;]*;/giu, '');
   return [...withoutImports.matchAll(/url\(\s*(["']?)([^"')]+)\1\s*\)/giu)].map((match) =>
@@ -1335,8 +1302,8 @@ export function tokeniseColourClasses(value: unknown, tokens: PagePlanTokens): u
  * sizes); every `mustSay` said and no `mustNotRepeat` repeated, matched word
  * by word in every form a word takes (Arabic clitics, possessives and plurals;
  * English plurals, possessives and -ed/-ing; digits in either script); only
- * the plan's two font families, in the css and in arbitrary classes
- * (`font-['Inter']`).
+ * the page's loaded font families, in css and arbitrary classes: bespoke
+ * sections may declare additional verified fonts from the approved hosts.
  *
  * `missing-anchor` also carries a link to a section that does not exist and an
  * id that belongs to another section — the same broken jump, seen from the
@@ -1700,7 +1667,6 @@ export function checkSection(
   // ── colour: the region css ──
   const rawLiterals: string[] = [];
   let accentInCss = false;
-  const fontsInCss: string[] = [];
   for (const [property, value] of cssDeclarations(css)) {
     for (const hex of value.match(/#[0-9a-f]{3,8}\b/giu) ?? []) {
       const normal = normalHex(hex);
@@ -1718,16 +1684,6 @@ export function checkSection(
     // `color:crimson;background:gold` is a colour literal too, named instead of numbered.
     if (COLOUR_DECLARATION.test(property)) rawLiterals.push(...namedColoursIn(value));
     if (property === 'color' && value.includes('var(--ck-accent)')) accentInCss = true;
-    if (property === 'font-family') {
-      for (const part of value.split(',')) {
-        const family = part.trim().replace(/^["']|["']$/gu, '');
-        if (family === '' || family.startsWith('var(')) continue;
-        const known = [tokens.fontDisplay.family, tokens.fontBody.family].some(
-          (face) => face.toLowerCase() === family.toLowerCase(),
-        );
-        if (!known && !GENERIC_FAMILIES.has(family.toLowerCase())) fontsInCss.push(family);
-      }
-    }
   }
   const raw = [...rawClasses.keys(), ...new Set(rawLiterals)];
   if (raw.length > 0 && plan.design?.composition !== 'bespoke') {
@@ -1804,63 +1760,13 @@ export function checkSection(
   }
 
   // ── faces ──
-  const siteFaces = new Map<string, string>();
-  for (const entry of nodes) {
-    for (const name of classesOf(entry.node)) {
-      if (SITE_FACE_CLASSES.has(baseUtility(name).base) && !siteFaces.has(name)) {
-        siteFaces.set(name, `${entry.path}.className`);
-      }
-    }
-  }
-  // By family, not by URL: the same face imported again is only a duplicate request.
-  const planFamilies = new Set(
-    [tokens.fontDisplay.family, tokens.fontBody.family].map((family) => family.toLowerCase()),
+  issues.push(
+    ...checkSectionFonts(plan, css, nodes, {
+      classesOf,
+      baseUtility: (name) => baseUtility(name).base,
+      declarations: cssDeclarations,
+    }),
   );
-  const importedFaces = cssImports(css)
-    .flatMap((url) => {
-      const families = importedFamilies(url);
-      return families.length === 0 ? [url] : families;
-    })
-    .filter((family) => !planFamilies.has(family.toLowerCase()));
-  /*
-    A face named in an arbitrary value — `font-['Inter']`, `font-[Cairo]`,
-    `[font-family:Tajawal]` — switches the text to a face the page never
-    loaded, and passed unread (verifier, 2026-09-28). `font-[700]` is a
-    weight and `font-[var(--ck-font-display)]` the page's own face.
-  */
-  const classFaces = new Map<string, string>();
-  for (const entry of nodes) {
-    for (const name of classesOf(entry.node)) {
-      const { base } = baseUtility(name);
-      const inner = /^font-\[(.+)\]$/u.exec(base)?.[1] ?? /^\[font-family:(.+)\]$/u.exec(base)?.[1];
-      if (inner === undefined) continue;
-      const value = inner.replace(/^family-name:/u, '').replaceAll('_', ' ');
-      if (/^(?:(?:number|weight):)?\d+$/u.test(value) || value.startsWith('var(')) continue;
-      for (const part of value.split(',')) {
-        const family = part.trim().replace(/^["']|["']$/gu, '');
-        const lower = family.toLowerCase();
-        if (family === '' || GENERIC_FAMILIES.has(lower) || planFamilies.has(lower)) continue;
-        if (!classFaces.has(family)) classFaces.set(family, `${entry.path}.className`);
-      }
-    }
-  }
-  const foreignFaces = [...new Set([...fontsInCss, ...importedFaces, ...classFaces.keys()])];
-  if (foreignFaces.length > 0) {
-    add(
-      'foreign-font',
-      `Use the page's two faces — ck-display or ck-body on an element, font-family: var(--ck-font-display) or var(--ck-font-body) in the region css, both already loaded by the page — not ${quoteList(foreignFaces)}; and no @import in a section.`,
-      fontsInCss.length > 0 || importedFaces.length > 0
-        ? 'css'
-        : (classFaces.values().next().value ?? 'css'),
-    );
-  }
-  if (siteFaces.size > 0) {
-    add(
-      'foreign-font',
-      `Remove ${quoteList([...siteFaces.keys()])}: they switch to the site's face. The page's faces are inherited; add ck-display for a display line.`,
-      siteFaces.values().next().value,
-    );
-  }
 
   // ── what it says ──
   const formsOf = wordFormsReader();

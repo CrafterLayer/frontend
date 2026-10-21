@@ -31,16 +31,18 @@ const LESSON_BY_CODE: Partial<Readonly<Record<SectionCheckCode, string>>> = {
     "colour with the page's tokens (ck-ink, ck-muted, ck-surface, ck-accent-fill; var(--ck-accent) in css), never raw hex or palette classes",
   'heading-level': "the page's one h1 is the hero's; every other section heads with h2",
   'cta-label':
-    "every button that leads to the page's action is a link (a.ck-btn) labelled with the action's exact words",
+    'keep declared action labels and destinations; navigation uses real links, interactions use supported native behavior or permitted handlers',
   'missing-anchor':
     "put the section's own anchor id on its outer element, and link only to anchors the plan lists",
-  'placeholder-left': "write finished, realistic copy — never XXX, 0000, lorem or a field's name",
+  'placeholder-left':
+    'preserve supplied facts; omit missing information or label it plainly, never invent realistic replacement claims',
   'foreign-image': "take image addresses only from PHOTOS YOU MAY USE (or the person's own)",
   contrast:
-    "keep text on its ground's own colour (ck-ink or ck-muted inside ck-ground, ck-surface, ck-inverse or ck-accent-fill)",
+    'measure text against the actual ground and fix failing contrast while preserving the chosen semantic palette; do not replace custom colours with a fixed recipe',
   'must-say': 'carry every MUST SAY claim of the contract, in its words or close to them',
   repeats: 'never repeat a claim the contract lists under MUST NOT REPEAT',
-  'foreign-font': "use only the page's two fonts, the plan's display and body faces",
+  'foreign-font':
+    'use the base faces, or verified extra faces correctly loaded with supported weights/script coverage for bespoke sections; legacy/hybrid keeps the base faces',
   'scene-syntax':
     'the js is the body of async (ck)=>{…} and must parse on its own: balanced brackets and quotes, no import or export',
   'scene-lib':

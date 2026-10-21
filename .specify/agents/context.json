@@ -5,18 +5,18 @@
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-free-design-locally-verified-release-open",
+    "phase": "professional-builder-agent-014-design-recovery-locally-implemented-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
     "gitBranch": "main",
-    "gitCommitCount": 210
+    "gitCommitCount": 212
   },
   "technologyBaseline": {
     "react": {
-      "target": "19.2.8",
+      "target": "19.2.9",
       "status": "installed",
-      "verifiedAt": "2026-08-25",
+      "verifiedAt": "2026-10-21",
       "policy": "Re-check the latest patched React 19.2 release before installation and keep react and react-dom identical."
     },
     "typescript": {
@@ -228,23 +228,19 @@
     ]
   },
   "currentWork": {
-    "status": "idle-local-free-design-complete",
-    "scope": "builder-ai design/skills/streaming/checker, ai-server prompt/schema, Playground plan editing, evals browser; FD1..FD5/T310..T315",
+    "status": "idle-local-design-recovery-implemented",
+    "scope": "builder-ai design material, report context/routing, planner recovery/checker; ai-server prompt; Playground recovery regressions; editor/code-runtime React patch compatibility",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "activeIncrement": "specs/workspace/014-professional-builder-agent/free-design-2026-10-20.md",
-    "verification": "specs/workspace/014-professional-builder-agent/verification-free-design-2026-10-21.md",
-    "research": "specs/workspace/014-professional-builder-agent/research-free-design-2026-10-20.md",
-    "completedTasks": "T310..T315 / FD1..FD5 complete locally: all new designs default bespoke; explicit skills survive planner/writer budgets; arbitrary composition and supported JS; persisted layout/design and bounded legacy content; streaming and plan-editor preservation; truthful personal placeholders. Independent review findings repaired and final local convergence clean. See verification for exact overlapping test groups.",
-    "nextUncompletedTask": "None for this local increment. Live provider design evaluation and deployment remain separate, unperformed work.",
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/design-recovery-2026-10-21.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-design-recovery-2026-10-21.md",
+    "completedTasks": "T316..T320 / DR1..DR5 locally implemented and independently reviewed. One malformed-output repair, varied chrome/composition, custom report intent plus calculated context, installed Open Props1.7.23, React/DOM19.2.9 with exact legacy-lock aliases.",
+    "nextUncompletedTask": "No implementation task remains in this bounded increment. Original immediate-Stop incident is unconfirmed; live model design/report-quality evaluation and deployment remain unperformed.",
     "reviewDecision": {
-      "date": "2026-10-13",
-      "userInstruction": "لا، اكتفِ بالمراجعة المحلية",
-      "result": "Local independent review accepted for this increment. After automatic approval review rejected the external CLI action, the user declined it. The enforced external runtime review is waived only for this scope; it was not run and no CLI pass is claimed.",
-      "exceptionPlan": "specs/workspace/014-professional-builder-agent/plan.md",
-      "continuation": "2026-10-21 free-design continuation: fresh native read-only reviewer found six issues; fixes plus selector/tidy regressions rechecked, no open findings. User local-only preference preserved; no external CLI or workflow-engine pass claimed."
+      "date": "2026-10-21",
+      "result": "Fresh independent native review found missing-data contract and report-language defects; both fixed and probed, final no open production findings. Local-only review preference preserved; no external CLI/workflow-engine pass."
     },
-    "verificationLimits": "Scripted public-Builder/kernel/DocumentView browser:20/20,6 one-planner/one-writer builds,12 screenshots,zero section issues/repairs/page errors/provider calls. Not live-model quality/latency/cost proof, full CI, physical touch or another device. External Google-font requests blocked; local app fonts used. Static button binding checks are not universal JS execution proof. Existing freeCode preference still governs JS. No service restart or deployment.",
-    "continuation": "Started clean at 52ab7448. Current changes unstaged/uncommitted. Earlier report/continuation/mural work preserved. No installs, migration, commit, push or deployment."
+    "verificationLimits": "Focused checks/types/lint/build/budgets and scripted browser20/20 passed. Broad AI suite not green;17 failures reproduced in isolated source-only HEAD baseline. Original stopped-after-failure trace not reproduced, live artistry/adherence/cost/latency unmeasured; custom report fact adherence prompt-guided. Full CI and physical touch unrun.",
+    "continuation": "Started clean53617867; current changes uncommitted. Open Props installed and matching React patch updated. No migration, provider call, commit, push or deployment. Temporary local QA server stopped after verification; existing services untouched."
   },
   "qualityGates": {
     "governanceConfigured": true,

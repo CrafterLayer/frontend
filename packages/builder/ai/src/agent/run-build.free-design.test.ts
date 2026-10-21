@@ -189,6 +189,46 @@ describe('real build free composition and explicit expertise', () => {
       expect(region?.props['css']).toBe(css);
     },
   );
+  it('delivers computed report facts and design material to the real planner and section writer', async () => {
+    const live = kernel();
+    const captured: AssembledAiContext[] = [];
+    const request =
+      'Create a report with an asymmetric editorial layout:\nMonth,Revenue,Costs\nJan,120,80\nFeb,160,90';
+    const result = await runAiBuild({
+      request,
+      runId: 'report-design-build',
+      kernel: live,
+      clock: fixedClock(1),
+      validationPorts: { clock: fixedClock(1), ids: seededIds('report-design-validation') },
+      skillRegistry: createCraftkitAiSkillRegistry(CRAFTKIT_DEFAULT_SKILLS),
+      provider: {
+        proposePagePlan: (prompt, context) => {
+          expect(prompt).toContain('OPEN PROPS');
+          captured.push(context);
+          return Promise.resolve({ pagePlan: candidate() });
+        },
+        propose: (prompt, context) => {
+          captured.push(context);
+          expect(context.fragments.map(({ body }) => body).join(' ')).toContain('OPEN PROPS');
+          const id = /REGION ID: (\S+)/u.exec(prompt)?.[1];
+          return Promise.resolve({
+            rationale: 'Computed figures in a bespoke editorial layout.',
+            commands: [{ command: 'setProp', args: { id, key: 'tree', value: writerTree() } }],
+          });
+        },
+      },
+    });
+    expect(result.tasks.map(({ status }) => status)).toEqual(['applied']);
+    expect(captured).toHaveLength(2);
+    for (const context of captured) {
+      const data = context.fragments.find(
+        ({ source }) => source === 'craftkit.computed-report-data',
+      );
+      expect(data?.trust).toBe('untrusted');
+      expect(JSON.parse(data?.body ?? '{}')).toMatchObject({ rows: 2, totalRows: 2 });
+      expect(data?.body).toContain('280');
+    }
+  });
   it('reports an impossible explicit skill budget before a provider call', async () => {
     let called = false;
     const provider: AiPlanProvider = {

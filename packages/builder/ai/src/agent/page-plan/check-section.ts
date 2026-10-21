@@ -5,6 +5,7 @@ import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
 import { PAGE_PLAN_PALETTE_HEX } from './palette';
 import { sectionButtonActions } from './section-button-actions';
+import { missingFactAdvice, plainMissingFact } from './section-missing-facts';
 import { pageKitGrounds, type PageKitColours, type PageKitGrounds } from './skeleton-from-plan';
 import type {
   LandedSection,
@@ -540,7 +541,6 @@ const LINE_ELEMENTS = new Set([
 ]);
 
 const BRACKETED = /\[[^[\]\n]*\p{L}[^[\]\n]*\]/u;
-const PERSONAL_LABEL = /^\[[\p{L}\p{M}\p{N}\s'’.,/-]{1,80}\]$/u;
 const MUSTACHE = /\{\{[^}]*\}\}/u;
 const LOREM = /\blorem\b(?:\s+ipsum)?|\bipsum\s+dolor\b/iu;
 /** The Arabic "lorem ipsum" (هذا النص هو مثال لنص…), folded; and its transliteration. */
@@ -1544,29 +1544,31 @@ export function checkSection(
 
   // ── placeholders ──
   const personal = plan.design?.kind === 'resume' || plan.design?.kind === 'portfolio';
+  const missingFacts = plan.design !== undefined;
   const shown: { value: string; path: string; line?: LandedNode }[] = [];
   for (const entry of nodes) {
     const own = text(entry.node['text']);
     if (own !== undefined) shown.push({ value: own, path: entry.path, line: entry });
     for (const name of ['alt', 'title', 'aria-label']) {
       const value = attribute(entry.node, name);
-      if (value !== undefined) shown.push({ value, path: `${entry.path}.attributes.${name}` });
+      if (value !== undefined)
+        shown.push({ value, path: `${entry.path}.attributes.${name}`, line: entry });
     }
     const label = text(entry.node['label']);
-    if (label !== undefined) shown.push({ value: label, path: `${entry.path}.label` });
+    if (label !== undefined) shown.push({ value: label, path: `${entry.path}.label`, line: entry });
     if (entry.node['kind'] === 'component') {
       for (const [key, value] of componentStrings(entry.node)) {
         if (!/^(?:https?:|data:|\/)/u.test(value))
-          shown.push({ value, path: `${entry.path}.${key}` });
+          shown.push({ value, path: `${entry.path}.${key}`, line: entry });
       }
     }
   }
   const placeholders = new Map<string, { path: string; fact: boolean }>();
-  for (const { value, path } of shown) {
+  for (const { value, path, line } of shown) {
     const folded = foldForMatch(value);
     const found =
       [...value.matchAll(new RegExp(BRACKETED, 'gu'))].find(
-        ([label]) => !personal || !PERSONAL_LABEL.test(label),
+        ([label]) => !missingFacts || !plainMissingFact(label, line),
       )?.[0] ??
       MUSTACHE.exec(value)?.[0] ??
       LOREM.exec(value)?.[0] ??
@@ -1583,7 +1585,7 @@ export function checkSection(
   });
   const planNumbers = [...plan.facts.map(({ sample }) => sample), cta.href].flatMap(numbersIn);
   const realValue = (value: string): boolean =>
-    maskedValue(value) === undefined || planNumber(value, planNumbers);
+    maskedValue(value) === undefined || (!missingFacts && planNumber(value, planNumbers));
   const showsPhone =
     hrefs.some(({ href }) => href.startsWith('tel:') && realValue(href.slice(4))) ||
     shown.some(({ value }) => phoneShaped(value) && realValue(value));
@@ -1593,11 +1595,12 @@ export function checkSection(
   for (const { value, path, line } of shown) {
     const masked = maskedValue(value);
     if (masked !== undefined) {
-      if (!planNumber(value, planNumbers) && !placeholders.has(masked)) {
+      if ((missingFacts || !planNumber(value, planNumbers)) && !placeholders.has(masked)) {
         placeholders.set(masked, { path, fact: true });
       }
       continue;
     }
+    if (missingFacts && plainMissingFact(value.trim(), line)) continue;
     if (personal || line === undefined || LABEL_TAGS.has(tagOf(line).toLowerCase())) continue;
     const field = fieldNamed(value);
     if (field === undefined || (field === 'phone' && showsPhone)) continue;
@@ -1606,31 +1609,26 @@ export function checkSection(
     if (!placeholders.has(quoted)) placeholders.set(quoted, { path, fact: true });
   }
   for (const { href, path } of hrefs) {
-    // Business sample destinations retain legacy behavior; personal contacts must be real.
-    if ((!personal && sameTarget(href, cta.href)) || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href))
+    // Only saved plans without a design contract retain the legacy sample-action exemption.
+    if (
+      (!missingFacts && sameTarget(href, cta.href)) ||
+      !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)
+    )
       continue;
-    const address = href.replace(/^(?:tel:|mailto:)/iu, '');
+    const address = decodedHref(href.replace(/^(?:tel:|mailto:)/iu, ''));
     const masked =
       maskedValue(address) ??
-      (personal ? (BRACKETED.exec(address)?.[0] ?? MUSTACHE.exec(address)?.[0]) : undefined);
+      (missingFacts ? (BRACKETED.exec(address)?.[0] ?? MUSTACHE.exec(address)?.[0]) : undefined);
     if (
       masked !== undefined &&
-      (personal || !planNumber(address, planNumbers)) &&
+      (missingFacts || !planNumber(address, planNumbers)) &&
       !placeholders.has(masked)
     ) {
       placeholders.set(masked, { path, fact: true });
     }
   }
   for (const [found, { path, fact }] of [...placeholders].slice(0, MAX_PLACEHOLDERS)) {
-    add(
-      'placeholder-left',
-      personal
-        ? `Replace "${found}" using only the person's supplied facts. Omit missing details or mark them with a clear, plain missing-data label; never invent employers, qualifications, metrics or contact details. Remove filler and fake addresses, including non-working links.`
-        : fact
-          ? `Replace "${found}" with a complete, realistic value in the page's own format (listed as a fact for the owner, who edits it later): never a mask (XXX, 0000), a field's name or an example address — the page ships as written.`
-          : `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
-      path,
-    );
+    add('placeholder-left', missingFactAdvice(found, missingFacts, fact), path);
   }
 
   // ── images ──

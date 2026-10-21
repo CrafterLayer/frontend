@@ -564,10 +564,10 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20.
-    'a bare request': 'c3d8d26f520d6da51edf4cc7d51d7c8afc57080309e625a17ae0291b959b88de',
-    'a large catalog': '34d76d3d3430a2354d5ff8827f40c4667397c586ea12667b5fe592e3824577fc',
-    'every branch at once': '996fe245c8f524fe09a04a4274f3ec97819cee4061de2c912aa0be0521cb666e',
+    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20, Open Props material 10-21.
+    'a bare request': '2ade3da758761f0b8b795dcab27b0d6dfc5ce586918ec604d81e3197eed477ed',
+    'a large catalog': '71610f3842573dece3e0e60750e77129b7c0c71b5e1c48e22cc45c544c229bcd',
+    'every branch at once': '6e128f15caac2ae1921af5412e3294d804886a18053777b656e45bb59f8518e6',
   };
 
   it.each(FIXTURES)('builds %s with the recorded design-capability prefix', (name, build) => {
@@ -731,7 +731,7 @@ describe('the page-plan task', () => {
     expect(rules).toContain(
       '{"key","purpose","layout","mustSay","mustNotRepeat","images","slots","facts"}',
     );
-    expect(rules).toContain('inside the brief of the section that shows it, each {"key","sample"}');
+    expect(rules).toContain('record each {"key","sample"} inside the brief that displays it');
     expect(rules).toContain('Write no top-level nav or facts');
   });
 
@@ -814,27 +814,26 @@ describe('the page-plan task', () => {
     expect(rules).toContain('PHOTOS YOU MAY USE');
   });
 
-  it('keeps a facts ledger: every invented phone, price, address and name is a fact with a sample', () => {
+  it('preserves supplied facts and records explicitly requested labelled samples', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
-    expect(rules).toMatch(/facts: EVERY invented/u);
+    expect(rules).toContain('facts: preserve supplied business and personal facts');
     for (const kind of ['phone', 'price', 'address', 'name']) expect(rules).toContain(kind);
   });
 
-  it('asks for a complete, realistic sample in the page’s own format — never XXX', () => {
-    /*
-      Measured live 2026-09-28: 4 of 5 Dubai plans wrote the phone sample as
-      "+971 4 XXX XXXX", and "sample exactly as the page will show it" put
-      the X's on the page.
-    */
-    const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
-    const facts = /- facts: [^\n]*/u.exec(rules)?.[0] ?? '';
-
-    expect(facts).toContain("a complete, realistic value in the page's own format and language");
-    expect(facts).toContain('+971 4 331 2750');
-    expect(facts).toContain('never XXX, masked digits, all zeros, 1234567 or a bracketed stand-in');
-    expect(facts).toContain('inside the brief of the section that shows it');
-    expect(facts).toContain('the ledger, not the value, marks it as a sample');
+  it('omits or labels missing facts instead of asking for invented contacts or claims', () => {
+    const facts =
+      /- facts: [^\n]*/u.exec(buildPrompt(pagePlanRequest()).system[0]?.text ?? '')?.[0] ?? '';
+    expect(facts).toContain(
+      'Omit missing prices, contacts, addresses, hours, names, statistics and quotes',
+    );
+    expect(facts).toContain(
+      'Only an explicitly requested template/demo may use visibly labelled samples',
+    );
+    expect(facts).toContain('inside the brief that displays it');
+    expect(facts).toContain('The ledger alone never labels a sample on the page');
+    expect(facts).toContain('placeholders never become phone/email links');
+    expect(facts).not.toContain('Use a complete, realistic value');
   });
 
   it('follows the requested page language before inferring a language, with Latin slugs', () => {

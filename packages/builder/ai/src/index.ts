@@ -303,7 +303,11 @@ export {
 */
 export { canonicalJsonStringify } from './internal/canonical-json';
 export { sha256Hex } from './skills/sha256';
-export { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING } from './skills/design-libraries';
+export {
+  DESIGN_LIBRARY_TEACHING,
+  DESIGN_QUALITY_TEACHING,
+  DESIGN_MATERIAL_TEACHING,
+} from './skills/design-libraries';
 export { AUTHORED_DESIGN_TEACHING } from './skills/authored-design';
 export {
   PIXI_CREATIVE_SKILLS,

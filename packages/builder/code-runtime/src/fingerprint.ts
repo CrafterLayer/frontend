@@ -62,6 +62,7 @@ export async function projectFingerprints(snapshot: RuntimeSnapshot, catalog: Ma
     fingerprint(snapshot.project.runtimeProfile),
     fingerprint({
       manifest: catalog.manifest,
+      compatibleLockVersions: catalog.compatibleLockVersions ?? {},
       modules: catalog.modules,
       stylesheet: catalog.stylesheet ?? '',
     }),

@@ -49,6 +49,41 @@ describe('readDataRequest for a report page', () => {
   it('leaves a question about the data to the model', () => {
     expect(readDataRequest(`Can you analyse this?\n${ROWS}`)).toBeUndefined();
   });
+
+  it.each([
+    'Create a detailed report with an asymmetric editorial layout:',
+    'Make a report with blue cards:',
+    'Build a dashboard matching the current page:',
+    'Make a report titled Annual review:',
+    'Create a detailed report without the source table:',
+    'Make a report with bar and line charts:',
+    'Make a detailed report in columns:',
+    'Make a report as a table:',
+    'اعمل تقرير في جدول:',
+    'Make a report 📊:',
+    'اعمل تقرير مفصل بتصميم مختلف عن الموجود:',
+    'اعمل تقرير مع شريط جانبي وألوان الصفحة الحالية:',
+    'اعمل لوحة تحكم بدون هيدر وفوتر:',
+    'Make a report avec une mise en page éditoriale:',
+    'Make a detailed report بتوزيع حر:',
+  ])('preserves unhandled instructions for the model: %j', (instruction) => {
+    const request = `${instruction}\n${ROWS}`;
+    expect(readDataRequest(request)).toBeUndefined();
+    const kernel = reportKernel();
+    const before = kernel.getDocument();
+    expect(tryDirectTool(request, kernel)).toBeUndefined();
+    expect(kernel.getDocument()).toBe(before);
+  });
+
+  it.each([
+    ['Make an executive report from these rows:', 'report.page', { presentation: 'executive' }],
+    ['Make a report with a horizontal bar chart:', 'report.build', { as: 'hbar' }],
+    ['Make a detailed report with a heatmap:', 'report.page', { charts: [{ as: 'heatmap' }] }],
+    ['Make a report from this table:', 'report.build', {}],
+    ['اعمل تقرير مالي من هذه البيانات:', 'report.page', { presentation: 'financial' }],
+  ])('keeps fully handled instructions deterministic: %j', (instruction, tool, input) => {
+    expect(readDataRequest(`${instruction}\n${ROWS}`)).toMatchObject({ tool, input });
+  });
 });
 
 describe('tryDirectTool with a report page', () => {

@@ -966,12 +966,12 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
       fill: (call) => {
         const tree = honestSection(call.request);
         if (call.request.includes('SECTION 3 OF 5')) {
-          // A bracketed placeholder is exactly what a published page must never show.
+          // A raw template marker is unfinished; a plain missing-data label is allowed.
           const section = tree.children[0];
           if (section?.kind === 'element') {
             section.children = [
               ...(section.children ?? []),
-              { kind: 'element', tag: 'p', text: 'Espresso [price]', children: [] },
+              { kind: 'element', tag: 'p', text: 'Espresso {{price}}', children: [] },
             ];
           }
         }
@@ -1042,7 +1042,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
     expect(script.repairs).toHaveLength(1);
     expect(script.repairs[0]?.request).toContain('SECTION 3 OF 5');
     expect(
-      script.repairs[0]?.issues.some(({ message }) => /placeholder|\[price\]/iu.test(message)),
+      script.repairs[0]?.issues.some(({ message }) => /placeholder|\{\{price\}\}/iu.test(message)),
     ).toBe(true);
     const menu = result.tasks.find(({ sectionKey }) => sectionKey === 'menu');
     expect(menu?.status).toBe('applied');
@@ -1173,7 +1173,7 @@ describe('every section is checked BEFORE it lands, and repaired once', () => {
         if (call.request.includes('SECTION 3 OF 5') && section?.kind === 'element') {
           section.children = [
             ...(section.children ?? []),
-            { kind: 'element', tag: 'p', text: 'Espresso [price]', children: [] },
+            { kind: 'element', tag: 'p', text: 'Espresso {{price}}', children: [] },
           ];
         }
         return {

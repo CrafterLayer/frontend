@@ -1,3 +1,5 @@
+export { DESIGN_MATERIAL_TEACHING } from './design-material';
+
 /** Compact guidance shared by the actual fill skill and optional design-code skill. */
 export const DESIGN_QUALITY_TEACHING = `DESIGN CHECK: keep the decided palette and type pair; vary section rhythm without making every band cards. Grid/flex children min-w-0; cards w-full, never a fixed text column width. Collapse multi-column layouts on phones; keep DOM reading order in RTL. Arabic headings leading-snug, no tracking or forced one-line text. One visual signature, not effects everywhere. Meaningful links, visible focus and 44px phone actions. Content stays readable before animation and with reduced motion. Never invent client logos, ratings, statistics or attributed quotes; use only supplied facts or the plan's explicit samples.`;
 

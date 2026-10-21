@@ -8,6 +8,19 @@ export interface ResolvedModule {
   readonly file: CodeFile;
 }
 
+function admitsLockedVersion(
+  catalog: ManagedCatalog,
+  packageId: string,
+  version: string,
+  lockedVersion: string | undefined,
+): boolean {
+  return (
+    lockedVersion !== undefined &&
+    (version === lockedVersion ||
+      catalog.compatibleLockVersions?.[packageId]?.includes(lockedVersion) === true)
+  );
+}
+
 export function validateModulePath(path: string): void {
   if (
     path === '' ||
@@ -40,10 +53,19 @@ export function validateManagedCatalog(snapshot: RuntimeSnapshot, catalog: Manag
       'The project runtime/catalog lock does not match the supplied managed catalog.',
     );
   }
+  if (
+    lock.packages['react'] !== undefined &&
+    lock.packages['react-dom'] !== undefined &&
+    lock.packages['react'] !== lock.packages['react-dom']
+  ) {
+    throw new Error('Managed React and React DOM locks must use identical versions.');
+  }
   for (const [packageId, version] of Object.entries(lock.packages)) {
     if (
       !catalog.manifest.packages.some(
-        (entry) => entry.packageId === packageId && entry.version === version,
+        (entry) =>
+          entry.packageId === packageId &&
+          admitsLockedVersion(catalog, packageId, entry.version, version),
       )
     ) {
       throw new Error(`Managed dependency is unavailable: ${packageId}@${version}`);
@@ -103,7 +125,12 @@ export function resolveProjectModule(
   );
   if (
     packageEntry === undefined ||
-    snapshot.project.dependencyLock.packages[packageEntry.packageId] !== packageEntry.version
+    !admitsLockedVersion(
+      catalog,
+      packageEntry.packageId,
+      packageEntry.version,
+      snapshot.project.dependencyLock.packages[packageEntry.packageId],
+    )
   ) {
     throw new Error(`Import is not in the locked managed catalog: ${specifier}`);
   }

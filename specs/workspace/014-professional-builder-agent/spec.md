@@ -1,5 +1,8 @@
 # Feature Specification: Professional Builder and Agent
 
+Current continuation: [design freedom and failure recovery](design-recovery-2026-10-21.md), DR1–DR5
+/ T316–T320, authorized by the user's implementation request.
+
 Current continuation: [professional free page design](free-design-2026-10-20.md), FD1–FD5 /
 T310–T315, authorized by the user.
 

@@ -110,11 +110,9 @@ describe('authored run coordinator', () => {
     ]);
     expect(JSON.stringify(sent?.['messages'])).toContain('sourceRevision');
     const system = JSON.stringify(sent?.['system']);
-    expect(system).toContain(
-      'Interactive websites, dashboards, tools and multi-step Frontend flows',
-    );
+    expect(system).toContain('websites, dashboards, tools and multi-step Frontend flows');
     expect(system).toContain('tabs switch content');
-    expect(system).toContain('Never pretend authentication');
+    expect(system).toContain('Never imply authentication');
     expect(system).toContain('embla-carousel-react');
     expect(system).toContain('only inside allowedPaths');
     expect(caches.prompt.metrics()).toMatchObject({ cacheReadTokens: 80, cacheWriteTokens: 20 });

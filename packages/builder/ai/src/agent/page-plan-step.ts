@@ -11,6 +11,7 @@ import type { IntentTarget } from '../intent';
 import { DEFAULT_AI_CONTEXT_TOKEN_BUDGET } from '../plan/generate-plan';
 import { fitAiPlanWireHistory } from '../plan/history-budget';
 import { AI_PLAN_WIRE_VERSION } from '../provider/wire';
+import { isAiProviderError } from '../provider/errors';
 import { readProviderUsage } from '../provider/usage';
 import { requestSkillIdsFor } from '../skills/request-skills';
 import type { AiPreparedSkillContext, AiSkillRegistry } from '../skills';
@@ -18,6 +19,7 @@ import type {
   AiChatTurn,
   AiPagePlanAttempt,
   AiPagePlanDraftEvent,
+  AiPagePlanProposal,
   AiPlanProvider,
   AiProposePagePlanOptions,
   AiProviderUsage,
@@ -38,6 +40,7 @@ import {
 } from './page-plan-context';
 import { withinRunDeadline, type AiRunDeadlineOptions } from './run-deadline';
 import { normalizeCancellation } from './run-events';
+import { reportDesignProviders } from './report-design-context';
 
 export async function proposeValidatedPagePlan(
   input: PagePlanStepInput,
@@ -242,6 +245,7 @@ async function proposeActivePagePlan(
     ...(input.contextProviders === undefined ? {} : { providers: input.contextProviders }),
     additionalContextProviders: [
       ...(input.additionalContextProviders ?? []),
+      ...reportDesignProviders(input.request),
       ...(hasPhotos ? [] : [createPhotoCatalogContextProvider({ brief: input.request })]),
     ],
     allowedCommands: [],
@@ -311,9 +315,23 @@ async function proposeActivePagePlan(
     completePage: true,
     request: input.request,
   };
-  const first = await ask();
+  let first: AiPagePlanProposal;
+  let outputIssues: readonly PagePlanIssue[] | undefined;
+  try {
+    first = await ask();
+  } catch (cause) {
+    if (!isAiProviderError(cause) || cause.code !== 'invalid-output' || !cause.retryable)
+      throw cause;
+    // A parse failure has no candidate to quote. It consumes the same single
+    // correction as a validation failure, under this request's remaining budget.
+    first = { pagePlan: {} };
+    outputIssues = [{ path: '', message: cause.message }];
+  }
   const firstCandidate: PagePlanCandidate = first.pagePlan;
-  const checked = validatePagePlan(firstCandidate, validation);
+  const checked =
+    outputIssues === undefined
+      ? validatePagePlan(firstCandidate, validation)
+      : { ok: false as const, issues: outputIssues };
   assertActive();
   if (checked.ok) {
     note({ type: 'ready', plan: checked.plan });

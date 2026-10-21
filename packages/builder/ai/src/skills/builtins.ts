@@ -16,6 +16,7 @@ import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
 import { DESIGN_CODE_SKILL } from './design-code';
 import { DESIGN_QUALITY_TEACHING, TAILWIND_PLUGIN_TEACHING } from './design-libraries';
+import { DESIGN_MATERIAL_TEACHING } from './design-material';
 import { SITE_BEHAVIOR_TEACHING } from './site-behaviors';
 // pixi-skills additions (2026-10-10): PixiJS v8 guides rewritten as skills — see creative/PIXI_SOURCES.md.
 import {
@@ -124,20 +125,20 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.7.0',
+  version: '3.8.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'fill'],
-  instructions: `ONE setProp for the tree, written as markup: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":"<section class='…'>…</section>"}} — and, only when the markup uses ck- classes, a SECOND setProp on the same id with key "css" and the region stylesheet as its value. Never a css key inside the first; no other node, no page-level change.
-THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent. Every accent, glow, ring, gradient and action fill is drawn from the direction's palette as its named classes or hex, and a recipe's {accent} is its accent hue; the role classes (bg-accent, text-accent, var(--t-accent)) only when the direction names the site theme as its palette.
+  instructions: `ONE setProp writes the region's complete markup: {"command":"setProp","args":{"id":"<given region id>","key":"tree","value":"<section class='…'>…</section>"}}. When using ck- classes, a SECOND setProp on that id writes key "css" and the stylesheet. Never put css inside the tree command; no other node or page-level change.
+THE DIRECTION WAS ALREADY DECIDED in the request: obey its palette, faces, signature and rhythm; never choose a separate section theme. Every accent, glow, ring, gradient and action uses its named colour classes or hex; {accent} is its accent hue. Role classes (bg-accent, text-accent, var(--t-accent)) only when the direction names the site theme.
 LAYOUT: follow the brief's design concept and this region's layout. A named variant is optional inspiration unless the brief explicitly requests that exact recipe. Bespoke composition may use semantic markup and scoped CSS; no kit, card grid, container width or section order is mandatory.
-THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
-ROLE AND SEMANTICS: the opening region holds the page's one h1; other content keeps the required heading text and sensible heading hierarchy. Header/footer roles use their semantic elements, without adding unwanted navigation, columns or calls to action. Geometry, spacing, density and visual hierarchy follow the contract and content. A region may hold a cohesive whole-page composition when assigned that scope; do not invent sibling regions or content to fill a template.
-FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a business fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros). A person's own facts (a CV's employers and dates, an invitation's names and date) are never invented: they stay bracketed and listed in followUp, as the copywriting rules say.
+THE WHOLE TREE, ONCE: setProp tree REPLACES it; write the finished assigned region in full. Other regions are summaries ("filled · 34 nodes · …"); do not edit them or repeat their content.
+ROLE AND SEMANTICS: the opening region has the page's one h1; preserve required heading text and hierarchy. Header/footer roles use their semantic elements without unwanted navigation, columns or actions. Content and the contract decide geometry, spacing and density. A cohesive whole-page composition is valid when assigned; never invent sibling regions to fill a template.
+FACTS: preserve supplied business and personal facts. Never invent prices, quotes, customers, ratings, contacts or hours. Missing facts stay omitted or plainly labelled placeholders in the page language, listed in followUp; placeholders never become real contact links. Only an explicitly requested template may use visibly labelled samples, also listed in followUp. A person's own facts, including employers and dates, are never invented; preserve personal placeholders.
 SIZE: write only the assigned region and required content, within the door's actual limits. Use the smallest semantic tree that fulfills its layout; node count is not a design goal.
-${DESIGN_QUALITY_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}\n${SITE_BEHAVIOR_TEACHING}`,
+${DESIGN_QUALITY_TEACHING}\n${DESIGN_MATERIAL_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}\n${SITE_BEHAVIOR_TEACHING}`,
   references: {
     'checks/fill.md':
       "Only the named region's tree and css changed; its design concept, layout and required heading preserved; one h1 in the opening region; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched or repeated; content determines geometry; a person's own facts stay truthful.",
@@ -367,8 +368,8 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.page-composition',
   name: 'Professional page composition',
   description:
-    'Section order, anatomy and rhythm for a complete landing or home page, built from the primary visitor outcome outward.',
-  version: '2.3.1',
+    'Content-led hierarchy, composition and rhythm for a complete landing or home page, preserving the brief and existing design.',
+  version: '2.4.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 80,
@@ -398,19 +399,14 @@ const PAGE_COMPOSITION: AiSkillDefinitionV1 = builtin({
   },
   tags: ['composition', 'design', 'page'],
   dependencies: ['craftkit.copywriting', 'craftkit.visual-direction'],
-  instructions: `Plan from the primary visitor outcome: name it in the rationale, then build these sections in order, one region each, dropping any the request gives no material for.
-1 HERO: h1 text-4xl md:text-6xl font-bold leading-tight text-balance (Arabic: leading-snug), p text-lg md:text-xl text-text-muted max-w-2xl text-pretty, div flex flex-wrap gap-4 with one primary action and one secondary <a>, ul flex flex-wrap gap-x-6 gap-y-2 text-sm text-text-muted of 3 proof facts, each li flex items-center gap-2 led by icon circle-check size 16 text-success. With a photo from PHOTOS YOU MAY USE or the request: grid md:grid-cols-2 items-center gap-8, img aspect-4/3 w-full rounded-3xl object-cover shadow-2xl AFTER the text; without one, a type-led hero: mx-auto max-w-3xl text-center.
-2 PROOF: grid grid-cols-2 md:grid-cols-4 gap-6 text-center; p text-4xl font-extrabold tabular-nums text-{accent} + p text-sm text-text-muted.
-3 BENEFITS: h2 + p mx-auto max-w-2xl text-center text-text-muted, then one lead item and two to five supporting ones in grid gap-4 md:grid-cols-3, the lead md:col-span-2 md:row-span-2; card = div rounded-3xl bg-surface p-6 md:p-8 ring-1 ring-black/5 with icon size 28 text-{accent}, h3 text-xl font-semibold, p text-text-muted leading-relaxed. A benefit names what changes for the visitor, with a number, example or mechanism.
-4 HOW IT WORKS: ol grid gap-8 md:grid-cols-3; li opens with div h-10 w-10 rounded-full bg-{accent} text-{on-accent} flex items-center justify-center font-bold holding the number, then h3 + p.
-5 TESTIMONIALS or PRICING when asked for or the business lives on them — realistic samples listed in followUp (recipes in the conversion skill).
-6 FAQ: div mx-auto max-w-3xl divide-y; 4–6 pairs, each div py-6 with h3 font-semibold + p mt-2 text-text-muted, answering unanswered objections.
-7 FINAL ACTION: section bg-surface-inverse text-text-inverse py-16 text-center: h2 restating the promise, one p, the SAME primary action label as the hero.
-8 FOOTER: footer border-t border-black/10 py-12 > grid gap-8 md:grid-cols-4: brand column plus three ul space-y-2 text-sm of <a href='#section-id'> (give each section its id), then small for the copyright.
-RHYTHM: ground, card and band from the direction's palette; one dark band besides the hero at most; exactly one h1; every section opens with h2 text-balance; one lead item, never three identical cards as the second section; at most 10 insertNode per plan — sections 1–6 first, the rest in followUp; setProp page title and description when empty; use hero/features/pricing/testimonials/faq/cta/pageHeader/pageFooter blocks when in the catalog.`,
+  instructions: `Plan from the primary visitor outcome: name it in the rationale, then choose the hierarchy, density and reading order that this brief's content needs. No fixed section order, column count, container width, card grid or marketing sequence. A coherent whole-page region is valid. Navigation and footer are optional; do not add them merely because this is a full page.
+EXISTING DESIGN: on edits or additions, preserve the current typography, palette, geometry, links and unrelated content. Explicit layout instructions and supplied references take precedence over these suggestions. A requested redesign should change hierarchy and spatial composition where appropriate, not repeat the same layout with a new accent.
+CONTENT: introduce the subject and its useful outcome clearly; one h1 on the page, with sensible heading hierarchy thereafter. Benefits explain a concrete mechanism or example; a process uses ordered steps only when there is a real sequence; proof, prices and FAQ appear only when relevant and supported. Never invent client logos, ratings, metrics, attributed quotes or a person's facts to fill a pattern. Do not cut or reorder supplied content to fit a recipe.
+COMPOSITION: decide what deserves emphasis: a lead item, project image, dense comparison, editorial text or another content-specific focal point. Use semantic tree and scoped CSS freely; registered blocks are optional when their behavior and shape fit, never a reason to override the design. Vary rhythm and proportion rather than making every region identical cards. Use text-balance for appropriate headings and text-pretty for lead paragraphs; preserve readable Arabic line height and logical alignment.
+NAVIGATION AND ACTIONS: keep real destinations and supplied contact details; navigation must reach actual sections or pages. Primary actions should state their outcome and remain consistent when repeated. Retain useful navigation on phones with a real accessible disclosure when needed. Respect reduced motion, visible focus and responsive reading order; essential content must remain usable at narrow widths.`,
   references: {
     'checks/page-quality.md':
-      'One h1; hero states an outcome, not a welcome; h1, action and proof fit the first phone screen; every action names its destination; mobile order = DOM order; primary action label identical in hero and final band; only logical spacing (ps-/pe-); pointing icons match doc.dir; every parentId is the page root.',
+      'Brief, references and existing design preserved; no forced sequence, chrome or geometry; one h1 and sensible heading hierarchy; every action has a real destination; mobile order follows DOM order; only logical spacing (ps-/pe-); pointing icons match doc.dir; unsupported facts never invented.',
   },
 });
 
@@ -539,8 +535,8 @@ const STRUCTURE_RECIPES: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.structure-recipes',
   name: 'Structure section recipes',
   description:
-    'Exact class recipes for header, footer, contact, team, gallery and timeline sections, with real links and the RTL-safe timeline CSS.',
-  version: '1.2.0',
+    'Adaptable guidance for navigation, footer, contact, team, gallery and timeline composition, grounded in the current design and real links.',
+  version: '1.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 55,
@@ -577,16 +573,16 @@ const STRUCTURE_RECIPES: AiSkillDefinitionV1 = builtin({
     ],
   },
   tags: ['chrome', 'composition', 'sections'],
-  instructions: `Recipes; the wrapper is the manual's region shell. Use the registered block instead when its type is in the catalog (pageHeader, navLinks, pageFooter, contact, formSection, team, gallery, portfolioGrid).
-HEADER: header sticky top-0 z-40 border-b border-black/10 bg-white > div mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8: span text-lg font-bold tracking-tight (brand), nav aria-label='Main' hidden md:flex gap-8 text-sm font-medium of <a href='#section-id'> (give each target section that id), one action. Phones see brand + action only; say so in followUp.
-FOOTER: footer border-t border-black/10 > div mx-auto max-w-6xl px-4 py-12 md:px-8 > grid gap-8 md:grid-cols-4: brand column (span font-bold + p text-sm text-text-muted) plus three columns of h3 text-sm font-semibold and ul mt-4 space-y-2 text-sm text-text-muted of <a href>; then div mt-12 border-t border-black/10 pt-6 text-xs text-text-muted with small for the copyright.
-CONTACT: grid gap-8 md:grid-cols-2; column A: h2, p, ul space-y-4 of li flex items-center gap-3 with icon message-circle / phone / mail / map-pin / clock size 20 text-{accent} and <a href='https://wa.me/…'> first for a local business, then <a href='tel:…'>, <a href='mailto:…'>, the address as <a href='https://maps.google.com/?q=…'>; hours as ul of li flex justify-between tabular-nums. Column B: the contact or formSection block when it is in the catalog (<ck-component type='contact' props='{}'></ck-component>), else an img of the place or div rounded-2xl bg-surface p-6 with directions. Never draw a fake form from div/span; no map embed (iframe is refused).
-TEAM: grid grid-cols-2 md:grid-cols-4 gap-8 text-center; img aspect-square w-full rounded-2xl object-cover object-top (alt = name) only for a photo the request gives, else a square tile with the initials; p mt-4 font-semibold, p text-sm text-text-muted.
-GALLERY: grid grid-cols-2 md:grid-cols-3 gap-4 of img aspect-square w-full rounded-xl object-cover; the lead image adds col-span-2 row-span-2.
-TIMELINE: ol space-y-8; each li relative ps-8 ck-tl with span absolute start-0 top-1 h-4 w-4 rounded-full bg-{accent} ring-4 ring-surface, time text-sm font-medium text-{accent} with datetime, h3, p; css .ck-tl::before{content:"";position:absolute;inset-inline-start:7px;top:1.5rem;bottom:-2rem;width:2px;background:<the accent's hex>;opacity:.3}`,
+  instructions: `Adapt to the brief, supplied references and existing page design; no fixed width, column count, white header, sticky position or footer grid. Preserve unrelated content, typography, palette, destinations and geometry on edits. Use a registered block only when its behavior and shape fit; semantic markup and scoped CSS may author another composition. Explicitly requested templates remain valid, but their recipe never overrides another requested layout.
+HEADER: compose the brand, navigation and necessary actions according to this page's hierarchy and density. Use header and nav with an accessible label, real section/page links and visible focus. On phones retain access to useful links through a real disclosure or another usable arrangement; never hide navigation without an accessible alternative. Sticky, floating, stacked, integrated and other treatments are choices to justify from the brief, not defaults.
+FOOTER: include only useful closing information and supplied destinations, grouped for this page's content. A compact line, editorial ending or richer navigation may fit; do not invent three link columns, a newsletter, sales action or legal claims to fill space. Use footer semantics when there is a site footer; preserve a supplied copyright statement.
+CONTACT: present supplied channels, hours and location in a geometry that suits the page. Actual WhatsApp, phone and email values use wa.me, tel: and mailto: links; an address can link to a maps search. A functional contact/formSection block may provide a real form when registered and available. Never invent contact details or draw a fake form from div/span. A map follows the admitted iframe policy or uses a link.
+TEAM: choose hierarchy and proportions from the people and supplied content; photos only when supplied, otherwise names or initials. Never invent people, credentials or portraits.
+GALLERY: preserve supplied media and meaningful alt text; choose aspect ratios, grouping and responsive order from the work rather than a mandatory square grid. Only use available media.
+TIMELINE: use ol for an actual chronological sequence and time datetime for known dates; density and geometry follow the content. A connector, if useful, uses logical positioning such as inset-inline-start and must not disrupt phone reading order.`,
   references: {
     'checks/chrome.md':
-      "Nav links are <a href='#id'> to real section ids; footer has copyright line; contact values linked with wa.me/tel:/mailto: and a maps search; no fake form, no iframe; team photos only when given, else initials; timeline uses inset-inline-start.",
+      'Existing design and explicit references preserved; no forced header/footer pattern; mobile navigation remains usable; real destinations and supplied contacts; no fake form; portraits only when supplied, else names/initials; timeline logical positioning and reading order.',
   },
 });
 
@@ -788,8 +784,8 @@ const COPYWRITING: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.copywriting',
   name: 'Headlines, actions and body copy',
   description:
-    'Headline, call-to-action and body copy rules in Arabic and English; finished copy with realistic sample facts, listed for the owner.',
-  version: '2.2.0',
+    'Headline, call-to-action and body copy rules in Arabic and English; truthful supplied facts and clearly identified missing information.',
+  version: '2.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 45,
@@ -818,11 +814,11 @@ const COPYWRITING: AiSkillDefinitionV1 = builtin({
 HEADLINE: the visitor's outcome in ≤8 English / ≤7 Arabic words, a concrete verb or noun; no "Welcome to" / "مرحباً بكم"; no exclamation mark; no uppercase class. Subhead: one sentence ≤20 words — who it is for and what changes.
 ACTION: verb first, 2–4 words naming the result ("Start free trial", "Book a call", "ابدأ التجربة المجانية", "احجز استشارتك"); never "Get started", "Learn more", "Submit", "اضغط هنا", "المزيد" alone. One primary action per section, the identical label wherever it repeats; a secondary action is an <a> with an arrow icon in reading direction. A local business acts by WhatsApp (https://wa.me/<digits>?text=…), then tel:, a maps link, its hours.
 BODY: paragraphs ≤3 sentences; sentence case in English; one idea per card; "you get X", not "we offer X"; numbers as digits; a claim with a number needs a source line or is dropped. Cut filler — «نرتقي بـ»، «حلول متكاملة»، «تجربة فريدة من نوعها»، «في عالم…»، «لا مثيل لها», elevate, seamless, unleash — and name the thing.
-FACTS: a page ships finished, never with "[Customer name]" / "[اسم العميل]" brackets. What the request did not give about the BUSINESS — prices, menu items, reviews and their names, hours, an address — is a realistic sample for its trade, city and language, listed in followUp; phone and email stay obviously generic (info@ the brand, a local number of zeros). A PERSON's own facts — a CV's employers, dates and contacts, an invitation's names, date and venue — are never invented: they stay "[your email]" / "[التاريخ]" brackets, listed in followUp.
+FACTS: preserve supplied facts; never invent business prices, reviews, customers, hours, addresses or contacts. Omit or label missing information in the page language and list it in followUp. Only an explicitly requested template may use visibly labelled samples. A PERSON's own employers, dates, contacts, names and venues are never invented: preserve "[your email]" / "[التاريخ]" placeholders in followUp. Placeholders never become real contact links.
 ARABIC: Modern Standard Arabic; one address form (أنتَ or أنتم); «،» and «؟»; correct hamza and taa marbuta (ة not ه); Arabic headings go one text-* step up rather than bolder.`,
   references: {
     'checks/copy.md':
-      'Headline ≤8/7 words, outcome-led; one primary label repeated verbatim; no "click here" / "اضغط هنا"; business facts are listed samples, only a person\'s own facts stay bracketed; «،؟», no «!»; no filler.',
+      'Headline ≤8/7 words, outcome-led; one primary label repeated verbatim; no "click here" / "اضغط هنا"; supplied facts preserved, missing facts omitted or labelled, samples only for an explicitly requested template; a person\'s own facts never invented; «،؟», no «!»; no filler.',
   },
 });
 

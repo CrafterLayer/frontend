@@ -1,5 +1,16 @@
 # Tasks: Professional Builder and Agent
 
+## Design freedom and failed-request recovery — 2026-10-21
+
+Acceptance: [DR1–DR5](design-recovery-2026-10-21.md).
+
+- [x] T316 Repair demonstrated planner output recovery; verify sequential controller recovery and
+      record the unconfirmed original Stop trace.
+- [x] T317 Remove fixed chrome/composition authority from ordinary edit skills.
+- [x] T318 Preserve custom report design instructions through deterministic routing.
+- [x] T319 Install and wire bounded Open Props design material into real agent contexts.
+- [x] T320 Verify, independently review, repair, converge and refresh continuity.
+
 ## Professional free page design — 2026-10-20
 
 Acceptance: [FD1–FD5](free-design-2026-10-20.md). Local completion on 2026-10-21:

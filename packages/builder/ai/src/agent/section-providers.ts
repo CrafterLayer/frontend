@@ -1,3 +1,4 @@
+import { withReportDesign } from './report-design-context';
 import type { AiContextProvider } from '@craftkit/builder-schema';
 
 import {
@@ -149,9 +150,17 @@ export function sectionProviders(
       : (options.additionalContextProviders ?? []).filter(
           ({ id }) => id !== PHOTO_CATALOG_PROVIDER_ID,
         );
-  if (!writesScene(options, contract)) return photos;
+  const computed = withReportDesign(
+    options.request,
+    {
+      additionalContextProviders: photos,
+    },
+    plan.locale.lang,
+  ).additionalContextProviders;
+
+  if (!writesScene(options, contract)) return computed;
   const briefed = withCreativeBrief(
-    photos,
+    computed,
     creativeRequestOf(options, contract),
     plan.locale.lang,
     options,

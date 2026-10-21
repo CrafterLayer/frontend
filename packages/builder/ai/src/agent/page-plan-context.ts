@@ -8,6 +8,7 @@ import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
 import { planKitIndex } from './page-plan/kits';
 import { requestedPageDesign } from './page-plan/design';
 import { explicitSkills } from './host-skills';
+import { DESIGN_MATERIAL_TEACHING } from '../skills/design-material';
 import type { AiAgentPolicy } from './types';
 
 /*
@@ -249,6 +250,7 @@ export function planningRequest(
       : []),
     ...(target === undefined ? [] : [INTENT_LINE[target]]),
     designLine(),
+    DESIGN_MATERIAL_TEACHING,
     ...(kits ? [KIT_LINE, ...(design.composition === 'hybrid' ? [planKitIndex()] : [])] : []),
     SEO_LINE,
   ].join('\n');

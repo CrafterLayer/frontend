@@ -49,4 +49,43 @@ describe('free-composition teaching delivered to the model', () => {
     expect(landing).toContain('never cut or reorder content to fit a recipe');
     expect(landing).not.toContain('a section that serves none of them is cut');
   });
+
+  it('delivers adaptable chrome advice to ordinary edits and section additions', () => {
+    for (const request of ['Redesign the navbar to match this page', 'Add a site footer']) {
+      const active = registry.prepare({ request, intent: 'add-section' }).active;
+      const chrome = active.find(({ id }) => id === 'craftkit.structure-recipes');
+      expect(chrome).toBeDefined();
+      expect(chrome?.instructions).toContain('existing page design');
+      expect(chrome?.instructions).toContain('Explicitly requested templates remain valid');
+      expect(chrome?.instructions).toContain(
+        'never hide navigation without an accessible alternative',
+      );
+      expect(chrome?.instructions).not.toContain('max-w-6xl');
+      expect(chrome?.instructions).not.toContain('md:grid-cols-4');
+      expect(chrome?.instructions).not.toContain('bg-white');
+    }
+  });
+
+  it('delivers page guidance without imposing its former marketing sequence', () => {
+    const teaching = registry
+      .prepare({ request: 'Create a complete page' })
+      .active.find(({ id }) => id === 'craftkit.page-composition')?.instructions;
+    expect(teaching).toBeDefined();
+    expect(teaching).toContain('No fixed section order');
+    expect(teaching).toContain('Navigation and footer are optional');
+    expect(teaching).toContain('supplied references take precedence');
+    expect(teaching).not.toContain('build these sections in order');
+    expect(teaching).not.toContain('8 FOOTER:');
+    expect(teaching).not.toContain('realistic samples');
+  });
+
+  it('keeps writer and copy guidance aligned on supplied facts and requested template samples', () => {
+    for (const id of ['craftkit.build-fill', 'craftkit.copywriting']) {
+      const teaching = registry.readSkill(id);
+      expect(teaching).toContain('Only an explicitly requested template');
+      expect(teaching).toContain('never become real contact links');
+      expect(teaching).not.toContain('realistic, specific sample');
+      expect(teaching).not.toContain('is a realistic sample for its trade');
+    }
+  });
 });

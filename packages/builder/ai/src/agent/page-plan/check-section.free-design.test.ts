@@ -39,9 +39,58 @@ describe('personal page missing facts', () => {
     ).toEqual([]);
   });
 
-  it('keeps the existing business placeholder check', () => {
-    expect(placeholders(check('<p>[your email]</p>', page('website')))).toHaveLength(1);
+  it('allows clearly marked missing business facts without requiring invented values', () => {
+    expect(
+      placeholders(
+        check(
+          '<p>[your email]</p><p>Price: [السعر]</p><p>[opening hours]</p><p>[氏名]</p>',
+          page('website'),
+        ),
+      ),
+    ).toEqual([]);
   });
+
+  it.each([
+    'lorem ipsum',
+    'THE SECTION TITLE',
+    '{{title}}',
+    'هذا النص هو مثال',
+    'XXX',
+    '0000000000',
+  ])('rejects business filler or masks without inventing facts: %s', (filler) => {
+    const issues = placeholders(check(`<p>[your email] ${filler}</p>`, page('website')));
+    expect(issues).not.toHaveLength(0);
+    expect(issues.every(({ message }) => message.includes('never invent'))).toBe(true);
+    expect(issues.every(({ message }) => !message.includes('realistic'))).toBe(true);
+  });
+
+  it.each([
+    'mailto:[your email]',
+    'mailto:%5Byour%20email%5D',
+    'mailto:hello@example.com',
+    'tel:0000000000',
+    'https://example.com',
+  ])('rejects fake business links even when copied from the plan: %s', (href) => {
+    const plan = {
+      ...page('website'),
+      primaryCta: { label: 'Contact', href },
+      facts: [{ key: 'phone', sample: '0000000000', section: 'hero' }],
+    };
+    const issues = placeholders(check(`<a href="${href}">Contact</a>`, plan));
+    expect(issues).not.toHaveLength(0);
+    expect(issues.some(({ path }) => path?.includes('attributes.href'))).toBe(true);
+  });
+
+  it.each(['mailto:team@real-business.test', '#hero', ''])(
+    'rejects a clickable missing field at %j',
+    (href) => {
+      const issues = placeholders(
+        check(`<a href="${href}"><span>[your email]</span></a>`, page('website')),
+      );
+      expect(issues).toHaveLength(1);
+      expect(issues[0]?.message).toContain('never invent');
+    },
+  );
 
   it.each(['lorem ipsum', 'THE SECTION TITLE', '{{title}}', 'هذا النص هو مثال', 'XXX'])(
     'rejects %s without asking for invented facts',

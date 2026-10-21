@@ -96,9 +96,11 @@ catalog:
   nanoid: 6.0.1
   playwright: 1.62.1
   prettier: 3.9.6
-  react: 19.2.8
+  # Optional literal design material used by the agent; no global stylesheet.
+  open-props: 1.7.23
+  react: 19.2.9
   react-colorful: 5.8.1
-  react-dom: 19.2.8
+  react-dom: 19.2.9
   react-router: 8.3.0
   # studio-indigo (2026-10-12): the editor's action feedback toasts (MIT, React 19 peer).
   sonner: 2.0.8

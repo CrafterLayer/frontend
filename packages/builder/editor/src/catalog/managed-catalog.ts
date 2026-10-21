@@ -3,7 +3,7 @@ import type { ManagedCatalog } from '@craftkit/builder-code-runtime';
 // Additive admission retains the existing lock/profile version. Full catalog content is hashed
 // into every artifact identity, so adding Embla invalidates caches without breaking saved locks.
 export const REFERENCE_MANAGED_CATALOG_VERSION = 'craftkit-managed-reference-v1';
-export const MANAGED_REACT_VERSION = '19.2.8';
+export const MANAGED_REACT_VERSION = '19.2.9';
 export const MANAGED_RUNTIME_SPECIFIER = 'react/managed-runtime';
 
 const reactExports = [
@@ -55,7 +55,7 @@ export const referenceManagedCatalog: ManagedCatalog = {
         packageId: 'react',
         version: MANAGED_REACT_VERSION,
         importSpecifiers: ['react', 'react/jsx-runtime', MANAGED_RUNTIME_SPECIFIER],
-        sourceArtifactId: 'craftkit-react-19.2.8-v1',
+        sourceArtifactId: 'craftkit-react-19.2.9-v1',
         cssArtifactIds: [],
         license: 'MIT',
         integrity: 'unbuilt',
@@ -64,7 +64,7 @@ export const referenceManagedCatalog: ManagedCatalog = {
         packageId: 'react-dom',
         version: MANAGED_REACT_VERSION,
         importSpecifiers: ['react-dom', 'react-dom/client'],
-        sourceArtifactId: 'craftkit-react-dom-19.2.8-v1',
+        sourceArtifactId: 'craftkit-react-dom-19.2.9-v1',
         cssArtifactIds: [],
         license: 'MIT',
         integrity: 'unbuilt',
@@ -107,6 +107,8 @@ export const referenceManagedCatalog: ManagedCatalog = {
       },
     ],
   },
+  // Saved v1 projects keep their original lock; the bundled runtime is always the patched pin.
+  compatibleLockVersions: { react: ['19.2.8'], 'react-dom': ['19.2.8'] },
   modules: {
     react: {
       language: 'js',

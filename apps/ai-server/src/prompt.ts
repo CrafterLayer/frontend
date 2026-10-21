@@ -1,6 +1,7 @@
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
 import {
   DESIGN_LIBRARY_TEACHING,
+  DESIGN_MATERIAL_TEACHING,
   DESIGN_QUALITY_TEACHING,
   UTILITY_VOCABULARY,
   type ContextFragment,
@@ -206,7 +207,7 @@ Icons: \`{"kind":"icon","name":"mail"}\` draws an icon from the Lucide set (luci
 
 Design to a professional standard: generous spacing on a consistent scale, one clear typographic hierarchy, a real responsive layout (\`md:\`/\`lg:\` variants), and a deliberate palette applied the same way in every section.
 ${DESIGN_QUALITY_TEACHING}
-${DESIGN_LIBRARY_TEACHING}
+${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING}
 
 ## Refusing
 
@@ -259,7 +260,7 @@ ${REGION_CSS}
 
 ${EDIT_TOOL_PROMPT}
 ${TOOL_PREFERENCE}
-${DESIGN_LIBRARY_TEACHING}
+${DESIGN_LIBRARY_TEACHING} ${DESIGN_MATERIAL_TEACHING}
 
 ${EDIT_SCRIPTS}
 
@@ -327,7 +328,7 @@ ${FREE_DESIGN_TEACHING}
 - images (in a brief): at most 4, each {"subject","aspect","alt"}. subject is a photo-catalog topic: one from PHOTOS YOU MAY USE when that is in your context, else the row's photo subjects, else one of ${PAGE_PLAN_PHOTO_TOPICS.join(', ')} — never a free word. aspect: landscape | portrait | square. alt in the page language. No topic fits → no images: a type-led section beats a wrong photo.
 - a local business (restaurant, café, clinic, salon, shop): a booking/contact section should provide useful contact information, not only a heading and button. In hybrid composition contact-split is one available kit; bespoke authors its own contact layout.
 - slots (in a brief): ONLY for a short section (stats, logos, a cta, a faq of 6 or fewer) whose outline names its kit, with EVERY slot that kit's line in KITS lists without a "?" (the shared title always), in the page language, so it needs no writer; a kit you cannot fill whole gets no slots — a writer fills it. Never slots on the header or footer. Omit slots everywhere else.
-- facts: EVERY invented business-demo phone, price, address, hours, name, statistic or quote goes inside the brief of the section that shows it, each {"key","sample"}. Use a complete, realistic value in the page's own format and language (+971 4 331 2750), never XXX, masked digits, all zeros, 1234567 or a bracketed stand-in: the ledger, not the value, marks it as a sample. Personal resume/portfolio facts are never invented: omit missing information or label it plainly.
+- facts: preserve supplied business and personal facts. Omit missing prices, contacts, addresses, hours, names, statistics and quotes, or visibly label missing information in the page language. Never invent realistic claims or contact destinations. Only an explicitly requested template/demo may use visibly labelled samples; record each {"key","sample"} inside the brief that displays it. The ledger alone never labels a sample on the page. Personal facts are never invented; placeholders never become phone/email links.
 - seo: {"keyword","pageKind","businessType","slug"} — keyword the search phrase in the page language, at most 80 characters, used naturally; pageKind one of ${PAGE_PLAN_SEO_KINDS.join(', ')}; businessType one of ${PAGE_PLAN_BUSINESS_TYPES.join(', ')} when the page is for one — a place people visit or call takes its kind (Restaurant, Dentist, LegalService…, else LocalBusiness); software, a SaaS, an app or an online product is Organization, never LocalBusiness; slug 2 to 5 words of the keyword in the page language.
 
 ## A repair

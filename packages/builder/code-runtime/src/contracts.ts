@@ -21,6 +21,8 @@ export interface RuntimeSnapshot {
 /** Trusted, prebuilt catalog content. Never resolves from the host filesystem. */
 export interface ManagedCatalog {
   readonly manifest: ManagedCatalogManifest;
+  /** Exact legacy locks admitted by the trusted host; never inferred from semver. */
+  readonly compatibleLockVersions?: Readonly<Record<string, readonly string[]>>;
   readonly modules: Readonly<Record<string, CodeFile>>;
   readonly stylesheet?: string;
 }

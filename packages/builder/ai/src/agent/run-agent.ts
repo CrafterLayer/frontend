@@ -50,6 +50,7 @@ import { classifyAiRunFailure } from './errors';
 import { explicitSkills } from './host-skills';
 import { excludedSkillIdsOf, excludingRegistry } from './excluded-skills';
 import { withSceneEdit } from './scene-edit-context';
+import { withReportDesign } from './report-design-context';
 import { withinRunDeadline } from './run-deadline';
 import { creationAcceptance } from './creation-content';
 import {
@@ -210,8 +211,7 @@ function generationOptions(
       ? {}
       : { contextProviders: options.contextProviders }),
     ...(options.history === undefined ? {} : { history: options.history }),
-    // The run's registry, skills and providers; an edit of scene code adds its playbooks and brief.
-    ...withSceneEdit(options, reading, skillRegistry),
+    ...withReportDesign(options.request, withSceneEdit(options, reading, skillRegistry)),
     ...(options.policy?.allowUntrustedSkills === undefined
       ? {}
       : { allowUntrustedSkills: options.policy.allowUntrustedSkills }),

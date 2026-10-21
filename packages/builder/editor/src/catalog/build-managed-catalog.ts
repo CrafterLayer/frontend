@@ -111,6 +111,7 @@ async function buildPinnedCatalog(): Promise<ManagedCatalog> {
     })),
   );
   return {
+    compatibleLockVersions: referenceManagedCatalog.compatibleLockVersions ?? {},
     manifest: {
       ...referenceManagedCatalog.manifest,
       packages,

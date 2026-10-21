@@ -1,68 +1,53 @@
 # Active Work Handoff
 
-Status: **idle for the local free-design increment**, completed 2026-10-21.
+Status: **idle for the bounded local design/recovery increment**, implemented2026-10-21.
 
-## Objective and scope
+## Scope and source of truth
 
-User wants professional, varied designs of every kind, with free composition and existing libraries/
-JavaScript, effective skill selection and reliable later edits. Scope: builder-ai, ai-server,
-Playground plan editing, evals browser verification. No new React component, dependency or migration.
+User wants professional varied design, stronger reports and package support, reliable application
+and subsequent prompts. Active [increment](../../specs/workspace/014-professional-builder-agent/design-recovery-2026-10-21.md),
+[verification](../../specs/workspace/014-professional-builder-agent/verification-design-recovery-2026-10-21.md),
+[spec](../../specs/workspace/014-professional-builder-agent/spec.md),
+[plan](../../specs/workspace/014-professional-builder-agent/plan.md) and
+[tasks](../../specs/workspace/014-professional-builder-agent/tasks.md), DR1–DR5/T316–T320.
 
-Active [spec](../../specs/workspace/014-professional-builder-agent/spec.md),
-[increment](../../specs/workspace/014-professional-builder-agent/free-design-2026-10-20.md),
-[plan](../../specs/workspace/014-professional-builder-agent/plan.md),
-[tasks](../../specs/workspace/014-professional-builder-agent/tasks.md),
-[research](../../specs/workspace/014-professional-builder-agent/research-free-design-2026-10-20.md),
-[verification](../../specs/workspace/014-professional-builder-agent/verification-free-design-2026-10-21.md).
+## Implemented
 
-## Completed
+Malformed page-plan output receives one bounded correction. Header/footer/page skills no longer
+impose their former layouts. Custom report instructions survive shortcut routing; planner, section
+writer and edit contexts receive bounded untrusted computed report facts. Actual Open Props1.7.23
+spacing/type/measure values reach design contexts. Truthful missing-data contracts agree across
+planner/writer/copy/checker. Arabic derived measures localize; other RTL languages do not become
+Arabic. React/DOM19.2.9 runtime and exact trusted19.2.8 lock compatibility are tested/fingerprinted.
 
-FD1–FD5 / T310–T315: bespoke fresh-page defaults; optional persisted design/layout; no mandatory
-kit order/chrome/landing recipes; one complete region; explicit skills and Pro Max aliases preserved
-within hard budgets. Legacy/hybrid and approved plans remain compatible. Streaming uses layout as
-writer content rather than outline identity. Old slot content remains bounded reference data.
-Personal placeholders avoid fabricated facts; explicit JS/native buttons remain actions. Plan-card
-editing preserves design/layout/SEO. Public export and kit-materialization helpers keep old file-size
-baselines without increasing them.
+## Evidence and limits
 
-Changed areas: `packages/builder/ai/src/{agent,skills,index.ts,agent-public.ts}`,
-`apps/ai-server/src/{free-design,plan-shape,prompt}*` and remote-page-plan integration,
-`apps/playground/src/features/agent/model/{page-plan-draft,free-design-plan.test}.ts`,
-`apps/evals/src/browser/free-design*`, and canonical feature/continuity artifacts.
+See verification for exact commands and overlapping reruns. Final focused401, build/page-plan43,
+report-integrity19, controller14, server123, runtime31, managed catalog/composition13 passed.
+Skill/report worker908 passed; these counts overlap and must not be summed. Owner/consumer types,
+changed-source lint, builds/budgets and workspace/component/file-size/boundary checks passed.
+Scripted browser20/20, six builds, twelve EN/AR desktop/phone screenshots, follow-up/Undo and real
+JS keyboard/mouse behavior; zero provider calls or page errors. Google fonts blocked; app fonts used.
 
-## Verification and review
+Fresh independent native review found two defects, repaired and re-reviewed with no open production
+finding. Original immediate stopped-after-failure trace is unconfirmed: real controller regressions
+prove current error/Retry and successful distinct second prompt, not the unknown incident cause.
+Live model artistry/adherence/cost/latency and generated report fact fidelity remain unmeasured.
 
-Owning/consumer TypeScript: builder-ai, ai-server, Builder facade, Playground passed. Production
-Playground/server builds, configured load budgets, changed-source lint/format, workspace/components/
-file-size/boundary checks passed. Focused core 279 behaviors covered with a corrected seven-case
-fixture rerun; skills771, checker/tidy339, Playground74, server193. Exact groups and reruns are recorded
-in the linked verification; do not count overlapping reruns as extra coverage.
+Full builder-ai suite is not green: unrestricted run interrupted after failures;17 failures reproduced
+in an isolated HEAD source baseline under `/tmp/craftkit-design-baseline` with identical dependencies.
+Do not hide these old kit/order/skill-budget failures or claim full CI. A load-related report-integrity
+timeout passed19/19 when rerun alone. No full Storybook build or physical touch verification.
 
-`node apps/evals/src/browser/free-design.mjs`:20/20, six builds, twelve desktop/phone EN/AR screenshots,
-real JS mouse/keyboard interaction, same-region follow-up and exact Undo, zero section issues/repairs
-or page errors. Artifacts `/tmp/craftkit-free-design-*` are ephemeral but reproducible. Root inspected
-three distinct compositions. Chrome requires the already approved local sandbox exception.
+## Continuation
 
-Fresh independent native read-only review repaired all six findings and two follow-up compatibility
-checks; final verdict has no open findings. Scoped convergence is clean, no new task appended.
-The user previously chose local review only; no external CLI/professional-sdd engine pass claimed.
-
-## Exact continuation and limits
-
-No remaining implementation task for this increment. Started clean at `52ab7448`; current work is
-unstaged/uncommitted. Earlier reports, creative follow-up, second-prompt, mural and reliability work
-is preserved in that base and its own feature records. No package install, service restart, commit,
-push or deployment happened. Local dist outputs are built; another device is unchanged.
-
-Live provider artistry/adherence/latency/cost is **not** established by scripted tests. Full CI and
-physical touch are unrun; Google fonts were blocked in browser fixtures and app fonts used. Pro Max
-is CraftKit's internal guidance, not execution of the upstream Python skill. Existing freeCode switch
-governs JS. A useful separate next activity is repeated live prompt evaluation with explicit provider
-and spending scope; it is not a remaining task claimed complete here.
-
-If resuming, read the linked verification and actual Git status first. Do not revert all dirty files
-or discard this increment. Activation of an already running built service requires its normal
-restart; no running service was changed. Rollback needs source changes only, no migration.
+Started clean at53617867; changes remain uncommitted. Install completed with existing provenance,
+release-age and build policies. No migration, saved-lock rewrite, provider invocation, external CLI
+review, commit, push or deployment. Temporary Vite QA server5194 stopped; existing services preserved.
+Changes to an already running built AI server require its normal restart for activation; no restart
+was performed. Next useful work is live provider/design evaluation and obtaining the exact failed
+request trace if the Stop symptom recurs. Do not reopen unrelated feature014 work or revert these
+changes. Rollback is source/dependency-only with preserved saved-project compatibility.
 
 Reviewed commit proposal (not executed):
-`fix(ai): enable bespoke page composition and preserve requested skills`.
+`fix(ai): improve design freedom and recover malformed page plans`.

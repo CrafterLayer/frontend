@@ -316,7 +316,10 @@ describe('the page-plan path is reachable through the real remote provider and h
     expect(plan?.design?.composition).toBe('bespoke');
     const order = plan?.sections.find(({ key }) => key === 'order');
     expect(order?.kit).toBeUndefined();
-    expect(order?.slots).toBeUndefined();
+    expect(order?.slots).toEqual({
+      title: 'Fresh beans, delivered in Amman',
+      cta: { label: 'Order beans', href: '#order' },
+    });
     expect(plan?.facts).toEqual(
       expect.arrayContaining([
         { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },

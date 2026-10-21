@@ -366,7 +366,7 @@ describe('Craftkit built-in AI skills', () => {
       });
       expect(prepared.active.map(({ id }) => id)).toContain(ALWAYS_SKILL_ID);
       expect(prepared.active.map(({ id }) => id)).toContain(definition.id);
-      expect(prepared.totalTokens).toBeLessThan(SINGLE_SKILL_TOKEN_CEILING);
+      expect(prepared.totalTokens, definition.id).toBeLessThan(SINGLE_SKILL_TOKEN_CEILING);
     }
   });
 

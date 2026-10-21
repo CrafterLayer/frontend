@@ -24,6 +24,7 @@
     "@craftkit/builder-schema": "workspace:*",
     "@jitl/quickjs-wasmfile-release-sync": "catalog:",
     "htmlparser2": "catalog:",
+    "open-props": "catalog:",
     "quickjs-emscripten-core": "catalog:"
   },
   "devDependencies": {

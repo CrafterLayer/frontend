@@ -82,7 +82,7 @@ catalog:
   eslint-config-prettier: 10.1.8
   eslint-plugin-react-hooks: 7.1.1
   eslint-plugin-react-refresh: 0.5.4
-  eslint-plugin-storybook: 10.5.10
+  eslint-plugin-storybook: 10.6.2
   fast-check: 4.9.0
   # data reports (2026-10-14): the agent panel reads a dropped .xlsx (a zip of XML) with fflate's
   # unzip (MIT, (c) 2020 Arjun Barrett), loaded only when an Excel file is dropped.
@@ -104,7 +104,7 @@ catalog:
   react-router: 8.3.0
   # studio-indigo (2026-10-12): the editor's action feedback toasts (MIT, React 19 peer).
   sonner: 2.0.8
-  storybook: 10.5.10
+  storybook: 10.6.2
   'tailwind-merge': 3.6.0
   tailwindcss: 4.3.3
   turbo: 2.10.10

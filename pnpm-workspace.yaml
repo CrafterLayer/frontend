@@ -114,7 +114,7 @@ catalog:
   vitest: 4.1.11
   zod: 4.4.3
   zustand: 5.0.15
-  '@modelcontextprotocol/sdk': 1.30.0
+  '@modelcontextprotocol/sdk': 1.32.1
   '@types/pngjs': 6.0.5
   htmlparser2: 12.0.0
   jsonrepair: 3.15.0

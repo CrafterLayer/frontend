@@ -36,7 +36,7 @@ catalog:
   '@tiptap/core': 3.30.3
   '@tiptap/pm': 3.30.3
   '@tiptap/react': 3.30.3
-  '@tiptap/starter-kit': 3.30.3
+  '@tiptap/starter-kit': 3.32.0
   '@eslint/js': 10.0.1
   '@storybook/addon-a11y': 10.5.10
   '@storybook/addon-docs': 10.5.10

@@ -100,11 +100,11 @@ function kernel(seed: string): BuilderKernel {
       surface: 'site',
       dir: 'ltr',
       rootId: 'root',
-      nodes: { root: { id: 'root', type: 'page', props: { title: 'Home' }, slots: { default: [] } } },
+      nodes: {
+        root: { id: 'root', type: 'page', props: { title: 'Home' }, slots: { default: [] } },
+      },
     },
-    extensions: [
-      headlessBlockManifest('integration-blocks', '0.0.0', [pageSchema, regionSchema]),
-    ],
+    extensions: [headlessBlockManifest('integration-blocks', '0.0.0', [pageSchema, regionSchema])],
     ports: { clock: { now: () => 1 }, ids: countingIds(seed) },
   });
 }
@@ -171,7 +171,9 @@ function fakeBackend(calls: BackendCall[]): Anthropic {
           .map(({ content }) => (typeof content === 'string' ? content : JSON.stringify(content)))
           .join('\n');
         const marker = '# The request\n';
-        const request = said.includes(marker) ? said.slice(said.lastIndexOf(marker) + marker.length) : said;
+        const request = said.includes(marker)
+          ? said.slice(said.lastIndexOf(marker) + marker.length)
+          : said;
         calls.push({ schema: pagePlan ? 'page-plan' : 'plan', request });
         const region = /REGION ID: (\S+)/u.exec(request)?.[1];
         const answer = pagePlan
@@ -180,7 +182,10 @@ function fakeBackend(calls: BackendCall[]): Anthropic {
             ? {
                 rationale: 'filled',
                 commands: [
-                  { command: 'setProp', args: { id: region, key: 'tree', value: honestSection(request) } },
+                  {
+                    command: 'setProp',
+                    args: { id: region, key: 'tree', value: honestSection(request) },
+                  },
                 ],
               }
             : {
@@ -307,9 +312,11 @@ describe('the page-plan path is reachable through the real remote provider and h
     expect(hero?.purpose).toBe('Say what the roastery is and invite the first order.');
     expect(hero?.mustSay).toEqual(['Roasted daily in Amman']);
     expect(hero?.images?.[0]?.subject).toBe('cafe');
-    expect(plan?.sections.find(({ key }) => key === 'order')?.slots).toMatchObject({
-      title: 'Fresh beans, delivered in Amman',
-    });
+    // Fresh generation adopts bespoke composition even when an older provider answers with kits.
+    expect(plan?.design?.composition).toBe('bespoke');
+    const order = plan?.sections.find(({ key }) => key === 'order');
+    expect(order?.kit).toBeUndefined();
+    expect(order?.slots).toBeUndefined();
     expect(plan?.facts).toEqual(
       expect.arrayContaining([
         { key: 'price-espresso', sample: 'JOD 1.50', section: 'menu' },

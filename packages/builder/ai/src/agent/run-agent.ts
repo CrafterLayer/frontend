@@ -47,6 +47,7 @@ import type {
 } from './types';
 import { contextReadyReport, type OnContextReady, wireRequestTokens } from './context-report';
 import { classifyAiRunFailure } from './errors';
+import { explicitSkills } from './host-skills';
 import { excludedSkillIdsOf, excludingRegistry } from './excluded-skills';
 import { withSceneEdit } from './scene-edit-context';
 import { withinRunDeadline } from './run-deadline';
@@ -819,7 +820,9 @@ function doorRehearsesAsTheRun(options: RunAiAgentOptions): boolean {
  * section and an outline of the rest; an edit or a new section runs on
  * `editModel` when the host gave one. A build's own steps are exempt.
  */
-export async function runAiAgent(options: RunAiAgentOptions): Promise<AiAgentRunResult> {
+export async function runAiAgent(given: RunAiAgentOptions): Promise<AiAgentRunResult> {
+  const explicit = explicitSkills(given);
+  const options = explicit.length === 0 ? given : { ...given, selectedSkillIds: explicit };
   if (
     typeof options.runId !== 'string' ||
     options.runId.trim().length === 0 ||

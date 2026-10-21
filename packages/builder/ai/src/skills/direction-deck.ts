@@ -559,20 +559,20 @@ export const DIRECTION_DECK_SKILL: AiSkillDefinitionV1 = {
   name: 'Industry direction deck',
   description:
     'Twenty-one trade rows — checked palettes by role, verified font pairs, a layout per section, photo subjects, one signature — for the skeleton pass.',
-  version: '1.1.0',
+  version: '1.2.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 96,
   activation: { mode: 'explicit' },
   tags: ['build', 'design', 'direction', 'typography'],
-  instructions: `Build the direction from the ONE row matching the subject; if none fits, say so and compose from the subject's own materials in the same form. A row: id (trades): ground/card/ink/muted | accent/on-accent (accent-ink: accent text and icons, where it is not the fill) | band/band text/band muted | AR pair | EN pair | sections | photo subjects | signature.
-VARIANT: B in the request swaps ground and band — the band becomes the ground, its text the ink, the band muted the muted and the accent text; never a palette from outside the row.
-FONTS: an Arabic page loads the AR pair, an English page the EN pair, never a Latin face on Arabic text; one pageCss import, exactly the listed weights, spaces as +: @import url('https://fonts.googleapis.com/css2?family=Lalezar&family=Almarai:wght@400;700&display=swap'); — a face without weights is imported bare, and a weight a face lacks fails the whole import (HTTP 400). No tashkeel in Changa, Lemonada or Reem Kufi headings; body in Markazi Text, Beiruti or Amiri goes one text-* step up.
-THE DIRECTION LINE, under 60 words: subject and audience; the palette by role as named classes, accent-ink among them; the import URL; the signature; the sections as "1 Hero[split] · 2 Menu[menu] · …" with the row's section-variants ids, fitted to the request.
-NEVER unless asked: purple or violet; a second gradient; a glow, blob or circle behind the headline; "Get started / Learn more" as the action pair; three identical cards as the second section.
+  instructions: `BESPOKE: rows are optional inspiration; the brief and design contract decide geometry, palette, type and content order. No required row, variant, signature or section count. Preserve supplied content; never replace its layout with a row's recipe. LEGACY/HYBRID: a fitting row is an available starting point, adapted to the brief. A row: id (trades): ground/card/ink/muted | accent/on-accent (accent-ink for text) | band/text/muted | AR pair | EN pair | sections | photos | signature.
+VARIANT: B is the legacy row swap: band becomes ground, its text becomes ink, band muted becomes secondary and accent text. Bespoke alternatives change composition and may choose another accessible palette.
+FONTS: choose verified families covering the page's script; AR/EN pairs are suggestions. Use only shipped weights, spaces as +: @import url('https://fonts.googleapis.com/css2?family=Lalezar&family=Almarai:wght@400;700&display=swap'); a one-weight face imports bare; an absent weight fails the import (HTTP 400). No tashkeel in Changa, Lemonada or Reem Kufi headings; body in Markazi Text, Beiruti or Amiri goes one text-* step up.
+DIRECTION: subject, audience, content-led geometry, palette, fonts and layout for each region. Legacy/hybrid may use "1 Hero[split] · 2 Menu[menu]"; bespoke layouts need no variant IDs. Different briefs deserve different spatial decisions, not repeated cards with new colours.
+QUALITY: readable contrast, useful actions, purposeful imagery, responsive reading order and reduced-motion support; decoration should serve the brief.
 ${DIRECTION_DECK_ROWS.map(renderRow).join('\n')}`,
   references: {
     'checks/deck.md':
-      'One row (or its absence explained); the row’s roles or the B swap; one import, listed weights; tashkeel and size rules; a variant id per section; one signature; no banned default.',
+      'Bespoke design follows the brief, with optional row inspiration; legacy/hybrid may adapt a row and its variants; supplied content preserved; verified fonts and shipped weights; readable contrast and responsive reading order.',
   },
 };

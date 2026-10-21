@@ -1,3 +1,4 @@
+import { designBriefLines } from './page-plan/design';
 import type {
   AiContextProvider,
   BuilderDocument,
@@ -56,7 +57,7 @@ import {
   withPhotoCatalog,
   writesScene,
 } from './section-providers';
-import { stepSkills, withHostSkills } from './host-skills';
+import { explicitSkills, stepSkills, withHostSkills } from './host-skills';
 import { summarizeNeighbours } from './page-plan/neighbours';
 import {
   provisionalCandidate,
@@ -232,8 +233,9 @@ function fittingSkillIds(
   optional: readonly string[],
 ): readonly string[] {
   if (options.skillRegistry === undefined) return [];
-  const offered = withHostSkills(options, optional, required);
-  return fittingSkills(options.skillRegistry, options.policy, required, offered);
+  const mandatory = [...new Set([...required, ...explicitSkills(options)])];
+  const offered = withHostSkills(options, optional, mandatory);
+  return fittingSkills(options.skillRegistry, options.policy, mandatory, offered);
 }
 
 /**
@@ -307,6 +309,7 @@ function fillSkillIds(
   variants = true,
   creativeRequest = '',
   role?: string,
+  composition?: 'bespoke' | 'hybrid',
 ): readonly string[] {
   const registry = options.skillRegistry;
   // Switched off by the person (2026-10-14): never named; `fittingSkillIds` drops the optional.
@@ -329,6 +332,7 @@ function fillSkillIds(
       ...requestSkillIdsFor(registry, options.request, 'section', {
         contractText: creativeRequest,
         ...(role === undefined ? {} : { role }),
+        ...(composition === undefined ? {} : { composition }),
         present: required,
         creative: false,
         excluded,
@@ -2335,9 +2339,9 @@ const SLOTS_LINE =
  * tool for the signature, inside the door's refusal list (custom-css.ts
  * REFUSED), and the design markup the vocabulary admits today.
  */
-function designCodeLine(): string {
+function designCodeLine(bespoke = false): string {
   const markup = designMarkup();
-  return `DESIGN CODE — this region's css (its second setProp, under 8,000 characters) is a first-class tool: build the SIGNATURE and any effect a utility cannot say (a gradient ground, a mask or clip-path, grain, layered shapes, keyframes) as ck- classes coloured only with var(--ck-…) (color-mix() for tints), motion inside @media (prefers-reduced-motion:no-preference). The door refuses only @import, url() over http: or //, expression(), behavior, -moz-binding, javascript: and </style>.${markup === '' ? '' : ` Markup beyond sections and cards: ${markup}.`}`;
+  return `DESIGN CODE — this region's css (its second setProp, under 8,000 characters) is a first-class tool: build the SIGNATURE and any effect a utility cannot say (a gradient ground, a mask or clip-path, grain, layered shapes, keyframes) as ck- classes ${bespoke ? 'using the page tokens or deliberate custom colours' : 'coloured only with var(--ck-…) (color-mix() for tints)'}, motion inside @media (prefers-reduced-motion:no-preference). The door refuses only @import, url() over http: or //, expression(), behavior, -moz-binding, javascript: and </style>.${markup === '' ? '' : ` Markup beyond sections and cards: ${markup}.`}`;
 }
 
 /** The IMAGES lines: the contract's photos, the person's own where they fit, or none. */
@@ -2422,18 +2426,24 @@ function contractRequest(
     PLAN_HEADING,
     `PAGE: ${plan.title} — lang ${plan.locale.lang}, ${plan.locale.dir}`,
     `TOKENS — the page's colours and faces, on the page as CSS custom properties: --ck-bg ${tokens.bg} ground · --ck-surface ${tokens.surface} cards · --ck-ink ${tokens.ink} text · --ck-muted ${tokens.muted} secondary text · --ck-accent ${tokens.accent} brand fill · --ck-on-accent ${tokens.onAccent} text on the fill · --ck-accent-ink ${tokens.accentInk} accent-coloured text · --ck-border ${tokens.border} hairlines · --ck-radius (${tokens.radius}) · --ck-font-display "${tokens.fontDisplay.family}" headings · --ck-font-body "${tokens.fontBody.family}" text`,
-    `COLOUR — only through the kit below, or var(--ck-…) in this region's css. Never a hex, a palette shade (bg-orange-700) or an arbitrary class (bg-[var(--ck-accent)]: the published page has no CSS for it); black and white utilities (ring-black/5, bg-black/60, text-white) are fine. Accent-coloured TEXT, numbers and icons are ck-accent-ink (${tokens.accentInk}), never the accent fill ${tokens.accent} as text.`,
+    plan.design?.composition === 'bespoke'
+      ? 'COLOUR: page tokens establish the shared palette; author additional colours in scoped CSS when the design calls for them. Keep text contrast readable. Use CSS for custom values, not unavailable arbitrary utility classes.'
+      : `COLOUR — only through the kit below, or var(--ck-…) in this region's css. Never a hex, a palette shade (bg-orange-700) or an arbitrary class (bg-[var(--ck-accent)]: the published page has no CSS for it); black and white utilities (ring-black/5, bg-black/60, text-white) are fine. Accent-coloured TEXT, numbers and icons are ck-accent-ink (${tokens.accentInk}), never the accent fill ${tokens.accent} as text.`,
     KIT_LINE,
-    SLOTS_LINE,
-    designCodeLine(),
+    ...(plan.design?.composition === 'bespoke' ? [] : [SLOTS_LINE]),
+    designCodeLine(plan.design?.composition === 'bespoke'),
     `SIGNATURE: ${tokens.signature}`,
-    `PRIMARY ACTION: "${plan.primaryCta.label}" → ${plan.primaryCta.href} — every call-to-action button on the page says exactly this`,
+    ...designBriefLines(plan, contract),
+    ...sectionScriptCard(contract, undefined),
+    `PRIMARY ACTION: "${plan.primaryCta.label}" → ${plan.primaryCta.href} — use this label for this destination; other navigation and interaction controls retain their own purpose`,
     ...(chrome && plan.nav.length > 0
       ? [`NAV: ${plan.nav.map(({ label, anchorId }) => `${label} → #${anchorId}`).join(' · ')}`]
       : []),
     '',
     `SECTION ${String(index + 1)} OF ${String(plan.sections.length)}: ${contract.title}`,
-    CONTRACT_ROLE_LINE[contract.role],
+    plan.design?.composition === 'bespoke'
+      ? `ROLE: ${contract.role.toUpperCase()} — ${contract.role === 'hero' ? 'this region owns the page h1' : 'no h1 here'}; author its composition from the design and layout.`
+      : CONTRACT_ROLE_LINE[contract.role],
     `REGION ID: ${task.id}`,
     `ANCHOR: the section's outer element keeps id="${contract.anchorId}"`,
     ...(contract.variant === undefined
@@ -2963,16 +2973,35 @@ function sectionBriefing(
   const photos =
     (contract.images ?? []).length > 0 || (contract.role === 'hero' && ownPhotos.length > 0);
   const creativeRequest = creativeRequestOf(options, contract);
-  const skillIds = fillSkillIds(options, arabic, photos, true, creativeRequest, contract.role);
+  const skillIds = fillSkillIds(
+    options,
+    arabic,
+    photos,
+    plan.design?.composition !== 'bespoke',
+    creativeRequest,
+    contract.role,
+    plan.design?.composition,
+  );
   const scene = writesScene(options, contract);
   const kitBacked =
-    !scene && planKit(contract.kit) !== undefined && agentToolPrompt('section') !== '';
+    plan.design?.composition !== 'bespoke' &&
+    !scene &&
+    planKit(contract.kit) !== undefined &&
+    agentToolPrompt('section') !== '';
   return {
     kitBacked,
     scene,
     skillIds,
     kitSkillIds: kitBacked
-      ? fillSkillIds(options, arabic, photos, false, creativeRequest, contract.role)
+      ? fillSkillIds(
+          options,
+          arabic,
+          photos,
+          false,
+          creativeRequest,
+          contract.role,
+          plan.design?.composition,
+        )
       : skillIds,
     // Every data fragment the writer is handed: the catalog, and a scene's creative brief.
     providers: sectionProviders(options, plan, contract),
@@ -3298,7 +3327,12 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
   const { options, emit } = build;
   const reader = createPlanStreamReader();
   // completePage: the provisional plan is completed exactly as the final one is (plan-page.ts).
-  const validation = { intent: target, maxSections: planMaxSections(build), completePage: true };
+  const validation = {
+    intent: target,
+    maxSections: planMaxSections(build),
+    completePage: true,
+    request: options.request,
+  };
   /** No more speculation: a response after the speculating one began, or the plan is in. */
   let closed = false;
   const isClosed = (): boolean => closed;
@@ -3396,9 +3430,10 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
     */
     if (
       contract === undefined ||
-      contract.role === 'header' ||
-      contract.role === 'footer' ||
-      contract.slots !== undefined ||
+      (checked.plan.design?.composition !== 'bespoke' &&
+        (contract.role === 'header' ||
+          contract.role === 'footer' ||
+          contract.slots !== undefined)) ||
       !reconcilePlans(current.plan, checked.plan).sameOutline
     ) {
       return;

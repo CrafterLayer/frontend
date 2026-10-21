@@ -43,12 +43,7 @@ import type {
  * let through and named (`contrast`), because the person fixes it on the same card.
  */
 
-/**
- * The fewest sections a plan may hold: the engine's own `PAGE_PLAN_MIN_SECTIONS`, which
- * `validatePagePlan` enforces. Below two regions `runAiBuild` does not build at all; it
- * emits `build.skipped` and runs one ordinary call, so a one-section "plan" would promise a
- * build the engine never runs.
- */
+/** Legacy minimum; a bespoke plan supports one complete authored region. */
 export const PLAN_MIN_SECTIONS: number = PAGE_PLAN_MIN_SECTIONS;
 
 /**
@@ -233,9 +228,12 @@ export function createPlanDraft(input: PlanDraftInput): PagePlanDraft {
   };
 }
 
-/** Whether a section may be removed: not below the engine's two (SPEC §4.11 `plan.min`). */
+/** Whether removing a region still leaves a valid plan. */
 export function canRemoveSection(draft: PagePlanDraft): boolean {
-  return draft.sections.length > PLAN_MIN_SECTIONS;
+  return (
+    draft.sections.length >
+    (draft.engine?.design?.composition === 'bespoke' ? 1 : PLAN_MIN_SECTIONS)
+  );
 }
 
 /** Whether a section may be added: not past the engine's twelve (SPEC §4.11 `plan.max`). */
@@ -480,7 +478,11 @@ function contrastFails(direction: PlanDirectionView | undefined): boolean {
  */
 export function planProblems(draft: PagePlanDraft): readonly PlanProblem[] {
   const problems: PlanProblem[] = [];
-  if (draft.sections.length < PLAN_MIN_SECTIONS) problems.push('min');
+  if (
+    draft.sections.length <
+    (draft.engine?.design?.composition === 'bespoke' ? 1 : PLAN_MIN_SECTIONS)
+  )
+    problems.push('min');
   if (draft.sections.length > PLAN_MAX_SECTIONS) problems.push('max');
   if (duplicateSectionKeys(draft).size > 0) problems.push('duplicateTitle');
   // A structured plan is measured by the engine that will build it, on every text pair.
@@ -671,10 +673,7 @@ function candidateOf(
   }
 
   return {
-    intent: base.intent,
-    locale: base.locale,
-    title: base.title,
-    description: base.description,
+    ...base,
     tokens: candidateTokens(base.tokens, draft.direction),
     primaryCta,
     nav,

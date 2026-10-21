@@ -27,7 +27,7 @@ export type { PagePlanStepInput, PagePlanStepNote } from './page-plan-step';
  *
  * The step names its own skills (the direction deck, the section variants,
  * the copy rules, and the Arabic rules on an Arabic page) with auto-matching
- * off, so `selectedSkillIds` and `autoSkills` are not read. The photo catalog
+ * off, explicit `selectedSkillIds` are preserved while automatic matching stays off. The photo catalog
  * is added for the request unless the host brings its own.
  *
  * With no `target`, the page decides by the build's own rule
@@ -85,7 +85,7 @@ export async function planAiPage(
               return current === true;
             },
           }),
-      ...stepSkills(options),
+      ...stepSkills({ ...options, request }),
       ...(options.policy === undefined ? {} : { policy: options.policy }),
       ...(options.composition === undefined ? {} : { composition: options.composition }),
       ...(options.freeCode === true ? { freeCode: true } : {}),

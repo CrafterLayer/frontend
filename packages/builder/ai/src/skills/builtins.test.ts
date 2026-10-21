@@ -731,9 +731,9 @@ describe('Craftkit built-in AI skills', () => {
       expect(checks).not.toMatch(/no group\b|no hover:shadow/u);
     });
 
-    it('carries the section variant from the skeleton to the section writer', () => {
+    it('keeps a legacy variant available without overriding a bespoke writer contract', () => {
       expect(registry.readSkill('craftkit.build-scaffold')).toMatch(/Hero\[split\]/u);
-      expect(registry.readSkill('craftkit.build-fill')).toMatch(/Menu\[menu\]/u);
+      expect(registry.readSkill('craftkit.build-fill')).toMatch(/variant is optional inspiration/u);
     });
 
     it('keys the hero shell to the ROLE a build states, never to a section number', () => {

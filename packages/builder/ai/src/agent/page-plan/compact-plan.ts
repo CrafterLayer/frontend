@@ -4,22 +4,11 @@ import { DIRECTION_DECK_ROWS, type DeckFace } from '../../skills/direction-deck'
 import { isRecord, resolveColour, toSlug } from './schema';
 import { PAGE_PLAN_MAX_NAV_ITEMS, type PagePlanIssue } from './types';
 
-/*
-  The COMPACT page plan (fast-build DESIGN §3, 2026-10-05).
-
-  The model's T1 answer used to spell out every derivable field: the full
-  palette and both faces of a deck row it had just named, an anchorId equal to
-  its key, empty mustSay lists, a nav list that repeated section titles. About
-  40 % of the answer was keys or fields code can derive, and every character is
-  streamed time. The compact answer writes `tokens: {deckRowId, signature}`, an
-  OUTLINE (`key, role, title, variant, nav`) and one brief per section, in the
-  order a streamed build acts on them.
-
-  `expandCompactPagePlan` turns that answer (or any mix of it and the classic
-  shape) back into the classic shape `validatePagePlan` reads, so ONE validator
-  normalises provisional and final plans alike and they compare exactly. It
-  only fills what is missing: a value the model wrote always wins.
-*/
+/**
+ * Expand compact metadata, outline and briefs through the same validator as legacy plans.
+ * Derive missing palette/anchor/navigation values; authored values always win.
+ * Keeping both representations canonical lets provisional and final plans reconcile.
+ */
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -28,6 +17,7 @@ const ARABIC_SCRIPT_LANGUAGES = new Set(['ar', 'fa', 'ur', 'ps', 'sd', 'ug', 'ck
 
 /** The fields a brief carries into its section; brief values win. */
 const BRIEF_FIELDS = [
+  'layout',
   'purpose',
   'mustSay',
   'mustNotRepeat',
@@ -123,9 +113,14 @@ function latinSectionKeys(
     const key = keys.get(item[field]);
     return key === undefined ? item : { ...item, [field]: key };
   };
-  if (Array.isArray(value['briefs'])) out['briefs'] = (value['briefs'] as readonly unknown[]).map((brief) => renameKey(brief, 'key'));
-  if (Array.isArray(value['facts'])) out['facts'] = (value['facts'] as readonly unknown[]).map((fact) => renameKey(fact, 'section'));
-  if (Array.isArray(value['nav'])) out['nav'] = (value['nav'] as readonly unknown[]).map((item) => renameKey(item, 'anchorId'));
+  for (const [field, key] of [
+    ['briefs', 'key'],
+    ['facts', 'section'],
+    ['nav', 'anchorId'],
+  ] as const) {
+    const entries = value[field];
+    if (Array.isArray(entries)) out[field] = entries.map((entry) => renameKey(entry, key));
+  }
   return swapStrings(out, anchors) as Readonly<Record<string, unknown>>;
 }
 

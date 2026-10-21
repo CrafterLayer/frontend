@@ -121,11 +121,11 @@ function line(pattern: LandingPattern): string {
   return `${pattern.name} (${pattern.use}): ${pattern.order}; CTA in ${pattern.cta}; ${pattern.rule}.`;
 }
 
-const INSTRUCTIONS = `Pick the pattern by what the page must make a visitor do, then build its sections in that order. The page's sections are the pattern's steps; a section that serves none of them is cut.
+const INSTRUCTIONS = `BESPOKE: honor the user's design contract and supplied content, even when this skill was explicitly selected. Patterns below are optional conversion references; never cut or reorder content to fit a recipe. Apply useful action, readability and proof guidance within the chosen composition. LEGACY/HYBRID: use a pattern only when it fits the requested structure and purpose.
 ${LANDING_PATTERNS.map(line).join('\n')}
 CTA: a verb and the result ("Book a table", «احجز طاولة»), never "Click here" or "Submit"; the label holds 4.5:1 against its button; one primary style per page, a secondary action looks secondary. On phones the primary action stays reachable.
 PROOF: testimonials with a name and role the person gave, else initials and a placeholder named in followUp. Logos, ratings, counts, "limited seats" and countdowns only when real and current; a countdown always states the date in text too.
-ABOVE THE FOLD: what it is, who it is for, and the main action, in that order; the next section must peek so the page invites scrolling.`;
+OPENING: make the page's purpose clear; put actions where the content and audience need them. No mandatory above-the-fold sequence, section count or next-section peek.`;
 
 export const LANDING_PATTERNS_SKILL: AiSkillDefinitionV1 = {
   schemaVersion: 1,
@@ -133,7 +133,7 @@ export const LANDING_PATTERNS_SKILL: AiSkillDefinitionV1 = {
   name: 'Landing patterns that convert',
   description:
     'Fourteen landing patterns from UI UX Pro Max: the section order, where the call to action goes, and the one rule that makes each convert.',
-  version: '1.0.0',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 36,
@@ -165,6 +165,6 @@ export const LANDING_PATTERNS_SKILL: AiSkillDefinitionV1 = {
   instructions: INSTRUCTIONS,
   references: {
     'checks/landing.md':
-      'Sections follow one named pattern in order; one primary CTA with a verb; proof before the ask; no invented logos, ratings, counts or scarcity; above the fold says what, for whom, and the action.',
+      'The design contract and supplied content win; patterns stay optional for bespoke work; clear useful actions, readable contrast and truthful proof; no invented logos, ratings, counts or scarcity.',
   },
 };

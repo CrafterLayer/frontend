@@ -13,9 +13,12 @@
  * host skill is never made mandatory, so it can never make a build throw.
  */
 import type { AiSkillRegistry } from '../skills';
+import { explicitRequestSkillIdsFor } from '../skills/request-skills';
 import { excludedSkillIdsOf, type AiExcludedSkillSource } from './excluded-skills';
 
 export interface AiHostSkillOptions {
+  /** Explicit picks are required, not optional host defaults. */
+  selectedSkillIds?: readonly string[];
   /**
    * Skills the host chose for this request, by registry id (they must be in `skillRegistry`).
    * A build's steps and a page plan offer them before their own optional skills.
@@ -34,14 +37,18 @@ export function stepSkills(
   options: AiExcludedSkillSource & {
     readonly skillRegistry?: AiSkillRegistry;
     readonly hostSkillIds?: readonly string[];
+    readonly request?: string;
   },
 ): {
   skillRegistry?: AiSkillRegistry;
   hostSkillIds?: readonly string[];
+  selectedSkillIds?: readonly string[];
   excludedSkillIds?: readonly string[];
 } {
-  const excluded = excludedSkillIdsOf(options);
+  const selectedSkillIds = explicitSkills(options);
+  const excluded = excludedSkillIdsOf({ ...options, selectedSkillIds });
   return {
+    ...(selectedSkillIds.length === 0 ? {} : { selectedSkillIds }),
     ...(options.skillRegistry === undefined ? {} : { skillRegistry: options.skillRegistry }),
     ...(options.hostSkillIds === undefined ? {} : { hostSkillIds: options.hostSkillIds }),
     ...(excluded.length === 0 ? {} : { excludedSkillIds: excluded }),
@@ -62,4 +69,18 @@ export function withHostSkills(
   if (ids.length === 0 && excluded.length === 0) return optional;
   const taken = new Set([...required, ...excluded]);
   return [...new Set([...ids, ...optional])].filter((id) => !taken.has(id));
+}
+
+/** Explicit slash picks and named built-in expertise are never silently budget-shed. */
+export function explicitSkills(options: {
+  readonly selectedSkillIds?: readonly string[] | undefined;
+  readonly skillRegistry?: AiSkillRegistry;
+  readonly request?: string;
+}): readonly string[] {
+  return [
+    ...new Set([
+      ...(options.selectedSkillIds ?? []),
+      ...explicitRequestSkillIdsFor(options.skillRegistry, options.request ?? ''),
+    ]),
+  ];
 }

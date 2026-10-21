@@ -1,4 +1,10 @@
 import type { AiPlanWireRequest } from '@craftkit/builder/wire';
+import {
+  boundedDesignText,
+  isPersonalDesign,
+  createPagePlanAnswerSchema,
+  pageDesignInPlace,
+} from './free-design';
 
 /**
  * Whether a parsed answer has the SHAPE of a plan for this request — the
@@ -541,6 +547,7 @@ const PAGE_PLAN_KEYS = new Set([
   // The business's short name (quality pass 2026-10-05): the header, footer and copyright show it.
   'brand',
   'description',
+  'design',
   'tokens',
   'primaryCta',
   'nav',
@@ -578,6 +585,7 @@ const SECTION_KEYS = new Set([
   'nav',
   'anchorId',
   'purpose',
+  'layout',
   'mustSay',
   'mustNotRepeat',
   'variant',
@@ -596,6 +604,7 @@ const FACT_KEYS = new Set(['key', 'sample', 'section']);
 const BRIEF_KEYS = new Set([
   'key',
   'purpose',
+  'layout',
   'mustSay',
   'mustNotRepeat',
   'images',
@@ -627,7 +636,18 @@ function textsOnly(value: unknown): boolean {
 }
 
 /** Keys only a section holds — never a kit slot's name. */
-const SECTION_ONLY_KEYS = new Set(['key', 'role', 'anchorId', 'purpose', 'mustSay', 'mustNotRepeat', 'variant', 'kit', 'slots']);
+const SECTION_ONLY_KEYS = new Set([
+  'key',
+  'role',
+  'anchorId',
+  'purpose',
+  'layout',
+  'mustSay',
+  'mustNotRepeat',
+  'variant',
+  'kit',
+  'slots',
+]);
 
 /** Optional text: a label that swallowed an object or a list was closed in the wrong place. */
 function textOrAbsent(value: unknown): boolean {
@@ -645,6 +665,7 @@ function slotsInPlace(slots: unknown): boolean {
 /** What a section and a brief share: claims, images, a kit and its slots. */
 function contractInPlace(value: JsonRecord): boolean {
   return (
+    (value['layout'] === undefined || boundedDesignText(value['layout'])) &&
     textsOnly(value['mustSay']) &&
     textsOnly(value['mustNotRepeat']) &&
     listWithin(value['images'], IMAGE_KEYS) &&
@@ -686,6 +707,7 @@ function planInPlace(plan: JsonRecord, allowed: ReadonlySet<string>): boolean {
   const { tokens, sections } = plan;
   return (
     keysWithin(plan, allowed) &&
+    pageDesignInPlace(plan['design']) &&
     isRecord(tokens) &&
     keysWithin(tokens, TOKEN_KEYS) &&
     objectWithin(tokens['fontDisplay'], FONT_KEYS) &&
@@ -774,7 +796,9 @@ function hasPlaceholderFacts(plan: JsonRecord): boolean {
   return (
     hasPlaceholderSample(plan['facts']) ||
     (Array.isArray(briefs) &&
-      (briefs as unknown[]).some((brief) => isRecord(brief) && hasPlaceholderSample(brief['facts'])))
+      (briefs as unknown[]).some(
+        (brief) => isRecord(brief) && hasPlaceholderSample(brief['facts']),
+      ))
   );
 }
 
@@ -826,7 +850,8 @@ export interface RepairedPagePlanAnswer {
  *   the client's validator to name;
  * - every fact sample holding a placeholder run — in the ledger, or in a
  *   compact plan's brief (`briefs[i].facts[j].sample`) — is filled in its own
- *   format (`fillPlaceholderSample`).
+ *   format (`fillPlaceholderSample`), except personal resume/portfolio designs,
+ *   whose missing or redacted facts must never become invented values.
  *
  * Total on any input — salvage hands it half-repaired candidates — and it
  * never mutates what it was given: a repaired answer is a copy.
@@ -852,11 +877,13 @@ export function repairPagePlanAnswer(value: unknown): RepairedPagePlanAnswer {
     tokens = next;
   }
 
+  const personal = isPersonalDesign(found.plan['design']);
   let facts = found.plan['facts'];
-  if (Array.isArray(facts)) facts = fillFacts(facts as unknown[], `${prefix}facts`, repairs);
+  if (!personal && Array.isArray(facts))
+    facts = fillFacts(facts as unknown[], `${prefix}facts`, repairs);
 
   let briefs = found.plan['briefs'];
-  if (Array.isArray(briefs)) {
+  if (!personal && Array.isArray(briefs)) {
     briefs = (briefs as unknown[]).map((brief, index) => {
       if (!isRecord(brief) || !Array.isArray(brief['facts'])) return brief;
       const written = brief['facts'] as unknown[];
@@ -916,183 +943,13 @@ export function pagePlanShapeCheck(value: unknown): boolean {
 
 // ── the answer schema ────────────────────────────────────────────────────────
 
-const text = { type: 'string' } as const;
-const texts = { type: 'array', items: text } as const;
-const colour = {
-  type: 'string',
-  description: '#rrggbb, or a Tailwind shade from the direction deck such as orange-700',
-} as const;
-const face = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['family', 'weights'],
-  properties: {
-    family: { type: 'string', enum: [...PAGE_PLAN_ARABIC_FAMILIES, ...PAGE_PLAN_LATIN_FAMILIES] },
-    weights: { type: 'array', items: { type: 'integer' } },
-  },
-} as const;
-
-/** A section's or a brief's photos: catalog topics only. */
-const images = {
-  type: 'array',
-  items: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['subject', 'aspect', 'alt'],
-    properties: {
-      subject: { type: 'string', enum: [...PAGE_PLAN_PHOTO_TOPICS] },
-      aspect: { type: 'string', enum: ['landscape', 'portrait', 'square'] },
-      alt: text,
-    },
-  },
-} as const;
-
-/** A kit's slots; open, because every kit names its own. */
-const slots = {
-  description:
-    "The kit's slots, only for a short section (stats, logos, a cta, a faq of 6 or fewer).",
-} as const;
-
-/**
- * The JSON Schema a page-plan answer is decoded into — on the Messages API as
- * `output_config.format`, on OpenRouter as `response_format` where decoding is
- * trusted, and as text everywhere else (the CLI, free models).
- *
- * Written HERE, unlike the plan schema, which travels on the wire from the
- * package that validates it: the client assembles ONE context for both tasks,
- * so the context's `outputContract` is the commands plan's, and a page plan
- * decoded into it would be forced to carry `commands`. Deliberately looser
- * than `validatePagePlan` — no counts, lengths or contrast, which the
- * Messages API cannot decode anyway (SDK 0.122 transform-json-schema keeps
- * only minItems 0/1 and moves every other bound into a description) — and
- * tighter only in the enums, which are the values a model most often
- * invents. `refusal` stands in for `pagePlan` when a request cannot be a page.
- *
- * It admits BOTH shapes the client reads (2026-10-05, speed DESIGN §3): the
- * compact plan the rules ask for — tokens by deck row, an outline of
- * `{key, role, title, variant, nav}`, one brief per section — and the classic
- * one, every field written out. Properties are listed in the contract's ORDER
- * (rationale; intent, locale, title, description, tokens, primaryCta, nav,
- * sections, briefs, facts, seo), which is the order a decoder writes them in
- * and the order the client streams them in.
- */
-export const PAGE_PLAN_ANSWER_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['rationale'],
-  properties: {
-    rationale: text,
-    pagePlan: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['intent', 'locale', 'title', 'description', 'tokens', 'primaryCta', 'sections'],
-      properties: {
-        intent: { type: 'string', enum: ['new-page', 'replace', 'append'] },
-        locale: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['lang', 'dir'],
-          properties: { lang: text, dir: { type: 'string', enum: ['rtl', 'ltr'] } },
-        },
-        title: text,
-        brand: { type: 'string', description: "The business's own short name, 1-4 words; never the title." },
-        description: text,
-        // A deck row's id and the signature; every other token only when the person named it.
-        tokens: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['signature'],
-          description:
-            'deckRowId and signature only, unless the person named a colour or face, or no deck row fits.',
-          properties: {
-            deckRowId: { type: 'string', enum: [...PAGE_PLAN_DECK_ROWS] },
-            signature: text,
-            bg: colour,
-            surface: colour,
-            ink: colour,
-            muted: colour,
-            accent: colour,
-            onAccent: colour,
-            accentInk: colour,
-            border: colour,
-            fontDisplay: face,
-            fontBody: face,
-            radius: { type: 'string', enum: ['none', 'md', 'xl', 'full'] },
-          },
-        },
-        primaryCta: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['label', 'href'],
-          properties: { label: text, href: text },
-        },
-        /*
-          The OUTLINE only (fix pass 2026-10-05). The classic contract fields
-          and the top-level nav and facts are gone from the schema: the
-          client still reads them, but listing them invited a mixed answer —
-          the Arabic T1 wrote every fact twice (on the sections and in the
-          briefs) and was refused twice for duplicate keys, and both answers
-          ran 1.5-2.3x over the length target.
-        */
-        sections: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['key', 'role', 'title'],
-            properties: {
-              key: text,
-              role: { type: 'string', enum: ['header', 'hero', 'band', 'cta', 'footer'] },
-              title: text,
-              variant: {
-                type: 'string',
-                enum: [...PAGE_PLAN_SECTION_VARIANTS],
-                description: 'A layout word from this list, never a kit id (a kit id goes in kit).',
-              },
-              kit: { type: 'string', enum: [...PAGE_PLAN_KIT_IDS] },
-              nav: { type: 'string', description: 'The menu label, on a section the menu links to.' },
-            },
-          },
-        },
-        // One per section but the header, in page order; facts inside the section that shows them.
-        briefs: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['key', 'purpose'],
-            properties: {
-              key: text,
-              purpose: text,
-              mustSay: texts,
-              mustNotRepeat: texts,
-              images,
-              slots,
-              facts: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  required: ['key', 'sample'],
-                  properties: { key: text, sample: text },
-                },
-              },
-            },
-          },
-        },
-        seo: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['keyword', 'pageKind'],
-          properties: {
-            keyword: text,
-            pageKind: { type: 'string', enum: [...PAGE_PLAN_SEO_KINDS] },
-            businessType: { type: 'string', enum: [...PAGE_PLAN_BUSINESS_TYPES] },
-            slug: text,
-          },
-        },
-      },
-    },
-    refusal: text,
-  },
-} as const;
+export const PAGE_PLAN_ANSWER_SCHEMA = createPagePlanAnswerSchema({
+  PAGE_PLAN_ARABIC_FAMILIES,
+  PAGE_PLAN_LATIN_FAMILIES,
+  PAGE_PLAN_PHOTO_TOPICS,
+  PAGE_PLAN_DECK_ROWS,
+  PAGE_PLAN_SECTION_VARIANTS,
+  PAGE_PLAN_KIT_IDS,
+  PAGE_PLAN_SEO_KINDS,
+  PAGE_PLAN_BUSINESS_TYPES,
+});

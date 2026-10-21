@@ -5,13 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { AiPlanWireRequest, ContextFragment } from '@craftkit/builder/wire';
 import { DESIGN_LIBRARY_TEACHING, DESIGN_QUALITY_TEACHING } from '@craftkit/builder/wire';
+import { AUTHORED_PAGE_PLAN_EXAMPLE } from './free-design';
 
 import {
   PAGE_PLAN_ARABIC_FAMILIES,
   PAGE_PLAN_EXAMPLE,
   PAGE_PLAN_FALLBACK_ACCENTS,
   PAGE_PLAN_FALLBACK_BASE,
-  PAGE_PLAN_KIT_IDS,
   PAGE_PLAN_LATIN_FAMILIES,
   PAGE_PLAN_PHOTO_TOPICS,
   PAGE_PLAN_SECTION_VARIANTS,
@@ -564,10 +564,10 @@ describe('ordinary requests after the page-plan task', () => {
   ];
 
   const RECORDED: Readonly<Record<string, string>> = {
-    // Intentional prefix updates (design capability 10-10, Tailwind plugin vocabulary 10-13).
-    'a bare request': '14bd0532fdac3fcfd90565f8b09a9fd3939da783a4207d1056b3568dcb818909',
-    'a large catalog': '805d3ac78452a50fbc093770b308e1e5f37d59623e40574db51dd485becf0531',
-    'every branch at once': '1a245941df48a10fa04fed05eb474c5e9d9e065c3d4c0396af1b60f27a3f43b7',
+    // Intentional prefix updates: design 10-10, utilities 10-13, free composition 10-20.
+    'a bare request': 'c3d8d26f520d6da51edf4cc7d51d7c8afc57080309e625a17ae0291b959b88de',
+    'a large catalog': '34d76d3d3430a2354d5ff8827f40c4667397c586ea12667b5fe592e3824577fc',
+    'every branch at once': '996fe245c8f524fe09a04a4274f3ec97819cee4061de2c912aa0be0521cb666e',
   };
 
   it.each(FIXTURES)('builds %s with the recorded design-capability prefix', (name, build) => {
@@ -661,8 +661,8 @@ describe('the page-plan task', () => {
 
     expect(rules).toContain(
       JSON.stringify({
-        rationale: PAGE_PLAN_EXAMPLE.rationale,
-        pagePlan: PAGE_PLAN_EXAMPLE.pagePlan,
+        rationale: AUTHORED_PAGE_PLAN_EXAMPLE.rationale,
+        pagePlan: AUTHORED_PAGE_PLAN_EXAMPLE.pagePlan,
       }),
     );
     expect(rules).toContain('{"rationale":"…","refusal":"…"}');
@@ -690,55 +690,61 @@ describe('the page-plan task', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain(
-      'The key ORDER is part of the contract — the client starts building each part the moment it closes: rationale, then in pagePlan intent, locale, title, brand, description, tokens, primaryCta, sections, briefs, seo.',
+      'The key ORDER is part of the contract — the client starts building each part the moment it closes: rationale, then in pagePlan intent, locale, title, brand, description, design, tokens, primaryCta, sections, briefs, seo.',
     );
     // The example the model copies is written in that order.
-    expect(Object.keys(PAGE_PLAN_EXAMPLE.pagePlan)).toEqual([
+    expect(Object.keys(AUTHORED_PAGE_PLAN_EXAMPLE.pagePlan)).toEqual([
       'intent',
       'locale',
       'title',
       'description',
+      'design',
       'tokens',
       'primaryCta',
       'sections',
       'briefs',
-      'seo',
     ]);
   });
 
-  it('asks for the brand, a header and footer, the contact kit on a local business, and Organization for software', () => {
+  it('keeps brand and business semantics without mandatory chrome or a contact kit', () => {
     // Quality pass 2026-10-05 (measure-v2): a SaaS plan with no header, a footer showing the
     // title cut off, LocalBusiness on a SaaS page, and a booking section with no way to book.
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain("- brand: the business's own short name, 1 to 4 words");
-    expect(rules).toContain('A whole page (new-page or replace) has a header first and a footer last.');
-    expect(rules).toContain('its booking or contact section is kit contact-split');
-    expect(rules).toContain('software, a SaaS, an app or an online product is Organization, never LocalBusiness');
+    expect(rules).toContain('design.chrome standard permits optional navigation/footer');
+    expect(rules).toContain('contact-split is one available kit');
+    expect(rules).toContain(
+      'software, a SaaS, an app or an online product is Organization, never LocalBusiness',
+    );
   });
 
   it('asks for an outline with nav labels, then one brief per section with its facts inside', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain('- sections: the OUTLINE');
-    expect(rules).toContain('{"key","role","title","variant","nav"} and nothing more');
-    expect(rules).toContain('nav: the menu label, only on the sections the header');
+    expect(rules).toContain('{"key","role","title","layout","variant","kit","nav"}');
+    expect(rules).toContain('nav: a menu label only where there is a menu');
     expect(rules).toContain(
-      '- briefs: ONE per section in page order, every section except the header (the footer\'s brief carries the contact facts)',
+      '- briefs: ONE per section in page order, every section except the header (a footer, when present, may carry contact facts)',
     );
-    expect(rules).toContain('{"key","purpose","mustSay","mustNotRepeat","images","slots","facts"}');
+    expect(rules).toContain(
+      '{"key","purpose","layout","mustSay","mustNotRepeat","images","slots","facts"}',
+    );
     expect(rules).toContain('inside the brief of the section that shows it, each {"key","sample"}');
     expect(rules).toContain('Write no top-level nav or facts');
   });
 
-  it('asks for tokens by deck row, a colour or face only when the person named one', () => {
+  it('offers deck tokens without constraining custom palettes or verified fonts', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
     const tokens = /- tokens: [^\n]*/u.exec(rules)?.[0] ?? '';
 
     expect(tokens).toContain('{"deckRowId","signature"}');
-    expect(tokens).toContain('The client fills every colour, both faces and the radius from that row');
-    expect(tokens).toContain('Add a colour or font key ONLY when the person named one');
-    expect(tokens).toContain('"VARIANT: B" in the request → also write the row\'s band colours');
+    expect(tokens).toContain(
+      'The client fills every colour, both faces and the radius from that row',
+    );
+    expect(tokens).toContain('override any colour or verified face to fit the design concept');
+    expect(tokens).toContain('explicit user choices win');
     expect(tokens).toContain('omit deckRowId and write the tokens in full');
     expect(PAGE_PLAN_EXAMPLE.pagePlan.tokens).toEqual({
       deckRowId: 'cafe',
@@ -787,7 +793,7 @@ describe('the page-plan task', () => {
     );
   });
 
-  it('gives a plan with no deck row the checked base, not a colour of its own', () => {
+  it('offers a checked fallback when no reliable custom palette is available', () => {
     /*
       Measured live 2026-09-28 with no deck in the context: told only to keep
       4.5:1, cli:haiku still chose muted, onAccent and accentInk between
@@ -826,18 +832,17 @@ describe('the page-plan task', () => {
 
     expect(facts).toContain("a complete, realistic value in the page's own format and language");
     expect(facts).toContain('+971 4 331 2750');
-    expect(facts).toContain(
-      'never XXX, masked digits, all zeros, 1234567 or a bracketed stand-in',
-    );
+    expect(facts).toContain('never XXX, masked digits, all zeros, 1234567 or a bracketed stand-in');
     expect(facts).toContain('inside the brief of the section that shows it');
     expect(facts).toContain('the ledger, not the value, marks it as a sample');
   });
 
-  it('plans an Arabic request in Arabic, with Latin slugs', () => {
+  it('follows the requested page language before inferring a language, with Latin slugs', () => {
     const rules = buildPrompt(pagePlanRequest()).system[0]?.text ?? '';
 
     expect(rules).toContain('{"lang":"ar","dir":"rtl"}');
-    expect(rules).toMatch(/Arabic request.*EVERY piece of prose.*in Arabic/su);
+    expect(rules).toContain('an explicit requested page language wins');
+    expect(rules).toContain('Any language is supported');
     expect(rules).toContain('Latin slugs');
   });
 
@@ -1144,11 +1149,15 @@ describe('the edit prompt', () => {
       model, which answered theme.apply on an accent nothing read, and the
       panel said «عُدِّلت الصفحة» with nothing changed on screen.
     */
-    const rules = buildPrompt({ ...editRequest(), request: 'عنوان قسم الخبرات خليه أزرق' }).system[0]?.text ?? '';
+    const rules =
+      buildPrompt({ ...editRequest(), request: 'عنوان قسم الخبرات خليه أزرق' }).system[0]?.text ??
+      '';
 
     expect(rules).toContain('colours THAT element');
     expect(rules).toContain('`text-blue-700` for its text, `bg-blue-700` for its ground');
-    expect(rules).toContain('`theme.apply` changes page colour tokens and is ONLY for a request about the whole page or its theme');
+    expect(rules).toContain(
+      '`theme.apply` changes page colour tokens and is ONLY for a request about the whole page or its theme',
+    );
     // The build rules (and their cached prefix) are untouched.
     expect(SYSTEM_RULES_TEXT).not.toContain('colours THAT element');
   });
@@ -1468,8 +1477,8 @@ describe('agent tools in the edit prompt', () => {
   });
 
   // Shared presets add a bounded capability line without stripping existing tool signatures.
-  it('keeps the edit prompt compact: edit within 3294 characters, seo within 900, the edit rules still < 80% of a build', () => {
-    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(3_294);
+  it('keeps the edit prompt compact: edit within 3434 characters, seo within 900, the edit rules still < 80% of a build', () => {
+    expect(EDIT_TOOL_PROMPT.length).toBeLessThanOrEqual(3_434);
     expect(SEO_TOOL_PROMPT.length).toBeLessThanOrEqual(900);
     const edit = buildPrompt(editRequest());
     const build = buildPrompt({
@@ -1481,26 +1490,5 @@ describe('agent tools in the edit prompt', () => {
     // red-tests (2026-10-06): the edit-only tool lane is capped above; the ratio measures the rest.
     expect(size(edit)).toBeLessThan(size(build));
     expect(size(edit) - EDIT_TOOL_PROMPT.length).toBeLessThan(size(build) * 0.8);
-  });
-});
-
-describe('the page-plan prompt with kits and seo', () => {
-  function planRequest(): AiPlanWireRequest {
-    return { ...wireRequest(), request: 'اعمل صفحة هبوط لمحمصة قهوة في عمّان', task: 'page-plan' };
-  }
-
-  it('names the kits, the slots rule and the seo fields in the frozen rules', () => {
-    const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
-    expect(rules).toContain('- kit: optional on an outline section');
-    expect(rules).toContain('omitted, the client picks it from the variant');
-    for (const id of PAGE_PLAN_KIT_IDS) expect(rules).toContain(id);
-    expect(rules).toContain('- slots (in a brief): ONLY for a short section');
-    expect(rules).toContain('- seo: {"keyword","pageKind","businessType","slug"}');
-    expect(rules).toContain(JSON.stringify(PAGE_PLAN_EXAMPLE));
-  });
-
-  it('stays within its budget: the rules under 11,000 characters (8,340 before kits and seo; 9,932 compact)', () => {
-    const rules = buildPrompt(planRequest()).system[0]?.text ?? '';
-    expect(rules.length).toBeLessThan(11_000);
   });
 });

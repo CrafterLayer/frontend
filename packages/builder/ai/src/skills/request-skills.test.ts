@@ -39,6 +39,38 @@ interface Row {
 }
 
 const ROWS: readonly Row[] = [
+  ...['host', 'page-plan'].flatMap((lane) =>
+    ['اصنع cv احترافيه', 'Build a résumé', 'صمم سيرة ذاتية', 'Create my photography portfolio'].map(
+      (request): Row => ({ request, lane: lane as RequestSkillLane, has: ['craftkit.cv-page'] }),
+    ),
+  ),
+  ...['hero', 'band', 'cta'].map((role): Row => ({
+    request: 'Create a professional CV for an engineer',
+    lane: 'section',
+    role,
+    contract: 'Experience, qualifications and contact',
+    has: ['craftkit.cv-page'],
+    never: [
+      'craftkit.pro-max-landing',
+      'craftkit.conversion-recipes',
+      'craftkit.structure-recipes',
+    ],
+  })),
+  {
+    request: 'Create an architecture portfolio',
+    lane: 'section',
+    role: 'hero',
+    contract: 'Selected work and process',
+    has: ['craftkit.cv-page'],
+    never: ['craftkit.pro-max-landing'],
+  },
+  {
+    request: 'Build a page for CVS pharmacy',
+    lane: 'page-plan',
+    has: [],
+    never: ['craftkit.cv-page'],
+  },
+  { request: 'Change the CV title', lane: 'edit', has: [], never: ['craftkit.cv-page'] },
   ...[
     'Waterfall of operating cash flows',
     'Heatmap of team deliveries',
@@ -280,6 +312,31 @@ describe('requestSkillIdsFor — limits', () => {
       creative: false,
     });
     expect(ids).toEqual(['craftkit.art-names']);
+  });
+
+  it('keeps personal-page teaching within the same discovery caps and respects exclusions', () => {
+    const request = 'Build a bilingual professional CV with contact links';
+    for (const lane of ['host', 'page-plan', 'section'] as const) {
+      const context = { role: 'hero', contractText: 'Identity and qualifications' };
+      const ids = requestSkillIdsFor(FULL, request, lane, context);
+      expect(ids).toContain('craftkit.cv-page');
+      expect(ids.length).toBeLessThanOrEqual(REQUEST_SKILL_MAX_ADDITIONS);
+      expect(cost(ids)).toBeLessThanOrEqual(
+        lane === 'section' ? SECTION_SKILL_TOKEN_CAP : REQUEST_SKILL_TOKEN_CAP,
+      );
+      expect(
+        requestSkillIdsFor(FULL, request, lane, {
+          ...context,
+          excluded: ['craftkit.cv-page'],
+        }),
+      ).not.toContain('craftkit.cv-page');
+      expect(
+        requestSkillIdsFor(FULL, request, lane, {
+          ...context,
+          present: ['craftkit.cv-page'],
+        }),
+      ).not.toContain('craftkit.cv-page');
+    }
   });
 
   it('keeps the person’s own skills and the creative set when a writer drops page-level ids', () => {

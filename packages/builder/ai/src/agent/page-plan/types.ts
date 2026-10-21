@@ -28,7 +28,17 @@ export type { PagePlanCandidate, PagePlanIssue };
  * weights they ship, keys and anchors are unique slugs, and every link and fact
  * points at a section that exists. Nothing else constructs one.
  */
+export interface PagePlanDesign {
+  readonly kind: 'website' | 'resume' | 'portfolio';
+  readonly composition: 'bespoke' | 'hybrid';
+  /** Automatic marketing chrome; authored header/footer sections remain possible. */
+  readonly chrome: 'standard' | 'none';
+  /** Subject-specific hierarchy, spatial rhythm and visual direction, at most 240 characters. */
+  readonly concept: string;
+}
+
 export interface PagePlan {
+  readonly design?: PagePlanDesign;
   /**
    * Where the page lands: a new page beside the current one, replacing the
    * current page's content, or appended below it. The host's router decides
@@ -232,6 +242,7 @@ export interface SectionContract {
   /** Claims another section already makes, which this one must not repeat (≤ 6). */
   readonly mustNotRepeat: readonly string[];
   /** A `SECTION_VARIANTS` id: the named layout the writer builds. */
+  readonly layout?: string;
   readonly variant?: string;
   /** Pictures this section needs, resolved from the photo catalog by subject (≤ 4). */
   readonly images?: readonly SectionImage[];
@@ -284,6 +295,8 @@ export const PAGE_PLAN_MAX_IMAGES_PER_SECTION = 4;
 export const PAGE_PLAN_MAX_SECTION_CLAIMS = 6;
 
 export interface ValidatePagePlanOptions {
+  /** Fresh generation only; approved and saved plans retain their own design. */
+  readonly request?: string;
   /**
    * Where the page lands, decided by the host (the router's target). When
    * given it REPLACES whatever intent the candidate wrote.

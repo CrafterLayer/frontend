@@ -3,9 +3,8 @@ import type { AiSkillDefinitionV1 } from '../types';
 /**
  * Design intelligence (2026-10-12): the decision tables of UI UX Pro Max (Next Level Builder,
  * MIT — `ui-reasoning.csv`, `products.csv`, `colors.csv`, `typography.csv`) distilled for a
- * site builder. For the kind of business a request names, one row says which page pattern to
- * use, which colours (as `theme.apply` hexes), which type mood (as verified `fonts.set`
- * families), which effects, what the page must show and what to avoid. Rendered from data so a
+ * site builder. Rows offer optional starting points, never required section patterns or
+ * palettes. Typography uses verified `fonts.set` families. Rendered from data so a
  * test can check every hex and every family.
  */
 
@@ -341,14 +340,24 @@ export const DESIGN_ROWS: readonly DesignRow[] = [
     avoid: 'unclear schedule, fake scarcity',
   },
   {
-    kind: 'portfolio, CV',
-    pattern: 'name/role hero > selected work > experience > skills > contact',
+    kind: 'CV, résumé',
+    pattern: 'identity, relevant qualifications, experience; content-led reading order',
     accent: '#2563EB',
     ground: '#FAFAFA',
     type: 'professional',
-    effect: 'scroll reveals',
-    show: 'work first, real results',
-    avoid: 'generic templates',
+    effect: 'print-readable hierarchy',
+    show: 'supported facts, dates, contact',
+    avoid: 'fictional credentials',
+  },
+  {
+    kind: 'portfolio',
+    pattern: 'selected work and process; composition from the work',
+    accent: '#2563EB',
+    ground: '#FAFAFA',
+    type: 'creative',
+    effect: 'project-led composition',
+    show: 'work context, real outcomes',
+    avoid: 'repeated card grids',
   },
   {
     kind: 'agency',
@@ -388,22 +397,23 @@ function moodLine(mood: TypeMood): string {
 
 /** One row: kind: pattern | accent/ground mood | effect | show … | avoid …  */
 function row(entry: DesignRow): string {
-  return `${entry.kind}: ${entry.pattern.replaceAll(' > ', '>')} | ${entry.accent}/${entry.ground} ${entry.type} | ${entry.effect} | ${entry.show} | no ${entry.avoid}`;
+  return `${entry.kind}:${entry.pattern.replaceAll(' > ', '>')}|${entry.accent}/${entry.ground} ${entry.type}|${entry.effect}|${entry.show}|${entry.avoid}`;
 }
 
-const INSTRUCTIONS = `DESIGN SYSTEM FIRST: before any section, settle once: the nearest kind of business below, its pattern (section order), accent and ground via theme.apply {"accent":"#hex","bg":"#hex"}, a type pairing via fonts.set {"display":"…","body":"…"}, one family of effects; every section follows it. The person's own brand, colours, fonts or order win.
-TYPE (display/body, ar = Arabic): ${TYPE_MOODS.map(moodLine).join('; ')}.
-ROWS: kind: pattern | accent/ground type | effect | must show | no
+const INSTRUCTIONS = `DESIGN FROM THE BRIEF: purpose, audience and content decide hierarchy, geometry and density. A whole-page composition is valid. No fixed section order, kit, container, colour count or mood. Follow the page contract. Another look changes composition, not just colours.
+Optional tools: theme.apply {"accent":"#hex","bg":"#hex"}, fonts.set {"display":"…","body":"…"}. Brand choices win. Use scoped CSS for custom geometry.
+TYPE inspiration (display/body, ar = Arabic): ${TYPE_MOODS.map(moodLine).join('; ')}.
+ROWS ARE OPTIONAL INSPIRATION, not templates: kind | possible pattern | colours/type | effect | content | avoid
 ${DESIGN_ROWS.map(row).join('\n')}
-EVERYWHERE: one accent at about 10% on neutrals; purple-pink gradients only for AI products; icons, never emoji; motion only from an action or a scroll; no rating, count, price or statistic the person did not give: a clear placeholder, named in followUp.`;
+QUALITY: readable type and contrast, responsive order, useful interaction and reduced-motion support. No invented ratings, credentials or metrics; missing facts stay visibly labelled and named in followUp.`;
 
 export const DESIGN_INTELLIGENCE_SKILL: AiSkillDefinitionV1 = {
   schemaVersion: 1,
   id: 'craftkit.pro-max-design',
   name: 'Design intelligence (UI UX Pro Max)',
   description:
-    'Pattern, colours, type, effects and must-haves for 29 kinds of business, distilled from UI UX Pro Max: one design system per page before any section.',
-  version: '1.0.0',
+    'Brief-specific composition and optional design references distilled from UI UX Pro Max; custom page geometry, readable type and coherent visual direction.',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 37,
@@ -430,6 +440,6 @@ export const DESIGN_INTELLIGENCE_SKILL: AiSkillDefinitionV1 = {
   instructions: INSTRUCTIONS,
   references: {
     'checks/design-system.md':
-      'One design system decided before the sections (pattern, one accent and ground, one type pairing, one effect family), from the nearest kind of business; the person’s own brand wins; no invented ratings, counts or prices.',
+      'Composition and visual hierarchy serve the brief; rows are optional inspiration; chosen page contracts stay coherent; responsive reading order, contrast, real interactions and truthful facts.',
   },
 };

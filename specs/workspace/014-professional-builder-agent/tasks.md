@@ -1,5 +1,17 @@
 # Tasks: Professional Builder and Agent
 
+## Professional free page design — 2026-10-20
+
+Acceptance: [FD1–FD5](free-design-2026-10-20.md). Local completion on 2026-10-21:
+[verification](verification-free-design-2026-10-21.md).
+
+- [x] T310 Research comparable agents and verify design/skill bottlenecks.
+- [x] T311 Preserve explicit skills, resolve Pro Max aliases and modernize CV guidance.
+- [x] T312 Add persisted free-design contracts, validation and streamed writer propagation.
+- [x] T313 Align server structured output and page-design instructions with the real contract.
+- [x] T314 Verify focused regressions, consumers, builds and browser-visible varied compositions.
+- [x] T315 Review independently, repair, converge and refresh handoff.
+
 ## Professional reports and charts — 2026-10-20
 
 Acceptance and ownership: [RP1–RP7](report-capabilities-2026-10-20.md).

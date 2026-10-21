@@ -95,6 +95,7 @@ function contractOf(section: SectionContract): Record<string, unknown> {
     purpose: section.purpose,
     mustSay: section.mustSay,
     mustNotRepeat: section.mustNotRepeat,
+    layout: section.layout,
     variant: section.variant,
     kit: section.kit,
     slots: section.slots,
@@ -116,6 +117,7 @@ export function sectionFingerprint(plan: PagePlan, key: string): string | undefi
   return stableJson({
     contract: contractOf(section),
     facts: plan.facts.filter((fact) => fact.section === key),
+    design: plan.design,
     tokens: plan.tokens,
     primaryCta: plan.primaryCta,
     title: plan.title,
@@ -160,6 +162,7 @@ export function reconcilePlans(provisional: PagePlan, final: PagePlan): PlanReco
       title: plan.title,
       description: plan.description,
       locale: plan.locale,
+      design: plan.design,
       tokens: plan.tokens,
       primaryCta: plan.primaryCta,
       nav: plan.nav,

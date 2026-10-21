@@ -366,6 +366,7 @@ describe('the page-plan answer schema', () => {
       // Quality pass 2026-10-05: the business's short name, shown by the header and footer.
       'brand',
       'description',
+      'design',
       'tokens',
       'primaryCta',
       'sections',
@@ -692,7 +693,10 @@ describe('tool steps in a plan', () => {
       check(
         planWith({
           command: 'tool',
-          args: { name: 'kit.insert', input: { kit: 'cta-band', slots: { kind: 'element', commands: [] } } },
+          args: {
+            name: 'kit.insert',
+            input: { kit: 'cta-band', slots: { kind: 'element', commands: [] } },
+          },
         }),
       ),
     ).toBe(false);
@@ -707,9 +711,9 @@ describe('the page plan with kits and seo', () => {
     const ids = readdirSync(kitsDir)
       .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
       .flatMap((file) =>
-        [...readFileSync(new URL(file, kitsDir), 'utf8').matchAll(/^ {4}id: '([a-z0-9-]+)'/gmu)].map(
-          (match) => match[1] ?? '',
-        ),
+        [
+          ...readFileSync(new URL(file, kitsDir), 'utf8').matchAll(/^ {4}id: '([a-z0-9-]+)'/gmu),
+        ].map((match) => match[1] ?? ''),
       )
       .sort();
     expect(ids.length).toBeGreaterThan(30);
@@ -745,7 +749,10 @@ describe('the page plan with kits and seo', () => {
     expect(pagePlanShapeCheck(slid)).toBe(false);
     const strayKey = {
       ...PAGE_PLAN_EXAMPLE,
-      pagePlan: { ...PAGE_PLAN_EXAMPLE.pagePlan, seo: { keyword: 'x', pageKind: 'home', tokens: {} } },
+      pagePlan: {
+        ...PAGE_PLAN_EXAMPLE.pagePlan,
+        seo: { keyword: 'x', pageKind: 'home', tokens: {} },
+      },
     };
     expect(pagePlanShapeCheck(strayKey)).toBe(false);
   });
@@ -786,7 +793,13 @@ const CLASSIC_PLAN = {
     { label: 'Order', anchorId: 'order' },
   ],
   sections: [
-    { key: 'header', role: 'header', title: 'Header', anchorId: 'top', purpose: 'Brand and navigation.' },
+    {
+      key: 'header',
+      role: 'header',
+      title: 'Header',
+      anchorId: 'top',
+      purpose: 'Brand and navigation.',
+    },
     {
       key: 'hero',
       role: 'hero',
@@ -807,9 +820,19 @@ const CLASSIC_PLAN = {
       purpose: 'One clear way to order.',
       variant: 'cta-split',
       kit: 'cta-split',
-      slots: { title: 'Fresh beans, delivered in Amman', cta: { label: 'Order beans', href: '#order' } },
+      slots: {
+        title: 'Fresh beans, delivered in Amman',
+        cta: { label: 'Order beans', href: '#order' },
+      },
     },
-    { key: 'footer', role: 'footer', title: 'Footer', anchorId: 'footer', purpose: 'Address.', variant: 'footer' },
+    {
+      key: 'footer',
+      role: 'footer',
+      title: 'Footer',
+      anchorId: 'footer',
+      purpose: 'Address.',
+      variant: 'footer',
+    },
   ],
   facts: [{ key: 'phone', sample: '+962 6 461 2750', section: 'footer' }],
   seo: { keyword: 'specialty coffee Amman', pageKind: 'home', slug: 'specialty-coffee-amman' },
@@ -901,7 +924,9 @@ describe('the compact page plan', () => {
 
     const { value, repairs } = repairPagePlanAnswer(answer);
 
-    expect(repairs).toEqual(['pagePlan.briefs[3].facts[1].sample "+971 4 XXX XXXX" → "+971 4 234 5678"']);
+    expect(repairs).toEqual([
+      'pagePlan.briefs[3].facts[1].sample "+971 4 XXX XXXX" → "+971 4 234 5678"',
+    ]);
     const repaired = (value as { pagePlan: Plan }).pagePlan;
     expect(repaired.briefs[3]?.['facts']).toEqual([
       { key: 'email', sample: 'info@roasters.jo' },
@@ -936,52 +961,6 @@ describe('the compact page plan', () => {
       pagePlanShapeCheck(repairPagePlanAnswer(candidate).value);
 
     expect(JSON.parse(salvageJson(written, judged))).toEqual(answer);
-  });
-});
-
-describe('the answer schema admits both shapes, in the contract order', () => {
-  const plan = PAGE_PLAN_ANSWER_SCHEMA.properties.pagePlan;
-
-  it('lists tokens deck row first, every colour, face and radius optional', () => {
-    const tokens = plan.properties.tokens;
-    expect(Object.keys(tokens.properties).slice(0, 2)).toEqual(['deckRowId', 'signature']);
-    expect(tokens.required).toEqual(['signature']);
-    expect(tokens.properties.deckRowId.enum).toEqual([...PAGE_PLAN_DECK_ROWS]);
-  });
-
-  it('lists the outline fields only — key, role and title required, nav a label', () => {
-    const items = plan.properties.sections.items;
-    // Fix pass 2026-10-05: no contract field on an outline section, so nothing invites a duplicate.
-    expect(Object.keys(items.properties)).toEqual(['key', 'role', 'title', 'variant', 'kit', 'nav']);
-    expect(items.required).toEqual(['key', 'role', 'title']);
-    expect(items.properties.nav.type).toBe('string');
-    expect(items.properties.variant.description).toMatch(/never a kit id/u);
-    expect(plan.properties).not.toHaveProperty('nav');
-    expect(plan.properties).not.toHaveProperty('facts');
-  });
-
-  it('decodes one brief per section with its facts', () => {
-    const items = plan.properties.briefs.items;
-    expect(Object.keys(items.properties)).toEqual([
-      'key',
-      'purpose',
-      'mustSay',
-      'mustNotRepeat',
-      'images',
-      'slots',
-      'facts',
-    ]);
-    expect(items.required).toEqual(['key', 'purpose']);
-    expect(Object.keys(items.properties.facts.items.properties)).toEqual(['key', 'sample']);
-    expect(plan.required).toEqual([
-      'intent',
-      'locale',
-      'title',
-      'description',
-      'tokens',
-      'primaryCta',
-      'sections',
-    ]);
   });
 });
 

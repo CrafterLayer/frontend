@@ -1,5 +1,8 @@
 # Implementation Plan: Professional Builder and Agent
 
+Current continuation: [professional free page design](free-design-2026-10-20.md), FD1–FD5 /
+T310–T315, authorized by the user.
+
 **Branch**: `builder-core` | **Date**: 2026-09-09 | **Spec**: [spec.md](spec.md)
 
 ## Summary

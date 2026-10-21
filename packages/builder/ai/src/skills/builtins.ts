@@ -92,23 +92,23 @@ const BUILD_SCAFFOLD: AiSkillDefinitionV1 = builtin({
   name: 'Build: the page skeleton',
   description:
     'One transaction that inserts every section as an empty labelled region, in order, and fixes the direction the whole page will follow.',
-  version: '2.2.0',
+  version: '2.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 95,
   activation: { mode: 'explicit' },
   tags: ['build', 'composition', 'scaffold'],
   instructions: `You are laying a SKELETON, not writing the page. Every section is inserted empty; another run fills each one.
-COUNT AND ORDER: read the request and name every section it asks for, in reading order. A section the request did not ask for is not invented, and a section it did ask for is never merged into another. Three to twelve.
-ONE insertNode PER SECTION, all into the page root, in order, its tree written as markup: {"command":"insertNode","args":{"type":"customCode","parentId":"<the document's rootId>","props":{"label":"<Title Case, unique, 2-3 words>","tree":"<section class='py-16 md:py-24'><div class='mx-auto max-w-6xl px-4 md:px-8'><h2 class='text-3xl md:text-4xl font-semibold'>THE SECTION TITLE</h2></div></section>"}}}
+COUNT AND ORDER: choose 1–12 coherent regions from the brief's content and reading order. One region may hold the complete page composition. Preserve every requested detail without inventing sections to meet a template; group related details when the layout calls for it.
+ONE insertNode PER REGION, all into the page root, in reading order, its tree written as markup: {"command":"insertNode","args":{"type":"customCode","parentId":"<the document's rootId>","props":{"label":"<unique, concise label>","tree":"<section><h2>THE REGION TITLE</h2></section>"}}}. This is an empty semantic placeholder, not the finished layout; the writer supplies its custom geometry and styling.
 The label is how the next runs find this region: it must be UNIQUE and must not change afterwards.
-ROLES, marked in the placeholder, because each fill reads its shell from them: the region that opens the page (the hero; a CV's header; an occasion's card) writes its heading as h1 instead of h2 — the page's one h1; a site header or navigation bar writes header in place of section, a footer writes footer. Every other placeholder is the one above with its own h2 text.
+ROLES, marked in the placeholder: the opening content region writes its heading as h1 instead of h2 — the page's one h1. A requested site header uses header, a footer uses footer; neither is mandatory. Other content regions carry their required heading. The roles describe semantics, never fixed dimensions, columns or actions.
 ONE setProp FOR THE PAGE: {"command":"setProp","args":{"id":"<rootId>","key":"pageCss","value":"…"}} carrying only what the WHOLE page shares — a web font @import from fonts.googleapis.com or fonts.bunny.net, @keyframes, and ck- classes used by more than one section. Never a section's own styling.
-THE DIRECTION, in the rationale, in this exact order and nothing else: the subject and its audience; the palette as 3-5 named classes or hex values, the page's own and drawn from its subject — name the site theme instead (bg-surface, text-text, bg-accent) only when the request asks for the site's or brand's own colours; the display and body faces; the one signature element; the section list as "1 Hero[split] · 2 Proof[stats] · …", each with the section-variants id the direction deck gives it. Every fill run is handed this text verbatim and must obey it, so it is the only place the look is decided. Keep it under 60 words.
+THE DIRECTION, in the rationale: the subject and audience; palette and faces; visual concept; each region's layout and reading order. Name the site theme (bg-surface, text-text, bg-accent) only when requested. Optional variants such as "1 Hero[split]" may describe useful inspiration, never override a bespoke layout. Every writer receives this direction, so decide the coherent page composition here. Keep it under 100 words.
 NOT HERE: body copy, images, buttons, links, per-section CSS, setDocMeta or the page lang (the build sets direction and language itself from the words you write), and any command other than the inserts and the one page setProp.`,
   references: {
     'checks/scaffold.md':
-      "One insertNode per requested section, in reading order, all into the page root; every label unique and Title Case; every placeholder identical but for its heading text, the opening region's heading an h1 and site chrome a header or footer; one setProp for pageCss carrying only shared rules; the rationale names subject, palette (the page's own unless the site theme was asked for), faces, signature and the numbered section list; no body copy, no setDocMeta, no lang.",
+      'One insertNode per coherent region, 1–12 in reading order; a whole-page region is valid; unique labels, semantic placeholders and one opening h1; chrome only when requested; one pageCss for shared rules; rationale conveys the content-led layout and design; no filled content, setDocMeta or lang.',
   },
 });
 
@@ -124,7 +124,7 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   name: 'Build: fill one section',
   description:
     'Replace exactly one region tree with the finished section, obeying a direction decided for the whole page.',
-  version: '3.6.0',
+  version: '3.7.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 94,
@@ -132,15 +132,15 @@ const BUILD_FILL: AiSkillDefinitionV1 = builtin({
   tags: ['build', 'composition', 'fill'],
   instructions: `ONE setProp for the tree, written as markup: {"command":"setProp","args":{"id":"<the region id you were given>","key":"tree","value":"<section class='…'>…</section>"}} — and, only when the markup uses ck- classes, a SECOND setProp on the same id with key "css" and the region stylesheet as its value. Never a css key inside the first; no other node, no page-level change.
 THE DIRECTION WAS ALREADY DECIDED and is in the request. Obey it exactly: the palette, the faces, the signature element, the rhythm. Do not re-decide, do not "improve" it, and do not introduce a colour or a face it does not name — a page whose sections each chose their own look is the failure this split exists to prevent. Every accent, glow, ring, gradient and action fill is drawn from the direction's palette as its named classes or hex, and a recipe's {accent} is its accent hue; the role classes (bg-accent, text-accent, var(--t-accent)) only when the direction names the site theme as its palette.
-VARIANT: the direction names this section's layout in brackets — Menu[menu] builds the menu recipe of the section variants; build exactly that one.
+LAYOUT: follow the brief's design concept and this region's layout. A named variant is optional inspiration unless the brief explicitly requests that exact recipe. Bespoke composition may use semantic markup and scoped CSS; no kit, card grid, container width or section order is mandatory.
 THE WHOLE TREE, ONCE: setProp on the tree prop REPLACES it, so write the finished section in full. Other regions arrive described rather than quoted ("filled · 34 nodes · …"); that is deliberate. Do not try to edit them and do not repeat their content.
-SHELL BY ROLE — the request states this region's ROLE; follow it, whatever the section's number. HERO: the first screen, not a band: section relative overflow-hidden py-24 md:py-32 lg:py-40, the page's one h1 (text-4xl md:text-6xl lg:text-7xl font-bold leading-tight; Arabic leading-snug), a lead p text-lg md:text-xl max-w-2xl, then the primary action and a secondary one; an active archetype's own opening (a CV header, an occasion card) replaces this shell. CHROME: the site header, navigation or footer its title names — a header holds the brand, links to the page's section ids and one action; a footer holds a brand column, link columns and the copyright line; no h1, no h2 of its own, no hero shell. BAND: section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8, keeping its h2 text (restyle it freely), then content with real depth — cards, lists, figures, icons — never a heading over a single paragraph.
+ROLE AND SEMANTICS: the opening region holds the page's one h1; other content keeps the required heading text and sensible heading hierarchy. Header/footer roles use their semantic elements, without adding unwanted navigation, columns or calls to action. Geometry, spacing, density and visual hierarchy follow the contract and content. A region may hold a cohesive whole-page composition when assigned that scope; do not invent sibling regions or content to fill a template.
 FINISHED, NOT DRAFTED: a published page never shows "[price]" or "[اسم العميل]". When the request does not give a business fact the section needs — menu items and prices, a customer's quote and name, opening hours, an address — write a realistic, specific sample that fits the business, its city and its language: prices in the local currency, names usual in that locale, quotes that sound like real customers. List every sample fact in followUp so the owner can replace it. Phone and email follow the same rule in an obviously generic form (info@ the brand's name, a local-format number of zeros). A person's own facts (a CV's employers and dates, an invitation's names and date) are never invented: they stay bracketed and listed in followUp, as the copywriting rules say.
-SIZE: one section, not a page. Aim for 20-70 nodes. A section that needs more than 120 is two sections — say so in followUp rather than cramming.
+SIZE: write only the assigned region and required content, within the door's actual limits. Use the smallest semantic tree that fulfills its layout; node count is not a design goal.
 ${DESIGN_QUALITY_TEACHING}\n${TAILWIND_PLUGIN_TEACHING}\n${SITE_BEHAVIOR_TEACHING}`,
   references: {
     'checks/fill.md':
-      "One setProp on the named region's tree, plus one for its css only when the tree uses ck- classes; the shell its ROLE names — the hero holds the page's one h1, a band keeps its h2 text, chrome carries neither; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched; no other region's content repeated; no bracketed placeholder for a business fact — samples are realistic and listed in followUp; only a person's own facts stay bracketed.",
+      "Only the named region's tree and css changed; its design concept, layout and required heading preserved; one h1 in the opening region; every colour and face from the given direction, role classes only for a site-theme direction; no other node touched or repeated; content determines geometry; a person's own facts stay truthful.",
   },
 });
 
@@ -156,8 +156,8 @@ const CV_PAGE: AiSkillDefinitionV1 = builtin({
   id: 'craftkit.cv-page',
   name: 'CV, résumé and portfolio page',
   description:
-    'Recruiter-first CV or portfolio page: header with linked contacts, summary, experience, skills, education, projects.',
-  version: '1.2.1',
+    'Truthful, recruiter-readable CVs and work-led portfolios, with a distinct brief-specific composition and usable print, mobile and RTL layouts.',
+  version: '1.3.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 90,
@@ -190,18 +190,15 @@ const CV_PAGE: AiSkillDefinitionV1 = builtin({
   tags: ['composition', 'cv', 'portfolio'],
   dependencies: ['craftkit.copywriting', 'craftkit.visual-direction'],
   conflicts: ['craftkit.page-composition'],
-  instructions: `Scanned in 30 seconds by a recruiter, then read by a screen reader or printed: one accent, two weights, white space, borders not shadows, no marketing bands. setProp page contentWidth "standard"; regions wrap in div mx-auto max-w-4xl px-4 md:px-8. One region per block, in this order, skipping what the request lacks:
-1 HEADER: grid md:grid-cols-3 gap-8 items-center. img h-40 w-40 rounded-full object-cover (alt = the name) only when a photo URL is given. div md:col-span-2: h1 text-4xl md:text-5xl font-bold, p text-xl text-{accent} font-medium (role), p text-text-muted max-w-prose (pitch), ul flex flex-wrap gap-x-6 gap-y-2 text-sm of li flex items-center gap-2 holding icon mail / phone / map-pin / globe / link size 16 text-{accent} and <a href='mailto:…'> / <a href='tel:…'> / <a href='https://…'> whose text is the visible value in span whitespace-nowrap. Link text "LinkedIn", "GitHub" beside a link icon — no brand logos exist.
-2 SUMMARY: h2 + p max-w-prose leading-relaxed, ≤3 sentences: years, specialty, one measurable result.
-3 EXPERIENCE: h2, then article per job, newest first, grid gap-1 md:grid-cols-4 mb-8: time datetime='YYYY-MM' text-sm text-text-muted tabular-nums, div md:col-span-3 with h3 text-lg font-semibold (role), p text-text-muted (company, city), ul mt-2 space-y-1 of ≤3 li flex gap-2 items-start led by icon chevron-right size 16 mt-1 shrink-0 text-{accent} (chevron-left in rtl), each a result with a number.
-4 SKILLS: h2 + div flex flex-wrap gap-2 of span rounded-full border border-black/10 px-3 py-1 text-sm, 6–12 per group under h3 text-sm font-semibold; no percentage bars.
-5 EDUCATION / CERTIFICATES: the article pattern with icons graduation-cap / badge-check.
-6 PROJECTS: grid gap-6 md:grid-cols-2 of figure with img aspect-video w-full rounded-lg object-cover (alt names the project), figcaption h3 text-lg font-semibold, p text-text-muted line-clamp-2, <a href='https://…' class='text-{accent} underline'> when a URL was given.
-Body headings: h2 mb-6 text-sm font-semibold uppercase tracking-wide text-text-muted (Arabic: drop uppercase and tracking). Timeline line: ck- class with border-inline-start: 2px solid <the accent's hex>; padding-inline-start: 1.5rem. Dates in one format, Western digits on Arabic pages too. A person's own facts are never invented: missing employers, dates or contacts stay "[your email]" / "[بريدك]" placeholders, listed in followUp.
-PORTFOLIO variant: Hero (h1 name, tagline, one action), Work grid gap-6 md:grid-cols-2 lg:grid-cols-3 of figure with img aspect-video w-full rounded-2xl object-cover + figcaption mt-3 font-semibold + p text-sm text-text-muted, About (portrait + 2 p), Contact (the header's link list).`,
+  instructions: `PURPOSE: distinguish a résumé/CV (qualifications for a role) from a portfolio (selected work and process). Read the person's profession, audience, supplied content and requested visual direction before choosing geometry. No fixed section order, wrapper width, card grid, palette, portrait shape or marketing chrome. Use semantic markup and scoped CSS for a bespoke composition; one cohesive region is valid when the plan assigns it.
+COMPOSITION: make an explicit content-led choice: a researcher's publication hierarchy, an engineer's concise evidence and project links, or an art director's visual case studies need different density and emphasis. These are possibilities, not templates. A sidebar, asymmetric editorial layout, quiet single column or another structure must earn its place. When changing the look, change hierarchy and spatial composition, not only colour. Preserve the chosen page contract when writing one region.
+CV CONTENT: identity, role and real contact links are easy to find; experience has company, role and consistent dates, normally newest first; education, skills and relevant projects appear when supplied. Impact statements use only supported results; no invented percentages or proficiency bars. A portfolio prioritizes selected work with context and meaningful project links; it need not follow the CV's emphasis.
+TRUTH: a person's own facts are never invented. Omit missing optional content; visibly label essential missing details such as "[your email]" / "[بريدك]" and list them in followUp. Never attach mailto:, tel: or external URLs to placeholders. No fictional employers, dates, metrics, portrait or credentials. Only show a person's photo or project image when supplied or explicitly requested as a labelled illustration.
+READABILITY: one h1 for identity, meaningful headings and semantic lists; links show their actual destinations or purpose. Mobile reading order must match the content order, with wrapping contacts and no clipping. RTL uses logical alignment and spacing; keep dates and Latin contact values readable without reversing the page's language.
+PRINT: add scoped @media print rules where needed: readable foreground/background, no clipped content, sensible margins, and break-inside:avoid for short job/project entries. Hide interaction-only controls, never qualifications or contact details. A web layout need not pretend a PDF download exists.`,
   references: {
     'checks/cv.md':
-      "h1 is the name, h2 per block, h3 per job or project; contact values are <a mailto:/tel:> in their own span; newest job first; impact lines carry numbers; no skill bars; alt on photo and project images; placeholders only for the person's own facts the request did not give, listed in followUp; contentWidth standard.",
+      'Composition serves the profession and supplied content; CV and portfolio priorities differ; no prescribed recipe; all facts supported; placeholder contacts are not links; semantic headings, responsive reading order, RTL and readable print; no fake download or invented metrics.',
   },
 });
 
@@ -1009,17 +1006,17 @@ const CRAFT_MANUAL: AiSkillDefinitionV1 = builtin({
   name: 'Craft manual',
   description:
     'Always-on floor: region shell, links and actions, colour, direction, type, structure, refused-class traps.',
-  version: '1.2.1',
+  version: '1.3.0',
   source: 'builtin',
   trust: 'builtin',
   activation: { mode: 'always' },
   tags: ['composition', 'craft', 'rtl', 'traps'],
-  instructions: `REGIONS: one customCode per section, inserted into the page root; section py-16 md:py-24 > div mx-auto max-w-6xl px-4 md:px-8. Columns: grid gap-6/gap-8 + md:grid-cols-N. No <main> tag.
-LINKS: <a href> takes https, mailto:, tel:, #id or /path (javascript: is dropped). Action: the button block when in the catalog, else <a class='inline-block rounded-full bg-{accent} px-8 py-3 font-semibold text-{on-accent}'>. <button> has no behaviour.
+  instructions: `REGIONS: customCode stores semantic markup and scoped CSS; one cohesive page or independent regions as the contract needs. Follow its layout, spacing and hierarchy; no fixed shell or kit. No <main> tag.
+LINKS: <a href> takes https, mailto:, tel:, #id or /path (javascript: is dropped). Links need a real destination; buttons need native behaviour or a permitted handler. Action styling follows the design.
 COLOUR: one palette per page; a recipe's {accent} is its accent hue (bg-{accent} → bg-teal-700, text-{on-accent} → text-white). Roles — bg-accent, text-accent, var(--t-accent), bg-surface, text-text, text-text-muted — are the site theme: as written only on a page that follows the site theme, else the palette's equivalent.
 DIRECTION: Arabic copy needs setDocMeta {dir:'rtl'} + setProp page lang 'ar' (a split build sets both itself). Only ps-/pe-/ms-/me-, start-/end-, text-start/text-end; never pl-/pr-/ml-/mr-/text-left/text-right. Forward icon: arrow-right in ltr, arrow-left in rtl.
-TYPE: one h1 per page, h2 opens a section, h3 a card; size with text-*, not a bigger tag. Arabic: leading-relaxed; no italic, uppercase, tracking-*, text-justify.
-STRUCTURE: img has alt; an icon beside text has no label; ul/ol show no bullets: lead each li with an icon.
+TYPE: one h1 per page and semantic heading levels; size with text-*, not a bigger tag. Arabic: readable line height; no forced uppercase, letter spacing or justification.
+STRUCTURE: img has alt; decorative marks need no label; choose list markers and density for the content.
 IDS: name only a node the document already lists. A node this plan INSERTS gets its id from the kernel after the plan is written, so no later step can name it — put its props inside its own insertNode.`,
   references: {},
 });

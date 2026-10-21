@@ -15,6 +15,7 @@ import { SECTION_VARIANTS } from '../../skills/section-variants';
 import { VERIFIED_FONT_FAMILIES } from '../../skills/verified-fonts';
 import { MASKED_DIGITS } from './check-section';
 import { expandCompactPagePlan } from './compact-plan';
+import { authoredSection, checkPageShape, readPageDesign } from './design';
 import { completeKitSlots } from './kit-slots';
 import { defaultPlanKit, instantiatePlanKit, kitFitsRole, kitIdsForRole, planKit } from './kits';
 import {
@@ -55,7 +56,6 @@ import {
   type PagePlanFact,
   type PagePlanIssue,
   type PagePlanFont,
-  type PagePlanIntent,
   type PagePlanLink,
   type PagePlanLocale,
   type PagePlanNavItem,
@@ -486,6 +486,13 @@ function readSection(
     'mustNotRepeat',
     claims,
   );
+  const layout = readOptionalText(
+    value['layout'],
+    `${path}.layout`,
+    issues,
+    'the authored layout',
+    240,
+  );
   const written = readOptionalText(value['variant'], `${path}.variant`, issues, 'the variant', 40);
   const rawKit = value['kit'];
   let kit =
@@ -496,10 +503,16 @@ function readSection(
     becomes the section's kit (when none was named) and its layout word.
   */
   let variant = written;
-  const asKit = written === undefined || VARIANT_IDS.includes(written) ? undefined : planKit(written.toLowerCase());
+  const asKit =
+    written === undefined || VARIANT_IDS.includes(written)
+      ? undefined
+      : planKit(written.toLowerCase());
   if (written !== undefined && asKit !== undefined) {
     kit ??= asKit.id;
-    variant = asKit.variant !== undefined && VARIANT_IDS.includes(asKit.variant) ? asKit.variant : undefined;
+    variant =
+      asKit.variant !== undefined && VARIANT_IDS.includes(asKit.variant)
+        ? asKit.variant
+        : undefined;
     warnings.push({
       path: `${path}.variant`,
       message: `"${written}" → "${variant ?? '(none)'}": a kit id, not a layout word; it names the kit instead.`,
@@ -539,6 +552,7 @@ function readSection(
     purpose,
     mustSay,
     mustNotRepeat,
+    ...(layout === undefined ? {} : { layout }),
     ...(variant !== undefined && VARIANT_IDS.includes(variant) ? { variant } : {}),
     ...(images.length === 0 ? {} : { images }),
     ...(kit === undefined ? {} : { kit }),
@@ -566,6 +580,7 @@ function resolveKit(
   locale: PagePlanLocale,
   warnings: PagePlanIssue[],
   primaryCta?: PagePlanLink,
+  deriveFromVariant = true,
 ): SectionContract {
   const { kit: named, slots, ...rest } = contract;
   if (contract.role === 'header' || contract.role === 'footer') {
@@ -585,7 +600,7 @@ function resolveKit(
     });
     kit = undefined;
   }
-  kit ??= defaultPlanKit(contract.variant, contract.role);
+  if (deriveFromVariant) kit ??= defaultPlanKit(contract.variant, contract.role);
   if (kit === undefined) {
     if (slots !== undefined) {
       warnings.push({
@@ -652,8 +667,7 @@ function withDerivedSlots(
     // (measure-v3 run 1 printed "Show the core features that solve…" on the image).
     else if (slot.kind === 'text' && name === 'caption') {
       value = contract.mustSay[0] ?? image?.alt ?? contract.title;
-    }
-    else if (slot.kind === 'image' && image !== undefined) {
+    } else if (slot.kind === 'image' && image !== undefined) {
       value = { subject: image.subject, alt: image.alt };
     }
     if (value === undefined) continue;
@@ -664,62 +678,6 @@ function withDerivedSlots(
     });
   }
   return Object.keys(derived).length === 0 ? slots : { ...slots, ...derived };
-}
-
-/** Header first, hero right after it, footer last; append adds bands only. */
-function checkShape(
-  sections: readonly (SectionContract | undefined)[],
-  intent: PagePlanIntent | undefined,
-  issues: Issues,
-): void {
-  let heroes = 0;
-  const last = sections.length - 1;
-  sections.forEach((section, index) => {
-    if (section === undefined) return;
-    const path = `sections[${String(index)}].role`;
-    const { role } = section;
-    if (intent === 'append' && (role === 'header' || role === 'hero' || role === 'footer')) {
-      issues.push({
-        path,
-        message: `An appended plan adds sections to a page that already has its header, hero and footer; make this ${role} a band or a cta.`,
-      });
-      return;
-    }
-    if (role === 'header' && index !== 0) {
-      issues.push({
-        path,
-        message: 'A header comes first: move it to the top of the list, or make it a band.',
-      });
-    }
-    if (role === 'footer' && index !== last) {
-      issues.push({
-        path,
-        message: 'A footer comes last: move it to the end of the list, or make it a band.',
-      });
-    }
-    if (role === 'hero') {
-      heroes += 1;
-      if (heroes > 1) {
-        issues.push({
-          path,
-          message:
-            'A page has exactly one hero (it holds the page’s one h1); make this section a band.',
-        });
-      } else if (!(index === 0 || (index === 1 && sections[0]?.role === 'header'))) {
-        issues.push({
-          path,
-          message: 'The hero opens the page: place it first, or right after the header.',
-        });
-      }
-    }
-  });
-  if (intent !== undefined && intent !== 'append' && heroes === 0) {
-    issues.push({
-      path: 'sections',
-      message:
-        'Give the page exactly one section with role "hero" (its one h1), first or right after the header.',
-    });
-  }
 }
 
 function readHref(value: unknown, anchors: readonly string[], issues: Issues): string | undefined {
@@ -894,8 +852,12 @@ export function validatePagePlan(
   }
   const issues: Issues = [];
   const warnings: PagePlanIssue[] = [...expansion.warnings];
+  const design = readPageDesign(value['design'], issues, options.request);
+  const bespoke = design?.composition === 'bespoke';
+  const personal = design?.kind === 'resume' || design?.kind === 'portfolio';
+  const minSections = bespoke ? 1 : PAGE_PLAN_MIN_SECTIONS;
   const maxSections = Math.max(
-    PAGE_PLAN_MIN_SECTIONS,
+    minSections,
     Math.min(PAGE_PLAN_MAX_SECTIONS, Math.floor(options.maxSections ?? PAGE_PLAN_MAX_SECTIONS)),
   );
 
@@ -916,10 +878,10 @@ export function validatePagePlan(
     required: true,
     max: Number.MAX_SAFE_INTEGER,
   });
-  if (Array.isArray(value['sections']) && rawSections.length < PAGE_PLAN_MIN_SECTIONS) {
+  if (Array.isArray(value['sections']) && rawSections.length < minSections) {
     issues.push({
       path: 'sections',
-      message: `Plan between ${String(PAGE_PLAN_MIN_SECTIONS)} and ${String(maxSections)} sections (it has ${String(rawSections.length)}).`,
+      message: `Plan between ${String(minSections)} and ${String(maxSections)} sections (it has ${String(rawSections.length)}).`,
     });
   } else if (rawSections.length > maxSections) {
     issues.push({
@@ -951,7 +913,7 @@ export function validatePagePlan(
     keys.push(section.key);
     anchors.push(section.anchorId);
   });
-  checkShape(read, intent, issues);
+  checkPageShape(read, intent, issues, bespoke);
 
   const nav: PagePlanNavItem[] = [];
   readArray(value['nav'], 'nav', issues, 'nav', {
@@ -1008,7 +970,8 @@ export function validatePagePlan(
     ),
   );
   const factKeyOf = (raw: unknown, path: string): string | undefined => {
-    if (typeof raw !== 'string' || raw.trim() === '') return readSlug(raw, path, issues, 'the fact key');
+    if (typeof raw !== 'string' || raw.trim() === '')
+      return readSlug(raw, path, issues, 'the fact key');
     const probe: Issues = [];
     const slug = readSlug(raw, path, probe, 'the fact key');
     if (slug !== undefined) return slug;
@@ -1067,7 +1030,10 @@ export function validatePagePlan(
   const brandText = typeof rawBrand === 'string' ? rawBrand.trim().replace(/\s+/gu, ' ') : '';
   const brand = brandText !== '' && brandText.length <= 40 ? brandText : undefined;
   if (brand === undefined && brandText !== '') {
-    warnings.push({ path: 'brand', message: `"${brandText.slice(0, 60)}" is longer than 40 characters; the name is read from the title.` });
+    warnings.push({
+      path: 'brand',
+      message: `"${brandText.slice(0, 60)}" is longer than 40 characters; the name is read from the title.`,
+    });
   }
   const tokens =
     tokenDraft === undefined
@@ -1079,6 +1045,7 @@ export function validatePagePlan(
   const complete = options.completePage === true && intent !== 'append';
   // R-xrun then R-masked on every sample; R-masked on the action's address.
   const repairedFacts = facts.map((fact, index) => {
+    if (personal) return fact;
     const path = `facts[${String(index)}].sample`;
     const filled = isPlaceholderSample(fact.sample)
       ? fillPlaceholderSample(fact.sample)
@@ -1087,7 +1054,7 @@ export function validatePagePlan(
     if (sample !== fact.sample) warnings.push(repaired(path, fact.sample, sample));
     return sample === fact.sample ? fact : { ...fact, sample };
   });
-  if (primaryCta !== undefined) {
+  if (!personal && primaryCta !== undefined) {
     const href = repairMaskedDigits(primaryCta.href);
     if (href !== primaryCta.href) {
       warnings.push(repaired('primaryCta.href', primaryCta.href, href));
@@ -1123,7 +1090,9 @@ export function validatePagePlan(
         tiers' "Start free trial" buttons (measure-v3: a 7 s repair round).
       */
       const actionWords = action?.label.trim().toLowerCase();
-      const kept = section.mustNotRepeat.filter((claim) => claim.trim().toLowerCase() !== actionWords);
+      const kept = section.mustNotRepeat.filter(
+        (claim) => claim.trim().toLowerCase() !== actionWords,
+      );
       if (kept.length !== section.mustNotRepeat.length) {
         warnings.push({
           path: `${path}.mustNotRepeat`,
@@ -1131,9 +1100,11 @@ export function validatePagePlan(
         });
         section = { ...section, mustNotRepeat: kept };
       }
-      const pictured = complete
-        ? withHeroPhoto(section, { brief: pageWords, locale }, path, warnings)
-        : section;
+      if (bespoke) return authoredSection(section, issues, path);
+      const pictured =
+        complete && !personal
+          ? withHeroPhoto(section, { brief: pageWords, locale }, path, warnings)
+          : section;
       let resolved = resolveKit(pictured, path, locale, warnings, action);
       if (complete && action !== undefined) {
         const contact = withContactDetails(
@@ -1144,7 +1115,11 @@ export function validatePagePlan(
         );
         const kit = planKit(contact.kit);
         // Only when the contact kit fills cleanly; otherwise the section stays as resolved.
-        if (contact !== resolved && kit !== undefined && instantiatePlanKit(kit, contact.slots, contact, locale).ok) {
+        if (
+          contact !== resolved &&
+          kit !== undefined &&
+          instantiatePlanKit(kit, contact.slots, contact, locale).ok
+        ) {
           resolved = contact;
         }
       }
@@ -1152,8 +1127,15 @@ export function validatePagePlan(
       const slots = repairSlots(resolved.slots, `${path}.slots`, warnings);
       return { ...resolved, slots: slots as Readonly<Record<string, JsonValue>> };
     });
+  if (issues.length > 0) return { ok: false, issues: Object.freeze(issues) };
   let finalNav: readonly PagePlanNavItem[] = nav;
-  if (complete && locale !== undefined && sections.length === read.length) {
+  if (
+    complete &&
+    design?.chrome !== 'none' &&
+    !bespoke &&
+    locale !== undefined &&
+    sections.length === read.length
+  ) {
     const chrome = withPageChrome({ sections, nav, locale, maxSections, warnings });
     sections = chrome.sections;
     finalNav = chrome.nav;
@@ -1176,6 +1158,7 @@ export function validatePagePlan(
     };
   }
   const plan: PagePlan = {
+    ...(design === undefined ? {} : { design }),
     intent,
     locale,
     title,

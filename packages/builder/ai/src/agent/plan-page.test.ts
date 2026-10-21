@@ -349,8 +349,8 @@ describe('planAiPage — step T1 alone, and nothing written', () => {
     );
     // 2026-09-30: the kit index, in the request, stands where the variant library stood.
     expect(skills).not.toContain('craftkit.section-variants');
-    expect(calls[0]?.request).toContain('KITS: give every section');
-    expect(calls[0]?.request).toContain('hero-split');
+    expect(calls[0]?.request).toContain('OPTIONAL KITS:');
+    expect(calls[0]?.request).toContain('DESIGN CONTRACT:');
     expect(calls[0]?.request).toContain('"seo":{"keyword"');
     // Auto-matching is off: a page archetype's markup rules do not ride into a plan.
     expect(skills).not.toContain('craftkit.page-composition');
@@ -625,8 +625,8 @@ describe('the planner and the section kit (2026-09-30)', () => {
 
     expect(before.skillIds).toContain('craftkit.section-variants');
     expect(after.skillIds).not.toContain('craftkit.section-variants');
-    expect(after.request).toContain('KITS: give every section');
-    expect(after.request).toContain('hero-split');
+    expect(after.request).toContain('OPTIONAL KITS:');
+    expect(after.request).not.toContain('hero-split');
     expect(after.request).toContain('"seo":{"keyword"');
     expect(after.tokens).toBeLessThanOrEqual(Math.ceil(before.tokens * 1.1));
   });

@@ -1,8 +1,7 @@
 import { contrastRatio, parseHex, relativeLuminance, type NodeId } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiPlanStep } from '../../types';
-import { fillSlotPhotos, pagePhotoPlan } from './kit-slots';
-import { instantiatePlanKit, planKit } from './kits';
+import { kitRegion } from './skeleton-kit-region';
 import { shortBrand } from './page-completion';
 import type {
   PagePlan,
@@ -802,22 +801,34 @@ function phoneMenu(plan: PagePlan, contract: SectionContract, label: string): Tr
       children: [lineGlyph('M4 6h16M4 12h16M4 18h16')],
     },
   );
-  const sheet = el('nav', 'ck-surface me-0 ms-auto h-full w-80 max-w-full border-0 p-6 shadow-2xl lg:hidden', {
-    attributes: { id, popover: '', 'aria-label': label },
-    children: [
-      el('div', 'flex flex-col gap-1', {
-        children: [
-          el('button', 'ck-link flex size-10 items-center justify-center self-end rounded-full bg-transparent', {
-            attributes: { popovertarget: id, popovertargetaction: 'hide', 'aria-label': words.close },
-            children: [lineGlyph('M6 6l12 12M18 6L6 18')],
-          }),
-          ...navLinks(plan, 'ck-link block rounded-lg px-3 py-3 text-lg font-medium'),
-          // The bar's action, which a phone's bar hides (HEADER_KIT) — here instead.
-          ctaLink(plan, 'ck-btn mt-4'),
-        ],
-      }),
-    ],
-  });
+  const sheet = el(
+    'nav',
+    'ck-surface me-0 ms-auto h-full w-80 max-w-full border-0 p-6 shadow-2xl lg:hidden',
+    {
+      attributes: { id, popover: '', 'aria-label': label },
+      children: [
+        el('div', 'flex flex-col gap-1', {
+          children: [
+            el(
+              'button',
+              'ck-link flex size-10 items-center justify-center self-end rounded-full bg-transparent',
+              {
+                attributes: {
+                  popovertarget: id,
+                  popovertargetaction: 'hide',
+                  'aria-label': words.close,
+                },
+                children: [lineGlyph('M6 6l12 12M18 6L6 18')],
+              },
+            ),
+            ...navLinks(plan, 'ck-link block rounded-lg px-3 py-3 text-lg font-medium'),
+            // The bar's action, which a phone's bar hides (HEADER_KIT) — here instead.
+            ctaLink(plan, 'ck-btn mt-4'),
+          ],
+        }),
+      ],
+    },
+  );
   return [toggle, sheet];
 }
 /*
@@ -956,8 +967,7 @@ function footerTree(plan: PagePlan, contract: SectionContract): TreeElement {
  * the lander reads roles from: the hero's heading is the page's one h1, every
  * other placeholder a `section` with its title as an h2.
  *
- * A provisional footer (p5-plan-stream additions) is a `footer`, not a
- * `section`: run-build reads a region's chrome role and the page's footer
+ * A provisional footer keeps its semantic tag: run-build reads its chrome role and footer
  * from the outer tag (`placeholderShape`, `isFooter`) until the finish
  * transaction writes the real one.
  */
@@ -982,6 +992,7 @@ function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement
 }
 
 function regionTree(plan: PagePlan, contract: SectionContract, provisional = false): TreeElement {
+  if (plan.design?.composition === 'bespoke') return placeholderTree(plan, contract);
   if (contract.role === 'header') return headerTree(plan, contract);
   if (contract.role === 'footer' && !provisional) return footerTree(plan, contract);
   return placeholderTree(plan, contract);
@@ -1035,11 +1046,13 @@ function planSite(plan: PagePlan, current: unknown): Record<string, unknown> | u
   const brand = brandName(plan).slice(0, SITE_NAME_MAX);
   const businessType = plan.seo?.businessType;
   const addName = typeof held['siteName'] !== 'string' && brand !== '';
-  const addBusiness = businessType !== undefined && !isPlainRecord(held['business']) && brand !== '';
+  const addBusiness =
+    businessType !== undefined && !isPlainRecord(held['business']) && brand !== '';
   // page-defects additions (2026-10-06): a business an earlier plan wrote ({type, name}, nothing the owner
   // added) and left generic takes this plan's specific kind — a Restaurant, not an Organization.
   const sharpened = sharpenedBusiness(held['business'], businessType);
-  if (!addName && !addBusiness && sharpened === undefined) return isPlainRecord(current) ? held : undefined;
+  if (!addName && !addBusiness && sharpened === undefined)
+    return isPlainRecord(current) ? held : undefined;
   return {
     ...held,
     ...(addName ? { siteName: brand } : {}),
@@ -1056,27 +1069,19 @@ function sharpenedBusiness(
   held: unknown,
   businessType: PagePlanBusinessType | undefined,
 ): Record<string, unknown> | undefined {
-  if (!isPlainRecord(held) || businessType === undefined || GENERIC_BUSINESS_TYPES.has(businessType)) return undefined;
+  if (
+    !isPlainRecord(held) ||
+    businessType === undefined ||
+    GENERIC_BUSINESS_TYPES.has(businessType)
+  )
+    return undefined;
   const planShaped = Object.keys(held).every((key) => key === 'type' || key === 'name');
   if (!planShaped || !GENERIC_BUSINESS_TYPES.has(held['type'])) return undefined;
   return { ...held, type: businessType };
 }
 
 /** A kit section filled from the plan's slots, when it fills cleanly. */
-function kitRegion(
-  plan: PagePlan,
-  contract: SectionContract,
-): { readonly kit: string; readonly tree: unknown; readonly css: string } | undefined {
-  if (contract.slots === undefined || contract.role === 'header' || contract.role === 'footer') {
-    return undefined;
-  }
-  const kit = planKit(contract.kit);
-  if (kit === undefined) return undefined;
-  // Each image gets the photo the plan assigned this section: no photo twice on a page.
-  const slots = fillSlotPhotos(kit, contract.slots, contract.key, pagePhotoPlan(plan), plan.locale.lang);
-  const filled = instantiatePlanKit(kit, slots, contract, plan.locale);
-  return filled.ok ? { kit: kit.id, tree: filled.region.tree, css: filled.region.css } : undefined;
-}
+
 /** The root's `seo` and `slug` from the plan, by the rules `skeletonFromPlan` documents. */
 function writeSeoAndSlug(
   plan: PagePlan,
@@ -1102,32 +1107,13 @@ const PAGE_LANG_MAX = 12;
 const REGION_LABEL_MAX = 80;
 
 /**
- * Step T2 of the page build: the page's skeleton, written by CODE from a
- * validated plan — no model call (agent-audit §3.1).
- *
- * The plan it returns contains only `removeNode` (for `replaceIds`),
- * `setDocMeta`, `setProp` and `insertNode` steps, in that order, and still
- * goes through the kernel door:
- *
- * - `setDocMeta {dir}` and the root's `title`, `description` (cut to the page
- *   block's 200) and `lang` — except when appending, where the page keeps the
- *   identity it already has.
- * - `pageCss`: the font imports, the tokens as custom properties (`--ck-bg`,
- *   `--ck-surface`, `--ck-ink`, `--ck-muted`, `--ck-accent`, `--ck-on-accent`,
- *   `--ck-accent-ink`, `--ck-border`, `--ck-radius`, `--ck-radius-button`,
- *   `--ck-font-display`, `--ck-font-body`) and the component kit
- *   (`PAGE_KIT_CLASSES`), fenced so a later append replaces it.
- * - the root's `seo` (the plan's keyword and kind, and the facts ledger's
- *   samples, merged over what the root holds) and `slug` — only where the
- *   root block declares them (`rootProps`), never when appending.
- * - one region per section, in page order, carrying its `anchorId` on its
- *   outer element and its title as the label: the header and footer written
- *   in full from the plan, a kit section whose slots the planner filled
- *   written in full from its kit, every other section a role-correct
- *   placeholder.
- *
- * Pure and deterministic: the same plan and context give the same steps.
- *
+ * Derive a deterministic skeleton through the kernel command door, without a model call.
+ * Remove replaced regions before setting page metadata and inserting sections in plan order.
+ * Append retains page identity; SEO and slug writes require declared root props.
+ * The fenced page CSS provides shared fonts, tokens and optional kit styles.
+ * Bespoke regions remain writer-owned. Legacy chrome and valid kit slots can be completed here;
+ * provisional skeletons leave footer/kit content and final SEO to `skeletonFinish`.
+ * Each region retains its anchor and title for subsequent writer targeting.
  * @throws never for a plan that passed `validatePagePlan`.
  */
 export function skeletonFromPlan(
@@ -1190,8 +1176,8 @@ export function skeletonFromPlan(
       step,
       complete:
         filled !== undefined ||
-        contract.role === 'header' ||
-        (contract.role === 'footer' && !provisional),
+        (plan.design?.composition !== 'bespoke' &&
+          (contract.role === 'header' || (contract.role === 'footer' && !provisional))),
       ...(filled === undefined ? {} : { kit: filled.kit }),
     };
   });
@@ -1285,6 +1271,7 @@ export function skeletonFinish(input: SkeletonFinishInput): SkeletonFinishResult
     commands.push({ command: 'setProp', args: { id, key, value } });
   };
   for (const contract of final.sections) {
+    if (final.design?.composition === 'bespoke') continue;
     const id = regions.get(contract.key);
     if (id === undefined) continue;
     if (contract.role === 'header') {
@@ -1310,7 +1297,9 @@ export function skeletonFinish(input: SkeletonFinishInput): SkeletonFinishResult
   return {
     plan: {
       rationale: `The page skeleton for "${final.title}", finished from the final plan: ${
-        complete.length === 0 ? 'the page settings' : `${String(complete.length)} sections written in full`
+        complete.length === 0
+          ? 'the page settings'
+          : `${String(complete.length)} sections written in full`
       }.`,
       commands,
     },

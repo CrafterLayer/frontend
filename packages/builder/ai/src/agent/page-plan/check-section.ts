@@ -4,6 +4,7 @@ import { isVerifiedImageUrl } from '../../art-catalog/verified-image';
 import { normalizeIntentText } from '../../intent/normalize-arabic';
 import { isTreeMarkup, parseTreeMarkup } from '../../plan/tree-markup';
 import { PAGE_PLAN_PALETTE_HEX } from './palette';
+import { sectionButtonActions } from './section-button-actions';
 import { pageKitGrounds, type PageKitColours, type PageKitGrounds } from './skeleton-from-plan';
 import type {
   LandedSection,
@@ -539,26 +540,14 @@ const LINE_ELEMENTS = new Set([
 ]);
 
 const BRACKETED = /\[[^[\]\n]*\p{L}[^[\]\n]*\]/u;
+const PERSONAL_LABEL = /^\[[\p{L}\p{M}\p{N}\s'’.,/-]{1,80}\]$/u;
 const MUSTACHE = /\{\{[^}]*\}\}/u;
 const LOREM = /\blorem\b(?:\s+ipsum)?|\bipsum\s+dolor\b/iu;
 /** The Arabic "lorem ipsum" (هذا النص هو مثال لنص…), folded; and its transliteration. */
 const ARABIC_FILLER = ['هذا النص هو مثال', 'لوريم ايبسوم'];
 const SCAFFOLD_LEFTOVERS = ['THE SECTION TITLE'];
 
-/*
-  Facts written as their stand-ins. Four of five live Dubai plans of
-  2026-09-28 sampled the phone as "+971 4 XXX XXXX", and the writers put the
-  samples on the page as given; none of BRACKETED, MUSTACHE or LOREM reads a
-  mask, so it shipped. Three shapes, each a value that is not one:
-  - a mask: three or more X where letters or digits belong (XXX-XXXX, 07XXXXXXXX);
-  - masked digits: a phone-shaped run (it starts with +, ( or 0) of seven or
-    more digits holding six of one digit in a row — 0000000, +962 7 9000 0000,
-    (555) 555-5555 — or counting seven in a row, the other stand-in a writer
-    reaches for (+962 79 123 4567). A price never starts that way, so
-    1,000,000 is left alone;
-  - an address at a placeholder domain (info@example.com, www.yourdomain.com,
-    hello@yourbusiness.com).
-*/
+// Masked facts: XXX, phone-shaped repeated/counting digits, or a placeholder domain.
 const MASK_LETTERS = /(?<!\p{L})[xX]{3,}(?!\p{L})/u;
 const PHONE_RUN = /[+(]?[0-9][0-9 ().-]{5,}[0-9]/gu;
 /**
@@ -1079,9 +1068,9 @@ function targetKey(href: string): string {
   // A WhatsApp chat is its number: the ?text= prefill is wording, not a destination.
   const whatsapp =
     /^(?:https?:\/\/)?(?:www\.)?wa\.me\/\+?([0-9٠-٩۰-۹]+)/iu.exec(trimmed)?.[1] ??
-    (/^(?:https?:\/\/)?(?:api|web)\.whatsapp\.com\/send\/?\?(?:[^#]*&)?phone=\+?([0-9٠-٩۰-۹]+)/iu.exec(
+    /^(?:https?:\/\/)?(?:api|web)\.whatsapp\.com\/send\/?\?(?:[^#]*&)?phone=\+?([0-9٠-٩۰-۹]+)/iu.exec(
       trimmed,
-    )?.[1]);
+    )?.[1];
   if (whatsapp !== undefined) return `whatsapp:${asciiDigits(whatsapp)}`;
   if (/^tel:/iu.test(trimmed)) {
     return `tel:${asciiDigits(trimmed.slice(4)).replace(/[^0-9+]/gu, '')}`;
@@ -1189,10 +1178,15 @@ function luminanceOf(hex: string): number {
 }
 
 /** The token class nearest in lightness (`target`, relative luminance) for this utility, or undefined (dropped). */
-function tokenClassFor(property: string, target: number, tokens: PagePlanTokens): string | undefined {
+function tokenClassFor(
+  property: string,
+  target: number,
+  tokens: PagePlanTokens,
+): string | undefined {
   const table =
     property === 'bg' ? GROUND_TOKEN_CLASSES : property === 'text' ? TEXT_TOKEN_CLASSES : undefined;
-  if (table === undefined) return /^border(?:-[trblxyse])?$/u.test(property) ? 'ck-border' : undefined;
+  if (table === undefined)
+    return /^border(?:-[trblxyse])?$/u.test(property) ? 'ck-border' : undefined;
   let best: { readonly name: string; readonly distance: number } | undefined;
   for (const [token, name] of table) {
     const value = tokens[token];
@@ -1406,11 +1400,7 @@ export function checkSection(
       );
     }
   }
-  /*
-    A jump inside the section is a working link: a FAQ's own table of contents
-    (`#q1` → the id q1 on one of its answers) was told it "points at no
-    section" and cost a repair round (verifier, 2026-09-28).
-  */
+  // In-section targets are valid alongside the page's section anchors.
   const ownIds = new Set<string>();
   for (const entry of elements) {
     const id = attribute(entry.node, 'id');
@@ -1458,11 +1448,10 @@ export function checkSection(
     );
   }
 
-  // ── the page's action ──
+  // Authored pages need no sales CTA; links that carry it still keep the declared destination.
   const cta = plan.primaryCta;
   const ctaLabel = collapse(cta.label);
-  /*
-    The action's words, folded: "Get a quote →" (an arrow glyph after the
+  /* The action's words, folded: "Get a quote →" (an arrow glyph after the
     words) and "اطلب الان" (no hamza) are the action's label; relabelling them
     cost a repair round for a button that was right.
   */
@@ -1497,24 +1486,17 @@ export function checkSection(
   let carriesAction = false;
   let deadButton: LandedNode | undefined;
   const wrongLabels = new Map<string, string>();
-  /*
-    The action's words on a link that goes somewhere else: a visitor who
-    presses "اطلب الآن" must reach the order. `<a class='ck-btn'
-    href='#faq'>اطلب الآن</a>` in a band passed, and in the hero the only
-    issue raised asked for a SECOND button beside it (verifier, 2026-09-28).
-    Keyed by where it leads, so each wrong target is named once.
-  */
+  // Navigation with the action's label must keep its destination, even beside valid page JS.
   const misdirected = new Map<string, LandedNode>();
+  const buttonActions = sectionButtonActions(elements, landed.js);
   for (const entry of actions) {
     const label = labels.get(entry) ?? '';
     const href = attribute(entry.node, 'href')?.trim();
-    /*
-      The renderer keeps `href` on an `a` only (CustomCode.tsx
-      elementAttributes), so a button — whatever it is written with — goes
-      nowhere: one that carries the action's words or its address is dead.
-    */
     if (tagOf(entry) === 'button') {
-      if (saysAction(label) || sameTarget(href, cta.href)) deadButton ??= entry;
+      if (saysAction(label) || sameTarget(href, cta.href)) {
+        if (buttonActions.has(entry)) carriesAction = true;
+        else deadButton ??= entry;
+      }
       continue;
     }
     if (!sameTarget(href, cta.href)) {
@@ -1543,12 +1525,15 @@ export function checkSection(
   if (deadButton !== undefined) {
     add(
       'cta-label',
-      `Make the page's action a link — a button cannot go anywhere: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>.`,
+      plan.design?.composition === 'bespoke'
+        ? `Wire this action button to a supported native behavior or an explicit permitted click handler. For navigation, use a link: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>; href on a button does not navigate.`
+        : `Make the page's action a link: <a href='${cta.href}' class='ck-btn'>${cta.label}</a>. A button needs a supported native behavior or explicit permitted click handler; href on a button does not navigate.`,
       deadButton.path,
     );
   } else if (
     !carriesAction &&
     misdirected.size === 0 &&
+    plan.design?.composition !== 'bespoke' &&
     (contract.role === 'hero' || contract.role === 'cta')
   ) {
     add(
@@ -1558,6 +1543,7 @@ export function checkSection(
   }
 
   // ── placeholders ──
+  const personal = plan.design?.kind === 'resume' || plan.design?.kind === 'portfolio';
   const shown: { value: string; path: string; line?: LandedNode }[] = [];
   for (const entry of nodes) {
     const own = text(entry.node['text']);
@@ -1579,7 +1565,9 @@ export function checkSection(
   for (const { value, path } of shown) {
     const folded = foldForMatch(value);
     const found =
-      BRACKETED.exec(value)?.[0] ??
+      [...value.matchAll(new RegExp(BRACKETED, 'gu'))].find(
+        ([label]) => !personal || !PERSONAL_LABEL.test(label),
+      )?.[0] ??
       MUSTACHE.exec(value)?.[0] ??
       LOREM.exec(value)?.[0] ??
       ARABIC_FILLER.find((phrase) => folded.includes(foldForMatch(phrase))) ??
@@ -1610,7 +1598,7 @@ export function checkSection(
       }
       continue;
     }
-    if (line === undefined || LABEL_TAGS.has(tagOf(line).toLowerCase())) continue;
+    if (personal || line === undefined || LABEL_TAGS.has(tagOf(line).toLowerCase())) continue;
     const field = fieldNamed(value);
     if (field === undefined || (field === 'phone' && showsPhone)) continue;
     if (field === 'email' && showsEmail) continue;
@@ -1618,20 +1606,29 @@ export function checkSection(
     if (!placeholders.has(quoted)) placeholders.set(quoted, { path, fact: true });
   }
   for (const { href, path } of hrefs) {
-    // The plan's own action address is the writer's to copy, not to change.
-    if (sameTarget(href, cta.href) || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href)) continue;
+    // Business sample destinations retain legacy behavior; personal contacts must be real.
+    if ((!personal && sameTarget(href, cta.href)) || !/^(?:tel:|mailto:|https?:|\/\/)/iu.test(href))
+      continue;
     const address = href.replace(/^(?:tel:|mailto:)/iu, '');
-    const masked = maskedValue(address);
-    if (masked !== undefined && !planNumber(address, planNumbers) && !placeholders.has(masked)) {
+    const masked =
+      maskedValue(address) ??
+      (personal ? (BRACKETED.exec(address)?.[0] ?? MUSTACHE.exec(address)?.[0]) : undefined);
+    if (
+      masked !== undefined &&
+      (personal || !planNumber(address, planNumbers)) &&
+      !placeholders.has(masked)
+    ) {
       placeholders.set(masked, { path, fact: true });
     }
   }
   for (const [found, { path, fact }] of [...placeholders].slice(0, MAX_PLACEHOLDERS)) {
     add(
       'placeholder-left',
-      fact
-        ? `Replace "${found}" with a complete, realistic value in the page's own format (listed as a fact for the owner, who edits it later): never a mask (XXX, 0000), a field's name or an example address — the page ships as written.`
-        : `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
+      personal
+        ? `Replace "${found}" using only the person's supplied facts. Omit missing details or mark them with a clear, plain missing-data label; never invent employers, qualifications, metrics or contact details. Remove filler and fake addresses, including non-working links.`
+        : fact
+          ? `Replace "${found}" with a complete, realistic value in the page's own format (listed as a fact for the owner, who edits it later): never a mask (XXX, 0000), a field's name or an example address — the page ships as written.`
+          : `Replace "${found}" with finished copy: a realistic, specific sample in the page's language (listed as a fact for the owner), never a placeholder or filler text.`,
       path,
     );
   }
@@ -1735,7 +1732,7 @@ export function checkSection(
     }
   }
   const raw = [...rawClasses.keys(), ...new Set(rawLiterals)];
-  if (raw.length > 0) {
+  if (raw.length > 0 && plan.design?.composition !== 'bespoke') {
     add(
       'raw-colour',
       `Colour with the page's tokens, not ${quoteList(raw)}: grounds ck-ground, ck-surface, ck-card, ck-inverse or ck-accent-fill; text ck-ink, ck-muted or ck-accent-ink; hairlines ck-border; buttons ck-btn; in the region css var(--ck-bg), var(--ck-ink), var(--ck-accent) and the rest. Black and white tints (bg-black/50) are fine.`,

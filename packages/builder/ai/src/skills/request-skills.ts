@@ -30,6 +30,8 @@ export interface RequestSkillContext {
   readonly contractText?: string;
   /** A section's role: header, hero, band, cta or footer. Section lane. */
   readonly role?: string;
+  /** Validated page design: bespoke writers do not receive automatic layout recipes. */
+  readonly composition?: 'bespoke' | 'hybrid';
   /** Skills the person switched off; never returned. */
   readonly excluded?: readonly string[];
   /** Skills the step already holds; skipped without counting against the cap. */
@@ -65,6 +67,7 @@ const PRO_MAX_UX = 'craftkit.pro-max-ux';
 const FORMS_CONVERT = 'craftkit.forms-convert';
 const NATURAL_COPY = 'craftkit.natural-copy';
 const TRUST_PROOF = 'craftkit.trust-proof';
+const CV_PAGE = 'craftkit.cv-page';
 
 /** A report or dashboard asked for in the request. */
 const REPORT_WORDS = [
@@ -212,6 +215,7 @@ const COPY_WORDS = [
 const DEFAULT_IDS: ReadonlySet<string> = new Set(CRAFTKIT_DEFAULT_SKILLS.map(({ id }) => id));
 /** The ids this table adds outside the creative set and the default skills. */
 const ADDED_IDS: ReadonlySet<string> = new Set([
+  CV_PAGE,
   DATA_VIZ,
   ART_NAMES,
   LOGO_DESIGN,
@@ -242,8 +246,13 @@ function ownKeywords(registry: AiSkillRegistry, id: string): readonly string[] {
 }
 
 /** What the request asks for, in priority order: the same in every lane that reads requests. */
-function requestCandidates(registry: AiSkillRegistry, words: Words): readonly string[] {
+function requestCandidates(
+  registry: AiSkillRegistry,
+  words: Words,
+  lane: RequestSkillLane,
+): readonly string[] {
   return [
+    ...(lane !== 'edit' && holdsAny(words, ownKeywords(registry, CV_PAGE)) ? [CV_PAGE] : []),
     ...(holdsAny(words, ownKeywords(registry, LOGO_DESIGN)) ? [LOGO_DESIGN] : []),
     ...(holdsAny(words, REPORT_WORDS) ? [DATA_VIZ] : []),
     ...(holdsAny(words, ownKeywords(registry, ART_NAMES)) ? [ART_NAMES] : []),
@@ -252,12 +261,16 @@ function requestCandidates(registry: AiSkillRegistry, words: Words): readonly st
 }
 
 /** The default skills a section of this role and contract uses, most specific first. */
-function sectionDefaults(role: string | undefined, contract: Words): readonly string[] {
+function sectionDefaults(
+  role: string | undefined,
+  contract: Words,
+  recipes: boolean,
+): readonly string[] {
   const ids: string[] = [];
-  if (role === 'hero') ids.push(PRO_MAX_DESIGN, PRO_MAX_LANDING);
+  if (role === 'hero') ids.push(PRO_MAX_DESIGN, ...(recipes ? [PRO_MAX_LANDING] : []));
   if (role === 'header' || role === 'footer') ids.push(PRO_MAX_UX);
   if (holdsAny(contract, FORM_WORDS)) ids.push(FORMS_CONVERT);
-  if (role === 'cta' || holdsAny(contract, PRICING_WORDS)) ids.push(PRO_MAX_LANDING);
+  if (recipes && (role === 'cta' || holdsAny(contract, PRICING_WORDS))) ids.push(PRO_MAX_LANDING);
   if (holdsAny(contract, TRUST_WORDS)) ids.push(TRUST_PROOF);
   if (holdsAny(contract, COPY_WORDS)) ids.push(NATURAL_COPY);
   return ids;
@@ -269,18 +282,22 @@ function sectionCandidates(
   request: Words,
   contract: Words,
   role: string | undefined,
+  composition: RequestSkillContext['composition'],
 ): readonly string[] {
+  const personal = holdsAny(request, ownKeywords(registry, CV_PAGE));
+  const recipes = !personal && composition !== 'bespoke';
   return [
     ...(holdsAny(contract, ownKeywords(registry, LOGO_DESIGN)) ||
     (role === 'header' && holdsAny(request, ownKeywords(registry, LOGO_DESIGN)))
       ? [LOGO_DESIGN]
       : []),
     ...(holdsAny(contract, CHART_WORDS) ? [DATA_VIZ] : []),
+    ...(personal ? [CV_PAGE] : []),
     ...(holdsAny(contract, ownKeywords(registry, ART_NAMES)) ? [ART_NAMES] : []),
-    ...(holdsAny(contract, CONVERSION_WORDS) ? [CONVERSION_RECIPES] : []),
-    ...(holdsAny(contract, STRUCTURE_WORDS) ? [STRUCTURE_RECIPES] : []),
+    ...(recipes && holdsAny(contract, CONVERSION_WORDS) ? [CONVERSION_RECIPES] : []),
+    ...(recipes && holdsAny(contract, STRUCTURE_WORDS) ? [STRUCTURE_RECIPES] : []),
     ...(holdsAny(request, BILINGUAL_WORDS) ? [ARABIC_RTL] : []),
-    ...sectionDefaults(role, contract),
+    ...sectionDefaults(role, contract, recipes),
   ];
 }
 
@@ -334,8 +351,14 @@ export function requestSkillIdsFor(
         ).filter(usable);
   const words = readRequestWords(request);
   const candidates = section
-    ? sectionCandidates(registry, words, readRequestWords(ctx.contractText ?? ''), ctx.role)
-    : requestCandidates(registry, words);
+    ? sectionCandidates(
+        registry,
+        words,
+        readRequestWords(ctx.contractText ?? ''),
+        ctx.role,
+        ctx.composition,
+      )
+    : requestCandidates(registry, words, lane);
   const cap = section ? SECTION_SKILL_TOKEN_CAP : REQUEST_SKILL_TOKEN_CAP;
   const taken = new Set([...creative, ...present]);
   const added: string[] = [];
@@ -364,3 +387,4 @@ export function withoutRequestLaneSkillIds(ids: readonly string[]): readonly str
 
 /** Re-exported for the package entry: the creative half of this table. */
 export { pixiSkillIdsFor } from './creative/pixi-selection';
+export { explicitRequestSkillIdsFor } from './design-requests';

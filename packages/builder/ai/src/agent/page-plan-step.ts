@@ -1,7 +1,7 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import type { AiContextProvider } from '@craftkit/builder-schema';
 import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
-import { withHostSkills, type AiHostSkillOptions } from './host-skills';
+import { explicitSkills, withHostSkills, type AiHostSkillOptions } from './host-skills';
 import { assembleAiContext, type AiCompositionPolicy } from '../context';
 import {
   createPhotoCatalogContextProvider,
@@ -193,7 +193,8 @@ async function proposeActivePagePlan(
   const arabic = isArabicPage(input.kernel, input.request);
   const registry = input.skillRegistry;
   // Switched off by the person (2026-10-14): never named (the deck is engine-required, kept).
-  const excluded = excludedSkillIdsOf(input);
+  const explicit = explicitSkills(input);
+  const excluded = excludedSkillIdsOf({ ...input, selectedSkillIds: explicit });
   const selectedSkillIds = withoutExcluded(
     planSkillIds(
       registry,
@@ -201,6 +202,7 @@ async function proposeActivePagePlan(
       arabic,
       kitsAvailable(),
       withHostSkills(input, requestSkillIdsFor(registry, input.request, 'page-plan', { excluded })),
+      explicit,
     ),
     excluded,
   );
@@ -307,6 +309,7 @@ async function proposeActivePagePlan(
     maxSections: input.maxSections ?? PAGE_PLAN_MAX_SECTIONS,
     // The planner's answer is completed in code: header, footer, menu, hero photo, contact details.
     completePage: true,
+    request: input.request,
   };
   const first = await ask();
   const firstCandidate: PagePlanCandidate = first.pagePlan;

@@ -6,6 +6,8 @@ import { requestSkillIdsFor } from '../skills/request-skills';
 import type { AiSkillRegistry } from '../skills';
 import { excludedSkillIdsOf, withoutExcluded } from './excluded-skills';
 import { planKitIndex } from './page-plan/kits';
+import { requestedPageDesign } from './page-plan/design';
+import { explicitSkills } from './host-skills';
 import type { AiAgentPolicy } from './types';
 
 /*
@@ -87,9 +89,9 @@ export function withRequestedLook(request: string): string {
 */
 const INTENT_LINE: Readonly<Record<IntentTarget, string>> = {
   'new-page':
-    'INTENT: new-page — a whole new page: optionally a header first, then one hero, then bands, optionally a footer last.',
+    'INTENT: new-page — a new authored page. Choose its composition and order; one hero role owns the h1, other regions are optional.',
   replace:
-    'INTENT: replace — a whole page that replaces what the page holds now: optionally a header first, then one hero, then bands, optionally a footer last.',
+    'INTENT: replace — replace the page with the authored composition. Choose its order; one hero role owns the h1, other regions are optional.',
   append:
     'INTENT: append — sections added to a page that already has its header, hero and footer: bands and calls to action only.',
 };
@@ -220,7 +222,7 @@ function designLine(): string {
   enough that the planner can write it whole, so it needs no writer at all.
 */
 const KIT_LINE =
-  'KITS: give every section except the header and footer "kit": one id below whose role fits it (hero → a hero kit; cta → a closing kit). Fill "slots" ONLY for a short section — stats, logos, a cta, a faq of 6 or fewer — so it needs no writer: slot names as listed (a name ending [] is a list of items), text in the page language, a link {"label","href"} (actions carry primaryCta), an image {"subject","alt"}. Leave "slots" out everywhere else. A local business (restaurant, café, clinic, salon, shop): its booking or contact section is kit contact-split, and that section\'s facts carry the phone, WhatsApp, opening hours and address.';
+  'OPTIONAL KITS: only when the person requests existing templates, choose a kit whose role fits. Otherwise author the composition with semantic tree and scoped CSS. Do not assign kits or variants by habit. Slots may complete an explicitly chosen short kit; authored sections describe their own layout.';
 const SEO_LINE =
   'SEO: add "seo":{"keyword":"<the one phrase this page should be found by, in its language, ≤ 80 characters>","pageKind":"home|menu|product|service|about|contact|article|landing","businessType":"Restaurant|CafeOrCoffeeShop|Bakery|Dentist|MedicalClinic|LegalService|Store|BeautySalon|LocalBusiness|Organization","slug":"<2-5 words of the keyword, in the page language>"}; businessType only when the page is for one: a place people visit or call takes its kind (Restaurant, Dentist, LegalService…, else LocalBusiness); software, a SaaS, an app or an online product is an Organization, never LocalBusiness. Put the keyword in the title and the hero naturally.';
 
@@ -236,11 +238,18 @@ export function planningRequest(
   kits: boolean = kitsAvailable(),
 ): string {
   const asked = withRequestedLook(request);
+  const design = requestedPageDesign(request);
   return [
     asked,
+    `DESIGN CONTRACT: ${JSON.stringify(design)}. Write design before sections; replace concept with a concrete subject-specific composition, hierarchy and visual direction. Describe each authored section in layout (at most 240 characters). Choose 1–12 composition units; one region may contain the entire page. The visual order and geometry are yours. No automatic header/footer or stock-photo hero. Use templates only when requested.`,
+    ...(anotherLookRequested(request)
+      ? [
+          'ALTERNATIVE DESIGN: change composition, hierarchy and spatial rhythm while preserving the supplied content; a palette swap alone is insufficient.',
+        ]
+      : []),
     ...(target === undefined ? [] : [INTENT_LINE[target]]),
     designLine(),
-    ...(kits ? [KIT_LINE, planKitIndex()] : []),
+    ...(kits ? [KIT_LINE, ...(design.composition === 'hybrid' ? [planKitIndex()] : [])] : []),
     SEO_LINE,
   ].join('\n');
 }
@@ -311,21 +320,16 @@ export function planSkillIds(
   arabic: boolean,
   kits: boolean = kitsAvailable(),
   creative: readonly string[] = [],
+  explicit: readonly string[] = [],
 ): readonly string[] {
-  return fittingSkillIds(
-    registry,
-    policy,
-    [],
-    [
-      DIRECTION_DECK,
-      // The kit index replaces the variant library when there are kits to name.
-      ...(kits ? [] : [SECTION_VARIANTS]),
-      COPYWRITING,
-      ...(arabic ? [ARABIC_RTL] : []),
-      // Last, so a tight budget sheds the request's skills before the plan's own (2026-10-14).
-      ...creative,
-    ],
-  );
+  return fittingSkillIds(registry, policy, explicit, [
+    ...creative,
+    DIRECTION_DECK,
+    // The kit index replaces the variant library when there are kits to name.
+    ...(kits ? [] : [SECTION_VARIANTS]),
+    COPYWRITING,
+    ...(arabic ? [ARABIC_RTL] : []),
+  ]);
 }
 
 /**
@@ -345,11 +349,13 @@ export function pagePlanningBrief(
     readonly policy?: Partial<AiAgentPolicy>;
     /** Built-in skills switched off (2026-10-14), already without engine-required ones. */
     readonly excludedSkillIds?: readonly string[];
+    readonly selectedSkillIds?: readonly string[];
   },
   kits: boolean = kitsAvailable(),
 ): { readonly request: string; readonly skillIds: readonly string[] } {
   const arabic = isArabicPage(kernel, input.request);
-  const excluded = excludedSkillIdsOf(input);
+  const explicit = explicitSkills(input);
+  const excluded = excludedSkillIdsOf({ ...input, selectedSkillIds: explicit });
   return {
     request: planningRequest(input.request, input.target, kits),
     skillIds: withoutExcluded(
@@ -359,6 +365,7 @@ export function pagePlanningBrief(
         arabic,
         kits,
         requestSkillIdsFor(input.skillRegistry, input.request, 'page-plan', { excluded }),
+        explicit,
       ),
       excluded,
     ),

@@ -138,6 +138,7 @@ export {
   type PagePlanLocale,
   type PagePlanNavItem,
   type PagePlanRadius,
+  type PagePlanDesign,
   type PagePlanTokens,
   type PagePlanValidationResult,
   type SectionCheckCode,

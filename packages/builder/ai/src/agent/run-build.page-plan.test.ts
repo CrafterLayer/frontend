@@ -37,7 +37,6 @@ import {
   type AiBuildOwnEvent,
   type PagePlan,
 } from './index';
-// From its module: the barrel's page-plan/plan-ai-page.ts is still another owner's stub.
 import { planAiPage } from './plan-page';
 
 /*
@@ -436,8 +435,7 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
       ['Order today', 'applied'],
       ['Footer', 'applied'],
     ]);
-    // Each written section landed in its own labelled transaction; a region the skeleton
-    // wrote in full (a footer from the plan) needs no writer at all.
+    // Each authored section lands in its own labelled transaction.
     const written = result.tasks.filter(({ attempts }) => attempts > 0);
     expect(script.fills).toHaveLength(written.length);
     for (const task of written) {
@@ -461,8 +459,8 @@ describe('runAiBuild from a page plan — T1 plans, code lays the skeleton, writ
     expect(hero.request).toContain('PURPOSE: Say what the roastery is and invite the first order.');
     expect(hero.request).toContain('MUST SAY: "Roasted in Amman"');
     expect(hero.request).toContain('id="hero"');
-    // 2026-09-30: a section with a variant is kit-backed — its default kit, one tool step.
-    expect(hero.request).toContain('"kit":"hero-split"');
+    // Fresh plans preserve authored composition even when an old provider returns a variant.
+    expect(hero.request).toContain('AUTHOR THIS COMPOSITION:');
     expect(hero.request).toContain('ROLE: HERO');
     expect(hero.request).toContain('PRIMARY ACTION: "Order beans" → #order');
     // A markup writer (no variant, so no kit) still gets the page's tokens.
@@ -913,7 +911,7 @@ describe('where a page-plan build lands, and how it stops', () => {
     expect(childLabels(live)).toEqual(['Old old-hero', 'Our coffees', 'Order today', 'Old footer']);
   });
 
-  it('lands no written section after Stop; what the skeleton wrote in full stays', async () => {
+  it('lands no authored section after Stop and retains all unfilled targets', async () => {
     const live = kernel();
     const controller = new AbortController();
     const script = scripted({
@@ -940,11 +938,11 @@ describe('where a page-plan build lands, and how it stops', () => {
     expect(labels(live)).toEqual([PAGE_SKELETON_LABEL]);
     const statuses = result.tasks.map(({ sectionKey, status }) => [sectionKey, status]);
     expect(statuses).toEqual([
-      ['header', 'applied'],
+      ['header', 'not-started'],
       ['hero', 'not-started'],
       ['menu', 'not-started'],
       ['order', 'not-started'],
-      ['footer', 'applied'],
+      ['footer', 'not-started'],
     ]);
     expect(
       result.tasks
@@ -952,9 +950,11 @@ describe('where a page-plan build lands, and how it stops', () => {
         .every(({ reasonCode }) => reasonCode === 'stopped'),
     ).toBe(true);
     expect(result.unfilled?.map(({ title }) => title)).toEqual([
+      'Header',
       'Roasted this morning',
       'Our coffees',
       'Order today',
+      'Footer',
     ]);
   });
 });
@@ -1387,7 +1387,7 @@ describe('runAiBuild — free code mode (the composer switch «وضع الكود
     expect(menu?.context.skills?.map(({ id }) => id)).toContain('craftkit.pixi-games');
     const hero = script.fills.find((call) => call.request.includes('ROLE: HERO'));
     expect(hero?.context.skills?.map(({ id }) => id)).not.toContain('craftkit.pixi-games');
-    expect(hero?.request).toContain('"kit":"hero-split"');
+    expect(hero?.request).toContain('AUTHOR THIS COMPOSITION:');
   });
 
   it('is on the plan call and on every writer when the build turned it on, and on neither when it did not', async () => {

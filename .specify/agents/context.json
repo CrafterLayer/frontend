@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-20",
+  "updatedAt": "2026-10-21",
   "project": {
     "name": "craftkit-builder",
     "workspace": "frontend",
     "shape": "large-multi-application-monorepo",
-    "phase": "professional-builder-agent-014-report-capabilities-locally-verified-release-open",
+    "phase": "professional-builder-agent-014-free-design-locally-verified-release-open",
     "applicationScaffoldPresent": true,
     "documentationScaffoldPresent": true,
     "gitRepositoryPresent": true,
@@ -228,23 +228,23 @@
     ]
   },
   "currentWork": {
-    "status": "idle-report-capabilities-locally-verified",
-    "scope": "Marketing Chart/Stats/Report, builder-ai data tools and skills, evals browser proof; RP1..RP7/T303..T309",
+    "status": "idle-local-free-design-complete",
+    "scope": "builder-ai design/skills/streaming/checker, ai-server prompt/schema, Playground plan editing, evals browser; FD1..FD5/T310..T315",
     "activeSpec": "specs/workspace/014-professional-builder-agent/spec.md",
-    "activeIncrement": "specs/workspace/014-professional-builder-agent/report-capabilities-2026-10-20.md",
-    "verification": "specs/workspace/014-professional-builder-agent/verification-report-capabilities-2026-10-20.md",
-    "research": "specs/workspace/014-professional-builder-agent/research-report-capabilities-2026-10-20.md",
-    "completedTasks": "T303..T309 / RP1..RP7 locally complete. Twenty-one chart families, five report presentations, richer Key Stats and preserved compact-report updates. AI 595 behaviors covered across the main run and corrected 9-case menu rerun; marketing 224 plus overlapping 28 advanced/SSR; full-catalog readiness 3; Storybook browser interactions/a11y 63; actual tool/kernel/DocumentView browser 56/56. Four owner/consumer typechecks, scoped lint/format, Playground production/initial-load budgets, Storybook build and workspace/component/file-size/boundary gates passed. Independent native review and final scoped convergence closed without actionable findings.",
-    "nextUncompletedTask": "None for RP1..RP7 / T303..T309. Rollout or live-provider benchmark is separate work.",
+    "activeIncrement": "specs/workspace/014-professional-builder-agent/free-design-2026-10-20.md",
+    "verification": "specs/workspace/014-professional-builder-agent/verification-free-design-2026-10-21.md",
+    "research": "specs/workspace/014-professional-builder-agent/research-free-design-2026-10-20.md",
+    "completedTasks": "T310..T315 / FD1..FD5 complete locally: all new designs default bespoke; explicit skills survive planner/writer budgets; arbitrary composition and supported JS; persisted layout/design and bounded legacy content; streaming and plan-editor preservation; truthful personal placeholders. Independent review findings repaired and final local convergence clean. See verification for exact overlapping test groups.",
+    "nextUncompletedTask": "None for this local increment. Live provider design evaluation and deployment remain separate, unperformed work.",
     "reviewDecision": {
       "date": "2026-10-13",
       "userInstruction": "لا، اكتفِ بالمراجعة المحلية",
       "result": "Local independent review accepted for this increment. After automatic approval review rejected the external CLI action, the user declined it. The enforced external runtime review is waived only for this scope; it was not run and no CLI pass is claimed.",
       "exceptionPlan": "specs/workspace/014-professional-builder-agent/plan.md",
-      "continuation": "2026-10-20 report-capabilities continuation used a fresh native read-only reviewer. Numeric, ownership, labeling and routing findings were repaired and rechecked; final integration review has no actionable findings. No external CLI or professional-sdd workflow-engine pass claimed."
+      "continuation": "2026-10-21 free-design continuation: fresh native read-only reviewer found six issues; fixes plus selector/tidy regressions rechecked, no open findings. User local-only preference preserved; no external CLI or workflow-engine pass claimed."
     },
-    "verificationLimits": "Browser uses actual tools/kernel/DocumentView with app styles/fonts in a focused local harness; not composer keyboard or live-model/provider cost/latency/adherence proof. Full CI, physical touch and complete standalone export packaging unverified; advanced figures pass server-rendered SVG checks. Chart catalog is finite: flat treemap, bounded histogram, supplied five-number summaries and OHLC. report.page remains separate editable sections; compact Report supports same-ID refresh. Other device unchanged.",
-    "continuation": "Preserve 115 staged prior files (5919 insertions/672 deletions); new continuation is unstaged. Preserve concurrent apps/ai-server Codex-backend and specs/apps changes, excluded from this review. No stage/commit/push/deployment or paid provider call."
+    "verificationLimits": "Scripted public-Builder/kernel/DocumentView browser:20/20,6 one-planner/one-writer builds,12 screenshots,zero section issues/repairs/page errors/provider calls. Not live-model quality/latency/cost proof, full CI, physical touch or another device. External Google-font requests blocked; local app fonts used. Static button binding checks are not universal JS execution proof. Existing freeCode preference still governs JS. No service restart or deployment.",
+    "continuation": "Started clean at 52ab7448. Current changes unstaged/uncommitted. Earlier report/continuation/mural work preserved. No installs, migration, commit, push or deployment."
   },
   "qualityGates": {
     "governanceConfigured": true,

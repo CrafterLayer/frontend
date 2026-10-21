@@ -35,8 +35,7 @@ import { PAGE_SKELETON_LABEL, runAiBuild, type AiBuildEvent, type AiBuildOwnEven
   every writer waited for the whole plan — skeleton at 37 s, first section at
   44 s, page at 65 s.
 
-  The fake planner here streams the answer in chunks through `live.onDraft`
-  and resolves only when the test lets it, so every assertion about "before
+  The fake planner streams through `live.onDraft` and resolves only when released; assertions "before
   the plan is in" is made while it is genuinely not in.
 */
 
@@ -474,7 +473,8 @@ function baseOptions(live: BuilderKernel, provider: AiPlanProvider, events?: AiB
     clock: { now: () => 1 },
     kernel: live,
     provider,
-    request: 'Build a landing page for Cardamom Roasters, a specialty coffee roastery in Amman',
+    request:
+      'Build a landing page for Cardamom Roasters, a specialty coffee roastery in Amman using existing templates',
     validationPorts: { clock: { now: () => 1 }, ids: seededIds('stream-build-door') },
     skillRegistry: createCraftkitAiSkillRegistry(),
     ...(events === undefined ? {} : { onEvent: (event: AiBuildEvent) => events.push(event) }),
@@ -828,7 +828,7 @@ describe('the streamed build — the skeleton at the outline, writers at their b
 
     const building = runAiBuild({
       ...baseOptions(live, script.provider),
-      request: 'صفحة لمطعم مشاوي أردني في عمّان: منيو، وطلب عبر واتساب',
+      request: 'صفحة لمطعم مشاوي أردني في عمّان: منيو، وطلب عبر واتساب، استخدم القوالب',
     });
     await until(() => labels(live).length >= 1, 'the provisional skeleton');
 

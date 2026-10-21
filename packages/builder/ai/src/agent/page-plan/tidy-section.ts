@@ -86,6 +86,7 @@ export function regionPropAccepts(kernel: BuilderKernel, type: string): TidyAcce
 
 /** `tokenisePaletteClasses` over every step's arguments: the tidy since 2026-10-05. */
 function paletteTidied(commands: AiPlan['commands'], plan: PagePlan): AiPlan['commands'] {
+  if (plan.design?.composition === 'bespoke') return commands;
   try {
     const next = commands.map((step) => {
       const args = tokeniseColourClasses(step.args, plan.tokens);

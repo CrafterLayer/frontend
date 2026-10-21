@@ -101,7 +101,7 @@ catalog:
   react: 19.2.9
   react-colorful: 5.8.1
   react-dom: 19.2.9
-  react-router: 8.3.0
+  react-router: 8.4.0
   # studio-indigo (2026-10-12): the editor's action feedback toasts (MIT, React 19 peer).
   sonner: 2.0.8
   storybook: 10.5.10

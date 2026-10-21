@@ -524,8 +524,8 @@ catalogs:
       specifier: 19.2.9
       version: 19.2.9
     react-router:
-      specifier: 8.3.0
-      version: 8.3.0
+      specifier: 8.4.0
+      version: 8.4.0
     rot-js:
       specifier: 2.2.1
       version: 2.2.1
@@ -2688,7 +2688,7 @@ importers:
         version: 19.2.9(react@19.2.9)
       react-router:
         specifier: 'catalog:'
-        version: 8.3.0(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
+        version: 8.4.0(react-dom@19.2.9(react@19.2.9))(react@19.2.9)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -5995,6 +5995,9 @@ packages:
     engines: {node: '>= 18.19.0'}
     peerDependencies:
       '@redis/client': ^5.12.1
+
+  '@remix-run/route-pattern@0.22.1':
+    resolution: {integrity: sha512-czdGJWh09Lapvcqt7Vb09KlrU2PhRJ8xQaI+AItTuD9aDJ5MAgxnS38lnys6Ll+6RJEqPiaUqTwIQhVLwFvv+w==}
 
   '@rolldown/binding-android-arm-eabi@1.2.5':
     resolution: {integrity: sha512-DLe/i+l8ynIBY7XEQ191TeZvCoowIGa18R+dIV30GW7DiOtp74i/xX8hs8GUjW5ARV7VZuie3d6AumSmCwbeRA==}
@@ -10050,8 +10053,8 @@ packages:
       '@types/react':
         optional: true
 
-  react-router@8.3.0:
-    resolution: {integrity: sha512-qyPMvW83jGIct3yiieisxdk9M745anqhpIMKN5m1t6yBMfgVPpt77aHOqs5fUlEJRMCGffg9BaQLH9oPVOL7xQ==}
+  react-router@8.4.0:
+    resolution: {integrity: sha512-JtydAkBvU9UTEe5qNC+POhu+ZBNM7rlKY2IegwXc7Idj7xfRG16x5RZrw3mju+XlqBxfvb2ky9P3jUp9WyWC1g==}
     engines: {node: '>=22.22.0'}
     peerDependencies:
       react: '>=19.2.7'
@@ -14512,6 +14515,8 @@ snapshots:
       '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
     optional: true
 
+  '@remix-run/route-pattern@0.22.1': {}
+
   '@rolldown/binding-android-arm-eabi@1.2.5':
     optional: true
 
@@ -18941,8 +18946,9 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
 
-  react-router@8.3.0(react-dom@19.2.9(react@19.2.9))(react@19.2.9):
+  react-router@8.4.0(react-dom@19.2.9(react@19.2.9))(react@19.2.9):
     dependencies:
+      '@remix-run/route-pattern': 0.22.1
       cookie-es: 3.1.1
       react: 19.2.9
     optionalDependencies:

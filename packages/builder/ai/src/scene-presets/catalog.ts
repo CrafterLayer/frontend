@@ -5,7 +5,7 @@
  * Studio's builtin library.
  *
  * A preset is ready to place as it stands: its `code` is the customCode `js` (it passes
- * `scriptCodeIssues` and fits the 32 000-character region limit), `libs` are exactly the
+ * `scriptCodeIssues`; a region's `js` has no size limit since 2026-10-31), `libs` are exactly the
  * libraries that code loads, and `params` / `defaults` are its `jsMeta` param spec and the
  * values its own `ck.params({...})` falls back to. A kit (category `game` or `story`) also
  * carries its `region`: the tree of words and controls its code drives, per page language, and

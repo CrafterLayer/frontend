@@ -55,7 +55,6 @@ export {
   scriptVersionSchema,
   soundEntrySchema,
   soundSourceSchema,
-  STUDIO_CODE_MAX,
   STUDIO_ID_PATTERN,
   STUDIO_LIMITS,
   STUDIO_TAG_PATTERN,

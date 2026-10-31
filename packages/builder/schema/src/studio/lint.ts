@@ -1,6 +1,5 @@
 import { scanLibKeys } from './detect';
 import { fnv1a64 } from './hash';
-import { STUDIO_CODE_MAX } from './schemas';
 import { STUDIO_LIB_KEYS, type Bilingual } from './types';
 
 /**
@@ -15,7 +14,6 @@ import { STUDIO_LIB_KEYS, type Bilingual } from './types';
 
 export type ScriptIssueCode =
   | 'syntax'
-  | 'too-long'
   | 'script-close'
   | 'eval'
   | 'document-write'
@@ -196,19 +194,7 @@ export function scriptCodeIssues(code: string, options: ScriptCodeIssueOptions):
     }
   }
 
-  if (code.length > STUDIO_CODE_MAX) {
-    issues.push({
-      code: 'too-long',
-      severity: 'error',
-      message: {
-        en: `The script is ${String(code.length)} characters; the limit is ${String(STUDIO_CODE_MAX)}.`,
-        ar: `طول السكربت ${String(code.length)} حرفاً، والحد ${String(STUDIO_CODE_MAX)}.`,
-      },
-    });
-    // Past the limit nothing else is worth compiling.
-    return issues;
-  }
-
+  // No length ceiling (2026-10-31, owner decision): a long script is compiled like any other.
   const close = /<\/script/iu.exec(code);
   if (close !== null) {
     issues.push({

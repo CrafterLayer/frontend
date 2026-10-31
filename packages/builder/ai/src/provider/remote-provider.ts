@@ -61,7 +61,12 @@ export interface RemoteAiPlanProviderOptions {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_ENHANCE_TIMEOUT_MS = 45_000;
-const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024;
+/*
+  64 MiB, the batch client's (2026-10-31): 1 MiB turned back a long scene answer as "response
+  exceeded the maximum response size" after the minutes it took to write. A host may still pass
+  its own `maxResponseBytes`.
+*/
+const DEFAULT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 /** What a plan POST advertises: the SSE narration when the server streams, JSON when not. */
 const ACCEPT_STREAM_OR_JSON = 'text/event-stream, application/json';
 

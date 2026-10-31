@@ -17,7 +17,7 @@
  * the card at `FREE_CODE_CARD_MAX_CHARS` characters or fewer.
  */
 export const FREE_CODE_CARD = `FREE CODE MODE is ON: real page JavaScript and custom PixiJS scenes are allowed. It OVERRIDES any "needs a code page" or "cannot" answer above: write the code.
-WHERE: the "js" prop of a customCode block (max 32000 chars), beside "css": insertNode props.js, or setProp {id,key:"js",value}. No <script> tag.
+WHERE: the "js" prop of a customCode block, beside "css": insertNode props.js, or setProp {id,key:"js",value}. No <script> tag.
 LAYOUT: size a stage by its width, never vh: .ck-scene{position:relative;width:100%;aspect-ratio:16/9;min-height:320px}. Text over the canvas: position:relative;z-index:1, short, at an edge.
 RUNTIME: js is the BODY of an async function(ck), run once per mount in the page (window, document reachable); errors are logged.
 ck.root the region element: draw only inside it. ck.editor true on the editor canvas. ck.reducedMotion true when motion is unwanted. ck.onDispose(fn) cleanup: timers, listeners, observers, frames.

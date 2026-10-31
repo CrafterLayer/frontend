@@ -129,7 +129,7 @@ export interface ScriptEntry {
   /** ≤ 12 kebab keys; bilingual labels through `STUDIO_TAG_LABELS`. */
   tags: string[];
   kind: ScriptKind;
-  /** ≤ 32 000 characters (CUSTOM_CODE_REGION_JS_MAX). */
+  /** The script's source; no length ceiling (2026-10-31). */
   code: string;
   /** ≤ 24, unique keys. */
   params: ScriptParamSpec[];

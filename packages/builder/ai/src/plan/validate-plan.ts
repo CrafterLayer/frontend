@@ -804,9 +804,7 @@ function customCssIssues(plan: AiPlan, kernel: BuilderKernel): readonly AiPlanVa
   return issues;
 }
 
-// free-code (2026-10-09)
-/** The longest `js` a customCode region holds: the block's own limit, said here first so the repair names it. */
-export const CUSTOM_CODE_JS_MAX_LENGTH = 32_000;
+// free-code (2026-10-09); no `js` size ceiling since 2026-10-31 (owner decision).
 
 /** One value a plan writes into a `js` prop, and what the args say it belongs to. */
 interface PlanJs {
@@ -889,8 +887,7 @@ function freeCodeOffIssue(index: number): AiPlanValidationIssue {
  * allowed to author to its limits.
  *
  * Off (`freeCode` not true): any non-empty `js` on a customCode block is
- * refused with the reason above. On: a string of at most
- * `CUSTOM_CODE_JS_MAX_LENGTH` characters, without `</script` (the renderer must
+ * refused with the reason above. On: a string of any length, without `</script` (the renderer must
  * never close its own script element early), that parses — the syntax error
  * with its line (custom-code-js.ts). An empty `js` is always fine. Runs before
  * the dry run, which takes a valid string happily whether the person allowed
@@ -925,7 +922,7 @@ function customCodeJsIssues(
         refusedOff = true;
         continue;
       }
-      const refused = customCodeJsSourceIssue(source, index, on, CUSTOM_CODE_JS_MAX_LENGTH);
+      const refused = customCodeJsSourceIssue(source, index, on);
       if (refused !== undefined) issues.push(refused);
     }
   });

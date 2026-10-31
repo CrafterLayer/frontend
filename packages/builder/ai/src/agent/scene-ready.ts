@@ -53,7 +53,7 @@ export const READY_SCENE_MARKER = '@preset:';
 const MARKER = /^\s*@preset:\s*([a-z0-9-]+)\s*$/u;
 /** How many a brief lists: enough to choose from, few enough to stay short. */
 export const READY_SCENES_LISTED = 4;
-/** The scene code a writer's own write should stay under; the region allows 32 000. */
+/** The scene code a writer's own write is advised to stay under (advice only: the region has no limit). */
 export const OWN_SCENE_CODE_CHARS = 9_000;
 /** Offered when nothing in the brief points anywhere: calm, broad, in the page's palette. */
 const FALLBACK_IDS: readonly string[] = [

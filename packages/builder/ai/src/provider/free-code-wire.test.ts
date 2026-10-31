@@ -206,7 +206,7 @@ const codeHost: TrustedExtensionManifest = {
           props: z.object({
             label: z.string().default('region'),
             css: customCss(8_000),
-            js: z.string().max(32_000).default(''),
+            js: z.string().default(''),
           }),
           examples: [],
         }),
@@ -282,11 +282,14 @@ describe('runAiAgent({ freeCode })', () => {
   });
 
   it('puts the mode on the repair POST too when it is on and the door refuses the first answer', async () => {
-    const oversized: AiPlan = {
-      rationale: 'too long',
-      commands: [{ command: 'setProp', args: { id: 'stage', key: 'js', value: 'x'.repeat(32_001) } }],
+    // A `</script` the door still refuses; size is never refused since 2026-10-31.
+    const refused: AiPlan = {
+      rationale: 'closes the page script',
+      commands: [
+        { command: 'setProp', args: { id: 'stage', key: 'js', value: "x('</script>');" } },
+      ],
     };
-    const { calls, fetchImpl } = fakeFetch((call) => (call.body.attempt === undefined ? oversized : plan));
+    const { calls, fetchImpl } = fakeFetch((call) => (call.body.attempt === undefined ? refused : plan));
     const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
     const live = codeKernel();
 
@@ -294,7 +297,7 @@ describe('runAiAgent({ freeCode })', () => {
 
     expect(result.status).toBe('applied');
     expect(calls.map(({ body }) => body.freeCode)).toEqual([true, true]);
-    expect(calls[1]?.body.attempt?.issues[0]?.message).toContain('32001');
+    expect(calls[1]?.body.attempt?.issues[0]?.message).toContain('</script');
   });
 
   it('is the same as naming it on the composition policy', async () => {

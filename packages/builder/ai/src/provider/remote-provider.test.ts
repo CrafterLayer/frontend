@@ -375,6 +375,21 @@ describe('createRemoteAiPlanProvider', () => {
     );
   });
 
+  it('reads a long scene answer by default: a 2 MiB plan is no failure (2026-10-31)', async () => {
+    const scene: AiPlan = {
+      rationale: 'A mural.',
+      commands: [
+        { command: 'setProp', args: { id: 'mural', key: 'js', value: '/'.repeat(2 * 1024 * 1024) } },
+      ],
+    };
+    const { fetchImpl } = fakeFetch(() => jsonResponse(scene));
+    const provider = createRemoteAiPlanProvider({ endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(provider.propose('paint a mural', context())).resolves.toMatchObject({
+      rationale: 'A mural.',
+    });
+  });
+
   it('cancels the JSON reader when bounded decoding fails', async () => {
     let cancelCalls = 0;
     const stream = new ReadableStream<Uint8Array>({

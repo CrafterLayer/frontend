@@ -88,11 +88,14 @@ describe('FREE_CODE_CARD', () => {
     expect(FREE_CODE_CARD_MAX_CHARS).toBe(2800);
   });
 
+  it('names no size ceiling for a region script: there is none (2026-10-31)', () => {
+    expect(FREE_CODE_CARD).not.toMatch(/max 32000|32000 chars/u);
+  });
+
   it('states the runtime API, where the code goes, and the rules', () => {
     for (const piece of [
       'FREE CODE MODE is ON',
       '"js" prop of a customCode block',
-      '32000',
       // preview-fix (2026-10-12): a stage sized by width, laid out again when its region resizes.
       'never vh',
       'aspect-ratio:16/9',

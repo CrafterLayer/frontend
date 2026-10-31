@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
-  CUSTOM_CODE_REGION_JS_MAX,
   customCss,
   customJs,
   type BlockRenderProps,
@@ -50,8 +49,8 @@ describe('the js prop declaration', () => {
     const js = shape['js'];
     expect(js).toBeDefined();
     expect(js?.safeParse(undefined).data).toBe('');
-    expect(js?.safeParse('a'.repeat(CUSTOM_CODE_REGION_JS_MAX)).success).toBe(true);
-    expect(js?.safeParse('a'.repeat(CUSTOM_CODE_REGION_JS_MAX + 1)).success).toBe(false);
+    // No ceiling (2026-10-31): a long mural or game script lands whole.
+    expect(js?.safeParse('a'.repeat(250_000)).success).toBe(true);
   });
 
   it('defaults to empty, so a document saved before this prop existed still validates', () => {

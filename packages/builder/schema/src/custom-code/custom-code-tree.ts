@@ -2328,16 +2328,14 @@ export function isCustomCssSchema(schema: z.ZodType): boolean {
 /** The meta marker a JS field type matches on. */
 export const CUSTOM_JS_META_VALUE = 'custom-js';
 
-/** The ceiling on a custom-code region's own script. */
-export const CUSTOM_CODE_REGION_JS_MAX = 32_000;
-
-/** Declare a region-script prop: a string, marked as code that runs. */
-export function customJs(max = CUSTOM_CODE_REGION_JS_MAX): z.ZodType<string> {
-  return z
-    .string()
-    .max(max)
-    .default('')
-    .meta({ [CUSTOM_CODE_META_KEY]: CUSTOM_JS_META_VALUE });
+/**
+ * Declare a region-script prop: a string, marked as code that runs. No ceiling unless one is
+ * given (2026-10-31, the owner lifted the 32 000-character one: a PixiJS mural refused at that
+ * size after a fifteen-minute build was a failure the person paid for and could not fix).
+ */
+export function customJs(max?: number): z.ZodType<string> {
+  const source = max === undefined ? z.string() : z.string().max(max);
+  return source.default('').meta({ [CUSTOM_CODE_META_KEY]: CUSTOM_JS_META_VALUE });
 }
 
 /** True when a property schema is a region-script declaration; unwraps wrappers. */

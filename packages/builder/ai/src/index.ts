@@ -725,6 +725,5 @@ export {
   FREE_CODE_OFF_HINT,
   freeCodeCardExamples,
 } from './agent/free-code-card';
-export { CUSTOM_CODE_JS_MAX_LENGTH } from './plan/validate-plan';
 // end free-code additions
 export * from './batch'; // background batches (2026-10-12): Message Batches jobs — runner, HTTP client, wire, store port

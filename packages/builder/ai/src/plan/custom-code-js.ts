@@ -4,8 +4,8 @@ import type { AiPlanValidationIssue } from '../types';
 
 /**
  * What the door holds one customCode `js` string to once free code mode allows
- * it (validate-plan.ts `customCodeJsIssues`): its size, the one literal that
- * would close the page's own script element, and — creative-power Phase 1 B
+ * it (validate-plan.ts `customCodeJsIssues`): the one literal that would close
+ * the page's own script element, and — creative-power Phase 1 B
  * (2026-10-12) — that it parses, said with its line and column, so a
  * single-run edit gets its syntax error back in the repair round instead of
  * landing a scene that throws on the canvas. Everything else about a scene is
@@ -15,21 +15,16 @@ import type { AiPlanValidationIssue } from '../types';
  * The parse is the Studio lint's (`scriptCodeIssues`): it compiles the code as
  * the body of `async (ck) => {…}` — the runtime's own wrapper — and never
  * calls it. Where a CSP forbids compiling, it says nothing.
+ *
+ * Its size is never refused (2026-10-31, owner decision): a PixiJS mural written past the old
+ * 32 000-character ceiling was turned back after a fifteen-minute build.
  */
 export function customCodeJsSourceIssue(
   source: string,
   step: number,
   on: string,
-  maxLength: number,
 ): AiPlanValidationIssue | undefined {
   const writes = `Step ${String(step)} writes "js"${on}`;
-  if (source.length > maxLength) {
-    return {
-      code: 'invalid-args',
-      message: `${writes} of ${String(source.length)} characters; a region holds at most ${String(maxLength)}. Split the scene across regions or write less code.`,
-      step,
-    };
-  }
   if (/<\/script/iu.test(source)) {
     return {
       code: 'invalid-args',

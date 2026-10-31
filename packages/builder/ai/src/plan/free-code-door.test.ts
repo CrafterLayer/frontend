@@ -5,6 +5,7 @@ import { createBuilder } from '@craftkit/builder-core';
 import { fixedClock, seededIds } from '@craftkit/builder-core/testing';
 import {
   customCss,
+  customJs,
   defineBlockSchema,
   type BuilderDocument,
   type TrustedExtensionManifest,
@@ -19,7 +20,6 @@ import { previewAiPlan } from './preview-plan';
 import { createAiValidatedProposal } from './validated-proposal';
 import {
   AUTHORED_PLAN_DOOR,
-  CUSTOM_CODE_JS_MAX_LENGTH,
   assertValidAiPlan,
   validateAiPlan,
 } from './validate-plan';
@@ -58,7 +58,7 @@ const codeHost: TrustedExtensionManifest = {
             label: z.string().default('region'),
             tree: z.string().default(''),
             css: customCss(8_000),
-            js: z.string().max(CUSTOM_CODE_JS_MAX_LENGTH).default(''),
+            js: customJs(),
           }),
           examples: [],
         }),
@@ -271,28 +271,11 @@ describe('page code with free code mode ON', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('accepts the maximum and refuses one character more, naming the limit', () => {
-    const atLimit = validateAiPlan(
-      setJs('/'.repeat(CUSTOM_CODE_JS_MAX_LENGTH)),
-      codeKernel(),
-      ports(),
-      undefined,
-      ON,
-    );
-    expect(atLimit.ok).toBe(true);
+  it('holds no size ceiling: a long scene passes the door whole (2026-10-31)', () => {
+    // A mural with PixiJS and GSAP was refused at 32 000 characters after a 15-minute build.
+    const long = validateAiPlan(setJs('/'.repeat(250_000)), codeKernel(), ports(), undefined, ON);
 
-    const over = validateAiPlan(
-      setJs('/'.repeat(CUSTOM_CODE_JS_MAX_LENGTH + 1)),
-      codeKernel(),
-      ports(),
-      undefined,
-      ON,
-    );
-    expect(over.ok).toBe(false);
-    if (over.ok) return;
-    expect(over.issues[0]?.code).toBe('invalid-args');
-    expect(over.issues[0]?.message).toContain('32001');
-    expect(over.issues[0]?.message).toContain('32000');
+    expect(long.ok).toBe(true);
   });
 
   it('refuses the literal </script in any case, which would close the page script early', () => {

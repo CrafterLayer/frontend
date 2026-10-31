@@ -36,11 +36,11 @@ import {
 
 /** Same as `LIBRARY_ID_PATTERN` (site/library.ts); pinned equal by a test. */
 export const STUDIO_ID_PATTERN = /^[a-z][a-z0-9-]{0,47}$/u;
-/** Same as `CUSTOM_CODE_REGION_JS_MAX` (custom-code-tree.ts); pinned equal by a test. */
-export const STUDIO_CODE_MAX = 32_000;
-
+/*
+  A script's code has no length ceiling (2026-10-31): a region's `js` has none either
+  (`customJs()`), and a library script is placed into one.
+*/
 export const STUDIO_LIMITS = {
-  code: STUDIO_CODE_MAX,
   params: 24,
   tags: 12,
   options: 24,
@@ -319,7 +319,6 @@ export const customCodeJsParamsSchema: z.ZodType<CustomCodeJsParams> = z
 
 const scriptCodeSchema = z
   .string()
-  .max(STUDIO_CODE_MAX)
   .refine(
     (code) => !/<\/script/iu.test(code),
     'Script code cannot contain "</script" (it would end the page script).',

@@ -5,7 +5,6 @@ import { defineBlockSchema } from '../blocks/define-block-schema';
 import type { BuilderDocument } from '../document/types';
 import { validateDocument } from '../document/validate';
 import {
-  CUSTOM_CODE_REGION_JS_MAX,
   customCss,
   customJs,
   isCustomCssSchema,
@@ -23,10 +22,8 @@ describe('customJs() declaration', () => {
     expect(customJs().parse(undefined)).toBe('');
   });
 
-  it('caps the source at 32 000 characters', () => {
-    expect(CUSTOM_CODE_REGION_JS_MAX).toBe(32_000);
-    expect(customJs().safeParse('a'.repeat(32_000)).success).toBe(true);
-    expect(customJs().safeParse('a'.repeat(32_001)).success).toBe(false);
+  it('holds a script of any length: the owner lifted the 32 000-character ceiling (2026-10-31)', () => {
+    expect(customJs().safeParse('a'.repeat(250_000)).success).toBe(true);
   });
 
   it('honours an explicit ceiling', () => {

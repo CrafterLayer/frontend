@@ -259,7 +259,7 @@ const SCAFFOLD_SKILL = 'craftkit.build-scaffold';
 const SCENE_SKILL_PREFIX = 'craftkit.pixi-';
 /**
  * A scene writer's output budget (2026-10-12). A story, game or mural region is a whole
- * program — up to 32,000 characters of code plus its tree and css, and thinking on top —
+ * program — its code (no size limit since 2026-10-31) plus its tree and css, and thinking on top —
  * so the plan call's 32k ceiling cut long scenes off mid-JSON, which is no answer at all.
  */
 export const SCENE_MAX_TOKENS = 48_000;

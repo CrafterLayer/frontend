@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import {
   CUSTOM_CODE_REGION_CSS_MAX,
-  CUSTOM_CODE_REGION_JS_MAX,
   customCodeTree,
   customCss,
   customJs,
@@ -72,9 +71,9 @@ export const customCodeSchema = defineBlockSchema({
      * It is a prop of its own and not part of `tree`, which cannot express a `<script>` and
      * must not learn to. The renderer never emits one either: the code rides on the region as
      * `data-ck-js`, and the `scripts` behaviour pack evaluates it. The composer toggle gates who
-     * may AUTHOR it; a saved script always runs.
+     * may AUTHOR it; a saved script always runs. No size ceiling (2026-10-31, owner decision).
      */
-    js: customJs(CUSTOM_CODE_REGION_JS_MAX),
+    js: customJs(),
     // pixi-studio:schema-library additions (2026-10-10)
     /**
      * Pixi Studio (DESIGN D8). `jsParams` holds the values the script reads through

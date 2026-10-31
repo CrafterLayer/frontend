@@ -1,7 +1,6 @@
 import type { BuilderKernel } from '@craftkit/builder-core';
 import {
   CUSTOM_CODE_REGION_CSS_MAX,
-  CUSTOM_CODE_REGION_JS_MAX,
   customCodeTree,
   findCssRejection,
   type JsonValue,
@@ -68,7 +67,8 @@ const KEYS: readonly Key[] = ['tree', 'css', 'js'];
 function defaultAccepts(key: Key, value: unknown): boolean {
   if (key === 'tree') return customCodeTree().safeParse(value).success;
   if (typeof value !== 'string') return false;
-  return value.length <= (key === 'css' ? CUSTOM_CODE_REGION_CSS_MAX : CUSTOM_CODE_REGION_JS_MAX);
+  // A region's `js` has no ceiling (2026-10-31); its css keeps the block's.
+  return key === 'js' || value.length <= CUSTOM_CODE_REGION_CSS_MAX;
 }
 
 /** What a customCode block of this type takes for each prop, read from its registered schema. */

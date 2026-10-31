@@ -7,12 +7,10 @@ import {
   scanLibKeys,
   scriptCodeIssues,
   scriptEntrySchema,
-  STUDIO_CODE_MAX,
   STUDIO_ID_PATTERN,
   validateParamValues,
 } from '@craftkit/builder-schema';
 
-import { CUSTOM_CODE_JS_MAX_LENGTH } from '../plan/validate-plan';
 import {
   SCENE_PRESET_CATEGORIES,
   SCENE_PRESETS,
@@ -156,10 +154,8 @@ describe.each(CASES)('scene preset %s', (_id, preset) => {
     },
   );
 
-  it('fits the customCode js limit', () => {
-    expect(CUSTOM_CODE_JS_MAX_LENGTH).toBe(STUDIO_CODE_MAX);
+  it('is real scene code', () => {
     expect(preset.code.length).toBeGreaterThan(200);
-    expect(preset.code.length).toBeLessThanOrEqual(CUSTOM_CODE_JS_MAX_LENGTH);
   });
 
   /*

@@ -22,6 +22,8 @@ export interface Outgoing {
   /** The words are a catalog suggestion, picked and sent unedited (answered from the catalog). */
   readonly catalog?: boolean | undefined;
   readonly skillSnapshot?: PromptSkillSnapshot | undefined;
+  /** A language version's translation (`language-flow.ts`): it reads words, never code. */
+  readonly translation?: boolean | undefined;
 }
 
 export function engineRequest(outgoing: Outgoing): string {

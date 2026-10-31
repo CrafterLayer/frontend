@@ -389,7 +389,24 @@ function summariseCustomCodeTree(tree: unknown): string {
 const HEADING_TAGS: ReadonlySet<string> = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 const CUSTOM_CODE_SUMMARY_SCAN_LIMIT = 5_000;
 
-function documentNode(node: Node, summariseTrees = false): AiDocumentNodeContext {
+/** The props that hold page CODE: what `documentCode: 'omitted'` states the size of instead. */
+const CODE_PROP_KEYS: ReadonlySet<string> = new Set(['css', 'js', 'pageCss']);
+
+/** A non-empty code prop; an empty one stays empty, so "no CSS here" still reads as such. */
+function isOmittableCode(key: string, value: unknown): value is string {
+  return CODE_PROP_KEYS.has(key) && typeof value === 'string' && value !== '';
+}
+
+/** A code prop under `documentCode: 'omitted'`: its size, never its body. */
+function omittedCode(key: string, value: string): string {
+  return `[${key}: ${String(value.length)} characters, not shown]`;
+}
+
+function documentNode(
+  node: Node,
+  summariseTrees = false,
+  omitCode = false,
+): AiDocumentNodeContext {
   const bindings =
     node.bindings === undefined
       ? undefined
@@ -421,8 +438,10 @@ function documentNode(node: Node, summariseTrees = false): AiDocumentNodeContext
         .sort(([left], [right]) => compareText(left, right))
         .map(([key, value]) => [
           key,
-          !isCustomCodeTreeValue(value)
-            ? cloneJson(value)
+          omitCode && isOmittableCode(key, value)
+            ? omittedCode(key, value)
+            : !isCustomCodeTreeValue(value)
+              ? cloneJson(value)
             : summariseTrees
               ? summariseCustomCodeTree(value)
               : /*
@@ -620,7 +639,13 @@ function collectDocument(
     dir: doc.dir,
     rootId: doc.rootId,
     nodes: Object.values(doc.nodes)
-      .map((node) => documentNode(node, keepWhole !== undefined && !keepWhole.has(node.id)))
+      .map((node) =>
+        documentNode(
+          node,
+          keepWhole !== undefined && !keepWhole.has(node.id),
+          policy.documentCode === 'omitted',
+        ),
+      )
       .sort((left, right) => compareText(left.id, right.id)),
   };
 }
@@ -688,6 +713,7 @@ function collectFocusedDocument(
   ctx: AiContextReadApi,
   focus: AiDocumentFocus,
   selection: readonly NodeId[],
+  omitCode: boolean,
 ): { readonly document: AiDocumentContext; readonly shown: readonly NodeId[] } {
   const { doc } = ctx.store.getState();
   const parents = parentsOf(doc);
@@ -701,14 +727,15 @@ function collectFocusedDocument(
     for (const inside of subtreeIds(section, doc)) whole.add(inside);
   }
   const root = doc.nodes[doc.rootId];
-  const nodes: AiDocumentNodeContext[] = root === undefined ? [] : [documentNode(root)];
+  const nodes: AiDocumentNodeContext[] =
+    root === undefined ? [] : [documentNode(root, false, omitCode)];
   for (const id of childIdsOf(root)) {
     const node = doc.nodes[id];
     if (node !== undefined && !whole.has(id)) nodes.push(outlineNode(node));
   }
   for (const id of whole) {
     const node = doc.nodes[id];
-    if (node !== undefined) nodes.push(documentNode(node));
+    if (node !== undefined) nodes.push(documentNode(node, false, omitCode));
   }
   return {
     document: {
@@ -1028,7 +1055,9 @@ export function assembleAiContext(
   // fast-edits (2026-09-28): an edit that names its section sees that section, not the page.
   const focus = options.composition?.documentFocus;
   const focused =
-    focus === undefined ? undefined : collectFocusedDocument(readCtx, focus, selection);
+    focus === undefined
+      ? undefined
+      : collectFocusedDocument(readCtx, focus, selection, composition.documentCode === 'omitted');
   // ── block-parts (2026-10-06): an edit sees the parts of the blocks it can reach ──
   const partsFragment =
     options.outline === true || focus?.kind === 'add-section'

@@ -21,20 +21,45 @@ import { useAgentController, type UseAgentControllerOptions } from './use-agent-
 
 const WAIT = { timeout: 20_000 } as const;
 
+/** The page's own CSS: code a translation never reads, so its request must not carry it. */
+const PAGE_CSS = ':root{--t-accent:#0f766e}\nbody{font-family:system-ui}';
+
 function arabicSite(): BuilderSiteKernel {
-  return createSiteBuilder({
+  const siteKernel = createSiteBuilder({
     site: siteFromDocument(marketingLanding('rtl')),
     extensions: playgroundExtensions('landing'),
     ports: { clock: fixedClock(), ids: seededIds('agent-languages') },
   });
+  siteKernel
+    .page(siteKernel.currentPage())
+    .dispatch('setProp', { id: 'root', key: 'pageCss', value: PAGE_CSS });
+  return siteKernel;
+}
+
+type SeenContext = Parameters<AiPlanProvider['propose']>[1];
+
+/**
+ * Every code prop a run was shown. A translation sees each one's size, never its body
+ * (`documentCode: 'omitted'`): a built page's code is most of its request, and a large one
+ * was refused whole — «الصفحة كبيرة على الطلب» — after the site build that preceded it.
+ */
+function codeShown(context: SeenContext | undefined): readonly string[] {
+  return (context?.document.nodes ?? []).flatMap((node) =>
+    ['css', 'js', 'pageCss'].flatMap((key) => {
+      const value = node.props[key];
+      return typeof value === 'string' && value !== '' ? [value] : [];
+    }),
+  );
 }
 
 /** A model that "translates" by setting the open page's title, and records what it was asked. */
 function translatingProvider(siteKernel: BuilderSiteKernel) {
   const asked: string[] = [];
+  const seen: SeenContext[] = [];
   const provider: AiPlanProvider = {
-    propose(request) {
+    propose(request, context) {
       asked.push(request);
+      seen.push(context);
       const rootId = siteKernel.page(siteKernel.currentPage()).getDocument().rootId;
       return Promise.resolve({
         rationale: 'Translate the page.',
@@ -42,7 +67,7 @@ function translatingProvider(siteKernel: BuilderSiteKernel) {
       });
     },
   };
-  return { provider, asked };
+  return { provider, asked, seen };
 }
 
 function titleAt(siteKernel: BuilderSiteKernel, address: string): unknown {
@@ -55,7 +80,7 @@ describe('useAgentController · language versions', () => {
     const siteKernel = arabicSite();
     const home = siteKernel.currentPage();
     const before = titleAt(siteKernel, '/');
-    const { provider, asked } = translatingProvider(siteKernel);
+    const { provider, asked, seen } = translatingProvider(siteKernel);
     const options: UseAgentControllerOptions = {
       kernel: siteKernel.page(home),
       locale: 'en',
@@ -85,11 +110,15 @@ describe('useAgentController · language versions', () => {
     expect(titleAt(siteKernel, '/')).toBe(before);
     const kinds = hook.result.current.state.turns.map(({ kind }) => kind);
     expect(kinds).toEqual(['user', 'answer', 'user', 'edit']);
+    // The version's translation read the page's words, never its code.
+    expect(codeShown(seen[0])).toEqual([
+      `[pageCss: ${String(PAGE_CSS.length)} characters, not shown]`,
+    ]);
   });
 
   it('takes the ordinary path for one page translated in place', async () => {
     const siteKernel = arabicSite();
-    const { provider, asked } = translatingProvider(siteKernel);
+    const { provider, asked, seen } = translatingProvider(siteKernel);
     const hook = renderHook(() =>
       useAgentController({
         kernel: siteKernel.page(siteKernel.currentPage()),
@@ -111,5 +140,35 @@ describe('useAgentController · language versions', () => {
       expect(hook.result.current.state.run).toBeNull();
     }, WAIT);
     expect(siteKernel.getSite().pages).toHaveLength(1);
+    // The person's own "translate the page" is words only too.
+    expect(codeShown(seen[0])).toEqual([
+      `[pageCss: ${String(PAGE_CSS.length)} characters, not shown]`,
+    ]);
+  });
+
+  it('still shows the code to an edit that is not a translation', async () => {
+    const siteKernel = arabicSite();
+    const { provider, asked, seen } = translatingProvider(siteKernel);
+    const hook = renderHook(() =>
+      useAgentController({
+        kernel: siteKernel.page(siteKernel.currentPage()),
+        locale: 'en',
+        storage: memoryStorage(),
+        enhancer: null,
+        provider,
+        languageVersions: createLanguageVersions(siteKernel),
+      }),
+    );
+    act(() => {
+      hook.result.current.setDraft('Make the page title warmer');
+    });
+    act(() => {
+      hook.result.current.send();
+    });
+    await waitFor(() => {
+      expect(asked).toHaveLength(1);
+      expect(hook.result.current.state.run).toBeNull();
+    }, WAIT);
+    expect(codeShown(seen[0])).toEqual([PAGE_CSS]);
   });
 });

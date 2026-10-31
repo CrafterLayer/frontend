@@ -67,7 +67,14 @@ async function translateEach(
     if (flow.runtime.lease !== null) return false;
     page.show();
     const text = labels.translate(labels.name(lang(page)), page.address);
-    await runEdit(flow, { text, context: [], pointed: [] }, placement, 'auto', EDIT, page.kernel);
+    await runEdit(
+      flow,
+      { text, context: [], pointed: [], translation: true },
+      placement,
+      'auto',
+      EDIT,
+      page.kernel,
+    );
     const last = sessionOf(flow, placement.sessionId)?.turns.findLast(
       (turn) => turn.kind === 'edit',
     );

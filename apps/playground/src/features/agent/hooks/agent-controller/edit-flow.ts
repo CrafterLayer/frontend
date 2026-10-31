@@ -7,6 +7,7 @@ import {
   type BuilderDocument,
   type BuilderKernel,
   type IntentRoute,
+  languageIntent,
   runAiAgent,
   type RunAiAgentOptions,
 } from '@craftkit/builder';
@@ -44,6 +45,23 @@ import { patchTurn } from './turn-plumbing';
 import { targetOf } from './words-flow';
 
 /* ── Edits ───────────────────────────────────────────────────────────────────── */
+
+/**
+ * A translation reads the page's words, never its code (`documentCode: 'omitted'`): a
+ * language version's run, or the person's own "translate this page". `page.translate` never
+ * reads CSS or JavaScript, yet they are most of a built page's request, and a large page was
+ * refused whole before it left — «الصفحة كبيرة على الطلب» — at the end of the site build that
+ * preceded its language version (2026-10-31).
+ */
+function translationComposition(
+  outgoing: Outgoing,
+  request: string,
+  composition: RunAiAgentOptions['composition'],
+): Pick<RunAiAgentOptions, 'composition'> {
+  const translating =
+    outgoing.translation === true || languageIntent(request)?.action === 'translate';
+  return translating ? { composition: { ...composition, documentCode: 'omitted' } } : {};
+}
 
 /**
  * The section a zero-token direct edit wrote, as the record's target, when the person
@@ -142,6 +160,7 @@ export async function runEdit(
     heard = recording.words;
     const runOptions: RunAiAgentOptions = {
       ...base,
+      ...translationComposition(outgoing, request, base.composition),
       provider: recording.provider,
       ...editModelOptions(flow),
       // script-wiring additions

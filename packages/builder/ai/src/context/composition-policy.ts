@@ -152,6 +152,20 @@ export interface AiCompositionPolicy {
    * in `'full'`. Absent means the run's own selection is used.
    */
   readonly treeScopeNodeIds?: readonly string[];
+  /**
+   * Whether the document context quotes the page's CODE: every `css`, `js` and
+   * `pageCss` prop. Defaults to `'full'`.
+   *
+   * `'full'`: quoted as written — a restyle reads the CSS it changes.
+   *
+   * `'omitted'`: each non-empty code prop is replaced by its size
+   * (`[css: 4812 characters, not shown]`); an empty one stays empty. Meant for a
+   * run that only rewrites words: a language version's translation sent every
+   * region's CSS and JavaScript, most of a built page's request, for a tool
+   * (`page.translate`) that never reads code — and a large page was refused
+   * whole before it left. Trees, texts and every other prop are untouched.
+   */
+  readonly documentCode?: 'full' | 'omitted';
 }
 
 /** The resolved policy: every optional decided exactly once, at the edge. */
@@ -164,6 +178,7 @@ export interface ResolvedAiCompositionPolicy {
   readonly freeCode: boolean;
   readonly documentTreeMode: 'full' | 'scoped';
   readonly treeScopeNodeIds: ReadonlySet<string>;
+  readonly documentCode: 'full' | 'omitted';
 }
 
 /**
@@ -204,6 +219,7 @@ export function resolveAiCompositionPolicy(
       policy?.treeScopeNodeIds === undefined
         ? NO_SCOPED_NODE_IDS
         : Object.freeze(new Set(policy.treeScopeNodeIds)),
+    documentCode: policy?.documentCode ?? 'full',
   };
 }
 

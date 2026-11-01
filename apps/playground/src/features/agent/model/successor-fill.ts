@@ -22,8 +22,9 @@ import type { BuildProgress, BuildTask } from './build-progress';
  * empty ones where they were, and `validatePagePlan` refuses a one-section plan). So the
  * controller runs each writer the way `run-build.ts` runs a fill (a `runAiAgent` scoped to
  * the region, `apply: 'never'`, the build-fill skill, `setProp` only), lands it through
- * `applyAiPlan` in page order, and feeds the SAME build record the build's own events, so
- * the rows ink in place: ink still means landed (SPEC §1).
+ * `applyAiPlan` as soon as it is written (P3, 2026-11-01: no longer in page order), and
+ * feeds the SAME build record the build's own events, so the rows ink in place: ink still
+ * means landed (SPEC §1).
  *
  * This module is the pure half: the writer's brief, the target guard, the landing record,
  * and the events that move the record. `hooks/agent-controller/successor-flow.ts` runs the loop.
@@ -39,7 +40,7 @@ export const FILL_SKILL_ID = 'craftkit.build-fill';
 /** The kernel refuses a longer grouped-dispatch label. */
 const MAX_LABEL_LENGTH = 160;
 
-/** How many successor writers run at once; they still land one by one, in page order. */
+/** How many successor writers run at once; each section lands as soon as it is written. */
 export const SUCCESSOR_WRITERS = 3;
 
 /** `Assistant: 3/8 — Services`: the build's own history label for a section. */
@@ -152,19 +153,39 @@ function stringArg(args: unknown, name: 'id' | 'key'): string | undefined {
 
 /**
  * The engine's target guard (`guardFill`), for a successor writer: it may set its own
- * region's `tree` and `css` and nothing else. Null when nothing inside the region is left.
+ * region's `tree` and `css` and nothing else, and with free code on (`freeCode`, the
+ * controller's `options.freeCode === true`, as the engine's `guardFill`) its scene too:
+ * `js`, `jsMeta`, `jsParams` (P4, 2026-11-01; before it a retried or finished game or mural
+ * landed without its code). Null when nothing inside the region is left.
  */
-export function guardSection(plan: AiPlan, regionId: NodeId): GuardedSection | null {
+export function guardSection(
+  plan: AiPlan,
+  regionId: NodeId,
+  freeCode = false,
+): GuardedSection | null {
+  const allowed: readonly string[] = freeCode ? WRITTEN_KEYS : SECTION_KEYS;
   const kept = plan.commands.filter((step) => {
     const key = stringArg(step.args, 'key');
     return (
       step.command === 'setProp' &&
       stringArg(step.args, 'id') === regionId &&
-      (key === 'tree' || key === 'css')
+      key !== undefined &&
+      allowed.includes(key)
     );
   });
   if (kept.length === 0) return null;
   return { plan: { ...plan, commands: kept }, dropped: plan.commands.length - kept.length };
+}
+
+/**
+ * The props a landing records (`landing.before` / `after`): `tree` and `css` always, and
+ * the scene props a guarded plan sets, so a row's Undo and Redo take the scene with it.
+ */
+export function landingKeys(plan: AiPlan): readonly (typeof WRITTEN_KEYS)[number][] {
+  const written = new Set(plan.commands.map((step) => stringArg(step.args, 'key')));
+  return WRITTEN_KEYS.filter(
+    (key) => (SECTION_KEYS as readonly string[]).includes(key) || written.has(key),
+  );
 }
 
 /**

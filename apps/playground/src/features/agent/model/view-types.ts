@@ -105,6 +105,8 @@ export type StatusKey =
   | 'build.planned'
   | 'build.writing'
   | 'build.blocked'
+  /** A drafted section is checked or repaired before it lands (P1, 2026-11-01). */
+  | 'build.checking'
   | 'build.landed'
   | 'stopping'
   | 'edit.started'
@@ -461,12 +463,18 @@ export type EndNoteKey =
   | 'interrupted'
   | 'siteAsOnePage'
   | 'newPageAppended'
-  | 'appendedNotReplaced';
+  | 'appendedNotReplaced'
+  /** P5: a successor found none of its sections; names the page (`page`) to open. */
+  | 'openBuildPage'
+  /** P5: the same, when the build's page is not known by name. */
+  | 'buildPageNotOpen';
 
 /** A turn that ended in one Slate line and no footer (SPEC §4.10 EndNote). */
 export interface EndNoteView {
   readonly turnId: string;
   readonly key: EndNoteKey;
+  /** The page `openBuildPage` names. */
+  readonly page?: string | undefined;
 }
 
 /** A run that failed as a whole (SPEC §4.14 ErrorRecord). */

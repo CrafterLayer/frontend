@@ -12,8 +12,8 @@ import { tAnnounce } from '../copy';
 import {
   ANNOUNCE_POLICY,
   BLOCKED_ANNOUNCE_AFTER_MS,
-  blockedOn,
   buildEndAnnouncement,
+  checkingOn,
   editEndAnnouncement,
   INITIAL_ANNOUNCER,
   LANDED_LINE_MS,
@@ -149,12 +149,31 @@ describe('visibleStatus: the RunBar line (SPEC §4.3 visible column)', () => {
     expect(LANDED_LINE_MS).toBe(2_400);
   });
 
-  it('says "Waiting on {title}…" while exactly one writer holds back a drafted section (SPEC §3.4)', () => {
+  it('names the drafted section being checked, never a writer it "waits on" (P1, 2026-11-01)', () => {
+    // Drafted = written, now checked or repaired before it lands. Sections land as they are
+    // ready, so nothing below a slow writer waits its turn: the line names the check.
     const run = building(rows('landed', 'writing', 'drafted', 'drafted'));
     expect(visibleStatus(run, 0)).toEqual({
-      statusKey: 'build.blocked',
-      params: { title: 'Hero' },
+      statusKey: 'build.checking',
+      params: { title: 'Services' },
     });
+    // The retrying writer and a drafted section above it: the same truth.
+    expect(visibleStatus(building(rows('drafted', 'retrying', 'waiting')), 0)).toEqual({
+      statusKey: 'build.checking',
+      params: { title: 'Header' },
+    });
+  });
+
+  it('never says a finished section is waiting its turn, for any row combination', () => {
+    const states: readonly RowState[] = ['waiting', 'writing', 'retrying', 'drafted', 'landed'];
+    for (const a of states) {
+      for (const b of states) {
+        for (const c of states) {
+          const line = visibleStatus(building(rows(a, b, c)), 0);
+          expect(line.statusKey, `${a}, ${b}, ${c}`).not.toBe('build.blocked');
+        }
+      }
+    }
   });
 
   it('keeps stopping above everything, for every activity', () => {
@@ -236,16 +255,17 @@ describe('visibleStatus: the RunBar line (SPEC §4.3 visible column)', () => {
   });
 });
 
-describe('blockedOn: the one section the whole build waits on', () => {
+describe('checkingOn: the drafted section the line names beside one writer', () => {
   it.each<[string, readonly RowState[], string | null]>([
-    ['one writer, a drafted section after it', ['landed', 'writing', 'drafted'], 'Hero'],
-    ['one retrying writer, drafted after it', ['retrying', 'waiting', 'drafted'], 'Header'],
-    ['two writers', ['writing', 'writing', 'drafted'], null],
-    ['one writer, nothing drafted after it', ['drafted', 'writing', 'waiting'], null],
+    ['one writer, a drafted section after it', ['landed', 'writing', 'drafted'], 'Services'],
+    ['one retrying writer, drafted after it', ['retrying', 'waiting', 'drafted'], 'Services'],
+    ['one writer, drafted before it', ['landed', 'drafted', 'writing'], 'Hero'],
+    ['two drafted: the first in page order', ['drafted', 'writing', 'drafted'], 'Header'],
+    ['two writers: the count says more', ['writing', 'writing', 'drafted'], null],
+    ['one writer, nothing drafted', ['landed', 'writing', 'waiting'], null],
     ['no writer at all', ['landed', 'drafted'], null],
-    ['one writer, drafted only before it', ['landed', 'drafted', 'writing'], null],
   ])('%s', (_name, states, expected) => {
-    expect(blockedOn(rows(...states))).toBe(expected);
+    expect(checkingOn(rows(...states))).toBe(expected);
   });
 });
 

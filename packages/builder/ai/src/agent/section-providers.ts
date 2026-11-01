@@ -62,12 +62,11 @@ export function withPhotoCatalog(
 }
 
 /**
- * The words a section's creative expertise is matched on. A scene's own
- * contract carries its expertise; the lead scene may also use the original
- * creative brief, while ordinary supporting bands never inherit it just from
- * page-level words.
+ * The words a section's creative brief is planned from: its own title and purpose (the hero's
+ * with the request too). The brief is handed the page's request beside them (`page`), so a
+ * chapter's own words still decide what it is (`sectionRule` in creative-planner.ts).
  */
-export function creativeRequestOf(
+export function sceneBriefWordsOf(
   options: Pick<RunAiBuildOptions, 'request'>,
   contract: SectionContract,
 ): string {
@@ -76,6 +75,22 @@ export function creativeRequestOf(
     contract.purpose,
     ...(contract.role === 'hero' ? [options.request] : []),
   ].join(' ');
+}
+
+/**
+ * The words a section's creative expertise is matched on (its playbooks, its ready scenes).
+ * A SCENE section — the hero, or one whose own title and purpose name a creative experience —
+ * also gets the person's request (2026-11-01: only the hero did, so a later level or chapter
+ * lost what the person asked of the whole piece). A text band never does: these words choose
+ * the Pixi playbooks, and page-level words would turn every band into a scene.
+ */
+export function creativeRequestOf(
+  options: Pick<RunAiBuildOptions, 'request' | 'skillRegistry'>,
+  contract: SectionContract,
+): string {
+  const own = [contract.title, contract.purpose].join(' ');
+  const scene = contract.role === 'hero' || pixiSkillIdsFor(options.skillRegistry, own).length > 0;
+  return scene ? [own, options.request].join(' ') : own;
 }
 
 /**
@@ -161,7 +176,7 @@ export function sectionProviders(
   if (!writesScene(options, contract)) return computed;
   const briefed = withCreativeBrief(
     computed,
-    creativeRequestOf(options, contract),
+    sceneBriefWordsOf(options, contract),
     plan.locale.lang,
     options,
   );

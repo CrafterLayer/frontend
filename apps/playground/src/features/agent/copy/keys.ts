@@ -86,6 +86,7 @@ export const KEYS = [
   'build.planned',
   'build.writing',
   'build.blocked',
+  'build.checking',
   'build.landed',
   'stopping',
   'edit.started',
@@ -533,6 +534,9 @@ export const KEYS = [
   'end.siteAsOnePage',
   'end.newPageAppended',
   'end.appendedNotReplaced',
+  // P5 (2026-11-01): a successor that found none of its sections says which page to open.
+  'end.openBuildPage',
+  'end.buildPageNotOpen',
 
   // WP-14-composer additions: the owner's ✨ Improve action (EnhanceButton, EnhanceNote)
   // and the questions docked above the composer before an unclear request runs
@@ -669,6 +673,7 @@ export const STATUS_KEYS = [
   'build.planned',
   'build.writing',
   'build.blocked',
+  'build.checking',
   'build.landed',
   'stopping',
   'edit.started',

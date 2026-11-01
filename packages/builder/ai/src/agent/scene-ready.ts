@@ -10,6 +10,7 @@ import { composesWithKit, MURAL_KIT_EDIT_LINE, MURAL_KIT_WRITER_LINE } from '../
 import { SCENE_INITIALIZATION_HEADER } from '../provider/scene-init-wire';
 import type { AiPlan } from '../types';
 import type { PagePlan, SectionContract } from './page-plan/types';
+import { varietyHash } from './scene-variety';
 import { creativeRequestOf } from './section-providers';
 import type { RunAiBuildOptions } from './types';
 
@@ -24,14 +25,15 @@ import type { RunAiBuildOptions } from './types';
   setting its region's `js` to `@preset:<id>`; the build puts the preset's code in before the
   door sees the answer (through the writer's completing provider), so the
   writer can omit markup: `completeReadyScene` fills its contract copy and scene host locally.
-  A writer whose first attempt failed is told to place one, so the retry finishes without
-  repeating the long write. A repair
+  A writer whose first attempt failed is offered them again, beside a short scene of its own
+  (2026-11-01: never forced — only a preset the request names is). A repair
   round is shown the marker in place of the code (`markReadyScenes`) and its answer expanded
   the same way, so a repair never re-writes code it did not write.
 
   Only backdrops that stand as they are: no words of their own (`type`), no photo (`photo`),
   no controls in a tree (`game`, `story` — the kits). The initializer attaches catalog metadata
-  and validated params only when declared; absent overrides use the page's palette, seed and pace.
+  and validated params only when declared; absent overrides use the page's palette and pace, and
+  the seed is the placement's own (scene-variety.ts, 2026-11-01), not the preset's default.
 
   The mural kit (2026-10-14): a picture no ready scene closely matches — a coral reef, a Ramadan
   night, a winter village — is no longer nudged into the nearest-sounding preset (a reef into
@@ -55,19 +57,14 @@ const MARKER = /^\s*@preset:\s*([a-z0-9-]+)\s*$/u;
 export const READY_SCENES_LISTED = 4;
 /** The scene code a writer's own write is advised to stay under (advice only: the region has no limit). */
 export const OWN_SCENE_CODE_CHARS = 9_000;
-/** Offered when nothing in the brief points anywhere: calm, broad, in the page's palette. */
-const FALLBACK_IDS: readonly string[] = [
-  'aurora-curtains',
-  'flow-field-silk',
-  'low-poly-terrain',
-  'topographic-contours',
-];
-const ARABIC_FALLBACK_IDS: readonly string[] = [
-  'girih-starfield',
-  'arabesque-vines',
-  'aurora-curtains',
-  'flow-field-silk',
-];
+/**
+ * Offered when the brief's words point nowhere (or at too few): broad backdrops in the page's
+ * palette. 2026-11-01: no longer one fixed four — every such brief was offered the same pictures.
+ */
+const FALLBACK_CATEGORIES: ReadonlySet<ScenePresetCategory> = new Set<ScenePresetCategory>([
+  'mural',
+  'pattern',
+]);
 
 /** The presets a section can carry as they stand, in catalogue order. */
 export function readyScenes(): readonly ScenePreset[] {
@@ -127,7 +124,10 @@ function presetWords(preset: ScenePreset): ReadonlySet<string> {
 /**
  * The ready scenes that fit a brief best: most words shared with the preset's id, names,
  * descriptions and tags (English and Arabic), an Arabic page leaning to the Arabic patterns;
- * a brief that matches nothing gets a calm, broad few. Deterministic: ties keep catalogue order.
+ * ties keep catalogue order. The rest of the list — all of it for a brief that matches nothing —
+ * is broad backdrops (murals and patterns, the matched ones' categories first, Arabic ones first
+ * on an Arabic page) in an order the brief itself decides: a different brief sees different
+ * pictures, the same brief the same ones.
  */
 export function suggestReadyScenes(brief: string, lang: string): readonly ScenePreset[] {
   const asked = wordsOf(brief);
@@ -142,9 +142,18 @@ export function suggestReadyScenes(brief: string, lang: string): readonly SceneP
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || a.order - b.order)
     .map(({ preset }) => preset);
-  const fallback = (arabic ? ARABIC_FALLBACK_IDS : FALLBACK_IDS)
-    .map((id) => scenePreset(id))
-    .filter((preset): preset is ScenePreset => preset !== undefined);
+  const near = new Set(matched.map(({ category }) => category));
+  const rank = (preset: ScenePreset): number =>
+    (near.has(preset.category) ? 0 : 2) + (arabic && !preset.tags.includes('arabic') ? 1 : 0);
+  const fallback = readyScenes()
+    .filter(({ category }) => FALLBACK_CATEGORIES.has(category))
+    .map((preset) => ({
+      preset,
+      rank: rank(preset),
+      spread: varietyHash(`${brief}\u0000${preset.id}`),
+    }))
+    .sort((a, b) => a.rank - b.rank || a.spread - b.spread)
+    .map(({ preset }) => preset);
   const listed: ScenePreset[] = [];
   for (const preset of [...matched, ...fallback]) {
     if (listed.length >= READY_SCENES_LISTED) break;
@@ -186,9 +195,11 @@ function firstClause(text: string): string {
 }
 
 /**
- * What a scene writer's brief adds: the ready scenes that fit, and how to place one. The
- * first attempt may still write its own scene, kept short; an explicit preset id or retry selects
- * initialization only, identified separately from general creative advice by the wire header.
+ * What a scene writer's brief adds: the ready scenes that fit, and how to place one — one option
+ * beside a scene of its own, on the first attempt and on a retry alike (2026-11-01: a retry was
+ * forced into a preset, so every failed first write became the same few pictures). Only a preset
+ * id the request names selects initialization only, identified separately from general creative
+ * advice by the wire header.
  */
 export function readySceneLines(
   listed: readonly ScenePreset[],
@@ -198,20 +209,23 @@ export function readySceneLines(
   if (listed.length === 0) return [];
   if (customScene(originalBrief)) return [];
   const explicit = explicitScenes(originalBrief);
-  const mandatory = attempt === 2 || explicit.length > 0;
-  const allowed = explicit.length > 0 ? explicit.slice(0, READY_SCENES_LISTED) : listed;
+  const mandatory = explicit.length > 0;
+  const allowed = mandatory ? explicit.slice(0, READY_SCENES_LISTED) : listed;
   const list = allowed
     .map(({ id, description }) => `${id} (${firstClause(description.en)})`)
     .join(' · ');
+  const own = `under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters`;
   return [
     ...(mandatory
       ? [`${SCENE_INITIALIZATION_HEADER} ${allowed.map(({ id }) => id).join('|')}`]
       : []),
-    `READY SCENES (tested, in the page's palette; placed in seconds, where scene code of your own takes minutes): ${list}.`,
-    `To initialize a complete scene section, answer with ONE setProp step {"id":"<this region id>","key":"js","value":"${READY_SCENE_MARKER}<id>"}. The build fills the tested code, responsive tree and css, exact contract title and required copy, and primary action for a hero or cta. No markup is needed. An explicit tree or css stays as you write it; put copy above the scene (position:relative;z-index:1) and size the region by its width, never vh.`,
+    `READY SCENES (tested, in the page's palette; one option, not the default): ${list}.`,
+    `To initialize a complete scene section, answer with ONE setProp step {"id":"<this region id>","key":"js","value":"${READY_SCENE_MARKER}<id>"}. The build fills the tested code, responsive tree and css, exact contract title and required copy, and primary action for a hero or cta. No markup is needed. An explicit tree or css stays as you write it; put copy above the scene (position:relative;z-index:1) and size the region by its width, never vh, in the shape the piece wants: a 21/9 panorama, 16/9, a 4/5 tall stage, a 1/1 square, or a backdrop behind the copy.`,
     mandatory
       ? `${attempt === 2 ? 'The first attempt at this section failed' : 'The request names a ready preset'}: choose an id listed above and set this region's js to exactly "${READY_SCENE_MARKER}<id>" — no scene code of your own.`
-      : `Write scene code of your own only when none of these fits the brief, and keep it under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`,
+      : attempt === 2
+        ? `The first attempt at this section failed: keep this answer short — place one of these if it fits the brief, or write a short scene of your own, ${own}.`
+        : `Place one of these only when it fits the brief; otherwise write the scene of your own this piece wants, ${own}.`,
   ];
 }
 
@@ -278,7 +292,7 @@ export function withReadyScenes(
   request: string,
   scene:
     | {
-        readonly options: Pick<RunAiBuildOptions, 'request'>;
+        readonly options: Pick<RunAiBuildOptions, 'request' | 'skillRegistry'>;
         readonly plan: Pick<PagePlan, 'locale'>;
         readonly contract: SectionContract | undefined;
         readonly skillIds: readonly string[];
@@ -287,19 +301,21 @@ export function withReadyScenes(
   attempt: 1 | 2,
 ): string {
   if (scene?.contract === undefined || !offersReadyScenes(scene.skillIds)) return request;
+  // Every scene's brief carries the request (2026-11-01), so a later mural's own words decide
+  // which presets IT names: one the request named for the lead scene must not force it.
   const brief = creativeRequestOf(scene.options, scene.contract);
+  const hero = scene.contract.role === 'hero';
+  const own = hero ? brief : [scene.contract.title, scene.contract.purpose].join(' ');
   if (customScene(brief)) return request;
-  if (explicitScenes(brief).length === 0 && composesWithKit(brief)) {
+  if (explicitScenes(own).length === 0 && composesWithKit(brief)) {
     return [request, '', MURAL_KIT_WRITER_LINE].join('\n');
   }
-  // A preset named for the lead scene must not force an unrelated later mural into that preset.
-  const originalBrief =
-    scene.contract.role === 'hero'
-      ? scene.options.request
-      : explicitScenes(scene.options.request)
-          .filter(({ id }) => explicitScenes(brief).some((preset) => preset.id === id))
-          .map(({ id }) => id)
-          .join(' ');
+  const originalBrief = hero
+    ? scene.options.request
+    : explicitScenes(scene.options.request)
+        .filter(({ id }) => explicitScenes(own).some((preset) => preset.id === id))
+        .map(({ id }) => id)
+        .join(' ');
   const lines = readySceneLines(
     suggestReadyScenes(brief, scene.plan.locale.lang),
     attempt,
@@ -336,7 +352,7 @@ export function createReadyScenesContextProvider(request: string, lang: string):
         kind: 'data',
         trust: 'reviewed',
         title: 'Ready scenes that fit this request',
-        body: `Tested scenes in the page's palette: ${listed}. Place one with ONE scene.preset step ({"preset":"<id>","params":{…}}) instead of writing scene code — seconds, where scene code of your own takes minutes. Write scene code only for what none of them shows, and keep it under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`,
+        body: `Tested scenes in the page's palette, one option beside a scene of your own: ${listed}. Place one with ONE scene.preset step ({"preset":"<id>","params":{…}}, a fresh seed among them) when it fits the request; otherwise write the scene this request wants, under ${OWN_SCENE_CODE_CHARS.toLocaleString('en-US')} characters.`,
       };
     },
   };

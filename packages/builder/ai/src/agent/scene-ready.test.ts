@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MURAL_KIT_EDIT_LINE, MURAL_KIT_WRITER_LINE } from '../creative/mural-kit';
 import { scenePreset } from '../scene-presets/catalog';
+import { createCraftkitAiSkillRegistry } from '../skills/index';
 import type { AiPlan } from '../types';
 import { isSceneInitializationRequest } from '../provider/scene-init-wire';
 import { checkScene } from './page-plan/check-scene';
@@ -53,17 +54,29 @@ describe('ready scenes in a build (2026-10-13)', () => {
     expect(new Set(listed.map(({ id }) => id)).size).toBe(listed.length);
   });
 
-  it('gives a brief that names nothing a calm, broad few, Arabic patterns first on an Arabic page', () => {
-    expect(suggestReadyScenes('The section of the page', 'en').map(({ id }) => id)).toEqual([
-      'aurora-curtains',
-      'flow-field-silk',
-      'low-poly-terrain',
-      'topographic-contours',
-    ]);
-    expect(suggestReadyScenes('قسم في الصفحة', 'ar')[0]?.id).toBe('girih-starfield');
+  // 2026-11-01: no fixed four for every brief that names nothing — the same few every time made
+  // every such mural one of the same pictures. The backdrops rotate by the brief, deterministically.
+  it('gives a brief that names nothing a few broad backdrops chosen by that brief, Arabic patterns first on an Arabic page', () => {
+    const ids = (brief: string, lang = 'en') => suggestReadyScenes(brief, lang).map(({ id }) => id);
+    const first = ids('The section of the page');
+    expect(first).toHaveLength(READY_SCENES_LISTED);
+    expect(ids('The section of the page')).toEqual(first);
+    const briefs = ['The section of the page', 'A quiet band', 'Lorem ipsum', 'Something else'];
+    expect(new Set(briefs.map((brief) => ids(brief).join(' '))).size).toBeGreaterThan(1);
+    for (const brief of briefs) {
+      for (const id of ids(brief)) {
+        expect(['mural', 'pattern'], `${brief}: ${id}`).toContain(scenePreset(id)?.category);
+      }
+    }
+    // Wider than the old four: across briefs, more of the catalogue is offered.
+    const offered = new Set(
+      Array.from({ length: 24 }, (_, index) => ids(`Section number ${String(index)}`)).flat(),
+    );
+    expect(offered.size).toBeGreaterThan(8);
+    expect(scenePreset(ids('قسم في الصفحة', 'ar')[0] ?? '')?.tags).toContain('arabic');
   });
 
-  it('tells the first writer how to place one, and a retry to place one', () => {
+  it('tells the first writer how to place one, and offers a retry one without forcing it', () => {
     const listed = suggestReadyScenes('aurora mural', 'en');
     const first = readySceneLines(listed, 1).join('\n');
     expect(first).toContain('READY SCENES');
@@ -72,11 +85,55 @@ describe('ready scenes in a build (2026-10-13)', () => {
     expect(first).toContain('ONE setProp step');
     expect(first).toContain('responsive tree and css');
     expect(isSceneInitializationRequest(first)).toBe(false);
+    // 2026-11-01: a retry is offered the ready scenes, never forced into one.
     const retry = readySceneLines(listed, 2).join('\n');
     expect(retry).toContain('The first attempt at this section failed');
-    expect(retry).toContain('no scene code of your own');
-    expect(isSceneInitializationRequest(retry)).toBe(true);
+    expect(retry).toContain('READY SCENES');
+    expect(retry).not.toContain('no scene code of your own');
+    expect(isSceneInitializationRequest(retry)).toBe(false);
     expect(readySceneLines([], 1)).toEqual([]);
+  });
+
+  it('presents ready scenes as one option, never as faster than the writer’s own scene', () => {
+    const listed = suggestReadyScenes('aurora mural', 'en');
+    for (const attempt of [1, 2] as const) {
+      const lines = readySceneLines(listed, attempt).join('\n');
+      expect(lines).not.toMatch(/in seconds|takes minutes/u);
+    }
+    const edit = JSON.stringify(
+      createReadyScenesContextProvider('An abstract aurora mural', 'en').collect({} as never, []),
+    );
+    expect(edit).not.toMatch(/in seconds|takes minutes/u);
+  });
+
+  it('sizes the region by its width in the shape the piece wants, never vh and never one fixed band', () => {
+    const lines = readySceneLines(suggestReadyScenes('aurora mural', 'en'), 1).join('\n');
+    expect(lines).toContain('never vh');
+    for (const shape of ['21/9', '4/5', '1/1']) expect(lines).toContain(shape);
+  });
+
+  it('does not force a later scene to use a preset the request named for the lead scene, now that it reads the request', () => {
+    const skillRegistry = createCraftkitAiSkillRegistry();
+    const later = {
+      options: {
+        request: 'A calm aurora-curtains hero, then a mural band of a waterfall with a bridge',
+        skillRegistry,
+      },
+      plan: { locale: { lang: 'en', dir: 'ltr' as const } },
+      skillIds: ['craftkit.pixi-murals'],
+      contract: {
+        key: 'waterfall',
+        role: 'band' as const,
+        title: 'Waterfall',
+        anchorId: 'waterfall',
+        purpose: 'A mural of a waterfall with an illustrated bridge',
+        mustSay: [],
+        mustNotRepeat: [],
+      },
+    };
+    for (const attempt of [1, 2] as const) {
+      expect(isSceneInitializationRequest(withReadyScenes('brief', later, attempt))).toBe(false);
+    }
   });
 
   it('marks only an explicit catalog id in the original first-attempt brief as init-only', () => {

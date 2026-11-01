@@ -42,6 +42,19 @@ export function isScaffoldRun(options: RunAiAgentOptions): boolean {
   return SCAFFOLDS.has(options);
 }
 
+/**
+ * `to`, a copy of `from`, with every mark `from` carries (2026-11-01). The marks live in
+ * WeakSets keyed by the options object, so a spread copy drops them unless it is passed
+ * through here: `runAiAgent`'s copy that adds named skills did, and every build writer —
+ * which always names its skills — ran under the 120 s / 180 s default instead of its
+ * section's own deadline.
+ */
+export function carryRunMarks<T extends object>(from: object, to: T): T {
+  if (INHERITED.has(from)) INHERITED.add(to);
+  if (SCAFFOLDS.has(from)) SCAFFOLDS.add(to);
+  return to;
+}
+
 export class AiRunTimeoutError extends Error {
   override readonly name = 'AiRunTimeoutError';
   constructor(timeoutMs: number) {
@@ -92,8 +105,7 @@ export async function withinRunDeadline<TOptions extends DeadlineRequest, T>(
       return options.isCurrentRun === undefined ? true : options.isCurrentRun(options.runId);
     },
   };
-  if (INHERITED.has(options)) INHERITED.add(live);
-  if (SCAFFOLDS.has(options)) SCAFFOLDS.add(live);
+  carryRunMarks(options, live);
   try {
     return await settleOnAbort(controller.signal, () => work(live));
   } finally {

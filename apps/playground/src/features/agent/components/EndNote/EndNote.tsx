@@ -22,6 +22,9 @@ const GLYPH = {
   siteAsOnePage: 'note',
   newPageAppended: 'note',
   appendedNotReplaced: 'note',
+  // P5: a "Finish the rest" that wrote nothing: nothing of it is on the page.
+  openBuildPage: 'absent',
+  buildPageNotOpen: 'absent',
 } as const satisfies Readonly<Record<EndNoteKey, RunGlyphState>>;
 
 export interface EndNoteProps {
@@ -47,7 +50,11 @@ export function EndNote({ locale, view, headingRef, className }: EndNoteProps) {
       className={className === undefined ? 'ck-agent-end' : `ck-agent-end ${className}`}
       data-end={view.key}
       glyph={GLYPH[view.key]}
-      title={t(locale, `end.${view.key}`)}
+      title={t(
+        locale,
+        `end.${view.key}`,
+        view.page === undefined ? undefined : { page: view.page },
+      )}
       headingRef={headingRef}
     />
   );

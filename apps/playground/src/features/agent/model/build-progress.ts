@@ -48,7 +48,8 @@ import type { FailureClass } from './view-types';
 
 /**
  * Where one section is. `writing` covers both attempts (`attempts` says which);
- * `drafted` is a finished writer whose section waits its turn to land; `notWritten`
+ * `drafted` is a finished writer whose section is checked or repaired before it lands
+ * (sections land as they are ready: nothing waits its turn); `notWritten`
  * comes only from `build.completed` (the report's `not-started`): the build ended first.
  */
 export type BuildTaskStatus =

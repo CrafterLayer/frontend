@@ -5,6 +5,7 @@ import {
   customCodeJsParams,
   customCodeTree,
   customCss,
+  validateParamValues,
   type CustomCodeRoot,
   type JsonValue,
 } from '@craftkit/builder-schema';
@@ -208,8 +209,39 @@ describe('completeReadyScene — compact full section initialization', () => {
       ).toEqual([]);
       expect(customCodeJsMeta().safeParse(values['jsMeta']).success, preset.id).toBe(true);
       expect(customCodeJsParams().safeParse(values['jsParams']).success, preset.id).toBe(true);
-      expect(values['jsParams'], preset.id).toEqual({});
+      // Only a seed of its own (2026-11-01), valid for the preset and never its default.
+      const seeded = preset.params.some(({ key }) => key === 'seed');
+      const params = values['jsParams'] as Record<string, unknown>;
+      expect(Object.keys(params), preset.id).toEqual(seeded ? ['seed'] : []);
+      if (seeded) {
+        expect(validateParamValues(preset.params, params).issues, preset.id).toEqual([]);
+        expect(params['seed'], preset.id).not.toBe(preset.defaults['seed']);
+      }
     }
+  });
+
+  // 2026-11-01: a preset placed with no params drew its built-in seed — the same picture on every
+  // page. Its seed now follows the build's region and the section: a rebuild differs, a test not.
+  it('draws each placement its own picture: a seed from the region and section, deterministic', () => {
+    const seedOf = (
+      region: string,
+      given: AiPlan = answer(prop('js', '@preset:aurora-curtains', region)),
+    ) =>
+      (
+        completeReadyScene(page(contract()), contract(), region, given, DECLARED).commands.find(
+          (step) => (step.args as { key?: unknown }).key === 'jsParams',
+        )?.args as { value?: Record<string, unknown> } | undefined
+      )?.value?.['seed'];
+    const first = seedOf(REGION);
+    expect(typeof first).toBe('number');
+    expect(seedOf(REGION)).toBe(first);
+    const others = ['region-b', 'region-c', 'region-d'].map((region) => seedOf(region));
+    expect(new Set([first, ...others]).size).toBeGreaterThan(1);
+    // The writer's own params gain a seed; a seed the writer set stays its own, even the default.
+    const tuned = answer(prop('js', '@preset:aurora-curtains'), prop('jsParams', { speed: 1.5 }));
+    expect(seedOf(REGION, tuned)).toBe(first);
+    const chosen = answer(prop('js', '@preset:aurora-curtains'), prop('jsParams', { seed: 42 }));
+    expect(seedOf(REGION, chosen)).toBe(42);
   });
 
   it('validates settings against the chosen preset and stores only non-default values', () => {

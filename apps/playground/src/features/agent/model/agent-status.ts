@@ -76,16 +76,16 @@ const isInFlight = (state: RowState): boolean =>
 const isUnstarted = (state: RowState): boolean => state === 'planned' || state === 'waiting';
 
 /**
- * The one section the whole build is waiting on, or null (SPEC §3.4 "Blocked"): exactly
- * one section is still being written and a section below it is already drafted. Sections
- * land in page order, so that finished draft cannot reach the page until this one does.
+ * The drafted section the line names while one writer runs beside it, or null (P1,
+ * 2026-11-01). `drafted` means its writer finished and the section is being checked or
+ * repaired before it lands (`model/build-progress.ts`); sections land as they are ready, so
+ * nothing waits its turn behind a slow writer. Until then this was `blockedOn`, which named
+ * the writer and said the finished sections after it were waiting for it: they were not.
+ * The first drafted section in page order; two writers or more keep their count.
  */
-export function blockedOn(rows: readonly StatusRow[]): string | null {
-  const writing = rows.filter((row) => isWriting(row.state));
-  const only = writing.length === 1 ? writing[0] : undefined;
-  if (only === undefined) return null;
-  const at = rows.indexOf(only);
-  return rows.slice(at + 1).some((row) => row.state === 'drafted') ? only.title : null;
+export function checkingOn(rows: readonly StatusRow[]): string | null {
+  if (rows.filter((row) => isWriting(row.state)).length !== 1) return null;
+  return rows.find((row) => row.state === 'drafted')?.title ?? null;
 }
 
 function buildLine(
@@ -98,8 +98,8 @@ function buildLine(
   if (lastLanding !== undefined && now - lastLanding.at < LANDED_LINE_MS) {
     return { statusKey: 'build.landed', params: { title: lastLanding.title } };
   }
-  const blocked = blockedOn(rows);
-  if (blocked !== null) return { statusKey: 'build.blocked', params: { title: blocked } };
+  const checking = checkingOn(rows);
+  if (checking !== null) return { statusKey: 'build.checking', params: { title: checking } };
   // §3.4 and §3.9 count writers only: a drafted section is written, and it is not ink.
   const writing = rows.filter((row) => isWriting(row.state)).length;
   if (writing > 0) return { statusKey: 'build.writing', params: { n: writing } };
@@ -107,7 +107,7 @@ function buildLine(
     return { statusKey: 'build.planned', params: { n: rows.length } };
   }
   /*
-    No writer, yet sections still in flight: drafted ones landing in order, or waiting
+    No writer, yet sections still in flight: drafted ones being checked, or waiting
     ones a free writer is about to pick up. The count is never theirs: the RunBar's number
     is the rows in the writing state, so it can never say «قسمان قيد الكتابة» over one
     writing row and one waiting row. The last landing is still true, so it stays; before

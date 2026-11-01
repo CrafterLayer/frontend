@@ -72,6 +72,17 @@ describe('PixiJS v8 skills — activation', () => {
     expect(prepared.omitted).toEqual([]);
     expect(prepared.totalTokens).toBeLessThan(7_000);
   });
+
+  // 2026-11-01: a design size in the stage's shape, not one 16:9 band for every scene.
+  it('sizes a scene design in the shape its stage takes', () => {
+    const core = PIXI_V8_SKILLS.find(({ id }) => id === CORE)?.instructions ?? '';
+    const size = core.split('\n').find((line) => line.startsWith('SIZE:')) ?? '';
+    expect(size).toContain('ck.scene({design:{width,height}}) in stage shape');
+    for (const shape of ['1280×720', '1280×548 panorama', '960×1200 tall', '720×1280'])
+      expect(size).toContain(shape);
+    expect(size).not.toContain('ck.scene({design:{width:1280,height:720}})');
+    expect(size).toContain('never from the window');
+  });
 });
 
 /* ── The worked examples ─────────────────────────────────────────────────── */

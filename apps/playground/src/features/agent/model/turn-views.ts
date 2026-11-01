@@ -321,7 +321,14 @@ function recordViewOf(turn: Turn, collapsed: boolean, context: TurnViewContext):
     case 'error':
       return { kind: 'error', view: errorRecordView(errorRecordInputOf(turn), context) };
     case 'end':
-      return { kind: 'end', view: { turnId: turn.id, key: turn.key } };
+      return {
+        kind: 'end',
+        view: {
+          turnId: turn.id,
+          key: turn.key,
+          ...(turn.page === undefined ? {} : { page: turn.page }),
+        },
+      };
   }
 }
 

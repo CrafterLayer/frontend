@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_CALL_TIMEOUT_MS } from './call-lifetime';
 import {
   CLI_DEFAULT_TIMEOUT_MS,
   cliShapeKey,
@@ -70,6 +71,10 @@ describe('cli backend timeout', () => {
   */
   it('allows a plan far longer than the two minutes a real one needs', () => {
     expect(CLI_DEFAULT_TIMEOUT_MS).toBeGreaterThanOrEqual(600_000);
+  });
+
+  it('never kills the CLI before the call it serves may end (2026-10-31)', () => {
+    expect(CLI_DEFAULT_TIMEOUT_MS).toBeGreaterThanOrEqual(DEFAULT_CALL_TIMEOUT_MS);
   });
 
   it('names the timeout, its length and the way out instead of failing namelessly', async () => {

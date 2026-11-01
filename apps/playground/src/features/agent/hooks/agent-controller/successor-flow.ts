@@ -1,6 +1,7 @@
 /**
  * Successor runs (Retry, "Write the failed sections again", "Finish the rest"):
- * exactly the named sections, written in place into the same build record.
+ * exactly the named sections, written in place into the same build record, on the page the
+ * build was built on (P5), each landing as soon as it is written (P3, 2026-11-01).
  */
 import {
   type AiAgentRunResult,
@@ -26,6 +27,7 @@ import { preflightPorts } from '../../model/runs';
 import {
   FILL_SKILL_ID,
   guardSection,
+  landingKeys,
   reopenForSuccessor,
   sectionLabel,
   sectionValues,
@@ -35,14 +37,14 @@ import {
   taskSkippedEvent,
   taskStartedEvent,
 } from '../../model/successor-fill';
-import type { Turn } from '../../model/turns';
+import type { BuildTurn, Turn } from '../../model/turns';
 
 import type { Flow } from './controller-state';
-import { followKernel, kernelOfBuild } from './kernel-follow';
+import { followKernel, successorKernelOf } from './kernel-follow';
 import { claim, holds, release, setRun } from './run-lease';
 import { commonRunOptions } from './run-options';
 import { say } from './run-outcomes';
-import { locateTurn, patchKind, patchTurn } from './turn-plumbing';
+import { insertAfter, locateTurn, patchKind, patchTurn } from './turn-plumbing';
 
 /* ── Successor runs: exactly the named sections, in place ────────────────────── */
 
@@ -50,6 +52,24 @@ interface Written {
   readonly task: BuildTask;
   readonly result?: AiAgentRunResult | undefined;
   readonly error?: unknown;
+}
+
+/**
+ * None of the named sections could be found to write (P5, 2026-11-01). Before, the action
+ * silently did nothing: after a reload it looked for the build's regions on whichever page
+ * was open. Now the thread says so after the record: the page by name when an older record
+ * only knows its title (`BuildTurn.page`, a site build saved before `pageId`), else which
+ * page in words.
+ */
+function notePageToOpen(flow: Flow, sessionId: string, build: BuildTurn): void {
+  const page = build.pageId === undefined ? build.page : undefined;
+  insertAfter(flow, sessionId, build.id, [
+    {
+      id: flow.env().sessions.nextId('turn'),
+      kind: 'end',
+      ...(page === undefined ? { key: 'buildPageNotOpen' } : { key: 'openBuildPage', page }),
+    },
+  ]);
 }
 
 export async function runSuccessor(
@@ -61,15 +81,19 @@ export async function runSuccessor(
   const located = locateTurn(flow, turnId);
   if (located?.turn.kind !== 'build' || keys.length === 0) return;
   const original = located.turn;
-  const kernel = kernelOfBuild(flow, turnId);
   const wanted = new Set(keys);
-  const document = kernel.getDocument();
-  // Only sections whose region is still on the page can be written into.
-  const tasks = original.progress.tasks.filter(
-    (task) =>
-      wanted.has(task.id) && task.status !== 'landed' && document.nodes[task.id] !== undefined,
+  const unwritten = original.progress.tasks.filter(
+    (task) => wanted.has(task.id) && task.status !== 'landed',
   );
-  if (tasks.length === 0) return;
+  if (unwritten.length === 0) return;
+  const kernel = successorKernelOf(flow, turnId);
+  const document = kernel?.getDocument();
+  // Only sections whose region is still on the page can be written into.
+  const tasks = unwritten.filter((task) => document?.nodes[task.id] !== undefined);
+  if (kernel === null || tasks.length === 0) {
+    notePageToOpen(flow, located.sessionId, original);
+    return;
+  }
   const slot = claim(flow, located.sessionId, turnId, 'build');
   if (slot === null) return;
   followKernel(flow, kernel);
@@ -125,7 +149,7 @@ export async function runSuccessor(
   const landings = new Map<string, AiBuildSectionLanding>();
   const landedIds: string[] = [];
 
-  /* Writers run a few at a time; sections still land one by one, in page order. */
+  /* Writers run a few at a time; each section lands, one at a time, as soon as it is written. */
   const write = async (task: BuildTask): Promise<Written> => {
     feed(taskStartedEvent(progressNow(), task, flow.clock.now(), (seq += 1)));
     const brief = successorBrief({
@@ -178,15 +202,21 @@ export async function runSuccessor(
   let stopped = false;
   try {
     startNext();
-    for (const task of tasks) {
-      const outcome = await pending.get(task.id);
+    /*
+      P3 (2026-11-01): the first write to settle lands first, and its writer takes the next
+      section at once (`readySections` in the engine). Awaiting in page order held every
+      finished section, and every free writer, behind the slowest one above it. The record's
+      rows stay in page order; the history keeps the order sections landed in.
+    */
+    while (pending.size > 0) {
+      const outcome = await Promise.race(pending.values());
+      const { task } = outcome;
       pending.delete(task.id);
       if (!holds(flow, slot)) {
         stopped = true;
         break;
       }
       startNext();
-      if (outcome === undefined) continue;
       if (outcome.result === undefined) {
         const failure = classifyAiRunFailure(outcome.error);
         feed(
@@ -203,7 +233,8 @@ export async function runSuccessor(
         );
         continue;
       }
-      const guarded = guardSection(outcome.result.plan, task.id);
+      // P4: with free code on, a scene keeps its code, as the engine's own guard keeps it.
+      const guarded = guardSection(outcome.result.plan, task.id, env.options.freeCode === true);
       if (guarded === null) {
         feed(
           taskSkippedEvent(
@@ -219,7 +250,8 @@ export async function runSuccessor(
         );
         continue;
       }
-      const before = sectionValues(kernel.getDocument(), task.id);
+      const keysLanded = landingKeys(guarded.plan);
+      const before = sectionValues(kernel.getDocument(), task.id, keysLanded);
       try {
         const label = sectionLabel(task.position, total, task.title);
         const applied = applyAiPlan({
@@ -235,7 +267,7 @@ export async function runSuccessor(
             transactionId: tx.id,
             label,
             before,
-            after: sectionValues(kernel.getDocument(), task.id),
+            after: sectionValues(kernel.getDocument(), task.id, keysLanded),
           });
           landedIds.push(tx.id);
         }

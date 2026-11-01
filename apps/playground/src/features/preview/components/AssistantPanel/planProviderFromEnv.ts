@@ -57,7 +57,8 @@ export function planProviderFromEnv(
     requestedTimeout > 0 &&
     requestedTimeout <= 2_147_483_647
       ? requestedTimeout
-      : 240_000;
+      : // Fifteen minutes: a scene writer's own build deadline (2026-10-31); four cut murals off.
+        900_000;
   const headers = {
     ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
     ...(chosen === '' ? {} : { 'x-craftkit-ai-model': chosen }),

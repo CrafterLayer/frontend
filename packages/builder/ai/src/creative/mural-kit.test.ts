@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { creativeBriefFor, planCreativeBrief, renderCreativeBrief } from './creative-planner';
-import { closeMuralPreset, composesWithKit } from './mural-kit';
+import {
+  closeMuralPreset,
+  composesWithKit,
+  MURAL_KIT_EDIT_LINE,
+  MURAL_KIT_WRITER_LINE,
+} from './mural-kit';
 
 /*
   mural kit (2026-10-14): an illustrated mural is briefed as a short s.lib.mural composition —
@@ -25,8 +30,11 @@ describe('creative brief — the mural kit', () => {
     const text = renderCreativeBrief(brief);
     expect(text).toContain('compose with s.lib.mural, the default for any illustrated mural');
     expect(text).toContain(
-      "ck.scene({libs:['mural','anim'],seed,design:{width:1280,height:720,fit:'cover'}})",
+      "ck.scene({libs:['mural','anim'],seed:N,design:{width:1280,height:720,fit:'cover'}})",
     );
+    // 2026-11-01: the library's default seed drew one picture for every mural composed from it.
+    expect(text).toContain('s.lib.mural.compose(s,{seed:N,…spec})');
+    expect(text).toContain('N a fresh seed of your own');
     expect(text).toContain('a 1-3k-character spec');
     for (const word of [
       'underwater',
@@ -92,5 +100,18 @@ describe('creative brief — the mural kit', () => {
     expect(composesWithKit('A generative flow field mural')).toBe(false);
     expect(composesWithKit('A mural story of a fishing village')).toBe(false);
     expect(planCreativeBrief('A calm animated mural for the hero').libs).not.toContain('mural');
+  });
+});
+
+describe('the mural kit lines a writer is handed', () => {
+  // 2026-11-01: compose's spec seed defaults to 1 and ck.scene's to 1, so every mural composed
+  // without one was the same picture. Every line that teaches the call asks for a fresh seed.
+  it.each([
+    ['the build writer', MURAL_KIT_WRITER_LINE],
+    ['the edit', MURAL_KIT_EDIT_LINE],
+  ])('asks %s for a fresh seed in both calls', (_who, line) => {
+    expect(line).toContain("ck.scene({libs:['mural','anim'],seed:N,");
+    expect(line).toContain('s.lib.mural.compose(s,{seed:N,…spec})');
+    expect(line).toContain('N a fresh seed of your own');
   });
 });

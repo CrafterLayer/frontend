@@ -98,7 +98,11 @@ describe('FREE_CODE_CARD', () => {
       '"js" prop of a customCode block',
       // preview-fix (2026-10-12): a stage sized by width, laid out again when its region resizes.
       'never vh',
-      'aspect-ratio:16/9',
+      // 2026-11-01: in the shape the piece wants, not one 16:9 band for every scene.
+      'aspect-ratio:A',
+      'A one of 21/9, 16/9, 4/5, 1/1',
+      'a backdrop behind copy',
+      'a stage beside text',
       'position:relative;z-index:1',
       "app.renderer.on('resize',fn)",
       'BODY of an async function',

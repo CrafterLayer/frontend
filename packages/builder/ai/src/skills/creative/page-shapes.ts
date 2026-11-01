@@ -8,6 +8,12 @@ import type { AiSkillDefinitionV1 } from '../types';
   text band, and one that did lost the cast. This skill gives the planner the SHAPE of each kind
   of piece and makes every scene section's purpose carry what its writer needs.
 
+  2026-11-01 (the owner: every game and mural came out in the same shape, "fixed in the code"):
+  no fixed outline per kind any more. The planner is told to invent the structure of THIS piece,
+  shown contrasting examples per kind to depart from, and to give the piece its own palette and
+  faces instead of a trade's deck row. Every scene section's writer now reads the request too
+  (`creativeRequestOf`); a text section still sees only its own title and purpose.
+
   Explicit: the selection lane names it for the page plan only (`pixiSkillIdsFor(…, 'page-plan')`),
   never for a section writer. No dependency: the planner writes no scene code.
 */
@@ -19,18 +25,20 @@ export const PIXI_PAGE_SHAPES_SKILL: AiSkillDefinitionV1 = {
   id: PIXI_PAGE_SHAPES_ID,
   name: 'Creative page shapes: games, stories, murals and bedtime',
   description:
-    'How a page plan lays out a game, an illustrated story, a mural or a bedtime story: the scene first, then the sections that serve it.',
-  version: '1.0.0',
+    'How a page plan finds the structure of a game, an illustrated story, a mural or a bedtime story: its own outline and look, scene sections named so their writers build scenes.',
+  version: '1.1.0',
   source: 'builtin',
   trust: 'builtin',
   priority: 44,
   activation: { mode: 'explicit' },
   tags: ['pixi', 'creative', 'planning', 'page-plan'],
   instructions: `A CREATIVE PAGE IS THE PIECE, NOT A BROCHURE: every section serves the game, story or mural; no pricing, testimonials, team, logos or invented business facts unless asked.
-WRITERS ARE BLIND: only the hero's writer reads the request; every other writer sees its own title and purpose. So each SCENE section's purpose names its experience in plain words — "playable game", "interactive story chapter scene", "mural", "scroll mural" (Arabic: «لعبة تفاعلية»، «مشاهد قصصية»، «قصة تفاعلية»، «جدارية») — plus the cast by name, the place, the palette and that section's beat. A TEXT section (how to play, credits, a note) names none of those words, so it stays a light kit section.
-GAME: the hero IS the game — objective, controls and status in its purpose. Then one band "How to play": goal, keys and touch, scoring, how to win or lose. Optional: a levels or characters band. Close with a cta "Play again" back to the hero. primaryCta: Play → #<hero anchor>.
-STORY: the hero is the cover — title, hero character, the world, "start reading". Then 2-5 bands, ONE chapter scene each, in reading order, every one sharing the cover's cast, palette and setting ("Chapter 2 — interactive story chapter scene: Layla the fox crosses the moonlit river"); the last chapter is the ending with replay. primaryCta: Start the story → the first chapter.
-MURAL: the hero is the scene (a mural, or a scroll mural for a journey); then one or two short bands of supporting copy — what it shows, the motif, credits. Never a gallery of invented works.
-BEDTIME: a story for sleep — 3-4 short chapter scenes, a soft dark palette, calm motion, a read-aloud toggle on each chapter, the last one says goodnight. No game, no countdown, no bright sales band.
-Header and footer stay small or absent; nav, when present, lists the chapters or "Play" and "How to play". Arabic requests: every title, purpose and label in Arabic. seo.pageKind: a game or mural → landing; a story or bedtime story → article; no businessType.`,
+NO TEMPLATE: invent the structure THIS piece needs — how many sections, which one leads, where each scene sits and how big, what text it needs and in what order — from its subject, cast, mood and pace. The shapes below are contrasting examples to depart from, never an outline to fill; one outline reused for every game, story or mural is the failure to avoid.
+SCENE OR TEXT, BY ITS OWN WORDS: the hero's and every scene section's writer read the request; a text section's writer sees only its own title and purpose. A section is a scene only when its own title or purpose names its experience in plain words — "playable game", "interactive story chapter scene", "mural", "scroll mural" (Arabic: «لعبة تفاعلية»، «مشاهد قصصية»، «قصة تفاعلية»، «جدارية») — so each SCENE section's purpose names one, plus the cast by name, the place, the palette and that section's beat. A TEXT section (how to play, credits, a note) names none of those words, so it stays a light text section.
+GAME, e.g.: one full-bleed stage with the title set over it and nothing else; a split stage, rules and score beside it; levels or worlds as successive stage bands, each its own beat; a short story intro, then the game. The game section's purpose carries objective, controls and status; a How to play band, a characters band or a Play again cta only when this game needs one. primaryCta: Play → the game's anchor.
+STORY, e.g.: one long scroll scene that is the whole tale; a cover, then 2-5 chapter scene bands in reading order sharing one cast, palette and setting ("Chapter 2 — interactive story chapter scene: Layla the fox crosses the moonlit river"); one picture-book scene that turns its own pages. The ending offers replay. primaryCta: Start the story → where it starts.
+MURAL, e.g.: one panorama with the title set into it; a tall scroll mural that is the journey; a mural behind the page's few lines of copy; two contrasting murals (dawn and night) with a line between. Never a gallery of invented works.
+BEDTIME: a story for sleep — short chapter scenes, a soft dark palette, calm motion, a read-aloud toggle on each chapter, the last one says goodnight. No game, no countdown, no bright sales band.
+ITS OWN LOOK: write the tokens in full — a palette from the piece's world and mood, display and body faces from the verified list that suit it — and name no deckRowId: the deck's rows are trades (cafe … farm) and would dress the piece as a business.
+Header, footer and nav only when the piece wants them, small; nav lists its chapters, levels or Play. Arabic requests: every title, purpose and label in Arabic. seo.pageKind: a game or mural → landing; a story or bedtime story → article; no businessType.`,
 };

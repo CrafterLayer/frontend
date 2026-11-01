@@ -14,11 +14,12 @@ afterEach(() => {
 });
 
 describe('complete generation-call lifetime', () => {
-  it('uses the four-minute default and accepts explicit longer creative budgets', () => {
-    expect(DEFAULT_CALL_TIMEOUT_MS).toBe(240_000);
-    expect(callTimeoutMs(undefined)).toBe(240_000);
-    expect(configuredCallTimeoutMs(undefined)).toBe(240_000);
-    expect(configuredCallTimeoutMs('')).toBe(240_000);
+  it('uses the fifteen-minute default and accepts explicit budgets', () => {
+    // A scene writer's own build deadline (run-build.ts); four minutes cut murals off (2026-10-31).
+    expect(DEFAULT_CALL_TIMEOUT_MS).toBe(900_000);
+    expect(callTimeoutMs(undefined)).toBe(900_000);
+    expect(configuredCallTimeoutMs(undefined)).toBe(900_000);
+    expect(configuredCallTimeoutMs('')).toBe(900_000);
     expect(configuredCallTimeoutMs('600000')).toBe(600_000);
   });
 

@@ -19,7 +19,11 @@ import { scenePreset } from '../scene-presets/catalog';
 import { revertBuildSection, AiBuildRevertError } from './build-revert';
 import { createCraftkitAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, PagePlanCandidate } from '../types';
-import { DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS, runAiBuild } from './run-build';
+import {
+  DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS,
+  DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS,
+  runAiBuild,
+} from './run-build';
 
 /*
   Ready scenes in a real build (2026-10-13): the owner's murals failed on time — the mural's
@@ -256,7 +260,10 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     const options = build(given);
     const done = runAiBuild(options);
 
+    // A mural writing its own code keeps the scene deadline (2026-11-01: it had 180 s).
     await vi.advanceTimersByTimeAsync(180_000 + 1_000);
+    expect(given.requests.filter((request) => request.includes('ROLE: HERO'))).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS);
     const result = await done;
 
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
@@ -304,10 +311,15 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     expect(result.outcome).toBe('completed');
     expect(hero?.status).toBe('applied');
     expect(hero?.check?.issues).toEqual([]);
-    expect(probed).toContainEqual({ speed: 0.5 });
+    // The writer's settings, plus the placement's own seed (2026-11-01, scene-variety.ts).
+    const placed = { speed: 0.5, seed: expect.any(Number) as unknown };
+    expect(probed).toContainEqual(placed);
     const props = options.kernel.getDocument().nodes[hero?.id ?? '']?.props;
     expect(props?.['jsMeta']).toMatchObject({ ref: { tier: 'builtin', id: 'aurora-curtains' } });
-    expect(props?.['jsParams']).toEqual({ speed: 0.5 });
+    expect(props?.['jsParams']).toEqual(placed);
+    expect((props?.['jsParams'] as { seed?: unknown } | undefined)?.seed).not.toBe(
+      scenePreset('aurora-curtains')?.defaults['seed'],
+    );
     expect(JSON.stringify(props?.['tree'])).toContain('Start a project');
     if (hero === undefined) throw new Error('No hero');
     options.kernel.dispatch('setProp', { id: hero.id, key: 'jsParams', value: { speed: 0.75 } });
@@ -499,7 +511,8 @@ describe('runAiBuild — ready scenes for murals (2026-10-13)', () => {
     const props = options.kernel.getDocument().nodes[hero?.id ?? '']?.props;
     expect(props?.['js']).toBe(scenePreset('flow-field-silk')?.code);
     expect(props?.['jsMeta']).toMatchObject({ ref: { id: 'flow-field-silk' } });
-    expect(props?.['jsParams']).toEqual({});
+    // Only the placement's own seed (2026-11-01): never the preset's default picture.
+    expect(props?.['jsParams']).toEqual({ seed: expect.any(Number) as unknown });
     expect(JSON.stringify(props?.['tree'])).toContain('Northern lights');
     expect(JSON.stringify(props?.['tree'])).toContain('Start a project');
     expect(hero?.check?.issues).toEqual([]);

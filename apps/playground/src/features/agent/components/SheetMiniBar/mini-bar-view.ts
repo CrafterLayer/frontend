@@ -259,7 +259,11 @@ function settledView(turn: TurnView): MiniBarView {
     case 'end':
       return {
         glyph: 'absent',
-        status: { key: `end.${turn.view.key}` },
+        status: {
+          key: `end.${turn.view.key}`,
+          // `openBuildPage` names its page (P5).
+          ...(turn.view.page === undefined ? {} : { params: { page: turn.view.page } }),
+        },
         spine: null,
         actions: [],
       };

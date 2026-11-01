@@ -318,6 +318,7 @@ function buildActions(
     (row) => (row.state === 'notWritten' || row.state === 'failed') && onPage(row),
   ).length;
   const canUndo = !input.revived && input.history?.canUndo === true;
+  const retryable = rows.filter((row) => row.canRetry).length;
   switch (derived.phase) {
     case 'done':
       return { ...NO_ACTIONS, undoBuild: canUndo };
@@ -325,14 +326,24 @@ function buildActions(
       return {
         ...NO_ACTIONS,
         undoBuild: canUndo,
-        retryFailed: rows.filter((row) => row.canRetry).length,
+        retryFailed: retryable,
+        // P6: the engine stopped starting sections when the AI server went away; the ones
+        // it never began are not failures, and finishing them is the way on.
+        finishRest: notWritten,
       };
     case 'stopped':
-      return { ...NO_ACTIONS, finishRest: notWritten, removeEmpty: unfilled };
+      // P7: a stop does not erase the failures before it; they can be written again too.
+      return {
+        ...NO_ACTIONS,
+        finishRest: notWritten,
+        retryFailed: retryable,
+        removeEmpty: unfilled,
+      };
     case 'interrupted':
       return {
         ...NO_ACTIONS,
         finishRest: input.resumable === true ? notWritten : 0,
+        retryFailed: input.resumable === true ? retryable : 0,
         removeEmpty: unfilled,
       };
     case 'undone':

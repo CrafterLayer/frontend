@@ -97,6 +97,8 @@ const FIXTURE = {
   prompt: 'A pricing table with three plans',
   titles: '“Hero” and “FAQ”',
   when: 'Yesterday',
+  // P5: the page a "Finish the rest" note names (`end.openBuildPage`).
+  page: 'About',
 } as const;
 
 /** The slots that carry a count: plural selectors and noun slots read these. */
@@ -313,6 +315,8 @@ describe('t', () => {
   });
 
   it('renders the SPEC copy exactly', () => {
+    expect(t('ar', 'build.checking', { title: 'الواجهة' })).toBe('يُراجَع «الواجهة»…');
+    expect(t('en', 'build.checking', { title: 'Hero' })).toBe('Checking Hero…');
     expect(t('ar', 'build.blocked', { title: 'الواجهة' })).toBe('بانتظار «الواجهة»…');
     expect(t('en', 'build.blocked', { title: 'Hero' })).toBe('Waiting on Hero…');
     expect(

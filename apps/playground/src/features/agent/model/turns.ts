@@ -100,6 +100,13 @@ export interface BuildTurn {
   readonly skills?: readonly AiSkillActivationPin[] | undefined;
   /** T230: the site page this build wrote, when it is one page of a site build. */
   readonly page?: string | undefined;
+  /**
+   * The id of the site page this build was built on (P5, 2026-11-01), when the host's site
+   * is known (`agentScriptSiteFor`). After a reload the runtime forgets the build's kernel;
+   * "Finish the rest" opens this page's kernel instead of writing into the page on screen.
+   * Absent on a record saved before it, or without a site.
+   */
+  readonly pageId?: string | undefined;
   // WP-16 additions, all plain data so they survive a reload:
   /**
    * Each region's writer-owned props as the skeleton laid them, read at `build.planned`.
@@ -298,6 +305,8 @@ export interface EndTurn {
   readonly id: string;
   readonly kind: 'end';
   readonly key: EndNoteKey;
+  /** The page `openBuildPage` names (P5). */
+  readonly page?: string | undefined;
 }
 
 export type Turn = (

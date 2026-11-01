@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createCraftkitAiSkillRegistry } from '../skills';
 import type { AiPlan, AiProposeOptions } from '../types';
 import { runAiAgent } from './run-agent';
 import {
@@ -201,6 +202,29 @@ describe('runAiAgent cumulative lifetime', () => {
       ...incidentOptions({
         runId: 'build/fill',
         request: MURAL_REQUEST,
+        provider: { propose: () => pending.promise },
+      }),
+      signal: new AbortController().signal,
+    });
+    const result = runAiAgent(options);
+    await vi.advanceTimersByTimeAsync(180_001);
+    pending.resolve(SCENE);
+    expect((await result).status).toBe('applied');
+  });
+
+  it('keeps a build child on its outer budget when it names its own skills, as every writer does', async () => {
+    /*
+      2026-11-01: runAiAgent copied the options to carry the named skills, and the copy lost the
+      build's mark — every section writer stopped at the 120 s / 180 s default whatever its own
+      deadline said, and a mural read «استغرق وقتًا أطول من المسموح».
+    */
+    const pending = deferred();
+    const options = withInheritedRunDeadline({
+      ...incidentOptions({
+        runId: 'build/fill',
+        request: MURAL_REQUEST,
+        skillRegistry: createCraftkitAiSkillRegistry(),
+        selectedSkillIds: ['craftkit.pixi-murals'],
         provider: { propose: () => pending.promise },
       }),
       signal: new AbortController().signal,

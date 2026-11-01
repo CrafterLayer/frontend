@@ -272,7 +272,8 @@ export function BuildRecord({
       buttons.push(
         <RecordButton
           key="retry-failed"
-          tone="primary"
+          // Beside "Finish the rest" (a stopped build, P7) it is the second action: one primary.
+          tone={a.finishRest > 0 ? 'secondary' : 'primary'}
           onClick={() => {
             actions.retrySections(
               turnId,

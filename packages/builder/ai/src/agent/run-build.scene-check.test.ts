@@ -17,6 +17,7 @@ import {
 import { createCraftkitAiSkillRegistry } from '../skills';
 import type { AiPlan, AiPlanProvider, AiPlanValidationIssue, PagePlanCandidate } from '../types';
 import {
+  DEFAULT_AI_BUILD_BUDGET_MS,
   DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS,
   DEFAULT_AI_BUILD_TASK_TIMEOUT_MS,
   runAiBuild,
@@ -437,9 +438,11 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     ]);
   });
 
-  it('gives a scene writer 420 s instead of 240 s when the caller set no deadline', async () => {
+  it('gives a scene writer 15 min instead of 240 s when the caller set no deadline', async () => {
+    // Owner decision 2026-10-31: long safety ceilings only; a mural was cut off at 4 minutes.
     expect(DEFAULT_AI_BUILD_TASK_TIMEOUT_MS).toBe(240_000);
-    expect(DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS).toBe(420_000);
+    expect(DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS).toBe(900_000);
+    expect(DEFAULT_AI_BUILD_BUDGET_MS).toBe(3_600_000);
     vi.useFakeTimers();
     const script = scripted('hero', FIXED, undefined, true);
     const done = runAiBuild(options(script, 'Build a website with a playable 2d game with stars'));
@@ -458,6 +461,6 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     const result = await done;
     const hero = result.tasks.find(({ sectionKey }) => sectionKey === 'hero');
     expect(hero?.reasonCode).toBe('timeout');
-    expect(hero?.reason).toContain('420000ms');
+    expect(hero?.reason).toContain(`${String(DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS)}ms`);
   });
 });

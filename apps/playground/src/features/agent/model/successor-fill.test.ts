@@ -9,6 +9,7 @@ import { createBuildKernel } from '../testing/scripted-engine';
 import { initialBuildProgress, landedCount, reduceBuildProgress, type BuildProgress } from './build-progress';
 import {
   guardSection,
+  landingKeys,
   relandCommands,
   holdsValues,
   reopenForSuccessor,
@@ -92,6 +93,31 @@ describe('successor fills', () => {
       dropped: 3,
     });
     expect(guardSection({ rationale: 'x', commands: [] }, 'b')).toBeNull();
+  });
+
+  it('keeps a scene’s code with free code on, as the engine’s guard does (P4)', () => {
+    const scene = [
+      { command: 'setProp', args: { id: 'b', key: 'tree', value: 'B' } },
+      { command: 'setProp', args: { id: 'b', key: 'js', value: 'scene code' } },
+      { command: 'setProp', args: { id: 'b', key: 'jsMeta', value: { kind: 'scene' } } },
+      { command: 'setProp', args: { id: 'b', key: 'jsParams', value: { speed: 1 } } },
+      { command: 'setProp', args: { id: 'a', key: 'js', value: 'hijack' } },
+    ];
+    const plan: AiPlan = { rationale: 'x', commands: scene };
+    expect(guardSection(plan, 'b', true)).toEqual({
+      plan: { rationale: 'x', commands: scene.slice(0, 4) },
+      dropped: 1,
+    });
+    // Free code off: the region's code is not the writer's to set.
+    expect(guardSection(plan, 'b', false)).toEqual({
+      plan: { rationale: 'x', commands: scene.slice(0, 1) },
+      dropped: 4,
+    });
+    // A landing records every prop it wrote, so Undo takes the scene back too.
+    const landed = (count: number) =>
+      landingKeys({ rationale: 'x', commands: scene.slice(0, count) });
+    expect(landed(2)).toEqual(['tree', 'css', 'js']);
+    expect(landed(1)).toEqual(['tree', 'css']);
   });
 
   it('compares a region’s values as data', () => {

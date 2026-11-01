@@ -17,7 +17,7 @@ import type {
 } from './page-plan/types';
 import type { SceneProbe, SceneProbeReport } from './scene-probe';
 import { sceneReviewSourceKey } from './scene-review-economy';
-import { creativeRequestOf, hostCreativeMemory } from './section-providers';
+import { hostCreativeMemory, sceneBriefWordsOf } from './section-providers';
 import type { RunAiBuildOptions } from './types';
 
 /*
@@ -138,7 +138,7 @@ function briefOf(
   let setting = '';
   try {
     const memory = hostCreativeMemory(host);
-    const brief = creativeBriefFor(creativeRequestOf(host, contract), host.request, {
+    const brief = creativeBriefFor(sceneBriefWordsOf(host, contract), host.request, {
       lang: plan.locale.lang,
       ...(memory === undefined ? {} : { memory }),
     });

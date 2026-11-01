@@ -14,12 +14,15 @@
 import {
   AiProviderError,
   createBuilder,
+  createSiteBuilder,
   customCodeSchema,
   defineBlockSchema,
+  siteFromDocument,
   type AiPlan,
   type AiPlanProvider,
   type BuilderDocument,
   type BuilderKernel,
+  type BuilderSiteKernel,
   type JsonValue,
   type PagePlanCandidate,
   type TrustedExtensionManifest,
@@ -67,6 +70,8 @@ const region = defineBlockSchema({
   props: z.object({
     label: z.string().default('Section'),
     tree: z.string().default(''),
+    // A scene's own code (free code mode): absent unless a writer gave the region one.
+    js: z.string().optional(),
   }),
   examples: [],
 });
@@ -161,6 +166,31 @@ export function createBuildKernel(seed = 'agent-build'): BuilderKernel {
       dir: 'ltr',
       rootId: 'root',
       nodes: { root: { id: 'root', type: 'buildPage', props: {}, slots: { default: [] } } },
+    },
+    extensions: [BUILD_VOCABULARY],
+    ports: { clock: fixedClock(0), ids: seededIds(seed) },
+  });
+}
+
+/**
+ * A site of two empty build pages, `home` (current) and `about`: each page's lens is a
+ * build kernel, so a build on one page and a reload onto the other can be told apart.
+ */
+export function createBuildSite(seed = 'agent-build-site'): BuilderSiteKernel {
+  // A site stores no empty slot: the root's `default` comes with its first region.
+  const site = siteFromDocument({
+    schemaVersion: 1,
+    surface: 'site',
+    dir: 'ltr',
+    rootId: 'root',
+    nodes: { root: { id: 'root', type: 'buildPage', props: {} } },
+  });
+  const home = site.pages[0];
+  if (home === undefined) throw new Error('A site needs its home page.');
+  return createSiteBuilder({
+    site: {
+      ...site,
+      pages: [...site.pages, { ...home, id: 'about', address: '/about', title: 'About' }],
     },
     extensions: [BUILD_VOCABULARY],
     ports: { clock: fixedClock(0), ids: seededIds(seed) },

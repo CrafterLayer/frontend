@@ -54,6 +54,31 @@ describe('EndNote', () => {
     render(<EndNote locale="ar" view={endNote('proposalDiscarded')} />);
     expect(screen.getByRole('heading', { name: 'تم تجاهل الاقتراح' })).toBeInTheDocument();
   });
+
+  it('names the page to open when "Finish the rest" found none of its sections (P5)', () => {
+    const view = { turnId: 'end-page', key: 'openBuildPage', page: 'About' } as const;
+    const { unmount, container } = render(<EndNote locale="en" view={view} />);
+    expect(
+      screen.getByRole('heading', {
+        name: "Nothing was written: this build's sections are on the page About. Open it, then try again.",
+      }),
+    ).toBeInTheDocument();
+    expect(container.querySelector('.ck-agent-glyph')).toHaveAttribute('data-state', 'absent');
+    unmount();
+    render(<EndNote locale="ar" view={{ ...view, page: 'من نحن' }} />);
+    expect(
+      screen.getByRole('heading', {
+        name: 'لم يُكتب شيء: أقسام هذا البناء في صفحة «من نحن». افتحها، ثم أعد المحاولة.',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('says to open the build’s page, in words, when its name is not known (P5)', () => {
+    render(<EndNote locale="ar" view={endNote('buildPageNotOpen')} />);
+    expect(
+      screen.getByRole('heading', { name: t('ar', 'end.buildPageNotOpen') }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('EndNote.css', () => {

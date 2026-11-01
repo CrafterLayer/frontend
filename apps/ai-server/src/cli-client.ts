@@ -547,7 +547,8 @@ function runClaude(run: CliRun): Promise<Anthropic.Message> {
  * mid-generation and reported it to the panel as a nameless server failure.
  * A cap this generous costs nothing: the client hangs up first if the user does.
  */
-export const CLI_DEFAULT_TIMEOUT_MS = 600_000;
+// Never shorter than the call it serves (call-lifetime.ts DEFAULT_CALL_TIMEOUT_MS, 2026-10-31).
+export const CLI_DEFAULT_TIMEOUT_MS = 900_000;
 
 /** The CLI's own name for a slug the allowlist may spell with the hybrid `cli:` prefix. */
 function cliModelName(slug: string): string | undefined {

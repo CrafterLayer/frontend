@@ -82,6 +82,8 @@ export const ar = {
   'build.planned': '{sections} قيد الكتابة',
   'build.writing': '{sections} قيد الكتابة',
   'build.blocked': 'بانتظار «{title}»…',
+  // (added, P1 2026-11-01) a written section is checked or repaired before it lands
+  'build.checking': 'يُراجَع «{title}»…',
   'build.landed': 'أصبح «{title}» على الصفحة',
   stopping: 'جارٍ الإيقاف…',
   'edit.started': 'يقرأ الصفحة…',
@@ -609,6 +611,10 @@ export const ar = {
   'end.siteAsOnePage': 'بُنيت صفحة واحدة، إذ تبني المحادثة صفحة واحدة في كل مرة.',
   'end.newPageAppended': 'بُنيت أسفل هذه الصفحة، إذ لا يمكن فتح صفحة جديدة من هنا.',
   'end.appendedNotReplaced': 'أُضيفت بعد المحتوى الحالي، ولم يُستبدل شيء.',
+  // (added, P5) "Finish the rest" after a reload found none of the build's sections.
+  'end.openBuildPage': 'لم يُكتب شيء: أقسام هذا البناء في صفحة «{page}». افتحها، ثم أعد المحاولة.',
+  'end.buildPageNotOpen':
+    'لم يُكتب شيء: لم تُوجد أقسام هذا البناء الفارغة. افتح الصفحة التي بُني عليها، ثم أعد المحاولة.',
 
   // WP-14-composer additions
   // (added) ✨ Improve (EnhanceButton). «حسّن طلبي» is the owner's own wording: the

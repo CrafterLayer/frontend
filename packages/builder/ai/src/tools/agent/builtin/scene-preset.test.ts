@@ -331,8 +331,9 @@ describe('scene.preset — game and story kits', () => {
     const stories = `story:${scenePresetsIn('story')
       .map(({ id }) => id)
       .join('|')}`;
+    // 2026-11-01: a kit is one start, restyled freely with its hooks kept, never the default.
     expect(PIXI_GAME_SKILL.instructions.split('\n')[0]).toBe(
-      `KITS FIRST: scene.preset ${games} is a tested whole game set by params; write code only for what no kit covers.`,
+      `KITS, ONE OPTION: scene.preset ${games} is a tested game set by params, restyled by css (hooks kept), or compose your own.`,
     );
     expect(PIXI_STORY_SKILL.instructions.split('\n')[0]).toContain(`scene.preset ${stories} `);
     // The mural playbook names every mural, pattern and type preset, the set-D library murals and

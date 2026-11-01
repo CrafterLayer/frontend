@@ -400,6 +400,75 @@ describe('buildRecordView: phases', () => {
     expect(lost.landed).toBeLessThan(lost.total);
   });
 
+  it('offers "Write the failed sections again" on a stopped or interrupted build too (P7)', () => {
+    const stopped = view(
+      progressOf([
+        planned(),
+        started(1, 2_000),
+        started(2, 2_000),
+        completed(1, 2_500),
+        skipped(2, 3_000, TIMEOUT),
+        stoppedBy('signal', 3_500),
+        completion(
+          4_000,
+          [
+            report('applied', 0),
+            report('skipped', 1, TIMEOUT),
+            report('not-started', 2),
+            report('not-started', 3),
+          ],
+          'signal',
+        ),
+      ]),
+    );
+    expect(stopped.phase).toBe('stopped');
+    expect(states(stopped)).toEqual(['landed', 'failed', 'notWritten', 'notWritten']);
+    expect(stopped.actions).toMatchObject({ finishRest: 2, retryFailed: 1, removeEmpty: 3 });
+
+    const live = progressOf([
+      planned(),
+      started(1, 2_000),
+      started(2, 2_000),
+      completed(1, 2_500),
+      skipped(2, 3_000, TIMEOUT),
+      started(3, 3_000),
+    ]);
+    const interrupted = view(live, { revived: true, resumable: true });
+    expect(interrupted.phase).toBe('interrupted');
+    expect(interrupted.actions).toMatchObject({ finishRest: 2, retryFailed: 1 });
+    // A list that was not saved can be neither finished nor retried.
+    expect(view(live, { revived: true, resumable: false }).actions).toMatchObject({
+      finishRest: 0,
+      retryFailed: 0,
+    });
+  });
+
+  it('offers "Finish the rest" when the build ended with sections never begun (P6, server gone)', () => {
+    const gone = 'The assistant server could not be reached: Failed to fetch';
+    const never =
+      'The AI server could not be reached for several sections in a row, so this section was not started.';
+    const record = view(
+      progressOf([
+        planned(),
+        started(1, 2_000),
+        started(2, 2_000),
+        completed(1, 2_500),
+        skipped(2, 3_000, gone),
+        completion(4_000, [
+          report('applied', 0),
+          report('skipped', 1, gone),
+          report('not-started', 2, never),
+          report('not-started', 3, never),
+        ]),
+      ]),
+      { history: { undone: false, canUndo: true, canRedo: false } },
+    );
+
+    expect(record.phase).toBe('partial');
+    expect(states(record)).toEqual(['landed', 'failed', 'notWritten', 'notWritten']);
+    expect(record.actions).toMatchObject({ finishRest: 2, retryFailed: 1, undoBuild: true });
+  });
+
   it('undone: rows read undone, no node to reveal, Redo only while it is valid', () => {
     const record = view(builtAll(), { history: { undone: true, canUndo: false, canRedo: true } });
 

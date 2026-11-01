@@ -183,6 +183,16 @@ describe('miniBarView', () => {
     const view = viewOf('stopping');
     expect(view.actions).toEqual([{ kind: 'stop', stopping: true }]);
   });
+
+  it('names the page an ending names (P5 openBuildPage)', () => {
+    const view = miniBarView({
+      turns: [{ kind: 'end', view: { turnId: 'end-1', key: 'openBuildPage', page: 'About' } }],
+      run: null,
+    });
+    expect(t('en', view.status.key, view.status.params)).toBe(
+      "Nothing was written: this build's sections are on the page About. Open it, then try again.",
+    );
+  });
 });
 
 /* ── The component ───────────────────────────────────────────────────────── */

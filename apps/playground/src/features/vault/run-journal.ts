@@ -232,10 +232,11 @@ export const RUN_JOURNAL_TTL_MS = 24 * 60 * 60 * 1000;
 /**
  * How stale a heartbeat must be before a `running` record is called an orphan.
  *
- * Several checkpoints' worth: a section takes up to four minutes, so a run that
- * is merely slow must not be declared dead by a tab that just booted.
+ * Several checkpoints' worth: a scene section may write for fifteen minutes
+ * (2026-10-31), so a run that is merely slow must not be declared dead by a tab
+ * that just booted.
  */
-export const RUN_ORPHAN_AFTER_MS = 15 * 60 * 1000;
+export const RUN_ORPHAN_AFTER_MS = 20 * 60 * 1000;
 
 export interface StartRunOptions {
   readonly runId: string;

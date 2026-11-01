@@ -359,6 +359,29 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
     expect(called().sort()).toEqual(['finishRest', 'removeEmpty']);
   });
 
+  it('writes a stopped build’s failed sections again beside Finish the rest, one primary (P7)', async () => {
+    const user = userEvent.setup();
+    const base = buildStopped('en', 'signal');
+    const target = base.rows.find((row) => row.state === 'notWritten');
+    if (target === undefined) throw new Error('fixture changed');
+    const view: BuildRecordView = {
+      ...base,
+      rows: base.rows.map((row) =>
+        row.key === target.key
+          ? { ...row, state: 'failed', reason: 'timeout', canRetry: true }
+          : row,
+      ),
+      actions: { ...base.actions, finishRest: 2, retryFailed: 1 },
+    };
+    const { spy } = renderRecord(view);
+    const retry = screen.getByRole('button', { name: 'Write the failed section again' });
+    const finish = screen.getByRole('button', { name: 'Finish the rest (2)' });
+    expect(finish).toHaveAttribute('data-ck-tone', 'primary');
+    expect(retry).toHaveAttribute('data-ck-tone', 'secondary');
+    await user.click(retry);
+    expect(spy('retrySections')).toHaveBeenCalledExactlyOnceWith(view.turnId, [target.key]);
+  });
+
   it('lists sample details only for sections that landed on the page', async () => {
     const user = userEvent.setup();
     const base = buildStopped('en', 'signal');

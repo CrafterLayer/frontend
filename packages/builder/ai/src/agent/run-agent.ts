@@ -51,7 +51,7 @@ import { explicitSkills } from './host-skills';
 import { excludedSkillIdsOf, excludingRegistry } from './excluded-skills';
 import { withSceneEdit } from './scene-edit-context';
 import { withReportDesign } from './report-design-context';
-import { withinRunDeadline } from './run-deadline';
+import { carryRunMarks, withinRunDeadline } from './run-deadline';
 import { creationAcceptance } from './creation-content';
 import {
   assertRunActive,
@@ -822,7 +822,9 @@ function doorRehearsesAsTheRun(options: RunAiAgentOptions): boolean {
  */
 export async function runAiAgent(given: RunAiAgentOptions): Promise<AiAgentRunResult> {
   const explicit = explicitSkills(given);
-  const options = explicit.length === 0 ? given : { ...given, selectedSkillIds: explicit };
+  // The copy keeps the build's marks: without them a writer ran under the 120 s default.
+  const options =
+    explicit.length === 0 ? given : carryRunMarks(given, { ...given, selectedSkillIds: explicit });
   if (
     typeof options.runId !== 'string' ||
     options.runId.trim().length === 0 ||

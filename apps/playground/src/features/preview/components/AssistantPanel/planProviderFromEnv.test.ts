@@ -41,10 +41,11 @@ describe('planProviderFromEnv', () => {
   });
 
   it.each([
-    [undefined, 240_000],
+    // Fifteen minutes by default (2026-10-31): a scene writer's own build deadline.
+    [undefined, 900_000],
     ['420000', 420_000],
-    ['-1', 240_000],
-    ['2147483648', 240_000],
+    ['-1', 900_000],
+    ['2147483648', 900_000],
   ])(
     'bounds the transport attempt at %s while preserving caller cancellation',
     async (configured, deadline) => {

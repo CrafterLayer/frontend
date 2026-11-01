@@ -141,7 +141,7 @@ export function muralKitMechanics(): readonly string[] {
   const api = libraryEntry('mural')?.api ?? [];
   const vocabulary = api.filter((line) => /^(?:sky|plants|creatures|beat):/u.test(line));
   return [
-    "compose with s.lib.mural, the default for any illustrated mural no ready preset matches: ck.scene({libs:['mural','anim'],seed,design:{width:1280,height:720,fit:'cover'}}) then const m=s.lib.mural.compose(s,spec) — a 1-3k-character spec (width, mood, time arc, layers sky/far/mid/near/front of items, a cast with ids, 3-5 beats, mode 'loop' or 'scrub'), never thousands of characters of hand-written geometry; read m.warnings; extra Graphics go in m.layer('near')",
+    "compose with s.lib.mural, the default for any illustrated mural no ready preset matches: ck.scene({libs:['mural','anim'],seed:N,design:{width:1280,height:720,fit:'cover'}}) then const m=s.lib.mural.compose(s,{seed:N,…spec}), N a fresh seed of your own (1-9999, never the default) so this mural is its own picture — a 1-3k-character spec (width, mood, time arc, layers sky/far/mid/near/front of items, a cast with ids, 3-5 beats, mode 'loop' or 'scrub'), never thousands of characters of hand-written geometry; read m.warnings; extra Graphics go in m.layer('near')",
     `mural kit vocabulary — ${vocabulary.join(' · ')}`,
   ];
 }
@@ -277,11 +277,11 @@ export function composesWithKit(brief: string): boolean {
 
 /** What a scene writer is told instead of a list of unrelated ready scenes. */
 export const MURAL_KIT_WRITER_LINE =
-  "No ready scene closely matches this brief, so do not force one: compose it with s.lib.mural — ck.scene({libs:['mural','anim'],seed,design:{width:1280,height:720,fit:'cover'}}) then s.lib.mural.compose(s,spec), a 1-3k-character spec of layered items, a cast and 3-5 beats (the mural playbook's KIT line lists every item). It writes in seconds; keep the whole js under 3,000 characters.";
+  "No ready scene closely matches this brief, so do not force one: compose it with s.lib.mural — ck.scene({libs:['mural','anim'],seed:N,design:{width:1280,height:720,fit:'cover'}}) then s.lib.mural.compose(s,{seed:N,…spec}), N a fresh seed of your own (1-9999, never the default), a 1-3k-character spec of layered items, a cast and 3-5 beats (the mural playbook's KIT line lists every item). It writes in seconds; keep the whole js under 3,000 characters.";
 
 /** The same, for an edit's request (the edit lane places scenes with the scene.preset tool). */
 export const MURAL_KIT_EDIT_LINE =
-  "No ready scene closely matches this request: write the mural's js with s.lib.mural — ck.scene({libs:['mural','anim'],seed,design:{width:1280,height:720,fit:'cover'}}) then s.lib.mural.compose(s,spec), a 1-3k-character spec (the mural playbook's KIT line lists every item) — rather than placing an unrelated preset.";
+  "No ready scene closely matches this request: write the mural's js with s.lib.mural — ck.scene({libs:['mural','anim'],seed:N,design:{width:1280,height:720,fit:'cover'}}) then s.lib.mural.compose(s,{seed:N,…spec}), N a fresh seed of your own (1-9999, never the default), a 1-3k-character spec (the mural playbook's KIT line lists every item) — rather than placing an unrelated preset.";
 
 /**
  * What a mural brief adds (the creative planner's one call): for a mural that names a picture and

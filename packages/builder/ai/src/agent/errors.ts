@@ -43,6 +43,18 @@ export function isTerminalProviderFailure(failure: AiRunFailure): boolean {
   );
 }
 
+/**
+ * The AI server itself could not be reached: no answer at all (`network`), or a gateway
+ * saying the server behind it is gone (502). Retryable, so never terminal for one section;
+ * a build reads several in a row as a dead server (`run-build.ts`, P6 2026-11-01).
+ */
+export function isUnreachableProviderFailure(failure: AiRunFailure): boolean {
+  return (
+    failure.source === 'provider' &&
+    (failure.code === 'network' || (failure.code === 'http-status' && failure.status === 502))
+  );
+}
+
 function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }

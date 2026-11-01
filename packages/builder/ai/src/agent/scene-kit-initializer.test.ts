@@ -160,25 +160,72 @@ describe('build-owned scene kit initialization', () => {
     );
   });
 
-  it('leaves authored tree and CSS writes untouched, before or after the kit', () => {
+  it('leaves an authored tree untouched, before or after the kit', () => {
     const tree = { kind: 'root', children: [] };
     const treeStep = prop('tree', tree);
-    const css = '.authored{position:relative;min-height:500px}';
-    const cssStep = prop('css', css);
     const preset = tool({ preset: 'picture-book' });
     for (const commands of [
-      [treeStep, cssStep, preset],
-      [preset, treeStep, cssStep],
+      [treeStep, preset],
+      [preset, treeStep],
     ]) {
       const completed = complete(commands);
       expect(completed.commands).toContain(treeStep);
-      expect(completed.commands).toContain(cssStep);
       expect(
         completed.commands.filter(({ args }) => (args as { key?: string }).key === 'tree'),
       ).toHaveLength(1);
       expect(valuesOf(completed)['tree']).toBe(tree);
-      expect(valuesOf(completed)['css']).toBe(css);
     }
+  });
+
+  // 2026-11-01: a kit is a starting point, not a fixed look. A writer's own css restyles it —
+  // colours, layout, frame — layered OVER the kit's, so the css its controls need still lands.
+  it('layers an authored restyle over the kit css, before or after the kit, once', () => {
+    const css = '.ck-kit{background:#0b1a2e;border-radius:2rem;aspect-ratio:4/5}';
+    const cssStep = prop('css', css);
+    const preset = tool({ preset: 'picture-book' });
+    const kitCss = scenePreset('picture-book')?.region?.css ?? '';
+    expect(kitCss).not.toBe('');
+    for (const commands of [
+      [cssStep, preset],
+      [preset, cssStep],
+    ]) {
+      const completed = complete(commands);
+      const written = completed.commands.filter(
+        ({ args }) => (args as { key?: string }).key === 'css',
+      );
+      expect(written).toHaveLength(1);
+      const landed = valuesOf(completed)['css'] as string;
+      expect(landed.startsWith(kitCss)).toBe(true);
+      expect(landed.endsWith(css)).toBe(true);
+      expect(customCss(24_000).safeParse(landed).success).toBe(true);
+    }
+    // A restyle that already carries the kit css is not doubled.
+    const whole = `${kitCss}\n${css}`;
+    expect(valuesOf(complete([prop('css', whole), preset]))['css']).toBe(whole);
+  });
+
+  it('gives each placed kit its own seed, from the region and section, deterministic', () => {
+    const seedOf = (region: string) => {
+      const { plan, contract } = page('en');
+      const step = completeReadyScene(
+        plan,
+        contract,
+        region,
+        { rationale: 'Use a kit.', commands: [tool({ preset: 'arcade' })] },
+        DECLARED,
+        '',
+        true,
+      ).commands.find(({ args }) => (args as { key?: string }).key === 'jsParams');
+      const args = step?.args as { value?: Record<string, unknown> } | undefined;
+      return args?.value?.['seed'];
+    };
+    const first = seedOf(REGION);
+    expect(typeof first).toBe('number');
+    expect(first).not.toBe(scenePreset('arcade')?.defaults['seed']);
+    expect(seedOf(REGION)).toBe(first);
+    expect(new Set(['a', 'b', 'c', 'd'].map(seedOf)).size).toBeGreaterThan(1);
+    const chosen = valuesOf(complete([tool({ preset: 'arcade', params: { seed: 42 } })], 'en'));
+    expect((chosen['jsParams'] as Record<string, unknown>)['seed']).toBe(42);
   });
 
   it.each([

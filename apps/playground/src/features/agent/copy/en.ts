@@ -65,6 +65,8 @@ export const en = {
   'build.planned': 'Writing {sections}',
   'build.writing': 'Writing {sections}',
   'build.blocked': 'Waiting on {title}…',
+  // (added, P1 2026-11-01) a written section is checked or repaired before it lands
+  'build.checking': 'Checking {title}…',
   'build.landed': '{title} is on the page',
   stopping: 'Stopping…',
   'edit.started': 'Reading the page…',
@@ -596,6 +598,11 @@ export const en = {
   'end.siteAsOnePage': 'Built as one page. The chat builds one page at a time.',
   'end.newPageAppended': "Built below this page. A new page can't be opened from here.",
   'end.appendedNotReplaced': "Added below what's already here. Nothing was replaced.",
+  // (added, P5) "Finish the rest" after a reload found none of the build's sections.
+  'end.openBuildPage':
+    "Nothing was written: this build's sections are on the page {page}. Open it, then try again.",
+  'end.buildPageNotOpen':
+    "Nothing was written: this build's empty sections weren't found. Open the page it was built on, then try again.",
 
   // WP-14-composer additions
   // (added) ✨ Improve (EnhanceButton): the owner's own words for the tooltip, which is

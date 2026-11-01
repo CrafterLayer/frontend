@@ -14,6 +14,7 @@ import { instantiatePlanKit, planKit } from './page-plan/kits';
 import type { PagePlan, SectionContract } from './page-plan/types';
 import { completeSceneKitSteps } from './scene-kit-initializer';
 import { readyScenes } from './scene-ready';
+import { withPlacementSeed } from './scene-variety';
 
 /** The copy has an opaque theme surface; a busy picture cannot reduce its contrast. */
 export const READY_SCENE_INIT_CSS =
@@ -170,13 +171,23 @@ export function completeReadyScene(
     params: structuredClone(preset.params),
     libs: [...preset.libs],
   };
+  /*
+    Its own picture (2026-11-01): with no seed of the writer's, the placement gets one from this
+    build's region and the section (scene-variety.ts) — the preset's default seed drew the same
+    picture on every page. A seed the writer set, the default included, stays its own.
+  */
+  const seeded = (params: CustomCodeJsParams, raw: unknown = {}): CustomCodeJsParams =>
+    settings && !(record(raw) && Object.hasOwn(raw, 'seed'))
+      ? withPlacementSeed(preset, params, regionId, contract.key)
+      : params;
   const commands = steps.map((step): AiPlanStep => {
     const key = propOf(step, regionId);
     const named = key === 'js' ? presetOf(step, regionId) : undefined;
     if (named !== undefined) return setProp(regionId, 'js', named.code);
     // Validate even undeclared authored params: dropping them would hide a bad answer.
     if (key === 'jsParams' && record(step.args)) {
-      return setProp(regionId, 'jsParams', paramsOf(preset, step.args['value']));
+      const raw = step.args['value'];
+      return setProp(regionId, 'jsParams', seeded(paramsOf(preset, raw), raw));
     }
     if (key === 'jsMeta' && metadata) return setProp(regionId, 'jsMeta', meta);
     return step;
@@ -184,6 +195,6 @@ export function completeReadyScene(
   if (!keys.has('tree')) commands.push(setProp(regionId, 'tree', initTree(plan, contract)));
   if (!keys.has('css')) commands.push(setProp(regionId, 'css', READY_SCENE_INIT_CSS));
   if (metadata && !keys.has('jsMeta')) commands.push(setProp(regionId, 'jsMeta', meta));
-  if (settings && !keys.has('jsParams')) commands.push(setProp(regionId, 'jsParams', {}));
+  if (settings && !keys.has('jsParams')) commands.push(setProp(regionId, 'jsParams', seeded({})));
   return { ...answer, commands };
 }

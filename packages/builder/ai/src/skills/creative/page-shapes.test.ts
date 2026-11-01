@@ -75,18 +75,63 @@ function kernel(dir: 'ltr' | 'rtl' = 'ltr'): BuilderKernel {
 describe('creative page shapes', () => {
   it('teaches each piece its shape and keeps scene words out of text sections', () => {
     const text = PIXI_PAGE_SHAPES_SKILL.instructions;
-    for (const part of ['GAME:', 'STORY:', 'MURAL:', 'BEDTIME:', 'How to play', 'chapter scene'])
+    for (const part of [
+      'GAME, e.g.:',
+      'STORY, e.g.:',
+      'MURAL, e.g.:',
+      'BEDTIME:',
+      'How to play',
+      'chapter scene',
+    ])
       expect(text).toContain(part);
-    expect(text).toContain('only the hero');
+    expect(text).toContain("a text section's writer sees only its own title and purpose");
     expect(text).toContain('read-aloud');
+    // Not a business page: the rules that are not about structure stay.
+    expect(text).toContain('no pricing, testimonials, team, logos or invented business facts');
+    expect(text).toContain('every title, purpose and label in Arabic');
+    expect(text).toContain('seo.pageKind');
+    expect(text).toContain('soft dark palette');
     expect(PIXI_PAGE_SHAPES_SKILL.activation).toEqual({ mode: 'explicit' });
     expect(PIXI_PAGE_SHAPES_SKILL.dependencies).toBeUndefined();
+  });
+
+  // 2026-11-01: the owner saw every game and mural planned in the same outline. No fixed shape:
+  // the planner invents this piece's, from contrasting examples, never one recipe per kind.
+  it('asks the planner to invent the structure of this piece, from contrasting examples', () => {
+    const text = PIXI_PAGE_SHAPES_SKILL.instructions;
+    expect(text).toContain('NO TEMPLATE: invent the structure THIS piece needs');
+    expect(text).toContain('never an outline to fill');
+    for (const example of [
+      'one full-bleed stage with the title set over it',
+      'a split stage, rules and score beside it',
+      'levels or worlds as successive stage bands',
+      'one long scroll scene that is the whole tale',
+      'one panorama with the title set into it',
+      'a tall scroll mural that is the journey',
+    ])
+      expect(text).toContain(example);
+    for (const fixed of [
+      'the hero IS the game',
+      'Then one band "How to play"',
+      'Close with a cta "Play again"',
+      'then one or two short bands',
+      'Header and footer stay small or absent',
+    ])
+      expect(text).not.toContain(fixed);
+  });
+
+  // 2026-11-01: a creative page took a trade's palette and faces from the direction deck.
+  it('gives the piece its own palette and verified faces, never a trade deck row', () => {
+    const text = PIXI_PAGE_SHAPES_SKILL.instructions;
+    expect(text).toContain('write the tokens in full');
+    expect(text).toContain('faces from the verified list');
+    expect(text).toContain('name no deckRowId');
   });
 
   it('names experience words that really make a section writer write a scene', () => {
     const line = PIXI_PAGE_SHAPES_SKILL.instructions
       .split('\n')
-      .find((text) => text.startsWith('WRITERS ARE BLIND'));
+      .find((text) => text.startsWith('SCENE OR TEXT'));
     const phrases = [...(line ?? '').matchAll(/"([^"]+)"|«([^»]+)»/gu)].map(
       (match) => match[1] ?? match[2] ?? '',
     );

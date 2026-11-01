@@ -23,7 +23,12 @@ import { agentToolPrompt } from '../tools/agent/catalog-prompt';
 import { expandAgentTools } from '../tools/agent/expand';
 import { AGENT_TOOL_COMMAND, type AgentToolLane } from '../tools/agent/types';
 import { readSectionValues } from './build-revert';
-import { classifyAiRunFailure, isTerminalProviderFailure, type AiRunFailure } from './errors';
+import {
+  classifyAiRunFailure,
+  isTerminalProviderFailure,
+  isUnreachableProviderFailure,
+  type AiRunFailure,
+} from './errors';
 import { excludedSkillIdsOf } from './excluded-skills';
 import { checkSection } from './page-plan/check-section';
 import { regionPropAccepts, tidySection } from './page-plan/tidy-section';
@@ -42,13 +47,12 @@ import {
 import {
   expandReadyScenes,
   markReadyScenes,
-  offersReadyScenes,
   withReadyScenes,
 } from './scene-ready';
 import { completeReadyScene } from './scene-initializer';
 import { guardFill, stringArg, type GuardedFill } from './fill-guard';
 import { isSceneInitializationRequest } from '../provider/scene-init-wire';
-import { nextSection } from './section-order';
+import { nextSection, sceneSlotsLeft } from './section-order';
 import { fillConcurrencyFor, withWriterPermit } from './writer-pool';
 import {
   buildLessons,
@@ -125,11 +129,14 @@ import type {
 export const DEFAULT_AI_BUILD_MAX_TASKS = 12;
 /** Ceiling for ONE section. Only that section's run is aborted. */
 export const DEFAULT_AI_BUILD_TASK_TIMEOUT_MS = 240_000;
-/** A scene writer's ceiling when the caller set none: page code is the slowest write. */
-export const DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS = 420_000;
+/**
+ * A scene writer's ceiling when the caller set none: page code is the slowest write. Fifteen
+ * minutes (owner decision 2026-10-31: long safety ceilings only, after murals were cut off).
+ */
+export const DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS = 900_000;
 export const DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS = 90_000;
-/** Ceiling for the whole build. The running section still finishes. */
-export const DEFAULT_AI_BUILD_BUDGET_MS = 900_000;
+/** Ceiling for the whole build: one hour (2026-10-31). The running section still finishes. */
+export const DEFAULT_AI_BUILD_BUDGET_MS = 3_600_000;
 // How many write at once, and the pool several builds share (T230): writer-pool.ts.
 export { fillConcurrencyFor, MAX_AI_BUILD_AUTO_FILL_CONCURRENCY } from './writer-pool';
 
@@ -580,6 +587,14 @@ const STOPPED_BEFORE_LANDING =
   'The build was stopped before this section landed; nothing of it was applied.';
 
 /**
+ * How many sections in a row may fail because the AI server could not be reached before
+ * the build starts nothing more (P6, 2026-11-01). Each such section already tried twice.
+ */
+const SERVER_LOST_AFTER = 3;
+const SERVER_LOST =
+  'The AI server could not be reached for several sections in a row, so this section was not started.';
+
+/**
  * Why a section failed, as data a UI can translate (E5). The prose `reason`
  * stays English and exact; this is what a host shows in the person's language.
  */
@@ -601,11 +616,12 @@ function skipReasonCode(cause: unknown): AiBuildSkipReasonCode {
 /** A section's deadline: a scene's is longer, unless the caller set every section's. */
 function sectionTimeoutMs(build: BuildRun, job: SectionJob, request = ''): number {
   const scene = build.options.taskTimeoutMs === undefined && job.scene?.() === true;
-  const ceiling = scene
-    ? offersReadyScenes(job.brief?.(1).skillIds ?? [])
-      ? 180_000
-      : DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS
-    : build.taskTimeoutMs;
+  /*
+    Every scene writer has the scene deadline. A mural offered ready scenes had 180 s, sized
+    for placing a preset; since presets are only an option (2026-11-01, owner: no forced ready
+    murals) a mural writing its own code needs the same time as any other scene.
+  */
+  const ceiling = scene ? DEFAULT_AI_BUILD_SCENE_TASK_TIMEOUT_MS : build.taskTimeoutMs;
   return build.options.taskTimeoutMs === undefined && isSceneInitializationRequest(request)
     ? Math.min(ceiling, DEFAULT_AI_BUILD_SCENE_INIT_TIMEOUT_MS)
     : ceiling;
@@ -1143,6 +1159,8 @@ type Written =
       readonly reasonCode: AiBuildSkipReasonCode;
       readonly outOfScope: readonly AiBuildOutOfScopeStep[];
       readonly attempts: number;
+      /** The AI server itself could not be reached (`isUnreachableProviderFailure`). */
+      readonly unreachable?: true;
     }
   | {
       readonly kind: 'not-started';
@@ -1692,12 +1710,46 @@ function startFill(
       reasonCode: skipReasonCode(failure),
       outOfScope,
       attempts: slot.attempts,
+      ...(isUnreachableProviderFailure(classifyAiRunFailure(failure))
+        ? { unreachable: true as const }
+        : {}),
     };
   };
 
   let started = 0;
   let active = 0;
+  /** Scene writers in flight: they may hold all writers but one (P2, `sceneSlotsLeft`). */
+  let scenesWriting = 0;
   const inflight = new Set<Promise<void>>();
+
+  /*
+    THE SERVER IS GONE (P6, 2026-11-01). A network failure is retryable, so each section
+    tries twice; with the AI server down every remaining section did, and the whole page
+    ended "failed". After SERVER_LOST_AFTER sections in a row could not reach it (a
+    written section in between starts the count again), nothing more starts: the rest are
+    never begun, coded as a spent budget is, so a host offers to finish them. Sections
+    already writing end as their own writes end.
+  */
+  let unreachableInARow = 0;
+  let serverLost = false;
+  const serverLostVerdict = (): Written => ({
+    kind: 'not-started',
+    reason: SERVER_LOST,
+    reasonCode: 'budget',
+    attempts: 0,
+  });
+  const noteServer = (written: Written): void => {
+    if (written.kind === 'ready') unreachableInARow = 0;
+    if (written.kind !== 'failed' || written.unreachable !== true || serverLost) return;
+    unreachableInARow += 1;
+    if (unreachableInARow < SERVER_LOST_AFTER) return;
+    serverLost = true;
+    for (const slot of slots) {
+      if (slot.claimed) continue;
+      slot.claimed = true;
+      slot.settle(serverLostVerdict());
+    }
+  };
 
   /** Hand section `index` to a writer — or settle it, when the build may start nothing more. */
   const dispatch = (index: number): void => {
@@ -1714,6 +1766,10 @@ function startFill(
         attempts: 0,
       });
       halt(reason);
+      return;
+    }
+    if (serverLost) {
+      slot.settle(serverLostVerdict());
       return;
     }
     if (!slot.counted) {
@@ -1735,22 +1791,28 @@ function startFill(
     slot.abort = abort;
     slot.fingerprint = job.fingerprint?.();
     active += 1;
+    const scene = job.scene?.() === true;
+    if (scene) scenesWriting += 1;
     // A site's pages share one writers' pool (T230): the write waits its turn in it.
     const write = (): Promise<Written | undefined> =>
       writeSection(slot, job, generation, abort.signal);
     const run: Promise<void> = withWriterPermit(options, abort.signal, write)
       .then((written) => {
-        if (written !== undefined && slot.generation === generation) slot.settle(written);
+        if (written === undefined || slot.generation !== generation) return;
+        const first = !slot.settled;
+        slot.settle(written);
+        if (first) noteServer(written);
       })
       .finally(() => {
         active -= 1;
+        if (scene) scenesWriting -= 1;
         inflight.delete(run);
         pump();
       });
     inflight.add(run);
   };
 
-  /** Start every released section a writer is free for, in page order. */
+  /** Start every released section a writer is free for: scenes first, else page order. */
   function pump(): void {
     if (cancelled || (held && !gateOpen)) return;
     while (active < fillConcurrency) {
@@ -1759,7 +1821,11 @@ function startFill(
           ? [{ index, counted, scene: () => jobs[index]?.scene?.() === true }]
           : [],
       );
-      const index = nextSection(open, build.maxTasks - started);
+      const index = nextSection(
+        open,
+        build.maxTasks - started,
+        sceneSlotsLeft(fillConcurrency, scenesWriting),
+      );
       if (index === undefined) return;
       dispatch(index);
     }

@@ -28,7 +28,7 @@ import type { BuildTurn, PagePlanTurn, Turn } from '../../model/turns';
 
 import { type BuildPlan, failBuild, settleBuild } from './build-settle';
 import type { Flow } from './controller-state';
-import { followKernel } from './kernel-follow';
+import { followKernel, pageIdOfKernel } from './kernel-follow';
 import { setRun, type Slot } from './run-lease';
 import { commonRunOptions } from './run-options';
 import type { PromptSkillSnapshot } from '../../model/prompt-skills';
@@ -135,6 +135,16 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
   const patchBuild = (change: (turn: BuildTurn) => Turn): void => {
     patchKind(flow, slot.sessionId, turnId, 'build', change);
   };
+  /*
+    The page this build writes, kept on its record (P5, 2026-11-01): after a reload the
+    runtime no longer knows this kernel, and "Finish the rest" must still write here, not
+    into whichever page is open then. Said again when a plan card inks back into the build.
+  */
+  const pageId = pageIdOfKernel(kernel);
+  const notePage = (): void => {
+    if (pageId !== undefined) patchBuild((turn) => ({ ...turn, pageId }));
+  };
+  notePage();
 
   /*
     The ONE approval, on the list. Asked before anything is written: the build turn
@@ -159,6 +169,7 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
         // The card inked back into a build (plan-card-actions.ts): it names its page again.
         const title = page.site?.title;
         if (title !== undefined) patchBuild((turn) => ({ ...turn, page: title }));
+        notePage();
         resolve(answer);
       };
       flow.runtime.approvals.set(turnId, settle);

@@ -1,5 +1,6 @@
 /** One complete generation call, including cache waiting, streaming and backend fallback. */
-export const DEFAULT_CALL_TIMEOUT_MS = 240_000;
+// Fifteen minutes, a scene writer's own build deadline (2026-10-31): four cut murals off.
+export const DEFAULT_CALL_TIMEOUT_MS = 900_000;
 const MAX_TIMER_MS = 2_147_483_647;
 
 export class PlanCallTimeoutError extends Error {

@@ -167,6 +167,37 @@ describe('Pixi creative skills — actual prompt activation', () => {
     expect(PIXI_STORY_EXAMPLE).toContain('speech?.cancel()');
     expect(PIXI_STORY_EXAMPLE).toContain('voice.hidden=!speech');
   });
+
+  // 2026-11-01 (the owner: every game and mural looked the same): kits are one start, restyled
+  // freely with their hooks kept; the stage takes the piece's shape; a mural draws its own seed.
+  it('offers kits as one start beside composing, never kits first', () => {
+    for (const id of [GAME, STORY]) {
+      const text = PIXI_CREATIVE_SKILLS.find((skill) => skill.id === id)?.instructions ?? '';
+      expect(text, id).not.toContain('KITS FIRST');
+      expect(text, id).not.toContain('write code only for what no kit covers');
+      expect(text, id).toMatch(/^KITS, ONE OPTION: scene\.preset /u);
+      expect(text, id).toContain('restyled by css (hooks kept), or compose your own.');
+    }
+  });
+
+  it('lets each stage take the piece’s shape instead of one 1280×720 band', () => {
+    for (const id of [GAME, STORY]) {
+      const text = PIXI_CREATIVE_SKILLS.find((skill) => skill.id === id)?.instructions ?? '';
+      expect(text, id).toContain('in stage shape (core SIZE)');
+    }
+    for (const skill of PIXI_CREATIVE_SKILLS)
+      expect(skill.instructions, skill.id).not.toMatch(/(?:Design at|at design) 1280×720/u);
+    const mural = PIXI_CREATIVE_SKILLS.find(({ id }) => id === MURAL)?.instructions ?? '';
+    expect(mural).toContain(
+      'Stage: 21/9, 4/5, 1/1, behind copy or beside text; by width, never vh.',
+    );
+  });
+
+  it('asks a composed mural for a fresh seed in both calls', () => {
+    const mural = PIXI_CREATIVE_SKILLS.find(({ id }) => id === MURAL)?.instructions ?? '';
+    expect(mural).toContain("ck.scene({libs:['mural','anim'],seed:N,");
+    expect(mural).toContain('seed:N there too (N fresh per piece)');
+  });
 });
 
 const AsyncFunction = (

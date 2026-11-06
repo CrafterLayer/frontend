@@ -1,6 +1,29 @@
 import type { AiBuildOwnEvent, AiBuildRunResult, PersistenceAck } from '@craftkit/builder';
 
+import { isResumable, type RunRecord } from './run-record';
+import { reduceRunRecord } from './run-record-reduce';
 import { vaultWriteAcknowledgement, type VaultStore } from './store';
+
+/*
+  The record itself — its shape, its reducer and its readers — lives in `run-record.ts`
+  (split 2026-11-06). Re-exported here so every importer of the journal keeps one door.
+*/
+export {
+  describeRun,
+  isRecoverable,
+  isResumable,
+  landedUnits,
+  pendingUnits,
+  resumePoint,
+  runEnding,
+  type RunEnding,
+  type RunOutlineEntry,
+  type RunRecord,
+  type RunStage,
+  type RunStatus,
+  type RunUnitRecord,
+  type RunUnitStatus,
+} from './run-record';
 
 /**
  * What a run DID, durable enough to survive the tab that was doing it.
@@ -24,7 +47,7 @@ import { vaultWriteAcknowledgement, type VaultStore } from './store';
  *
  * A journal that waited for `build.completed` would leave all three `running`
  * forever. So the stream moves the record forward, and the caller closes it
- * with `settle` or `fail` from what the run actually returned or threw.
+ * with `settle`, `halt` or `fail` from what the run actually returned or threw.
  *
  * ## Why it never throws
  *
@@ -40,183 +63,6 @@ import { vaultWriteAcknowledgement, type VaultStore } from './store';
  * a non-cloneable value throws SYNCHRONOUSLY, inside the emitter, where it
  * would be eaten.
  */
-
-/** Where the run is as a whole. `running` is the one an orphan sweep recovers. */
-export type RunStatus = 'running' | 'stopped' | 'completed' | 'failed';
-
-/**
- * How far a run got structurally, which is a different question from `status`.
- *
- * There is deliberately NO `scaffolded` state, and its absence is a finding
- * rather than an oversight. The skeleton is applied to the live document
- * minutes before the unit table exists, so a crash in that window leaves a
- * record at `scaffolding` and a page that already carries a skeleton — and a
- * Restart that did not know would lay down a second one. The state that would
- * say so cannot be reached: the engine emits nothing between `build.scaffolding`
- * and `build.planned`, so there is no moment at which this file could honestly
- * write it. Declaring it anyway would put a value in the type that no record
- * ever holds, and a consumer would branch on a state that cannot occur.
- *
- * Until run-build emits a scaffold-applied event, `stage === 'scaffolding'` on a
- * settled record IS the "a skeleton may be on the page" signal, and it is the
- * one a Restart must read.
- */
-export type RunStage = 'scaffolding' | 'planned' | 'settled';
-
-/**
- * A unit's state, with `running` — which the engine's own `AiBuildTaskStatus`
- * does not have.
- *
- * The engine reports three verdicts (`applied`, `skipped`, `not-started`) and
- * emits nothing at all for a unit killed mid-write. But this task is named
- * after recovering an orphaned `running`, and a record that cannot express
- * `running` has nothing to recover. `waiting` is the fifth: a unit the lander
- * never reached, which is exactly where a resume begins.
- */
-export type RunUnitStatus = 'waiting' | 'running' | 'applied' | 'skipped' | 'not-started';
-
-export interface RunUnitRecord {
-  /**
-   * The 1-based index into the planned list, and the ONLY correlation key.
-   *
-   * Not the node id: `task.*` events carry `position`, and a retry reuses the
-   * step's run id so `(runId, seq)` is not unique either.
-   */
-  readonly position: number;
-  readonly id: string;
-  readonly title: string;
-  readonly status: RunUnitStatus;
-  /** Attempts actually made. A unit may be started twice; it is one unit. */
-  readonly attempts: number;
-  /** Why it was skipped or never started. A STRING, so the record stays cloneable. */
-  readonly reason?: string;
-  readonly startedAt?: number;
-  readonly settledAt?: number;
-}
-
-export interface RunRecord {
-  readonly runId: string;
-  /** The document this run was started against. A record for another one is not ours. */
-  readonly docId: string;
-  /**
-   * The page this run was started on.
-   *
-   * Required, not defaulted. The page lens exposes no page id, and the site's
-   * "current page" moves the moment a person navigates — so it cannot be read
-   * at checkpoint time without recording wherever they wandered to. It has to
-   * be captured once, at the start, by the caller that knows.
-   */
-  readonly pageId: string;
-  readonly request: string;
-  /**
-   * Which mode the run carried, which decides what stream it produces at all.
-   *
-   * `plan` emits one event and returns; `ask` waits on an approval; `auto` runs
-   * straight through. Without it the orphan sweep cannot tell a legitimately
-   * unclosed plan-only run from a torn writing one.
-   */
-  readonly mode: string;
-  /** `offline` or `remote`. Recorded for the tier comparison, and for triage. */
-  readonly providerKind: string;
-  /** What the live document was when the draft was seeded. */
-  readonly baseFingerprint: string;
-  /** The pre-run restore point, when the caller took one. */
-  readonly snapshotId?: string;
-  /**
-   * The three limits that can be read honestly.
-   *
-   * `fillConcurrency` is deliberately absent: it is computed inside the
-   * orchestrator by a formula that is not exported, is not on the run result,
-   * and is not on the options the panel passes. Recording a re-derived guess
-   * would be a second answer to a question this record cannot actually ask.
-   */
-  readonly limits: {
-    readonly maxTasks: number;
-    readonly taskTimeoutMs: number;
-    readonly buildBudgetMs: number;
-  };
-  readonly status: RunStatus;
-  readonly stage: RunStage;
-  /** The scaffold's rationale — every fill obeyed this text. */
-  readonly direction?: string;
-  readonly units: readonly RunUnitRecord[];
-  /** The engine's own outcome word, once the run settled. */
-  readonly outcome?: string;
-  /**
-   * Why the split build stood down in favour of one ordinary run.
-   *
-   * Its own field, not `failure`: the fallback is a success path. The scaffold
-   * produced fewer than two regions, so a build would have been worse than the
-   * single call it replaces — that is a routing decision worth recording and
-   * not an error worth reporting.
-   */
-  readonly fallbackReason?: string;
-  readonly elapsedMs?: number;
-  /**
-   * What the run has SPENT so far, against the limits above.
-   *
-   * Written at every checkpoint rather than only at the end, because the whole
-   * point of a durable record is to describe a run that never reached its end.
-   *
-   * Two of the three budgets can be tracked and one cannot. Wall clock comes
-   * from the events' own `at`, and started units count against `maxTasks`.
-   * TOKENS cannot: no token counter reaches `AiBuildEvent` at all — the numbers
-   * on `context.ready` and `skills.resolved` are per-step context budgets, not
-   * spend — so a token field here would be a number nobody could fill. It
-   * arrives when the wire carries `usage` (T305), and not before.
-   */
-  readonly spent: {
-    /** Wall clock from the first event to the last checkpoint. */
-    readonly elapsedMs: number;
-    /** Units that reached `running` at least once, against `limits.maxTasks`. */
-    readonly tasksStarted: number;
-  };
-  /** Why the run failed, as a string. Set only by `fail`, and cleared by nothing. */
-  readonly failure?: string;
-  /**
-   * True when an orphan sweep closed this record because nobody else did.
-   *
-   * Its OWN field rather than a sentence in `failure`, for two reasons. The
-   * record must be able to say "the tab went away" without claiming the run
-   * failed — it may have finished perfectly and simply never been closed. And a
-   * run that turns out to be alive after all must be able to take the verdict
-   * back, which `settle` and a terminal `build.completed` both do; a sentence
-   * merged into a shared field could not be withdrawn without guessing which
-   * sentence to remove.
-   */
-  readonly recovered?: boolean;
-  /**
-   * True when the person answered `stop` at the approval prompt.
-   *
-   * Set by the caller, because nothing in the run can tell it apart from a mid-
-   * build Stop: `onPlanned` returning `'stop'` produces the same
-   * `outcome: 'signal'` an `AbortSignal` does, and the same all-`not-started`
-   * report. Without it a plan somebody refused would be offered back to them
-   * as unfinished work.
-   */
-  readonly declined?: boolean;
-  /** Successor that claimed this stopped record; prevents applying completed units twice. */
-  readonly resumedByRunId?: string;
-  /**
-   * Set when a checkpoint could not be written.
-   *
-   * Reported rather than thrown, because the only caller is inside an emitter
-   * that swallows throws. A record carrying this is stale by definition and
-   * must not be offered for Resume.
-   */
-  readonly writeFailure?: string;
-  readonly createdAt: number;
-  readonly updatedAt: number;
-  /**
-   * Bumped on every checkpoint, and the ONLY thing separating an orphan from a
-   * run that is alive in another tab.
-   *
-   * A sweep that recovered every `running` record it found would flip a live
-   * build to `stopped` the moment a second tab booted, and the live tab would
-   * then keep checkpointing into a record marked dead.
-   */
-  readonly heartbeatAt: number;
-}
 
 const RUN_PREFIX = 'vault/run/';
 
@@ -243,11 +89,13 @@ export interface StartRunOptions {
   readonly docId: string;
   readonly pageId: string;
   readonly request: string;
+  /** The agent turn this run writes, when an agent panel started it. */
+  readonly turnId?: string;
   readonly mode: string;
   readonly providerKind: string;
   readonly baseFingerprint: string;
   readonly snapshotId?: string;
-  readonly limits: RunRecord['limits'];
+  readonly limits?: RunRecord['limits'];
 }
 
 export interface RunJournal {
@@ -265,6 +113,12 @@ export interface RunJournal {
   /** Close a record that threw. `reason` is a string; an Error would not clone. */
   fail(runId: string, reason: string): Promise<void>;
   /**
+   * Close a record the person STOPPED before the run returned anything: Stop while the
+   * plan was still being written rethrows the abort, so no result and no terminal event
+   * exist — yet sections may already have landed early (the streamed build).
+   */
+  halt(runId: string): Promise<void>;
+  /**
    * Record that the person answered `stop` at the approval prompt.
    *
    * Called by the caller holding that prompt, because the run cannot tell:
@@ -273,6 +127,15 @@ export interface RunJournal {
    * offered back to them as unfinished work.
    */
   decline(runId: string): Promise<void>;
+  /** The person kept what was built: never offered for continuing again. */
+  keep(runId: string): Promise<void>;
+  /**
+   * Open a settled (or orphaned) record again for a successor that writes the rest of its
+   * sections into it ("Continue where it stopped"): it is `running` until the successor
+   * settles it, so a crash during the successor leaves it interrupted again, with the
+   * right sections pending. No-op for a record with no unit table.
+   */
+  reopen(runId: string): Promise<void>;
   /** Atomically reserve a resumable predecessor for one new run identity. */
   claimResume(runId: string, successorRunId: string): Promise<RunRecord | undefined>;
   read(runId: string): Promise<RunRecord | undefined>;
@@ -283,6 +146,15 @@ export interface RunJournal {
   recover(): Promise<readonly string[]>;
   /** Drop what has aged out, and report which. */
   sweep(): Promise<readonly string[]>;
+}
+
+/**
+ * The journal bound to the document its runs write: what a host hands the agent panel,
+ * which knows its pages but not the vault's document id.
+ */
+export interface DocumentRunJournal {
+  readonly docId: string;
+  readonly journal: RunJournal;
 }
 
 export interface RunJournalOptions {
@@ -297,205 +169,13 @@ export interface RunJournalOptions {
   readonly now: () => number;
 }
 
-/**
- * The first unit a resume would have to start from, or nothing when there is
- * none.
- *
- * `not-started` counts, and leaving it out was a real bug rather than a
- * borderline call. Two words describe one physical state — a section the lander
- * never reached — and which one is stored depends only on HOW the run ended.
- * A torn tab leaves `waiting`, because no terminal event ever arrived. A clean
- * stop at `max-tasks`, at the budget, or on Stop emits `build.completed`, whose
- * report calls exactly the same untouched sections `not-started`, because that
- * is the engine's whole vocabulary (`AiBuildTaskStatus` has no `waiting`).
- *
- * Matching only `waiting` therefore made the journal able to resume a CRASH and
- * unable to resume a clean stop — the exact opposite of the useful case, and
- * the canonical one: a ten-section page under a task limit.
- */
-export function resumePoint(record: RunRecord): RunUnitRecord | undefined {
-  return record.units.find(
-    (unit) =>
-      unit.status === 'waiting' || unit.status === 'running' || unit.status === 'not-started',
-  );
-}
-
-/**
- * Whether this record can be continued at all.
- *
- * Four kinds of run cannot, and each for its own reason: a plan-only run wrote
- * nothing and its units have no addressable region; a run that never reached
- * `planned` has no unit table; a record whose last checkpoint failed is stale by
- * definition, so its unit states are not to be trusted; and a plan the person
- * DECLINED is not unfinished work, it is work they said no to.
- *
- * That last one needs a field because it cannot be read from the run. Answering
- * `'stop'` at the approval prompt and pressing Stop mid-build both arrive as
- * `outcome: 'signal'` with every remaining section `not-started` — identical
- * records for opposite intentions. Only the caller holding the prompt knows
- * which happened, which is why `decline` exists rather than a heuristic here.
- */
-export function isResumable(record: RunRecord): boolean {
-  if (record.status === 'running' || record.status === 'completed') return false;
-  if (record.declined === true) return false;
-  if (record.resumedByRunId !== undefined) return false;
-  if (record.writeFailure !== undefined) return false;
-  if (record.stage !== 'planned' && record.stage !== 'settled') return false;
-  return resumePoint(record) !== undefined;
-}
-
-function unitsFromPlanned(tasks: readonly { id: string; title: string }[]): RunUnitRecord[] {
-  return tasks.map((task, index) => ({
-    position: index + 1,
-    id: task.id,
-    title: task.title,
-    status: 'waiting' as const,
-    attempts: 0,
-  }));
-}
-
-/** Replace one unit by POSITION, leaving the rest exactly as they were. */
-function withUnit(
-  units: readonly RunUnitRecord[],
-  position: number,
-  change: (unit: RunUnitRecord) => RunUnitRecord,
-): readonly RunUnitRecord[] {
-  return units.map((unit) => (unit.position === position ? change(unit) : unit));
-}
-
-/** Apply one event to a record. Pure: the caller owns storage and the clock. */
-function reduce(record: RunRecord, event: AiBuildOwnEvent): RunRecord {
-  switch (event.type) {
-    case 'build.scaffolding':
-      return { ...record, stage: 'scaffolding' };
-
-    case 'build.skipped':
-      /*
-        NOT terminal, and not a failure — both of which this arm got wrong.
-
-        `build.skipped` is emitted BEFORE the fallback run starts, and that run
-        is a SUCCESS path: one ordinary agent writes the whole page. Marking the
-        record `stopped` here froze it minutes before the work finished, and
-        every later checkpoint then described a run the journal had already
-        buried. And the skeleton's explanation is not a failure — it went into
-        `failure`, a field documented as set only by `fail`, leaving a
-        successful build carrying a failure sentence forever.
-
-        So: keep the reason as the OUTCOME, stay running, and let the caller
-        close it from the result like every other silent shape.
-      */
-      return { ...record, outcome: 'fallback', fallbackReason: event.reason };
-
-    case 'build.planned':
-      /*
-        The mandatory first checkpoint that has a unit table at all, and the
-        only event carrying real node ids. It also proves the skeleton landed,
-        which is why the stage passes through `scaffolded` conceptually and
-        arrives here.
-      */
-      return {
-        ...record,
-        stage: 'planned',
-        direction: event.direction,
-        units: unitsFromPlanned(event.tasks),
-      };
-
-    case 'task.started':
-      /*
-        Fires once per ATTEMPT, not once per unit — the writer loops over two
-        attempts and emits inside the loop. So `startedAt` is set once and kept:
-        resetting it on a retry would report the unit as younger than it is.
-      */
-      return {
-        ...record,
-        units: withUnit(record.units, event.position, (unit) => ({
-          ...unit,
-          status: 'running',
-          attempts: event.attempt,
-          startedAt: unit.startedAt ?? event.at,
-        })),
-      };
-
-    case 'task.completed':
-      return {
-        ...record,
-        units: withUnit(record.units, event.position, (unit) => ({
-          ...unit,
-          status: 'applied',
-          attempts: event.attempts,
-          settledAt: event.at,
-        })),
-      };
-
-    case 'task.skipped':
-      return {
-        ...record,
-        units: withUnit(record.units, event.position, (unit) => ({
-          ...unit,
-          status: 'skipped',
-          attempts: event.attempts,
-          reason: event.reason,
-          settledAt: event.at,
-        })),
-      };
-
-    case 'build.stopped':
-      /*
-        NOT terminal, and the unit table is NOT frozen here. `halt()` settles
-        only the unclaimed slots; sections already being written keep landing,
-        so up to `fillConcurrency` more `task.completed` events arrive after
-        this one. Freezing here would lose them, and a resume computed at this
-        moment would re-fill units that are about to succeed.
-      */
-      return { ...record, outcome: event.reason };
-
-    case 'build.completed':
-      /*
-        The one place a `not-started` verdict exists. The lander pushes that
-        report and continues without emitting anything, so a unit the run never
-        reached has no event of its own — its reason lives only here.
-      */
-      return {
-        ...record,
-        status: event.outcome === 'completed' ? 'completed' : 'stopped',
-        stage: 'settled',
-        outcome: event.outcome,
-        elapsedMs: event.elapsedMs,
-        /*
-          A run that reaches here is alive, whatever a sweep decided while it was
-          quiet. Taking the verdict back is the point of keeping it in its own
-          field: a record cannot be both finished and abandoned.
-        */
-        recovered: false,
-        units: event.tasks.map((report, index) => {
-          /*
-            The verdicts are the report's; the TIMES are the stream's.
-
-            An earlier version stamped `settledAt: event.at` on every unit, which
-            replaced each section's real landing time with the build's own last
-            moment and invented one for sections that never started. The report
-            says WHAT happened; only `task.completed` / `task.skipped` know when.
-          */
-          const known = record.units[index];
-          const settledAt =
-            known?.settledAt ?? (report.status === 'not-started' ? undefined : event.at);
-          return {
-            position: index + 1,
-            id: report.id,
-            title: report.title,
-            status: report.status,
-            attempts: report.attempts,
-            ...(report.reason === undefined ? {} : { reason: report.reason }),
-            ...(known?.startedAt === undefined ? {} : { startedAt: known.startedAt }),
-            ...(settledAt === undefined ? {} : { settledAt }),
-          };
-        }),
-      };
-
-    /* v8 ignore next 2 -- every event type above is handled; this is the guard. */
-    default:
-      return record;
-  }
+/** A record without the fields a reopened run must not carry forward. */
+function reopened(record: RunRecord): RunRecord {
+  const { kept: _kept, failure: _failure, outcome: _outcome, ...rest } = record;
+  void _kept;
+  void _failure;
+  void _outcome;
+  return { ...rest, status: 'running', stage: 'planned', recovered: false };
 }
 
 export function createRunJournal(options: RunJournalOptions): RunJournal {
@@ -620,11 +300,12 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
         docId: startOptions.docId,
         pageId: startOptions.pageId,
         request: startOptions.request,
+        ...(startOptions.turnId === undefined ? {} : { turnId: startOptions.turnId }),
         mode: startOptions.mode,
         providerKind: startOptions.providerKind,
         baseFingerprint: startOptions.baseFingerprint,
         ...(startOptions.snapshotId === undefined ? {} : { snapshotId: startOptions.snapshotId }),
-        limits: startOptions.limits,
+        ...(startOptions.limits === undefined ? {} : { limits: startOptions.limits }),
         status: 'running',
         stage: 'scaffolding',
         units: [],
@@ -642,7 +323,7 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
     async record(runId, event) {
       await serialise(() =>
         update(runId, (current) => {
-          const next = reduce(current, event);
+          const next = reduceRunRecord(current, event);
           return {
             ...next,
             spent: {
@@ -687,8 +368,33 @@ export function createRunJournal(options: RunJournalOptions): RunJournal {
       );
     },
 
+    async halt(runId) {
+      /*
+        The units are left exactly as the stream left them: a section that landed early
+        is `applied` (it is on the page, in its own transaction), and the rest stay
+        waiting — which is what a resume writes.
+      */
+      await serialise(() =>
+        update(runId, (current) => ({
+          ...current,
+          status: 'stopped',
+          stage: current.units.length === 0 ? current.stage : 'settled',
+          outcome: 'signal',
+          recovered: false,
+        })),
+      );
+    },
+
     async decline(runId) {
       await serialise(() => update(runId, (current) => ({ ...current, declined: true })));
+    },
+
+    async keep(runId) {
+      await serialise(() => update(runId, (current) => ({ ...current, kept: true })));
+    },
+
+    async reopen(runId) {
+      await serialise(() => update(runId, reopened, (current) => current.units.length > 0));
     },
 
     async claimResume(runId, successorRunId) {

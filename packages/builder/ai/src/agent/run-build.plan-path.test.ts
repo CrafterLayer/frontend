@@ -657,10 +657,20 @@ function markupOnly(): Record<string, unknown> {
   return { ...plan, sections };
 }
 
+/*
+  53617867 (free design): a request that does not ask for templates is a bespoke composition, whose
+  writers may author their own colours; the tokens-only contract below holds for a templated (hybrid) page.
+*/
+const TEMPLATED_REQUEST = `${REQUEST}. Use the existing templates`;
+
 describe('the section contract — colour, design code and the person’s own photos', () => {
   it('colours through the kit and var(--ck-…), accent text through accent ink — never an arbitrary class', async () => {
     const script = scripted({ pagePlan: () => markupOnly() });
-    await runAiBuild({ ...baseOptions(kernel(), script.provider), target: 'replace' });
+    await runAiBuild({
+      ...baseOptions(kernel(), script.provider),
+      request: TEMPLATED_REQUEST,
+      target: 'replace',
+    });
 
     const hero = fillFor(script, 2, 5)?.request ?? '';
     for (const { name } of PAGE_KIT_CLASSES) expect(hero).toContain(name);
@@ -673,15 +683,36 @@ describe('the section contract — colour, design code and the person’s own ph
     expect(hero).not.toContain('or arbitrary classes such as');
   });
 
-  it('hands every markup writer region css as a first-class tool, inside the door’s refusal list', async () => {
+  it('frees a bespoke writer’s colours, still naming the tokens and the accent ink — never an arbitrary class', async () => {
     const script = scripted({ pagePlan: () => markupOnly() });
     await runAiBuild({ ...baseOptions(kernel(), script.provider), target: 'replace' });
 
-    for (const fill of script.fills) {
-      const line = /^DESIGN CODE — [^\n]*$/mu.exec(fill.request)?.[0] ?? '';
-      expect(line).toContain('first-class tool');
-      expect(line).toContain('var(--ck-…)');
-      expect(line).toContain('@import');
+    const hero = fillFor(script, 2, 5)?.request ?? '';
+    for (const { name } of PAGE_KIT_CLASSES) expect(hero).toContain(name);
+    // 53617867: free design replaced the tokens-only COLOUR law; the tokens stay the shared palette.
+    expect(hero).toContain('--ck-accent-ink #065f46 accent-coloured text');
+    expect(hero).toMatch(/^COLOUR: page tokens establish the shared palette;[^\n]*scoped CSS/mu);
+    expect(hero).toMatch(/^COLOUR: [^\n]*not unavailable arbitrary utility classes/mu);
+    expect(hero).not.toContain('SLOTS — ');
+    expect(hero).not.toContain('or arbitrary classes such as');
+  });
+
+  it('hands every markup writer region css as a first-class tool, inside the door’s refusal list', async () => {
+    for (const [request, colour] of [
+      [TEMPLATED_REQUEST, 'var(--ck-…)'],
+      // 53617867: a bespoke writer colours its css with the tokens or its own deliberate colours.
+      [REQUEST, 'using the page tokens or deliberate custom colours'],
+    ] as const) {
+      const script = scripted({ pagePlan: () => markupOnly() });
+      await runAiBuild({ ...baseOptions(kernel(), script.provider), request, target: 'replace' });
+
+      expect(script.fills.length).toBeGreaterThan(0);
+      for (const fill of script.fills) {
+        const line = /^DESIGN CODE — [^\n]*$/mu.exec(fill.request)?.[0] ?? '';
+        expect(line).toContain('first-class tool');
+        expect(line).toContain(colour);
+        expect(line).toContain('@import');
+      }
     }
   });
 
@@ -722,8 +753,11 @@ describe('the section contract — colour, design code and the person’s own ph
     });
 
     const heroRequest = fillFor(script, 2, 5)?.request ?? '';
-    // Quality pass 2026-10-05: a type-led hero gets the page's catalog photo, and the person's own comes first.
-    expect(heroRequest).toContain('each from THEIR OWN PHOTOS where one fits');
+    // 53617867: a bespoke page gets no stock-photo hero (validatePagePlan skips withHeroPhoto), so the person's own is its one image.
+    expect(heroRequest).toContain(
+      'IMAGES: the person’s own — show the first of THEIR OWN PHOTOS that fits this section, exactly as written',
+    );
+    expect(heroRequest).not.toContain('PHOTOS YOU MAY USE');
     expect(heroRequest).toContain(
       `THEIR OWN PHOTOS (the person gave these addresses; use them exactly as written): ${unsplash}`,
     );

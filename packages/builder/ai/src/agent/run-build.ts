@@ -105,6 +105,7 @@ import type {
   AiAgentEvent,
   AiAgentRunResult,
   AiBuildOutcome,
+  AiBuildOutlineSection,
   AiBuildOutOfScopeStep,
   AiBuildOwnEvent,
   AiBuildPlanAnswer,
@@ -1188,6 +1189,14 @@ interface Slot {
   generation: number;
   /** Whether a writer may take it. A streamed build releases a section when its brief arrives. */
   released: boolean;
+  /**
+   * What its writer writes may land BEFORE the final-plan gate (the streamed build's early
+   * lander, `landEarly` in `startFill`): its brief closed and validated in the response
+   * that laid the skeleton. Cleared when the slot is opened again.
+   */
+  early: boolean;
+  /** The generation whose verdict the early lander has read; -1 before it read any. */
+  looked: number;
   /** Counted against `maxTasks` already: a rerun is the same section, not a new one. */
   counted: boolean;
   /** The contract fingerprint the current write started from. */
@@ -1225,6 +1234,8 @@ function createSlot(released: boolean): Slot {
     invocations: 0,
     generation: 0,
     released,
+    early: false,
+    looked: -1,
     counted: false,
     fingerprint: undefined,
     abort: undefined,
@@ -1468,9 +1479,15 @@ async function fillAndLand(
 interface FillHandle {
   /** Settles once every section is reported. Never rejects. */
   readonly done: Promise<FilledSections>;
-  /** A writer may take this section now. */
-  release(index: number): void;
-  /** No NEW write starts until the gate opens; writes in flight continue. */
+  /**
+   * A writer may take this section now. `early`: what it writes may land before the gate
+   * opens — only for a section that meets the EARLY LANDING rule (`startFill`).
+   */
+  release(index: number, early?: boolean): void;
+  /**
+   * No NEW write starts until the gate opens; writes in flight continue. Nothing more
+   * lands early either: what is written from here waits for the final plan.
+   */
   hold(): void;
   /**
    * Throw away this section's write — in flight or finished — and write it
@@ -1504,11 +1521,24 @@ function sectionAbort(message: string): Error {
   return error;
 }
 
+/** A section the early lander put on the page before the gate opened. */
+interface EarlyLanding {
+  /** The slot generation whose write landed: a rerun since is a different write. */
+  readonly generation: number;
+  readonly report: AiBuildTaskReport;
+  /** The section's props as they stood just before it landed: its placeholder's. */
+  readonly before: AiBuildSectionValues;
+  readonly keys: readonly AiBuildSectionKey[];
+}
+
+type ReadyWritten = Extract<Written, { kind: 'ready' }>;
+
 /**
  * The pool and the lander. `speculative` is the streamed build's: no section
  * is released until its brief arrives (or the final plan does), and the
- * lander waits for `openGate` — nothing a writer wrote lands before the final
- * plan is the plan.
+ * lander waits for `openGate` — except for what the EARLY LANDING rule below
+ * lets land first. A plain build (`speculative` false) opens the gate at once
+ * and never lands early: it lands exactly as it always has.
  */
 function startFill(
   build: BuildRun,
@@ -1517,13 +1547,14 @@ function startFill(
   speculative: boolean,
 ): FillHandle {
   const { options, emit, personStopped } = build;
-  const reports: AiBuildTaskReport[] = [];
+  /** Each section's report by job index: a later verdict on the same section replaces it. */
+  const reports = new Map<number, AiBuildTaskReport>();
+  /** Sections the early lander put on the page, by job index. */
+  const landedEarly = new Map<number, EarlyLanding>();
   const fillCount = jobs.filter(({ complete }) => complete === undefined).length;
   const automatic = fillConcurrencyFor(fillCount, options.fillConcurrency);
   // A streamed build may rerun a section the skeleton did not leave to a writer at first.
   const fillConcurrency = speculative ? Math.max(1, automatic) : automatic;
-  let applied = 0;
-  let skipped = 0;
   let stopped: AiBuildStopReason | undefined;
   let gateOpen = !speculative;
   let held = false;
@@ -1534,6 +1565,11 @@ function startFill(
     openTheGate = resolve;
   });
   if (gateOpen) openTheGate();
+  /** Wakes the early lander: something it watches changed. A no-op while it is not waiting. */
+  let wake: () => void = () => undefined;
+  const nudge = (): void => {
+    wake();
+  };
 
   const slots = jobs.map((job): Slot => {
     const slot = createSlot(!speculative);
@@ -1831,22 +1867,256 @@ function startFill(
     }
   }
 
+  /** What a report carries from the plan, read when it is filed: a report filed again reads the final plan. */
+  const ledgerOf = (job: SectionJob) => {
+    const facts = job.facts?.() ?? [];
+    return {
+      ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
+      ...(facts.length === 0 ? {} : { facts }),
+    };
+  };
+
+  /** An early landing's report, its ledger read again now (the final plan's facts). */
+  const withLedger = (report: AiBuildTaskReport, job: SectionJob): AiBuildTaskReport => {
+    const { facts: _facts, sectionKey: _sectionKey, ...rest } = report;
+    void _facts;
+    void _sectionKey;
+    return { ...rest, ...ledgerOf(job) };
+  };
+
+  /**
+   * A section that landed early, whose rerun from the final plan did not land (it failed,
+   * was stopped, or the door refused it): it is on the page as it landed, so that landing
+   * is its report — and the row that the rerun reopened reads landed again.
+   */
+  const keepEarly = (index: number, job: SectionJob, early: EarlyLanding): void => {
+    const { task, position, total } = job;
+    reports.set(index, withLedger(early.report, job));
+    emit({
+      type: 'task.completed',
+      position,
+      total,
+      task,
+      attempts: early.report.attempts,
+      ...(early.report.landing === undefined
+        ? {}
+        : { transactionId: early.report.landing.transactionId, label: early.report.landing.label }),
+    });
+  };
+
+  /**
+   * Land one written section: ONE transaction through the door (`applyAiPlan`, which
+   * validates it against the registry and the validation ports), reported and announced.
+   * `prior` is the section's early landing when the final plan had it written again: the
+   * new landing then records what stood before the FIRST one, so the section's Undo puts
+   * its placeholder back, never the provisional write. Answers what landed, or the door's
+   * refusal — then nothing was applied and nothing is reported.
+   */
+  const landReady = (
+    index: number,
+    job: SectionJob,
+    written: ReadyWritten,
+    prior: EarlyLanding | undefined,
+  ): { readonly landed: EarlyLanding } | { readonly refused: string } => {
+    const { task, position, total } = job;
+    const label = stepLabel(position, total, task.title);
+    const keys =
+      prior === undefined
+        ? written.keys
+        : [...prior.keys, ...written.keys.filter((key) => !prior.keys.includes(key))];
+    const before =
+      prior === undefined
+        ? readSectionValues(options.kernel.getDocument(), task.id, keys)
+        : Object.freeze({
+            ...readSectionValues(
+              options.kernel.getDocument(),
+              task.id,
+              keys.filter((key) => !prior.keys.includes(key)),
+            ),
+            ...prior.before,
+          });
+    let landed: AppliedAiPlan;
+    try {
+      landed = applyAiPlan({
+        kernel: options.kernel,
+        validationPorts: options.validationPorts,
+        proposal: written.proposal,
+        label,
+      });
+    } catch (cause) {
+      return { refused: errorMessage(cause) };
+    }
+
+    /*
+      Recorded so the section can be put back FORWARD (`revertBuildSection`):
+      the one transaction it landed in, by id, and the props the fill wrote as
+      they stood just before and just after.
+    */
+    const transaction = landed.transactions[0];
+    const after = readSectionValues(options.kernel.getDocument(), task.id, keys);
+    job.onLanded?.(readSectionValues(options.kernel.getDocument(), task.id));
+    const report: AiBuildTaskReport = {
+      ...task,
+      status: 'applied',
+      attempts: written.attempts,
+      ...(written.outOfScope.length === 0 ? {} : { outOfScope: written.outOfScope }),
+      ...(transaction === undefined
+        ? {}
+        : {
+            landing: Object.freeze({ transactionId: transaction.id, label, before, after }),
+          }),
+      ...ledgerOf(job),
+      ...(written.check === undefined ? {} : { check: written.check }),
+    };
+    reports.set(index, report);
+    emit({
+      type: 'task.completed',
+      position,
+      total,
+      task,
+      attempts: written.attempts,
+      ...(transaction === undefined ? {} : { transactionId: transaction.id, label }),
+    });
+    return { landed: { generation: slots[index]?.generation ?? 0, report, before, keys } };
+  };
+
+  /*
+    EARLY LANDING (streamed build, 2026-11-05). Until now every section waited at the gate
+    for the WHOLE final plan to validate, so a section whose writer had finished still
+    showed as its placeholder until the plan's last brief, its validation and any repair
+    round were done. A section is now SAFE TO LAND before that when all of this holds:
+
+    1. Its region exists: the outline (the ordered section keys) closed in the stream,
+       validated, and the provisional skeleton landed from it — one transaction.
+    2. Its OWN brief closed in that same response, and the provisional plan holding that
+       brief passed `validatePagePlan` without moving the outline the skeleton was laid
+       from (`onBrief`: `reconcilePlans(...).sameOutline`). That is when it is released
+       with `early`; a section released any other way waits for the gate.
+    3. That response is still the live one: no later response began (`hold`), the stream
+       did not fault, the speculation was not cancelled, and nobody stopped the build.
+    4. What lands is the write that started from that contract: a slot opened again (a
+       rerun) is no longer early, and its new write waits for the gate.
+    5. The write passed every check a gated landing passes — the target guard, the
+       contract and scene checks with their one repair, the scene-delivery check — and it
+       lands through the same door (`landReady` → `applyAiPlan`), ONE labelled
+       transaction per section. Only a ready section lands early: a failure, or a door
+       refusal, waits for the gate and is decided there exactly as before.
+
+    A section the provisional skeleton wrote in full (the header) applies nothing more: it
+    is only REPORTED as landed at once, since its skeleton transaction put it on the page.
+
+    The final plan stays the authority, and the withdrawal path still holds:
+    - a different outline throws the speculation away (`withdraw`): a section that
+      landed early lives in a provisional region, and goes with it in the one
+      transaction that takes the regions back (or with the `replace` skeleton);
+    - the same outline keeps every early landing whose contract fingerprint is
+      unchanged — it is not landed again;
+    - a section whose contract changed is written again from the final contract and
+      lands again, in its own transaction, recording what stood before its FIRST
+      landing so its Undo still puts the placeholder back; a rerun that does not land
+      leaves the early landing as the section's report.
+  */
+  /** Nothing has ended early landing: no gate yet, no cancel, no later response. */
+  const mayLandEarly = (): boolean => !gateOpen && !cancelled && !held;
+
+  const landEarly = async (): Promise<void> => {
+    /*
+      What the provisional skeleton wrote IN FULL (the header, a kit the planner filled) is on
+      the page since its one transaction: said so now, not at the gate. Nothing is applied
+      here. If the final plan redraws it, the finish's landing replaces this report.
+    */
+    slots.forEach((slot, index) => {
+      const job = jobs[index];
+      const landing = job?.complete;
+      if (job === undefined || landing === undefined || landedEarly.has(index)) return;
+      const { task, position, total } = job;
+      const report: AiBuildTaskReport = {
+        ...task,
+        status: 'applied',
+        attempts: 0,
+        landing,
+        ...ledgerOf(job),
+      };
+      reports.set(index, report);
+      landedEarly.set(index, {
+        generation: slot.generation,
+        report,
+        before: landing.before,
+        keys: [],
+      });
+      emit({
+        type: 'task.completed',
+        position,
+        total,
+        task,
+        attempts: 0,
+        transactionId: landing.transactionId,
+        label: landing.label,
+      });
+    });
+    while (!gateOpen && !cancelled) {
+      const woken = new Promise<undefined>((resolve) => {
+        wake = () => {
+          resolve(undefined);
+        };
+      });
+      const watched = held
+        ? []
+        : slots.flatMap((slot, index) => {
+            if (!slot.early || slot.looked === slot.generation) return [];
+            const generation = slot.generation;
+            return [slot.written.then((written) => ({ index, generation, written }))];
+          });
+      const next = await Promise.race([woken, ...watched]);
+      wake = () => undefined;
+      if (next === undefined) continue;
+      const slot = slots[next.index];
+      const job = jobs[next.index];
+      // Opened again since: that write is gone, and its rerun is not early.
+      if (slot === undefined || job === undefined || slot.generation !== next.generation) {
+        continue;
+      }
+      slot.looked = next.generation;
+      const { written } = next;
+      if (written.kind !== 'ready') continue;
+      // Read again after the wait: the gate, a cancel or a later response may have come since.
+      if (!mayLandEarly() || !slot.early || personStopped()) continue;
+      const landing = landReady(next.index, job, written, undefined);
+      // A refusal is decided at the gate, exactly as a gated landing's is.
+      if ('landed' in landing) landedEarly.set(next.index, landing.landed);
+    }
+  };
+
   const land = async (): Promise<FilledSections> => {
+    if (!gateOpen) await landEarly();
     await gate;
     if (cancelled) return NOTHING_FILLED;
     for await (const [index, written] of readySections(slots.map((slot) => slot.written))) {
       const job = jobs[index];
-      if (job === undefined) continue;
+      const slot = slots[index];
+      if (job === undefined || slot === undefined) continue;
       const { task, position, total } = job;
-      const facts = job.facts?.() ?? [];
-      const ledger = {
-        ...(job.sectionKey === undefined ? {} : { sectionKey: job.sectionKey }),
-        ...(facts.length === 0 ? {} : { facts }),
-      };
+      const ledger = ledgerOf(job);
+      const early = landedEarly.get(index);
+      if (early?.generation === slot.generation) {
+        // Landed before the gate from this very write: it stands, reading the final plan's facts.
+        reports.set(index, withLedger(early.report, job));
+        continue;
+      }
+      if (early !== undefined && written.kind !== 'complete') {
+        // Written again from the final contract: it lands again, or the early landing stands.
+        if (written.kind !== 'ready' || personStopped()) {
+          if (personStopped()) halt('signal');
+          keepEarly(index, job, early);
+          continue;
+        }
+        const again = landReady(index, job, written, early);
+        if ('refused' in again) keepEarly(index, job, early);
+        continue;
+      }
 
       if (written.kind === 'complete') {
-        applied += 1;
-        reports.push({
+        reports.set(index, {
           ...task,
           status: 'applied',
           attempts: 0,
@@ -1865,7 +2135,7 @@ function startFill(
         continue;
       }
       if (written.kind === 'not-started') {
-        reports.push({
+        reports.set(index, {
           ...task,
           status: 'not-started',
           attempts: written.attempts,
@@ -1882,8 +2152,7 @@ function startFill(
           twice is recorded and left as the placeholder the skeleton laid down;
           the page keeps its shape and the next section still gets its turn.
         */
-        skipped += 1;
-        reports.push({
+        reports.set(index, {
           ...task,
           status: 'skipped',
           attempts: written.attempts,
@@ -1910,7 +2179,7 @@ function startFill(
       */
       if (personStopped()) {
         halt('signal');
-        reports.push({
+        reports.set(index, {
           ...task,
           status: 'not-started',
           attempts: written.attempts,
@@ -1922,25 +2191,15 @@ function startFill(
         continue;
       }
 
-      const label = stepLabel(position, total, task.title);
-      const before = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
-      let landed: AppliedAiPlan;
-      try {
-        landed = applyAiPlan({
-          kernel: options.kernel,
-          validationPorts: options.validationPorts,
-          proposal: written.proposal,
-          label,
-        });
-      } catch (cause) {
+      const landing = landReady(index, job, written, undefined);
+      if ('refused' in landing) {
         /*
           Written fine, refused on landing: the page moved under it while it was
           being written. Same answer as a failed write — the section is left as
           the placeholder, and the rest of the page still lands.
         */
-        const reason = errorMessage(cause);
-        skipped += 1;
-        reports.push({
+        const reason = landing.refused;
+        reports.set(index, {
           ...task,
           status: 'skipped',
           attempts: written.attempts,
@@ -1958,39 +2217,7 @@ function startFill(
           reason,
           reasonCode: 'page-changed',
         });
-        continue;
       }
-
-      /*
-        Recorded so the section can be put back FORWARD (`revertBuildSection`):
-        the one transaction it landed in, by id, and the props the fill wrote as
-        they stood just before and just after.
-      */
-      const transaction = landed.transactions[0];
-      const after = readSectionValues(options.kernel.getDocument(), task.id, written.keys);
-      applied += 1;
-      job.onLanded?.(readSectionValues(options.kernel.getDocument(), task.id));
-      reports.push({
-        ...task,
-        status: 'applied',
-        attempts: written.attempts,
-        ...dropped,
-        ...(transaction === undefined
-          ? {}
-          : {
-              landing: Object.freeze({ transactionId: transaction.id, label, before, after }),
-            }),
-        ...ledger,
-        ...(written.check === undefined ? {} : { check: written.check }),
-      });
-      emit({
-        type: 'task.completed',
-        position,
-        total,
-        task,
-        attempts: written.attempts,
-        ...(transaction === undefined ? {} : { transactionId: transaction.id, label }),
-      });
     }
 
     options.signal?.removeEventListener('abort', onStop);
@@ -2007,9 +2234,11 @@ function startFill(
     else await drained();
 
     const positions = new Map(jobs.map(({ task, position }) => [task.id, position]));
-    reports.sort((a, b) => (positions.get(a.id) ?? 0) - (positions.get(b.id) ?? 0));
+    const filed = [...reports.values()].sort(
+      (a, b) => (positions.get(a.id) ?? 0) - (positions.get(b.id) ?? 0),
+    );
     const unfilled: readonly AiBuildUnfilledSection[] = Object.freeze(
-      reports
+      filed
         .filter(({ status }) => status !== 'applied')
         .map(({ id, title }) =>
           Object.freeze({
@@ -2019,7 +2248,13 @@ function startFill(
           }),
         ),
     );
-    return { reports: Object.freeze(reports), applied, skipped, stopped, unfilled };
+    return {
+      reports: Object.freeze(filed),
+      applied: filed.filter(({ status }) => status === 'applied').length,
+      skipped: filed.filter(({ status }) => status === 'skipped').length,
+      stopped,
+      unfilled,
+    };
   };
 
   pump();
@@ -2036,18 +2271,26 @@ function startFill(
     slot.claimed = false;
     slot.attempts = 0;
     slot.fingerprint = undefined;
+    // The rerun is the final plan's: it lands at the gate, never early.
+    slot.early = false;
+    nudge();
   };
 
   return {
     done,
-    release(index) {
+    release(index, early = false) {
       const slot = slots[index];
       if (slot === undefined || cancelled) return;
       slot.released = true;
+      if (early && speculative && !held && !gateOpen) {
+        slot.early = true;
+        nudge();
+      }
       pump();
     },
     hold() {
       held = true;
+      nudge();
     },
     rewrite(index) {
       const slot = slots[index];
@@ -2076,6 +2319,7 @@ function startFill(
       held = false;
       if (pendingStop !== undefined) emit({ type: 'build.stopped', reason: pendingStop });
       openTheGate();
+      nudge();
       pump();
     },
     cancel() {
@@ -2090,6 +2334,7 @@ function startFill(
         slot.settle({ kind: 'not-started', reason: '', reasonCode: 'unknown', attempts: 0 });
       }
       openTheGate();
+      nudge();
     },
   };
 }
@@ -2300,6 +2545,19 @@ const CONTRACT_ROLE_LINE: Readonly<Record<SectionContract['role'], string>> = {
   cta: 'ROLE: CTA — the closing call to action: one heading, one short line and the primary action; no h1.',
 };
 
+/*
+  A bespoke page's writers author its header and footer (chrome 'none', 53617867), but the
+  structure stays fixed while the look is free: the build's menu pass (nav.sync) and a site
+  build's page linking (nav.pages, T230b) find the menu as a <header>/<footer> region whose
+  links sit in a <nav>. Without it a site's pages are never linked to each other.
+*/
+const BESPOKE_CHROME_LINE: Readonly<Record<'header' | 'footer', string>> = {
+  header:
+    ' Its outer element is <header>; its menu is a <nav> holding one link per NAV entry (the site’s other pages are linked into it after the build).',
+  footer:
+    ' Its outer element is <footer>; its link list is a <nav> holding one link per NAV entry (the site’s other pages are linked into it after the build).',
+};
+
 const PLAN_HEADING = 'THE PAGE PLAN (decided for the whole page — obey it exactly):';
 
 function quoted(values: readonly string[]): string {
@@ -2508,7 +2766,7 @@ function contractRequest(
     '',
     `SECTION ${String(index + 1)} OF ${String(plan.sections.length)}: ${contract.title}`,
     plan.design?.composition === 'bespoke'
-      ? `ROLE: ${contract.role.toUpperCase()} — ${contract.role === 'hero' ? 'this region owns the page h1' : 'no h1 here'}; author its composition from the design and layout.`
+      ? `ROLE: ${contract.role.toUpperCase()} — ${contract.role === 'hero' ? 'this region owns the page h1' : 'no h1 here'}; author its composition from the design and layout.${chrome ? BESPOKE_CHROME_LINE[contract.role] : ''}`
       : CONTRACT_ROLE_LINE[contract.role],
     `REGION ID: ${task.id}`,
     `ANCHOR: the section's outer element keeps id="${contract.anchorId}"`,
@@ -3324,15 +3582,23 @@ function rebaseLandings(filled: FilledSections, document: BuilderDocument): Fill
   the page's shape seconds into the plan. Each brief closes next: its
   section's writer starts while the planner is still writing the others.
 
-  The final plan stays the authority. Nothing a writer wrote lands before it
-  is validated (the lander waits at a gate), and it is reconciled with the
-  provisional one: the same outline keeps everything, finishes the skeleton
-  (footer, kit sections, the root's seo) in one more transaction and rewrites
-  only the sections whose contract changed; a different outline throws the
-  speculation away and builds the final plan exactly as a plain build would.
-  Measured before (baseline 2026-09-30): plan 18.9 s + 18 s repair, skeleton
-  at 37 s, first section at 44 s, page at 65 s — every writer waited for the
-  whole answer.
+  The final plan stays the authority. A writer's section lands before it only
+  under the EARLY LANDING rule (`startFill`: its own brief closed and validated
+  with the outline the skeleton was laid from, in the response still
+  streaming); everything else waits at the gate. The final plan is reconciled
+  with the provisional one: the same outline keeps everything, finishes the
+  skeleton (footer, kit sections, the root's seo) in one more transaction and
+  rewrites only the sections whose contract changed (one that landed early
+  lands again); a different outline throws the speculation away — early
+  landings with their regions — and builds the final plan exactly as a plain
+  build would. Measured before (baseline 2026-09-30): plan 18.9 s + 18 s
+  repair, skeleton at 37 s, first section at 44 s, page at 65 s — every
+  writer waited for the whole answer.
+
+  The outline is also TOLD as it streams (2026-11-05): `build.outline` names
+  each section the moment its outline entry closes, and again as each brief
+  closes, so the chat lists the page's sections from the first seconds of the
+  plan, before the skeleton can land.
 */
 
 /** The one transaction that takes a provisional skeleton back off the page. */
@@ -3391,7 +3657,8 @@ interface PlanStream {
 
 function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
   const { options, emit } = build;
-  const reader = createPlanStreamReader();
+  // `sections`: each outline entry as it closes, so the outline is told before it is complete.
+  const reader = createPlanStreamReader({ sections: true });
   // completePage: the provisional plan is completed exactly as the final one is (plan-page.ts).
   const validation = {
     intent: target,
@@ -3412,6 +3679,40 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
   const isSkipping = (): boolean => skipping;
   let draft: PlanDraft | undefined;
   let speculation: Speculation | undefined;
+  /** The sections this response's outline has named so far, by their place in it. */
+  let named: (AiBuildOutlineSection | undefined)[] = [];
+
+  /** `build.outline`: the whole list so far, so an observer that missed one loses nothing. */
+  const tellOutline = (): void => {
+    const sections = named.filter(
+      (section): section is AiBuildOutlineSection => section !== undefined,
+    );
+    if (sections.length > 0) emit({ type: 'build.outline', sections: Object.freeze(sections) });
+  };
+
+  /** An outline entry closed: name it now, seconds before the outline (and the skeleton) can. */
+  const onSection = (event: Extract<PlanStreamEvent, { kind: 'section' }>): void => {
+    // Once the skeleton is down, `build.planned` has named every section with its region.
+    if (speculation !== undefined || build.personStopped()) return;
+    const key = event.section['key'];
+    if (typeof key !== 'string' || key === '') return;
+    const title = event.section['title'];
+    named[event.index] = Object.freeze({
+      key,
+      title: typeof title === 'string' && title.trim() !== '' ? title.trim() : key,
+      briefed: false,
+    });
+    tellOutline();
+  };
+
+  /** A brief closed: its section is told as briefed — a writer may start on it. */
+  const tellBriefed = (key: unknown): void => {
+    const at = named.findIndex((section) => section?.key === key);
+    const section = named[at];
+    if (section === undefined || section.briefed) return;
+    named[at] = Object.freeze({ ...section, briefed: true });
+    tellOutline();
+  };
 
   const onHead = (event: Extract<PlanStreamEvent, { kind: 'head' }>): void => {
     if (build.personStopped()) {
@@ -3478,6 +3779,7 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
   };
 
   const onBrief = (event: Extract<PlanStreamEvent, { kind: 'brief' }>): void => {
+    tellBriefed(event.brief['key']);
     const current = speculation;
     if (current === undefined || draft === undefined) return;
     draft = withBrief(draft, event.brief);
@@ -3505,7 +3807,12 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
       return;
     }
     current.snapshots.set(key, checked.plan);
-    current.fill.release(index);
+    /*
+      Its brief closed and validated with the skeleton's outline, in the response still
+      streaming: what its writer writes is SAFE TO LAND before the final plan (the EARLY
+      LANDING rule, `startFill`). A later response, a fault or Stop withdraws that (`hold`).
+    */
+    current.fill.release(index, true);
   };
 
   const onDraft = (event: AiPagePlanDraftEvent): void => {
@@ -3520,6 +3827,8 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
         if (speculation === undefined) {
           reader.reset();
           skipping = false;
+          // This response names its own outline; the next `build.outline` starts the list over.
+          named = [];
           return;
         }
         /*
@@ -3534,7 +3843,8 @@ function createPlanStream(build: BuildRun, target: IntentTarget): PlanStream {
       for (const unit of reader.push(event.text)) {
         // A unit acted on may close the stream (an outline the door refused) or skip this answer.
         if (isClosed() || isSkipping()) return;
-        if (unit.kind === 'head') {
+        if (unit.kind === 'section') onSection(unit);
+        else if (unit.kind === 'head') {
           if (speculation === undefined) onHead(unit);
         } else {
           onBrief(unit);
@@ -3688,7 +3998,10 @@ function landSkeletonFinish(
 
 /**
  * The final plan has the outline the skeleton was laid from: finish the
- * skeleton, rewrite what changed, open the gate, land in page order.
+ * skeleton, rewrite what changed, open the gate, land the rest as ready.
+ * A section that landed early and whose contract the final plan kept stands
+ * as it landed; one whose contract changed is written again (`rewrite`) and
+ * lands again at the gate.
  */
 async function finishSpeculation(
   build: BuildRun,
@@ -3995,9 +4308,11 @@ async function buildFromScaffold(
  *   landing in page order as its own labelled transaction.
  *
  * A build that writes without asking acts on the plan WHILE it streams
- * (`streamPlan`, default on; DESIGN §6.3, 2026-10-05): the provisional
- * skeleton lands when the outline closes, each writer starts when its brief
- * closes, and the lander waits for the final validated plan — reconciled by
+ * (`streamPlan`, default on; DESIGN §6.3, 2026-10-05): `build.outline` names
+ * each section as its outline entry closes, the provisional skeleton lands
+ * when the outline closes, each writer starts when its brief closes, and its
+ * section lands as soon as it is safe (the EARLY LANDING rule, `startFill`)
+ * instead of waiting for the final validated plan — which is reconciled by
  * contract fingerprint, so only a section whose contract changed is written
  * again, and a changed outline throws the speculation away for the plain
  * path. A provider that streams nothing gets the plain path unchanged.

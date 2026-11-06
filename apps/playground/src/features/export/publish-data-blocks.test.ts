@@ -117,7 +117,20 @@ const DATA_BLOCKS: readonly { readonly type: string; readonly props: Record<stri
   },
   {
     type: 'report',
-    props: { variant: 'plain', tone: 'dark', showTable: false, chartType: 'funnel' },
+    // 52ab7448: the KPI grid's @4xl column count follows the KPI count (2 defaults
+    // → no @4xl class), so four KPIs keep the `@4xl:grid-cols-4` rule exercised.
+    props: {
+      variant: 'plain',
+      tone: 'dark',
+      showTable: false,
+      chartType: 'funnel',
+      kpis: [
+        { label: 'Revenue', series: 0 },
+        { label: 'Costs', series: 1, better: 'down' },
+        { label: 'Total revenue', series: 0, measure: 'total' },
+        { label: 'Average costs', series: 1, measure: 'average', better: 'down' },
+      ],
+    },
   },
 ];
 

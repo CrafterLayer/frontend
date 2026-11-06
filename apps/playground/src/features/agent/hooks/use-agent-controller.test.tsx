@@ -528,7 +528,12 @@ describe('useAgentController: Ask and Plan', () => {
       c().setMode('plan');
     });
 
-    ask(c, PLAN_REQUEST);
+    /*
+      Since 53617867 a fresh request is bespoke (chrome 'none'): its writers author the
+      header and footer, and those rows rightly carry an Undo. The skeleton writes the footer
+      in full only on the template lane, so this asks for templates to keep guarding that lane.
+    */
+    ask(c, `${PLAN_REQUEST}. Use the existing templates`);
     await settled(c);
     const plan = firstOf(c, 'page-plan');
     expect(plan).toMatchObject({ status: 'ready', approval: false, note: 'exact', editable: true });

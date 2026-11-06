@@ -1150,6 +1150,50 @@ TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF TH
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
+## Fluent Emoji Flat 1.2.5 (`@iconify-json/fluent-emoji-flat`) and q-floodfill 1.3.1 — MIT; Kenney Animal Pack Remastered — CC0 1.0
+
+496 Fluent Emoji Flat icons (Microsoft Corporation) are copied into `packages/builder/renderer/src/engines/studio/stickers-source.ts`, shipped as `assets/ck-lib-stickers.js` only on pages whose code names `stickers`; 29 heads redrawn from Kenney's Animal Pack Remastered into `animals-source.ts` (`assets/ck-lib-animals.js`, `animals`); `q-floodfill@1.3.1` into `paint-source.ts` (`assets/ck-lib-paint.js`, `paint`). Each asset's banner carries these texts whole. Upstream: https://github.com/microsoft/fluentui-emoji · https://kenney.nl/assets/animal-pack-remastered · https://github.com/pavelkukov/q-floodfill
+
+Fluent Emoji LICENSE (MIT), verbatim:
+
+```
+MIT License
+
+Copyright (c) Microsoft Corporation.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+```
+
+`q-floodfill` LICENSE.txt (MIT), verbatim:
+
+```
+Copyright 2020 Pavel Kukov <pavelkukov@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+Animal Pack Remastered `License.txt`: "License (Creative Commons Zero, CC0) http://creativecommons.org/publicdomain/zero/1.0/ — You may use these assets in personal and commercial projects. Credit (Kenney or www.kenney.nl) would be nice but is not mandatory." The CC0 1.0 legal code is reproduced in `packages/builder/extensions/media-engines/vendor/kenney-animal-pack-remastered/LICENSE`.
+
 ## Tailwind plugins — tw-animate-css 1.4.0, @tailwindcss/typography 0.5.20, @tailwindcss/forms 0.5.11 — MIT
 
 Installed from the pnpm catalog into `@craftkit/builder-renderer` (typography and forms also into

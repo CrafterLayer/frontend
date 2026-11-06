@@ -277,12 +277,31 @@ function rowUndo(
   }
 }
 
+/**
+ * The sections a streamed plan has named while the canvas is still empty (`build.outline`,
+ * 2026-11-05): `planned`, and text rather than buttons, since no region exists to reveal.
+ * Keyed apart from the regions' rows (keyed by node id) that replace them on `build.planned`.
+ */
+function outlineRows(input: BuildRecordInput): readonly SpineRowView[] {
+  const outline = input.progress.outline ?? [];
+  return outline.map((section, index) => ({
+    key: `outline:${section.key}`,
+    position: index + 1,
+    total: outline.length,
+    title: section.title,
+    state: 'planned',
+    canRetry: false,
+  }));
+}
+
 function spineRows(
   input: BuildRecordInput,
   derived: Derived,
   capabilities: AgentCapabilities,
 ): readonly SpineRowView[] {
   const { tasks } = input.progress;
+  // Only a live skeleton lists the outline: a build that ended before its regions is an ending.
+  if (tasks.length === 0 && derived.phase === 'skeleton') return outlineRows(input);
   return tasks.map((task) => {
     // By `outcomeKeyOf`, the key `BuildTurn.outcomes` is stored under: a v1 section's undo
     // is keyed by its section id, and reading only landing ids left it inked (turn-25).

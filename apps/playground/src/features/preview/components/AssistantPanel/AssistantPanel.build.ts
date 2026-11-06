@@ -305,6 +305,8 @@ function settle(
 export function reduceBuildProgress(progress: BuildProgress, event: AiBuildEvent): BuildProgress {
   switch (event.type) {
     case 'build.scaffolding':
+    // The streamed outline names sections before the skeleton; this v1 card waits for the list.
+    case 'build.outline':
       // The skeleton is the opening phase already; a second announcement of it
       // is idempotent, exactly like `run.started` on the ordinary reducer.
       return progress;

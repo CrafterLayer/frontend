@@ -1,0 +1,14 @@
+{
+  "name": "@iconify-json/fluent-emoji-flat",
+  "version": "1.2.5",
+  "license": "MIT",
+  "declaredInPackageJson": "MIT (info.json: spdx MIT, https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE)",
+  "author": "Microsoft Corporation (Fluent Emoji artwork); Iconify JSON packaging by Vjacheslav Trushkin",
+  "upstream": "https://github.com/microsoft/fluentui-emoji (artwork) · https://github.com/iconify/icon-sets (npm packaging)",
+  "installedFrom": "pnpm catalog (pnpm-workspace.yaml, pixi-studio:kids-libs additions), devDependency of @craftkit/builder-media-engines",
+  "npmIntegrity": "sha512-5ShoOHJ0ezYEIMfp2zvbRiZpL1Af8Prg5v9pElaIQhfqwbyD57pzrp70g/rK2EjigajBq9/cPrJXh224HaP3TQ==",
+  "verified": "2026-11-05: the tarball carries no LICENSE file; package.json and info.json declare MIT. LICENSE here is microsoft/fluentui-emoji main/LICENSE, fetched verbatim from raw.githubusercontent.com on 2026-11-05.",
+  "files": ["icons.json", "info.json"],
+  "adaptedInto": "packages/builder/extensions/media-engines/src/studio/libs/stickers/stickers.generated.ts (scripts/build-stickers-data.mjs)",
+  "note": "Installed, not copied: 496 icon bodies are copied unmodified into a generated module at build time; the package itself never ships."
+}

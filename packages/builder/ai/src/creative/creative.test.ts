@@ -176,7 +176,8 @@ describe('creative planner', () => {
       'قصة تفاعلية للأطفال قبل النوم عن قمر صغير',
       'picture-book',
       'story',
-      ['dialogue', 'anim', 'fx'],
+      // children's stories (2026-11-05): a kids' story brings pictures and page layout.
+      ['dialogue', 'anim', 'fx', 'stickers', 'layout'],
     ],
     [
       'Create an interactive story about a traveller',

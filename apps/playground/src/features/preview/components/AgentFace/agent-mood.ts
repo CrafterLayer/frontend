@@ -386,6 +386,12 @@ function targetForBuildEvent(
 ): Resolved {
   if (state.run.settled) return null;
   switch (event.type) {
+    /*
+      The streamed outline changes nothing: before the skeleton the face is planning already
+      (`build.scaffolding`), and one sent as a brief closes comes while writers work.
+    */
+    case 'build.outline':
+      return null;
     // The skeleton is planning, and so is the one ordinary run that replaces a skipped build.
     case 'build.scaffolding':
     case 'build.skipped':
@@ -479,6 +485,7 @@ function targetForEvent(
     case 'provider.usage':
       return null;
     case 'build.scaffolding':
+    case 'build.outline':
     case 'build.skipped':
     case 'build.planned':
     case 'task.started':

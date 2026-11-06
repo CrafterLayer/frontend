@@ -44,6 +44,7 @@ export function createActions(flow: Flow): Actions {
     redoEdit,
     retrySections,
     finishRest,
+    keepBuild,
   } = historyActions(flow);
   const { newConversation, openConversation, deleteConversation } = conversationActions(flow);
 
@@ -62,6 +63,7 @@ export function createActions(flow: Flow): Actions {
     undoBuild,
     retrySections,
     finishRest,
+    keepBuild,
     removeEmpty,
     tryAgain,
     // The canvas link is the hook's (`use-canvas-link`); these are replaced below.

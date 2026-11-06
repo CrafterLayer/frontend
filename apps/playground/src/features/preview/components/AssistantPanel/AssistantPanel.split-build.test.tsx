@@ -54,26 +54,25 @@ describe('AssistantPanel — split build', () => {
     );
 
     /*
-      Two sections landed, the third held open — and nothing after it LANDS.
-      REWRITTEN 2026-09-28: this pinned the tenth row `waiting`, which was the
-      landing-gated window (agent-audit P1-8): a writer could not start a section
-      more than `fillConcurrency` ahead of the one landing, so a slow hero held
-      idle writers back. Writers are now bounded by concurrency alone; sections
-      after the held one are written but still land in page order, after it.
+      The third section is held open — and it no longer holds the rest back.
+      REWRITTEN 2026-11-06 for 52ab7448 (R1 / T283, `readySections`): completed
+      writers land as they finish, so an unresolved section no longer blocks the
+      ones ready after it. Document positions and report rows keep page order;
+      the transaction log records actual application order. (Before: two landed
+      and everything after the held one waited for it.)
     */
     await waitFor(
       () => {
-        expect(container.querySelector('.pg-chat__tasks-count')).toHaveTextContent('2/10');
+        expect(container.querySelector('.pg-chat__tasks-count')).toHaveTextContent('9/10');
       },
       { timeout: 15_000 },
     );
     const rows = sectionRows();
-    expect(rows[0]).toHaveAttribute('data-status', 'applied');
-    expect(rows[1]).toHaveAttribute('data-status', 'applied');
-    expect(rows[2]).toHaveAttribute('data-status', 'running');
-    expect(rows.slice(3).some((row) => row.getAttribute('data-status') === 'applied')).toBe(false);
+    expect(rows.map((row) => row.getAttribute('data-status'))).toEqual(
+      TEN.map((title) => (title === 'Benefits' ? 'running' : 'applied')),
+    );
     expect(regionsOf(kernel)['Benefits']).toBe('');
-    expect(regionsOf(kernel)['Footer']).toBe('');
+    expect(regionsOf(kernel)['Footer']).toBe('Body for Footer.');
 
     act(() => {
       script.gates.get('Benefits')?.resolve({
@@ -100,10 +99,14 @@ describe('AssistantPanel — split build', () => {
       { timeout: 20_000 },
     );
     expect(Object.values(regionsOf(kernel)).every((body) => body !== '')).toBe(true);
+    // Application order: every ready section, then the held one when it is released.
+    const landed = TEN.map((title, index) => `Assistant: ${String(index + 1)}/10 — ${title}`);
     expect(kernel.transactions().map(({ command }) => command)).toEqual([
       'Assistant: page skeleton',
-      ...TEN.map((title, index) => `Assistant: ${String(index + 1)}/10 — ${title}`),
+      ...landed.filter((label) => !label.endsWith('— Benefits')),
+      'Assistant: 3/10 — Benefits',
     ]);
+    expect(regionList(kernel).map(([label]) => label)).toEqual([...TEN]);
     expect(buildEventTypes(events).slice(0, 3)).toEqual([
       'build.scaffolding',
       'build.planned',
@@ -451,7 +454,9 @@ describe('AssistantPanel — split build', () => {
 
   it('offers to remove the empty sections a stopped build left, as ONE change', async () => {
     const kernel = createBuildKernel();
-    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    // Both later sections held: since 52ab7448 a ready section lands without waiting
+    // for the one above it, so holding Proof alone would let Pricing land.
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof', 'Pricing'] });
     const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
 
     await user.click(screen.getByRole('radio', { name: 'Auto' }));
@@ -492,7 +497,9 @@ describe('AssistantPanel — split build', () => {
   */
   it('says so when the page refuses the removal, removes nothing, and lets it be asked again', async () => {
     const kernel = createBuildKernel();
-    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    // Both later sections held: since 52ab7448 a ready section lands without waiting
+    // for the one above it, so holding Proof alone would let Pricing land.
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof', 'Pricing'] });
     const { user } = renderPanel({ kernel, planProvider: script.provider, locale: 'en' });
 
     await user.click(screen.getByRole('radio', { name: 'Auto' }));
@@ -532,7 +539,9 @@ describe('AssistantPanel — split build', () => {
   it('revives a build interrupted by a reload as a stopped build with its receipt', async () => {
     const persistKey = 'assistant-build-revive';
     const kernel = createBuildKernel();
-    const script = scriptBuild(kernel, THREE, { hold: ['Proof'] });
+    // Both later sections held: since 52ab7448 a ready section lands without waiting
+    // for the one above it, so holding Proof alone would let Pricing land.
+    const script = scriptBuild(kernel, THREE, { hold: ['Proof', 'Pricing'] });
     const first = renderPanel({ kernel, planProvider: script.provider, persistKey });
 
     await first.user.click(screen.getByRole('radio', { name: 'Auto' }));

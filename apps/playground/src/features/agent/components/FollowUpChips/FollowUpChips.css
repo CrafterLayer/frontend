@@ -1,0 +1,106 @@
+/*
+  FollowUpChips: the next steps after a first build, a compact row under the record.
+
+  On the record's text column (24px in, the thread's second column), so the chips start on
+  the same edge as the record's title above them. Chips in the ClarifyPanel's language
+  (SPEC §2.4 "Control 6"): Tint and Graphite at rest, the Wash on hover, 32px tall (44 on a
+  coarse pointer), 6px apart (8 coarse). They wrap rather than scroll at 320px. Never
+  Indigo: a next step is an offer, not the panel's primary action (SPEC §2.1 rule 3).
+*/
+
+.ck-agent-next-steps {
+  min-inline-size: 0;
+  padding-block-start: var(--bldr-space-sm);
+  padding-inline-start: calc(var(--bldr-space-3xl) + var(--bldr-space-md));
+}
+
+.ck-agent-next-steps__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ck-agent-next-gap, var(--bldr-space-sm));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ck-agent-next-steps__item {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.ck-agent-next-steps__chip {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  min-block-size: var(--ck-agent-next-target, var(--bldr-control-md));
+  margin: 0;
+  padding-block: var(--bldr-space-xs);
+  padding-inline: var(--bldr-space-xl);
+  border: 0;
+  border-radius: var(--bldr-radius-sm);
+  background-color: var(--bldr-surface-tint);
+  color: var(--bldr-panel-text-soft);
+  font-family: var(--bldr-font);
+  font-size: var(--bldr-font-size-meta);
+  font-weight: var(--bldr-font-weight-medium);
+  line-height: var(--bldr-line-height-meta);
+  text-align: start;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bldr-duration-state) var(--bldr-easing),
+    color var(--bldr-duration-state) var(--bldr-easing);
+}
+
+/* The Wash laid over the Tint: one step darker, from tokens alone. */
+.ck-agent-next-steps__chip:hover:not([aria-disabled='true']) {
+  background-image: linear-gradient(var(--bldr-surface-hover), var(--bldr-surface-hover));
+  color: var(--bldr-panel-text);
+}
+
+.ck-agent-next-steps__chip:active:not([aria-disabled='true']) {
+  background-image: linear-gradient(var(--bldr-surface-active), var(--bldr-surface-active));
+  transition-duration: var(--bldr-duration-press);
+}
+
+.ck-agent-next-steps__chip:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+/* Sent: the chip chosen keeps its ink; the others step back while its turn opens. */
+.ck-agent-next-steps__chip[aria-disabled='true'] {
+  color: var(--bldr-panel-muted);
+  cursor: default;
+}
+
+.ck-agent-next-steps__chip[data-sent] {
+  background-color: var(--bldr-accent-soft);
+  color: var(--bldr-accent-strong);
+}
+
+@media (pointer: coarse) {
+  .ck-agent-next-steps {
+    --ck-agent-next-target: var(--bldr-hit-target-min);
+    --ck-agent-next-gap: var(--bldr-space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-agent-next-steps__chip {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .ck-agent-next-steps__chip {
+    outline: var(--bldr-border-hairline) solid ButtonText;
+    outline-offset: calc(-1 * var(--bldr-border-hairline));
+  }
+
+  .ck-agent-next-steps__chip[aria-disabled='true'] {
+    outline-color: GrayText;
+    color: GrayText;
+  }
+}

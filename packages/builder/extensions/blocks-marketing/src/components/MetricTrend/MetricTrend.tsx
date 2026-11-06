@@ -3,10 +3,17 @@ import { useId } from 'react';
 export interface MetricTrendProps {
   readonly values: readonly number[];
   readonly label: string;
+  /*
+    On the canvas the label is named by an attribute, not a <title> text node:
+    a <title> would be a second, unbound copy of the label the person edits in
+    place (block-parts gate; same rule as the Chart's <title>s). The published
+    page keeps the <title>.
+  */
+  readonly isCanvas?: boolean;
 }
 
 /** A bounded, script-free sparkline with its complete observations as accessible text. */
-export function MetricTrend({ values, label }: MetricTrendProps) {
+export function MetricTrend({ values, label, isCanvas = false }: MetricTrendProps) {
   const id = useId();
   if (values.length < 2 || values.length > 24 || values.some((value) => !Number.isFinite(value))) {
     return null;
@@ -24,13 +31,13 @@ export function MetricTrend({ values, label }: MetricTrendProps) {
   return (
     <svg
       role="img"
-      aria-labelledby={`${id}-title`}
+      {...(isCanvas ? { 'aria-label': label } : { 'aria-labelledby': `${id}-title` })}
       aria-describedby={`${id}-values`}
       viewBox="0 0 160 40"
       className="block h-10 w-full min-w-0 text-accent"
       data-metric-trend=""
     >
-      <title id={`${id}-title`}>{label}</title>
+      {isCanvas ? null : <title id={`${id}-title`}>{label}</title>}
       <desc id={`${id}-values`}>{values.join(' → ')}</desc>
       <polyline
         points={points.join(' ')}

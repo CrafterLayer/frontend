@@ -112,6 +112,55 @@ describe('TurnView', () => {
   });
 });
 
+describe('TurnView: next steps after a first build', () => {
+  function firstBuild(): TurnViewData {
+    const built = turnOf('build');
+    if (built.kind !== 'build') throw new Error('not a build');
+    return { kind: 'build', view: { ...built.view, nextSteps: true } };
+  }
+
+  it('draws the next-step chips under a first build, and nowhere else', () => {
+    const controller = createFakeController(fakeViewState('built', 'en'));
+    const { rerender } = render(
+      <AgentTooltipProvider delayDuration={0}>
+        <TurnView locale="en" turn={firstBuild()} actions={controller} />
+      </AgentTooltipProvider>,
+    );
+    expect(screen.getByRole('list', { name: t('en', 'nextSteps.label') })).toBeInTheDocument();
+    rerender(
+      <AgentTooltipProvider delayDuration={0}>
+        <TurnView locale="en" turn={turnOf('build')} actions={controller} />
+      </AgentTooltipProvider>,
+    );
+    expect(screen.queryByRole('list', { name: t('en', 'nextSteps.label') })).toBeNull();
+  });
+
+  it('hides them while a run is live or the person is writing (hideFollowUps)', () => {
+    const controller = createFakeController(fakeViewState('built', 'en'));
+    render(
+      <AgentTooltipProvider delayDuration={0}>
+        <TurnView locale="en" turn={firstBuild()} actions={controller} hideFollowUps />
+      </AgentTooltipProvider>,
+    );
+    expect(screen.queryByRole('list', { name: t('en', 'nextSteps.label') })).toBeNull();
+  });
+
+  it('sends a chip’s request through the typed path: the draft, then Send', async () => {
+    const user = userEvent.setup();
+    const controller = createFakeController(fakeViewState('built', 'ar'));
+    render(
+      <AgentTooltipProvider delayDuration={0}>
+        <TurnView locale="ar" turn={firstBuild()} actions={controller} />
+      </AgentTooltipProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'رتّب الأقسام' }));
+    expect(controller.calls).toEqual([
+      { action: 'setDraft', args: [t('ar', 'nextSteps.reorder.request')] },
+      { action: 'send', args: [] },
+    ]);
+  });
+});
+
 describe('runMenuItem', () => {
   const CASES: readonly (readonly [RecordMenuItem, string, readonly unknown[]])[] = [
     ['reuse', 'reuse', ['turn-2']],

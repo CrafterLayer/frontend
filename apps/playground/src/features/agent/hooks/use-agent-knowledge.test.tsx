@@ -85,7 +85,12 @@ describe('useAgentKnowledge', () => {
       const knowledgeStorage = seededStorage([chosen], []);
       const agentStorage = memoryStorage();
       const kernel = createEditKernel();
-      kernel.setSelection(['selected-hero']);
+      /*
+        Untargeted on purpose (no selection). Since 52ab7448 a TARGETED Retry whose page
+        ownership did not survive the reload asks for the target instead of re-running
+        (record-actions.ts `unownedTarget`, pinned by the next test). What this test pins
+        is skill identity across a reload, which an untargeted Retry still exercises.
+      */
       const contexts: AssembledAiContext[] = [];
       const requests: string[] = [];
       const provider: AiPlanProvider = {
@@ -181,6 +186,62 @@ describe('useAgentKnowledge', () => {
     },
     30_000,
   );
+
+  // 52ab7448: "Targeted retries without surviving runtime ownership require selection and
+  // resending" — a matching node id after a reload is not proof it is the same page.
+  it('asks for the target instead of re-running a targeted saved request after reload', async () => {
+    const agentStorage = memoryStorage();
+    const kernel = createEditKernel();
+    kernel.setSelection(['selected-hero']);
+    const contexts: AssembledAiContext[] = [];
+    const provider: AiPlanProvider = {
+      propose(_request, context) {
+        contexts.push(context);
+        return Promise.reject(new Error('Scripted provider failure.'));
+      },
+    };
+    const props = {
+      kernel,
+      provider,
+      knowledgeStorage: seededStorage([], []),
+      agentStorage,
+      checkpoints: createFakeCheckpoints([]),
+    };
+    const first = renderHook(() => useLiveController(props));
+    act(() => {
+      first.result.current.controller.setDraft('Give this hero a warmer greeting');
+      first.result.current.controller.send();
+    });
+    await waitFor(() => {
+      expect(first.result.current.controller.state.run).toBeNull();
+      expect(
+        first.result.current.controller.state.turns.some((turn) => turn.kind === 'error'),
+      ).toBe(true);
+    }, WAIT);
+    const failed = first.result.current.controller.state.turns.find(
+      (turn) => turn.kind === 'error',
+    );
+    if (failed?.kind !== 'error') throw new Error('Expected the failed run record.');
+    first.unmount();
+
+    const second = renderHook(() => useLiveController(props));
+    act(() => {
+      second.result.current.controller.tryAgain(failed.view.turnId);
+    });
+    await waitFor(() => {
+      expect(
+        second.result.current.controller.state.turns.find(
+          (turn) => turn.view.turnId === failed.view.turnId,
+        ),
+      ).toMatchObject({
+        kind: 'answer',
+        view: { text: 'The target is gone. Pick another one.' },
+      });
+    }, WAIT);
+    expect(contexts).toHaveLength(1);
+    expect(second.result.current.controller.state.run).toBeNull();
+    second.unmount();
+  }, 30_000);
 
   it('keeps inline choices through Improve and Restore while the enhancer reads only the brief', async () => {
     const kernel = createEditKernel();

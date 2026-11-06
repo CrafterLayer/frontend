@@ -521,14 +521,34 @@ function contractTree(request: string): JsonValue {
   );
   const action = /PRIMARY ACTION: "([^"]+)" → (\S+)/u.exec(request);
   const cta = isHero || request.includes('ROLE: CTA');
+  // A bespoke page's header and footer are the writer's (53617867): the brief names the tag
+  // and asks for its menu in a <nav>, one link per NAV entry.
+  const chromeTag = /Its outer element is <(header|footer)>/u.exec(request)?.[1];
+  const nav = [...(/^NAV: ([^\n]+)/mu.exec(request)?.[1] ?? '').split(' · ')].flatMap((entry) => {
+    const link = /^(.+) → (#\S+)$/u.exec(entry.trim());
+    return link === null
+      ? []
+      : [
+          {
+            kind: 'element',
+            tag: 'a',
+            attributes: { href: link[2] ?? '#' },
+            text: link[1] ?? '',
+            children: [],
+          },
+        ];
+  });
   return {
     kind: 'root',
     children: [
       {
         kind: 'element',
-        tag: 'section',
+        tag: chromeTag ?? 'section',
         attributes: { id: anchor },
         children: [
+          ...(chromeTag !== undefined && nav.length > 0
+            ? [{ kind: 'element', tag: 'nav', children: nav }]
+            : []),
           { kind: 'element', tag: isHero ? 'h1' : 'h2', text: title, children: [] },
           ...mustSay.map((line) => ({ kind: 'element', tag: 'p', text: line, children: [] })),
           ...(cta && action !== null

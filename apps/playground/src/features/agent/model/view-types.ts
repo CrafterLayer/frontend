@@ -368,6 +368,13 @@ export interface BuildRecordView {
   readonly brief?: CreativeBriefView | undefined;
   /** T230: the site page this record built, one record per page of a site build. */
   readonly page?: string | undefined;
+  /**
+   * The newest turn, a first build that finished on an empty page: the record offers the
+   * next-step chips under it (FollowUpChips; `turnViewsOf` decides). Absent reads as not.
+   */
+  readonly nextSteps?: boolean | undefined;
+  /** Read back interrupted: continue where it stopped, or keep it (`turnViewsOf` decides). */
+  readonly recovery?: { readonly landed: number; readonly total: number } | undefined;
 }
 
 /** The planner's genres (`CreativeGenre` in `@craftkit/builder`), each a `brief.genre.*` key. */
@@ -859,6 +866,11 @@ export interface ClarifyView {
   readonly understood: string;
   readonly questions: readonly ClarifyQuestionView[];
   readonly status: 'asking' | 'rewriting';
+  /**
+   * The request routed to a build (a page or a site): the panel's way past the questions
+   * reads «ابنِ مباشرة» / "Build now" instead of "Send as written". Absent reads as not.
+   */
+  readonly builds?: boolean | undefined;
 }
 
 /* ── The controller (SPEC §7.3, WP-16) ───────────────────────────────────────── */
@@ -969,6 +981,8 @@ export interface AgentController {
   readonly undoBuild: (turnId: string) => void;
   readonly retrySections: (turnId: string, keys: readonly string[]) => void;
   readonly finishRest: (turnId: string) => void;
+  /** "Keep what was built": the recovery offer goes, and the partial page is kept as a version. */
+  readonly keepBuild?: ((turnId: string) => void) | undefined;
   /** Removes a build's unfilled placeholders; also ErrorRecord's "Remove the empty layout". */
   readonly removeEmpty: (turnId: string) => void;
   readonly tryAgain: (turnId: string) => void;

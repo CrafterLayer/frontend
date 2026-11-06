@@ -9,6 +9,7 @@ import type {
 } from '@craftkit/builder';
 
 import type { BuildProgress } from './build-progress';
+import type { BuildJournalNote } from './build-recovery';
 import type { RunProgress } from './run-progress';
 import { readRunTelemetry, type RunTelemetryState } from './run-telemetry';
 import type { SectionOutcome } from './run-view';
@@ -132,6 +133,10 @@ export interface BuildTurn {
    * reload; no brief is stored).
    */
   readonly creative?: true | undefined;
+  /** The run journal's word on this build when the panel booted (`build-recovery.ts`). */
+  readonly journal?: BuildJournalNote | undefined;
+  /** "Keep what was built": the person declined to continue it, so it is never offered again. */
+  readonly kept?: true | undefined;
 }
 
 /**

@@ -259,7 +259,8 @@ function options(live: BuilderKernel, planProvider: AiPlanProvider, signal?: Abo
     clock: { now: () => 1 },
     kernel: live,
     provider: planProvider,
-    request: 'صمم صفحة لمحمصة قهوة مختصة في عمّان',
+    // 53617867 made fresh requests bespoke by default (no kits, no chrome); this file tests the template lane, so it opts in.
+    request: 'صمم صفحة لمحمصة قهوة مختصة في عمّان، استخدم القوالب',
     validationPorts: { clock: { now: () => 1 }, ids: seededIds('kit-seo-door') },
     skillRegistry: createCraftkitAiSkillRegistry(),
     target: 'replace' as const,

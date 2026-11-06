@@ -206,6 +206,16 @@ catalog:
   lindenmayer: 1.5.4
   simplify-js: 1.2.4
   # end pixi-studio:mural-libs-2 additions
+  # pixi-studio:kids-libs additions (2026-11-05): stickers and colouring for children's stories,
+  # in @craftkit/builder-media-engines only and shipped only as the lazy ck-lib-stickers.js and
+  # ck-lib-paint.js assets. @iconify-json/fluent-emoji-flat is a build-time input (Microsoft's
+  # Fluent Emoji Flat, MIT): scripts pack a curated subset into the stickers source, the package
+  # itself never ships. q-floodfill (MIT) is the scan-line bucket fill. Licences read from each
+  # tarball on 2026-11-05 (see vendor/VENDOR.md). Pins at least ten months old: fluent-emoji-flat
+  # 1.2.5 was published 2025-08-11, q-floodfill 1.3.1 2022-05-13.
+  '@iconify-json/fluent-emoji-flat': 1.2.5
+  q-floodfill: 1.3.1
+  # end pixi-studio:kids-libs additions
   # pixi-assetpack additions (2026-10-12): AssetPack, the PixiJS build-time asset pipeline
   # (compression, half-resolution variants, texture atlases, audio, a PixiJS manifest), in the
   # Node-only @craftkit/builder-pixi-assets and never shipped to a page. Licence MIT (package.json

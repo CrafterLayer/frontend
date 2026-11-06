@@ -1,6 +1,8 @@
 /**
  * Completed independent writers, consumed by ONE serial kernel lander. Subscribe only
  * after the final-plan gate: reconciliation may replace a speculative slot's promise.
+ * (The streamed build's early lander, `landEarly` in run-build.ts, lands before the gate
+ * without this generator: it re-reads every slot's CURRENT promise each time it wakes.)
  * Reports and document positions are ordered separately from completion.
  */
 export async function* readySections<T>(

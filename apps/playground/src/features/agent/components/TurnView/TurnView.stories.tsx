@@ -55,15 +55,21 @@ interface TurnStoryProps {
   /** Which turn of the scenario to draw. */
   readonly kind: TurnKind;
   readonly locale: Locale;
+  /** A build drawn as a first build on an empty page: its next-step chips under it. */
+  readonly nextSteps?: boolean | undefined;
 }
 
 const onCall = fn<(call: FakeCall) => void>().mockName('controller');
 
 /** One turn of a SPEC §3 state, drawn by TurnView over the fake controller. */
-function TurnStory({ scenario, kind, locale }: TurnStoryProps) {
+function TurnStory({ scenario, kind, locale, nextSteps = false }: TurnStoryProps) {
   const state = fakeViewState(scenario, locale);
-  const turn = state.turns.find((candidate) => candidate.kind === kind);
-  if (turn === undefined) return <p>{`${scenario} has no ${kind} turn`}</p>;
+  const found = state.turns.find((candidate) => candidate.kind === kind);
+  if (found === undefined) return <p>{`${scenario} has no ${kind} turn`}</p>;
+  const turn =
+    nextSteps && found.kind === 'build'
+      ? { ...found, view: { ...found.view, nextSteps: true } }
+      : found;
   return (
     <TurnView locale={locale} turn={turn} actions={createFakeController(state, { onCall })} />
   );
@@ -106,6 +112,15 @@ export const UserMessageArabic: Story = turn('built', 'user', 'ar');
 export const Build: Story = turn('built', 'build');
 export const BuildArabic: Story = turn('built', 'build', 'ar');
 export const BuildRunning: Story = turn('building', 'build');
+/** A first build on an empty page: the next-step chips under its record. */
+export const BuildWithNextSteps: Story = {
+  ...turn('built', 'build'),
+  args: { scenario: 'built', kind: 'build', locale: 'en', nextSteps: true },
+};
+export const BuildWithNextStepsArabic: Story = {
+  ...turn('built', 'build', 'ar'),
+  args: { scenario: 'built', kind: 'build', locale: 'ar', nextSteps: true },
+};
 export const Edit: Story = turn('editDone', 'edit');
 export const Answer: Story = turn('answer', 'answer');
 export const PagePlan: Story = turn('planReady', 'page-plan');

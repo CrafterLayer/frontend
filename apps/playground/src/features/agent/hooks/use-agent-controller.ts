@@ -67,6 +67,7 @@ import { capabilitiesFromEngine } from '../model/capabilities';
 import { createStore } from '../model/tiny-store';
 import type { AgentController } from '../model/view-types';
 import { createActions } from './agent-controller/actions';
+import { attachBuildJournal } from './agent-controller/build-journal';
 import {
   DEFAULT_REGISTRY,
   INITIAL_UI,
@@ -223,6 +224,10 @@ export function useAgentController(options: UseAgentControllerOptions): AgentCon
   useEffect(() => {
     followKernel(flow, kernel);
   }, [flow, kernel]);
+
+  // Builds read back after a reload meet their run journal records (`build-journal.ts`).
+  const runJournal = options.runJournal;
+  useEffect(() => attachBuildJournal(flow, runJournal), [flow, runJournal]);
 
   // Unmount: the run in flight is aborted; nothing it would write belongs anywhere now.
   useEffect(

@@ -54,6 +54,16 @@ function arabicReadings(token: string): IntentReading[] {
   if (token.length > MIN_STEM && CONJUNCTIONS.some((conjunction) => conjunction === firstLetter)) {
     bases.push({ stem: token.slice(1), definite: false });
   }
+  /*
+    Accusative tanween (2026-11-05): "ابنِ موقعًا" folds to "موقعا" once the mark is dropped, so a
+    stem left ending in its seat alif is also read without it — "a site" is still a site. Words that
+    end in alif themselves ("فرضا", "هذا") keep their own reading first, and the lexicon decides.
+  */
+  for (const base of [...bases]) {
+    if (base.stem.endsWith('ا') && base.stem.length - 1 >= MIN_STEM) {
+      bases.push({ stem: base.stem.slice(0, -1), definite: false });
+    }
+  }
   const prefixed: IntentReading[] = [];
   for (const base of bases) {
     const article = DEFINITE_PREFIXES.find(

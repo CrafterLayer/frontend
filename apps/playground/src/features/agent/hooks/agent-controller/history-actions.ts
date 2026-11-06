@@ -10,11 +10,14 @@ import {
   revertBuildSection,
 } from '@craftkit/builder';
 
+import { t } from '../../copy';
+import { continueKeys } from '../../model/build-recovery';
 import { isNewest, isNextRedo } from '../../model/kernel-history';
 import { preflightPorts } from '../../model/runs';
-import { failedKeys, holdsValues, relandCommands, unwrittenKeys } from '../../model/successor-fill';
+import { failedKeys, holdsValues, relandCommands } from '../../model/successor-fill';
 import { type BuildTurn, type LandingOutcome, outcomeKeyOf } from '../../model/turns';
 
+import { keepInJournal } from './build-journal';
 import type { Flow } from './controller-state';
 import { kernelOfBuild, shadowOf } from './kernel-follow';
 import { track } from './run-lease';
@@ -245,10 +248,35 @@ export function historyActions(flow: Flow) {
     void track(flow, runSuccessor(flow, turnId, wanted));
   };
 
+  /*
+    A build read back after a reload is about to change again, or is kept as it is: either
+    way the partial page is first kept as a version in the page's history, named for what it
+    is (Dyad keeps an "[Interrupted]" version the same way), so it can always be gone back to.
+  */
+  const keepVersion = (turn: BuildTurn): void => {
+    if (turn.revived !== true) return;
+    const label = t(env().options.locale, 'recovery.version', { prompt: turn.request });
+    env()
+      .options.checkpoints?.save(label)
+      .catch(() => undefined);
+  };
+
+  // "Continue where it stopped" too: exactly the sections the journal still had pending.
   const finishRest = (turnId: string): void => {
     const found = buildTurnOf(turnId);
     if (found === null || flow.runtime.lease !== null) return;
-    void track(flow, runSuccessor(flow, turnId, unwrittenKeys(found.turn.progress)));
+    const keys = continueKeys(found.turn);
+    if (keys.length > 0) keepVersion(found.turn);
+    void track(flow, runSuccessor(flow, turnId, keys));
+  };
+
+  /** "Keep what was built": no more offers to continue it; the partial page is a version. */
+  const keepBuild = (turnId: string): void => {
+    const found = buildTurnOf(turnId);
+    if (found === null || found.turn.kept === true || flow.runtime.lease !== null) return;
+    patchKind(flow, found.sessionId, turnId, 'build', (turn) => ({ ...turn, kept: true }));
+    keepInJournal(flow, found.turn.progress.runId);
+    keepVersion(found.turn);
   };
 
   return {
@@ -261,5 +289,6 @@ export function historyActions(flow: Flow) {
     redoEdit,
     retrySections,
     finishRest,
+    keepBuild,
   };
 }

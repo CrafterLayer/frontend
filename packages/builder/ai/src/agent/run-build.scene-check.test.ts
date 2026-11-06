@@ -428,7 +428,15 @@ describe('runAiBuild — the scene check (creative-power Phase 1 B)', () => {
     expect(result.outcome).toBe('completed');
     // Page order would start the hero; the menu writes the scene, so it goes first.
     expect(script.fills[0]?.request).toMatch(/^SECTION 3 OF 5: Our coffees$/mu);
-    expect(script.fills[1]?.request).toContain('ROLE: HERO');
+    // 53617867: a bespoke page's header and footer are writer-owned, so the rest follow in page order.
+    expect(script.fills.map(({ request }) => /^SECTION (\d+) OF 5/mu.exec(request)?.[1])).toEqual([
+      '3',
+      '1',
+      '2',
+      '4',
+      '5',
+    ]);
+    expect(script.fills[2]?.request).toContain('ROLE: HERO');
     expect(result.tasks.map(({ status }) => status)).toEqual([
       'applied',
       'applied',

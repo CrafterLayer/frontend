@@ -117,20 +117,26 @@ describe('report data integrity', () => {
     expect(partial.derived[0]?.measures[0]?.values).toEqual([60, 120]);
   });
 
-  it('states analyzed and displayed limits separately, with visible bilingual quality notes', () => {
-    const result = analyze(
-      `Item,Value\n${Array.from({ length: 5001 }, (_, n) => `${String(n)},1`).join('\n')}`,
-    );
-    for (const lang of ['en', 'ar'] as const) {
-      const words = pageWords(lang);
-      const table = dataTable(result, words, lang);
-      expect(table.caption).toContain(lang === 'en' ? '5,000' : '٥٬٠٠٠');
-      expect(table.caption).toContain(lang === 'en' ? '5,001' : '٥٬٠٠١');
-      expect(JSON.stringify(findingsDoc(result, words, lang, undefined))).toContain(
-        lang === 'en' ? '5,000' : '٥٬٠٠٠',
+  // Analyses thousands of rows (about 1.7 s alone); the default 5 s is lost under a busy machine
+  // (2026-11-06: 6 s at load average 150). The time limit only bounds a hang.
+  it(
+    'states analyzed and displayed limits separately, with visible bilingual quality notes',
+    { timeout: 20_000 },
+    () => {
+      const result = analyze(
+        `Item,Value\n${Array.from({ length: 5001 }, (_, n) => `${String(n)},1`).join('\n')}`,
       );
-    }
-  });
+      for (const lang of ['en', 'ar'] as const) {
+        const words = pageWords(lang);
+        const table = dataTable(result, words, lang);
+        expect(table.caption).toContain(lang === 'en' ? '5,000' : '٥٬٠٠٠');
+        expect(table.caption).toContain(lang === 'en' ? '5,001' : '٥٬٠٠١');
+        expect(JSON.stringify(findingsDoc(result, words, lang, undefined))).toContain(
+          lang === 'en' ? '5,000' : '٥٬٠٠٠',
+        );
+      }
+    },
+  );
 
   it('enforces the column bound after transposing period headings', () => {
     const result = analyzeGrid({

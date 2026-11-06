@@ -15,6 +15,7 @@
  * | build done                      | "Page built: 8 sections"        | Undo build          |
  * | build partial                   | "Page built, 1 failed"          | Retry               |
  * | build stopped / interrupted     | its title                       | Finish the rest (n) |
+ * | …read back, recovery offered    | "The build stopped after 3 of 7 sections" | Finish the rest (n) |
  * | build undone                    | "Build undone"                  | Redo build          |
  * | build failed                    | "Couldn't build the page"       | Try again           |
  * | edit done                       | "Hero updated"                  | Undo                |
@@ -134,7 +135,14 @@ function buildView(build: BuildRecordView): MiniBarView {
     case 'interrupted':
       return {
         glyph,
-        status: { key: buildTitleKey(build.phase, build.stopReason) },
+        // Read back interrupted, the row says what the record's offer says (2026-11-06).
+        status:
+          build.recovery === undefined
+            ? { key: buildTitleKey(build.phase, build.stopReason) }
+            : {
+                key: 'recovery.title',
+                params: { done: build.recovery.landed, n: build.recovery.total },
+              },
         spine,
         actions:
           build.actions.finishRest > 0

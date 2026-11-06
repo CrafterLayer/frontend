@@ -37,7 +37,12 @@ describe('AssistantPanel — a page-plan build', () => {
     const kernel = createPlanKernel();
     const { user } = renderPanel({ kernel, planProvider: planningProvider(), locale: 'en' });
 
-    await send(user, PLAN_REQUEST);
+    /*
+      Since 53617867 a fresh request is bespoke (chrome 'none'): writers author the footer,
+      and its row rightly offers Undo. The skeleton writes it in full only on the template
+      lane, so this asks for templates to keep guarding that lane.
+    */
+    await send(user, `${PLAN_REQUEST}. Use the existing templates`);
 
     const approval = await screen.findByRole(
       'group',

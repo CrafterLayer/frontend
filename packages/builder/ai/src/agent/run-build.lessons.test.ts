@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createBuilder, type BuilderKernel } from '@craftkit/builder-core';
@@ -220,7 +220,8 @@ function build(provider: AiPlanProvider, runId: string) {
     clock: { now: () => 1 },
     kernel: kernel(),
     provider,
-    request: 'Build a landing page for my specialty coffee roastery in Amman',
+    // 53617867 made fresh requests bespoke by default; this tests the template lane's lessons, so it opts in.
+    request: 'Build a landing page for my specialty coffee roastery in Amman using existing templates',
     validationPorts: { clock: { now: () => 1 }, ids: seededIds(`${runId}-door`) },
     skillRegistry: createCraftkitAiSkillRegistry(),
     // One writer at a time: each section starts after the one before it landed.
@@ -233,6 +234,12 @@ function copyRepairs(repairs: readonly (readonly AiPlanValidationIssue[])[]): nu
     issues.some(({ message }) => message.startsWith('placeholder-left:')),
   ).length;
 }
+
+/*
+  Up to three whole builds per test: since 52ab7448 they outlive vitest's 5s default under a
+  full parallel run (~3-8s alone), as in run-build.kit-seo/tidy. The budget only bounds a hang.
+*/
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('runAiBuild — build lessons (2026-10-13)', () => {
   it('spares the later writers the repair the first one needed', async () => {
@@ -253,8 +260,9 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
     const repaired = result.tasks.filter(({ check }) => check?.repaired === true);
     expect(repaired.map(({ sectionKey }) => sectionKey)).toEqual(['origins']);
     expect(result.tasks.every(({ check }) => (check?.issues ?? []).length === 0)).toBe(true);
+    // 29c4e227 reworded the placeholder lesson: keep supplied facts, never invent realistic claims.
     expect(buildLessonsOf(options)).toEqual([
-      "placeholder-left: write finished, realistic copy — never XXX, 0000, lorem or a field's name",
+      "placeholder-left: preserve supplied facts; omit missing information or label it plainly, never invent realistic replacement claims",
     ]);
   });
 
@@ -270,10 +278,11 @@ describe('runAiBuild — build lessons (2026-10-13)', () => {
       ['Our story', true],
       ['Order today', true],
     ]);
+    // 29c4e227 reworded the placeholder lesson (anti-fabrication), see build-lessons.ts.
     expect(pupil.writes[2]?.lessons).toBe(
       [
         'Earlier sections of THIS page were sent back for these and fixed in their repair round. Get them right the first time:',
-        "- placeholder-left: write finished, realistic copy — never XXX, 0000, lorem or a field's name",
+        "- placeholder-left: preserve supplied facts; omit missing information or label it plainly, never invent realistic replacement claims",
       ].join('\n'),
     );
 

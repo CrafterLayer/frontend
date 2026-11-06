@@ -53,6 +53,11 @@ vi.mock('../engines/studio/loaders', () => {
     'color',
     'lsys',
     'mural',
+    'stickers',
+    'animals',
+    'paint',
+    'layout',
+    'creatures',
   ];
   const loaders: Record<string, () => Promise<string>> = {
     sound: () => Promise.resolve('/* ck-sound stand-in */'),

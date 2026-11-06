@@ -120,6 +120,8 @@ describe('Craftkit built-in AI skills', () => {
       'craftkit.motion',
       'craftkit.occasion-page',
       'craftkit.page-composition',
+      // peeking characters (2026-11-05): auto on peek words, scenes and plain sections.
+      'craftkit.peek-characters',
       // Explicit, beside the photo-catalog context provider.
       'craftkit.photo-direction',
       // creative agent and game libraries (2026-10-12): playbooks, engines and the director.

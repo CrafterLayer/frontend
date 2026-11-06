@@ -23,6 +23,11 @@ import { INK_BANNER, INK_SHA256, INK_SOURCE } from './ink-source';
 import { KIT_BANNER, KIT_SHA256, KIT_SOURCE } from './kit-source';
 import { LSYS_BANNER, LSYS_SHA256, LSYS_SOURCE } from './lsys-source';
 import { MURAL_BANNER, MURAL_SHA256, MURAL_SOURCE } from './mural-source';
+import { ANIMALS_BANNER, ANIMALS_SHA256, ANIMALS_SOURCE } from './animals-source';
+import { STICKERS_BANNER, STICKERS_SHA256, STICKERS_SOURCE } from './stickers-source';
+import { PAINT_BANNER, PAINT_SHA256, PAINT_SOURCE } from './paint-source';
+import { LAYOUT_BANNER, LAYOUT_SHA256, LAYOUT_SOURCE } from './layout-source';
+import { CREATURES_BANNER, CREATURES_SHA256, CREATURES_SOURCE } from './creatures-source';
 import { NOISE_BANNER, NOISE_SHA256, NOISE_SOURCE } from './noise-source';
 import { PEEPS_BANNER, PEEPS_SHA256, PEEPS_SOURCE } from './peeps-source';
 import { PHYSICS_BANNER, PHYSICS_SHA256, PHYSICS_SOURCE } from './physics-source';
@@ -44,7 +49,8 @@ const ASSETS = [
   ['brush', BRUSH_SOURCE, BRUSH_BANNER, BRUSH_SHA256, 3_500],
   ['rough', ROUGH_SOURCE, ROUGH_BANNER, ROUGH_SHA256, 11_000],
   ['viewport', VIEWPORT_SOURCE, VIEWPORT_BANNER, VIEWPORT_SHA256, 13_000],
-  ['anim', ANIM_SOURCE, ANIM_BANNER, ANIM_SHA256, 6_500],
+  // peeking characters (2026-11-05): anim.peek, measured 9,016 (+ 5 %).
+  ['anim', ANIM_SOURCE, ANIM_BANNER, ANIM_SHA256, 9_500],
   ['fx', FX_SOURCE, FX_BANNER, FX_SHA256, 5_400],
   ['dialogue', DIALOGUE_SOURCE, DIALOGUE_BANNER, DIALOGUE_SHA256, 9_700],
   ['ink', INK_SOURCE, INK_BANNER, INK_SHA256, 66_000],
@@ -69,6 +75,16 @@ const ASSETS = [
   ['lsys', LSYS_SOURCE, LSYS_BANNER, LSYS_SHA256, 7_700],
   // mural kit (2026-10-14): first-party s.lib.mural, measured 24,706 bytes gzip + 5 %, rounded up.
   ['mural', MURAL_SOURCE, MURAL_BANNER, MURAL_SHA256, 26_000],
+  // children's stories and drawings (2026-11-05): 30 Kenney animal heads measured 162,986 and 496 Fluent Emoji Flat stickers measured 267,078
+  // bytes gzip, + 5 %.
+  ['animals', ANIMALS_SOURCE, ANIMALS_BANNER, ANIMALS_SHA256, 171_200],
+  ['stickers', STICKERS_SOURCE, STICKERS_BANNER, STICKERS_SHA256, 280_500],
+  // paint (q-floodfill + perfect-freehand) measured
+  // 11,284 and first-party layout 3,451 bytes gzip, + 5 %.
+  ['paint', PAINT_SOURCE, PAINT_BANNER, PAINT_SHA256, 11_900],
+  ['layout', LAYOUT_SOURCE, LAYOUT_BANNER, LAYOUT_SHA256, 3_700],
+  // original cute characters (2026-11-05): first-party s.lib.creatures, measured 25,910 + 5 %.
+  ['creatures', CREATURES_SOURCE, CREATURES_BANNER, CREATURES_SHA256, 27_300],
   ['sound', SOUND_SOURCE, SOUND_BANNER, SOUND_SHA256, 10_000],
 ] as const;
 

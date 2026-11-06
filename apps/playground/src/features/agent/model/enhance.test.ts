@@ -94,3 +94,48 @@ describe('answers', () => {
     expect(enhanceFailureOf('busy')).toBe('busy');
   });
 });
+
+describe('clarifyQuestionsOf', () => {
+  /*
+    A few questions before a build, each answered by a chip (first-build research, 2026-11):
+    whatever a port returns, the panel docks at most three, and never one without a chip.
+  */
+  const question = (id: string, choices: readonly string[]) => ({
+    id,
+    text: `Question ${id}?`,
+    choices,
+  });
+
+  it('docks at most three questions', () => {
+    const docked = clarifyQuestionsOf({
+      enhanced: '',
+      understood: '',
+      changes: [],
+      questions: ['a', 'b', 'c', 'd', 'e'].map((id) => question(id, ['Yes', 'No'])),
+    });
+    expect(docked.map((entry) => entry.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('drops a question without a chip, and blank or repeated chips', () => {
+    const docked = clarifyQuestionsOf({
+      enhanced: '',
+      understood: '',
+      changes: [],
+      questions: [question('a', []), question('b', [' ', 'Dark', 'Dark ', 'Light'])],
+    });
+    expect(docked).toEqual([{ id: 'b', text: 'Question b?', choices: ['Dark', 'Light'] }]);
+  });
+});
+
+describe('requestWithAnswers after a skip', () => {
+  it('adds no line for a question left to the agent, in either language', () => {
+    const questions = [
+      { id: 'a', text: 'Which page?', choices: ['Booking'], answer: 'Booking' },
+      { id: 'b', text: 'Where?', choices: ['Header'], answer: 'Your call' },
+      { id: 'c', text: 'أين؟', choices: ['الرأس'], answer: 'اختر أنت الأنسب' },
+    ];
+    expect(requestWithAnswers('Link to the booking page', questions)).toBe(
+      'Link to the booking page\nBooking',
+    );
+  });
+});

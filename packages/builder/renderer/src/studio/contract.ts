@@ -36,6 +36,12 @@ export const STUDIO_LIB_KEYS = [
   'color',
   'lsys',
   'mural',
+  // children's stories and drawings (2026-11-05).
+  'stickers',
+  'animals',
+  'paint',
+  'layout',
+  'creatures',
 ] as const;
 export type StudioLibKey = (typeof STUDIO_LIB_KEYS)[number];
 export const STUDIO_PIXI_BOUND_KEYS: readonly StudioLibKey[] = [

@@ -22,8 +22,10 @@ const TOKEN = /^[\p{L}\p{N}_.-]{1,48}$/u;
 const KEY_CODE = /^[A-Za-z][A-Za-z0-9]{0,23}$/u;
 /** A number a counter counts to: 250, -3, 98.6. */
 const COUNT = /^-?\d{1,12}(?:\.\d{1,6})?$/u;
+/** A colouring-book swatch: #rgb or #rrggbb, or a palette index 0-99. */
+const SWATCH = /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|\d{1,2})$/u;
 
-type HookValue = 'token' | 'marker' | 'key' | 'count';
+type HookValue = 'token' | 'marker' | 'key' | 'count' | 'color';
 
 const HOOKS = {
   // Games (craftkit.pixi-games): actions, direction buttons and the status line.
@@ -49,6 +51,11 @@ const HOOKS = {
   'data-chase-start': 'marker',
   'data-chase-key': 'key',
   'data-chase-status': 'marker',
+  // Colouring books (craftkit.pixi-kids, 2026-11-05): swatches, tools and undo/redo/clear, wired by
+  // s.lib.paint.swatches(ck.root, page).
+  'data-paint-color': 'color',
+  'data-paint-tool': 'token',
+  'data-paint-action': 'token',
   // The free-code card's counter: <b data-count="250">.
   'data-count': 'count',
   // Anything else a scene needs, under one documented name family.
@@ -87,6 +94,11 @@ const RULE: Readonly<Record<HookValue, SceneHookRule['value']>> = {
   key: (value, name) =>
     KEY_CODE.test(value) ? undefined : `${name} is a key code such as ArrowLeft, Space or KeyW`,
   count: (value, name) => (COUNT.test(value) ? undefined : `${name} is a number such as 250`),
+  // Bare takes the palette's next colour.
+  color: (value, name) =>
+    value === '' || SWATCH.test(value)
+      ? undefined
+      : `${name} is a colour such as #ff595e, a palette index such as 3, or bare`,
 };
 
 /** Where each hook may stand and what its value may be (the door names the fix otherwise). */

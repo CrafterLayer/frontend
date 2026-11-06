@@ -1,6 +1,7 @@
 import { contrastRatio, parseHex, relativeLuminance, type NodeId } from '@craftkit/builder-schema';
 
 import type { AiPlan, AiPlanStep } from '../../types';
+import { placeholderRegion as shapedPlaceholder } from './placeholder-shapes';
 import { kitRegion } from './skeleton-kit-region';
 import { shortBrand } from './page-completion';
 import type {
@@ -970,10 +971,13 @@ function footerTree(plan: PagePlan, contract: SectionContract): TreeElement {
  * A provisional footer keeps its semantic tag: run-build reads its chrome role and footer
  * from the outer tag (`placeholderShape`, `isFooter`) until the finish
  * transaction writes the real one.
+ *
+ * Drawn as a calm preview of the section that is coming, with a polite
+ * "being written" status (`placeholderRegion`): the drawing is region css, so
+ * the tree is still a shell holding one line of text, its heading.
  */
-function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement {
+function placeholderRegion(plan: PagePlan, contract: SectionContract): RegionProps {
   const hero = contract.role === 'hero';
-  const tag = contract.role === 'footer' ? 'footer' : 'section';
   const heading = hero
     ? el(
         'h1',
@@ -981,21 +985,32 @@ function placeholderTree(plan: PagePlan, contract: SectionContract): TreeElement
         { text: contract.title },
       )
     : el('h2', 'text-3xl font-semibold text-balance md:text-4xl', { text: contract.title });
-  return el(
-    tag,
-    hero ? 'ck-ground relative overflow-hidden py-24 md:py-32' : 'ck-ground py-16 md:py-24',
-    {
-      attributes: { id: contract.anchorId },
-      children: [el('div', 'mx-auto max-w-6xl px-4 md:px-8', { children: [heading] })],
-    },
-  );
+  const outer =
+    contract.role === 'footer'
+      ? { tag: 'footer', className: 'ck-surface border-t ck-border py-12 md:py-16' }
+      : contract.role === 'header'
+        ? { tag: 'section', className: 'ck-ground border-b ck-border py-5' }
+        : {
+            tag: 'section',
+            className: hero
+              ? 'ck-ground relative overflow-hidden py-24 md:py-32'
+              : 'ck-ground py-16 md:py-24',
+          };
+  const { tree, css } = shapedPlaceholder(plan, contract, outer, heading);
+  return { tree: root(tree), css };
 }
 
-function regionTree(plan: PagePlan, contract: SectionContract, provisional = false): TreeElement {
-  if (plan.design?.composition === 'bespoke') return placeholderTree(plan, contract);
-  if (contract.role === 'header') return headerTree(plan, contract);
-  if (contract.role === 'footer' && !provisional) return footerTree(plan, contract);
-  return placeholderTree(plan, contract);
+interface RegionProps {
+  readonly tree: { kind: 'root'; children: TreeElement[] };
+  /** Present only for a placeholder: the css that draws it. */
+  readonly css?: string;
+}
+
+function regionProps(plan: PagePlan, contract: SectionContract, provisional = false): RegionProps {
+  if (plan.design?.composition === 'bespoke') return placeholderRegion(plan, contract);
+  if (contract.role === 'header') return { tree: root(headerTree(plan, contract)) };
+  if (contract.role === 'footer' && !provisional) return { tree: root(footerTree(plan, contract)) };
+  return placeholderRegion(plan, contract);
 }
 
 // ── The plan ──────────────────────────────────────────────────────────────────
@@ -1161,7 +1176,7 @@ export function skeletonFromPlan(
         ...(context.index === undefined ? {} : { index: context.index + position }),
         props:
           filled === undefined
-            ? { label, tree: root(regionTree(plan, contract, provisional)) }
+            ? { label, ...regionProps(plan, contract, provisional) }
             : {
                 label,
                 tree: filled.tree,
@@ -1281,15 +1296,17 @@ export function skeletonFinish(input: SkeletonFinishInput): SkeletonFinishResult
       if (JSON.stringify(was) !== JSON.stringify(tree)) setRegion(id, 'tree', tree);
       continue;
     }
+    // The placeholder's drawing goes with it: the region keeps no css it does not use.
     if (contract.role === 'footer') {
       setRegion(id, 'tree', root(footerTree(final, contract)));
+      setRegion(id, 'css', '');
       complete.push(contract.key);
       continue;
     }
     const filled = kitRegion(final, contract);
     if (filled === undefined) continue;
     setRegion(id, 'tree', filled.tree);
-    if (filled.css !== '') setRegion(id, 'css', filled.css);
+    setRegion(id, 'css', filled.css);
     complete.push(contract.key);
   }
 

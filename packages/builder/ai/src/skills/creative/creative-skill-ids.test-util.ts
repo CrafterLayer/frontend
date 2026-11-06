@@ -13,6 +13,7 @@ export const PIXI_CREATIVE_SKILL_IDS: readonly string[] = [
   'craftkit.pixi-game-ai',
   'craftkit.pixi-games',
   'craftkit.pixi-hud',
+  'craftkit.pixi-kids',
   'craftkit.pixi-murals',
   'craftkit.pixi-page-shapes',
   'craftkit.pixi-physics',

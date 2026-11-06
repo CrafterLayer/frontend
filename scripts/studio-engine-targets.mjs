@@ -91,11 +91,12 @@ export const TARGETS = {
     versionPackage: 'pixi-viewport',
   },
   // creative engines (2026-10-12): character animation, effects, dialogue, Ink stories, tile worlds.
+  // peeking characters (2026-11-05): anim.peek drawn heads, 6,459 → measured 9,016 (+ 5 %).
   anim: {
     entry: 'src/studio/libs/anim-entry.ts',
     factory: 'createAnimLibrary',
     pixi: false,
-    budget: 6_500,
+    budget: 9_500,
     version: '1.0.0',
   },
   fx: {
@@ -289,6 +290,74 @@ export const TARGETS = {
     factory: 'createMuralLibrary',
     pixi: false,
     budget: 26_000,
+    version: '1.0.0',
+  },
+  // children's stories and drawings (2026-11-05). paint: a colouring book, first-party page,
+  // history and swatches over q-floodfill 1.3.1 (MIT, scan-line bucket fill) and perfect-freehand
+  // (MIT, as in brush); measured 11,284 bytes gzip. layout: first-party flex rows, grids, fit and
+  // storybook spreads standing in for @pixi/layout (not admitted, vendor/VENDOR.md); measured
+  // 3,451. Budgets + 5 %, rounded up to 100 bytes.
+  // animal art (2026-11-05): 29 Kenney Animal Pack Remastered heads (CC0 1.0; the pig left out by
+  // the owner's decision), round style, drawn
+  // from the pack's vector sheet at 2.25x by scripts/build-animal-atlas.mjs (input: the unzipped
+  // pack outside the repo) as one 256-colour lossless WebP data: URL, 1888 x 1970, 158,166 bytes.
+  // Measured 162,986 bytes gzip; budget + 5 %, rounded up to 100 bytes.
+  animals: {
+    entry: 'src/studio/libs/animals-entry.ts',
+    factory: 'createAnimalsLibrary',
+    pixi: false,
+    budget: 171_200,
+    version: '1.0.0',
+    vendored: [
+      {
+        name: 'kenney-animal-pack-remastered',
+        version: '1.0.0',
+        declared: 'CC0-1.0',
+        licence: 'vendor/kenney-animal-pack-remastered/LICENSE',
+      },
+    ],
+  },
+  // sticker art (2026-11-05): 496 Microsoft Fluent Emoji Flat stickers (MIT) with English and
+  // Arabic names, their SVG bodies copied into a generated module from the
+  // @iconify-json/fluent-emoji-flat devDependency (scripts/build-stickers-data.mjs); that tarball
+  // has no LICENSE file, so Microsoft's text is vendored. Measured 267,078 bytes gzip; budget + 5 %.
+  stickers: {
+    entry: 'src/studio/libs/stickers-entry.ts',
+    factory: 'createStickersLibrary',
+    pixi: false,
+    budget: 280_500,
+    version: '1.2.5',
+    vendored: [
+      {
+        name: '@iconify-json/fluent-emoji-flat',
+        version: '1.2.5',
+        declared: 'MIT',
+        licence: 'vendor/fluent-emoji-flat/LICENSE',
+      },
+    ],
+  },
+  paint: {
+    entry: 'src/studio/libs/paint-entry.ts',
+    factory: 'createPaintLibrary',
+    pixi: false,
+    budget: 11_900,
+    version: '1.0.0',
+  },
+  layout: {
+    entry: 'src/studio/libs/layout-entry.ts',
+    factory: 'createLayoutLibrary',
+    pixi: false,
+    budget: 3_700,
+    version: '1.0.0',
+  },
+  // original cute characters (2026-11-05): s.lib.creatures, first-party shaded vector creatures
+  // (15 kinds, 8 moods) drawn as Pixi Graphics parts for anim.rig or as SVG; plain. Measured 25,910
+  // bytes gzip; budget + 5 %, rounded up to 100 bytes.
+  creatures: {
+    entry: 'src/studio/libs/creatures-entry.ts',
+    factory: 'createCreaturesLibrary',
+    pixi: false,
+    budget: 27_300,
     version: '1.0.0',
   },
   sound: {

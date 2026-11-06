@@ -22,7 +22,9 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { ArEntry, ArPlural, Key } from './keys';
+import { BUILD_RECOVERY_AR } from './build-recovery-copy';
 import { EDIT_RESULT_AR } from './edit-results';
+import { FIRST_BUILD_AR } from './first-build-copy';
 import { FOLLOWUP_AR } from './followup-copy';
 
 /**
@@ -35,6 +37,8 @@ function zeroApart(zero: string, counted: string): ArPlural {
 
 export const ar = {
   ...FOLLOWUP_AR,
+  ...FIRST_BUILD_AR,
+  ...BUILD_RECOVERY_AR,
   /* §4.2 AgentHeader and the phone sheet */
   'header.name': 'أبو غضب',
   'header.conversations': 'المحادثات',

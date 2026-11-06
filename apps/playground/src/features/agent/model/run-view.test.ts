@@ -178,6 +178,59 @@ describe('buildRecordView: phases', () => {
     expect(record.direction).toBeUndefined();
   });
 
+  it('skeleton with a streamed outline: the named sections as planned text rows, still no count', () => {
+    const outline = progressOf([
+      event(400, {
+        type: 'build.outline',
+        sections: [
+          { key: 'header', title: 'Header', briefed: false },
+          { key: 'hero', title: 'Hero', briefed: false },
+        ],
+      }),
+    ]);
+    const record = view(outline);
+
+    expect(record.phase).toBe('skeleton');
+    expect(record.landed).toBe(0);
+    expect(
+      record.rows.map(({ key, nodeId, position, total, title, state, canRetry }) => ({
+        key,
+        nodeId,
+        position,
+        total,
+        title,
+        state,
+        canRetry,
+      })),
+    ).toEqual([
+      {
+        key: 'outline:header',
+        nodeId: undefined,
+        position: 1,
+        total: 2,
+        title: 'Header',
+        state: 'planned',
+        canRetry: false,
+      },
+      {
+        key: 'outline:hero',
+        nodeId: undefined,
+        position: 2,
+        total: 2,
+        title: 'Hero',
+        state: 'planned',
+        canRetry: false,
+      },
+    ]);
+    expect(record.actions.removeEmpty).toBe(0);
+
+    // The skeleton landed: the regions' rows, keyed by node, replace the outline.
+    const listed = view(reduceBuildProgress(outline, planned()));
+    expect(listed.rows.map(({ key }) => key)).toEqual(TASKS.map(({ id }) => id));
+    // A build that ended before its regions is an ending, never a list of planned names.
+    expect(buildRecordView(input(outline, { settled: true }), CONTEXT)).toBeNull();
+  });
+
   it('a Stop during the skeleton stays the skeleton: no sections, so never a 0/0 count', () => {
     // `stopping` shows the count in its head (SPEC §4.8), and before build.planned there is
     // no list to count. The RunBar carries "Stopping"; the record waits for the end.

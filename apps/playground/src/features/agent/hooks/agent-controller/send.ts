@@ -338,7 +338,9 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
     try {
       const result = await env.enhancer.ask(enhanceInputOf(flow, outgoing, route), { busy: true });
       if (!originStillCurrent()) return;
-      if (result.questions.length > 0) {
+      // At most three questions, each answerable by a chip; none left means it runs as is.
+      const questions = clarifyQuestionsOf(result);
+      if (questions.length > 0) {
         const routed = route;
         flow.ui.setState((ui) => ({
           ...ui,
@@ -352,7 +354,7 @@ export async function send(flow: Flow, input: Outgoing, options: SendOptions = {
             pointed: outgoing.pointed,
             route: routed,
             understood: result.understood,
-            questions: clarifyQuestionsOf(result),
+            questions,
             status: 'asking',
           },
         }));

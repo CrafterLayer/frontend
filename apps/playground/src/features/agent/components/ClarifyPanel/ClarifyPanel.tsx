@@ -23,7 +23,10 @@ export interface ClarifyPanelProps {
   readonly clarify: ClarifyView;
   /** A chip, or a typed answer, answers one question (`AgentController.answerClarify`). */
   readonly onAnswer: (questionId: string, answer: string) => void;
-  /** Run the request untouched (`AgentController.sendAsWritten`). */
+  /**
+   * Run the request untouched (`AgentController.sendAsWritten`): "Send as written", and
+   * "Build now" or Skip while no question has a real answer.
+   */
   readonly onSendAsWritten: () => void;
   /** Close the questions and put the request back in the box (`dismissClarify`). */
   readonly onDismiss: () => void;
@@ -54,8 +57,17 @@ function currentQuestion(
  * decision diamond, "A few questions before starting", "1 of 3"), the one-line restatement
  * of what was understood, the answers given so far (each one a button back to its
  * question), then the question with its choices as radio chips, and "Other" for an answer
- * in the person's own words. "Send as written" skips the questions; Cancel puts the
- * request back in the box, unsent.
+ * in the person's own words. Cancel puts the request back in the box, unsent.
+ *
+ * Every question is skippable, and the questions never stand between the person and the
+ * build (first-build research, 2026-11: Wix's Skip and "End chat & continue"):
+ * - Skip answers the question on screen with «اختر أنت الأنسب» / "Your call", so the
+ *   rewrite fills it with a sensible default, and the next question comes.
+ * - A build («ابنِ مباشرة» / "Build now", `clarify.builds`) skips every question left:
+ *   with no real answer yet it runs the request as written (`onSendAsWritten`, no rewrite
+ *   round trip); with some, the rest are answered "Your call" and the answers are kept.
+ *   Any other request keeps "Send as written". Skipping the last open question with no
+ *   real answer also runs it as written.
  *
  * Keys (radio-like, but a pick commits, so arrows only move): ← → ↑ ↓ move between chips
  * in the reading direction, Home and End jump, Enter or Space picks. Focus moves to the
@@ -74,6 +86,7 @@ export function ClarifyPanel({
   const titleId = useId();
   const questionId = useId();
   const editHintId = useId();
+  const buildHintId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const [revisit, setRevisit] = useState<string | null>(null);
   const [other, setOther] = useState<{ readonly question: string; readonly text: string } | null>(
@@ -85,7 +98,12 @@ export function ClarifyPanel({
 
   const uiDir = locale === 'ar' ? 'rtl' : 'ltr';
   const rewriting = clarify.status === 'rewriting';
+  const builds = clarify.builds === true;
   const { questions } = clarify;
+  // A skipped question's answer: the person left it to the agent, so no chip is checked.
+  const skipped = t(locale, 'clarify.skipped');
+  const answeredForReal = (question: ClarifyQuestionView): boolean =>
+    question.answer !== undefined && question.answer !== skipped;
   const current = rewriting ? undefined : currentQuestion(questions, revisit);
   const position = current === undefined ? questions.length : questions.indexOf(current) + 1;
   const answered = questions.filter(
@@ -94,7 +112,7 @@ export function ClarifyPanel({
   const otherOpen = current !== undefined && other?.question === current.id;
   const choices = current?.choices ?? [];
   const checked =
-    current?.answer === undefined
+    current?.answer === undefined || current.answer === skipped
       ? -1
       : choices.includes(current.answer)
         ? choices.indexOf(current.answer)
@@ -148,6 +166,29 @@ export function ClarifyPanel({
     setOther(null);
     setRoving(null);
     onAnswer(question.id, value);
+  };
+
+  /** Skip: the question is left to the agent; with nothing answered for real, it just runs. */
+  const skip = (question: ClarifyQuestionView) => {
+    const others = questions.filter((entry) => entry.id !== question.id);
+    if (others.every((entry) => entry.answer !== undefined) && !others.some(answeredForReal)) {
+      onSendAsWritten();
+      return;
+    }
+    pick(question, skipped);
+  };
+
+  /** Build now: every open question left to the agent, the answers given so far kept. */
+  const buildNow = () => {
+    const open = questions.filter((question) => question.answer === undefined);
+    if (open.length === 0 || !questions.some(answeredForReal)) {
+      onSendAsWritten();
+      return;
+    }
+    setRevisit(null);
+    setOther(null);
+    setRoving(null);
+    for (const question of open) onAnswer(question.id, skipped);
   };
 
   const moveBetweenChips = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -353,9 +394,38 @@ export function ClarifyPanel({
       )}
 
       <div className="ck-agent-clarify__actions">
-        <ChromeButton className="ck-agent-clarify__send" size="lg" onClick={onSendAsWritten}>
-          {t(locale, 'clarify.sendAsWritten')}
-        </ChromeButton>
+        {!builds ? (
+          <ChromeButton className="ck-agent-clarify__send" size="lg" onClick={onSendAsWritten}>
+            {t(locale, 'clarify.sendAsWritten')}
+          </ChromeButton>
+        ) : rewriting ? null : (
+          <>
+            <ChromeButton
+              variant="primary"
+              className="ck-agent-clarify__build"
+              size="lg"
+              aria-describedby={buildHintId}
+              onClick={buildNow}
+            >
+              {t(locale, 'clarify.buildNow')}
+            </ChromeButton>
+            <span id={buildHintId} hidden>
+              {t(locale, 'clarify.buildNow.hint')}
+            </span>
+          </>
+        )}
+        {current === undefined ? null : (
+          <ChromeButton
+            className="ck-agent-clarify__skip"
+            size="lg"
+            aria-describedby={questionId}
+            onClick={() => {
+              skip(current);
+            }}
+          >
+            {t(locale, 'clarify.skip')}
+          </ChromeButton>
+        )}
         <ChromeButton className="ck-agent-clarify__cancel" size="lg" onClick={onDismiss}>
           {t(locale, 'clarify.cancel')}
         </ChromeButton>

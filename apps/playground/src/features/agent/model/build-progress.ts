@@ -2,6 +2,7 @@ import type {
   AiAgentEvent,
   AiBuildEvent,
   AiBuildOutcome,
+  AiBuildOutlineSection,
   AiBuildOwnEvent,
   AiBuildSkipReasonCode,
   AiBuildStopReason,
@@ -119,6 +120,13 @@ export interface BuildProgress {
   /** The scaffold's rationale, verbatim: every section obeyed this text. */
   readonly direction: string;
   readonly tasks: readonly BuildTask[];
+  /**
+   * The sections a STREAMED plan has named so far (`build.outline`), before the skeleton
+   * lands: what the record lists while the canvas is still empty (2026-11-05). Present
+   * only while `tasks` is empty; `build.planned` replaces it with the regions' rows, and a
+   * fallback to the scaffold build drops it.
+   */
+  readonly outline?: readonly AiBuildOutlineSection[];
   /** When the build began (the caller's clock at dispatch). Set once and never moved. */
   readonly startedAt: number;
   /**
@@ -247,22 +255,68 @@ function reconciled(task: BuildTask, report: AiBuildTaskReport): BuildTask {
   };
 }
 
+/** The record without the streamed outline: the regions, or nothing, speak from here. */
+function withoutOutline(progress: BuildProgress): BuildProgress {
+  if (progress.outline === undefined) return progress;
+  const { outline: _outline, ...rest } = progress;
+  void _outline;
+  return rest;
+}
+
+/** Same names, same order, same briefs: nothing for a reader to redraw. */
+function sameOutline(
+  a: readonly AiBuildOutlineSection[] | undefined,
+  b: readonly AiBuildOutlineSection[],
+): boolean {
+  return (
+    a?.length === b.length &&
+    a.every((section, index) => {
+      const other = b[index];
+      return (
+        section.key === other?.key &&
+        section.title === other.title &&
+        section.briefed === other.briefed
+      );
+    })
+  );
+}
+
 function reduceOwnEvent(progress: BuildProgress, event: AiBuildOwnEvent): BuildProgress {
   switch (event.type) {
     case 'build.scaffolding':
-      // The skeleton is the opening phase already: idempotent, like `run.started`.
-      return progress;
+      /*
+        The skeleton is the opening phase already: idempotent, like `run.started`. The
+        second one, after the plan path gave out, also takes back the streamed outline:
+        the scaffold build lays its own sections.
+      */
+      return 'fallback' in event ? withoutOutline(progress) : progress;
     case 'build.skipped':
       /*
         Not a build. The ordinary run that replaced it owns the turn from here, so the
         rows close and every later step event is a no-op: a fallback that kept ticking a
         section list would be claiming work nobody did.
       */
-      return { ...progress, phase: 'fallback', fallbackReason: event.reason, skeleton: null };
+      return {
+        ...withoutOutline(progress),
+        phase: 'fallback',
+        fallbackReason: event.reason,
+        skeleton: null,
+      };
+    case 'build.outline':
+      /*
+        The sections the plan names while it is still being written: listed before any
+        region exists. Once `build.planned` has brought the regions' rows (a later outline
+        is a brief closing, or a repair answer that the final plan settles), the rows are
+        the truth and the outline is not read.
+      */
+      if (progress.tasks.length > 0 || progress.phase === 'fallback') return progress;
+      return sameOutline(progress.outline, event.sections)
+        ? progress
+        : { ...progress, outline: event.sections };
     case 'build.planned': {
       const writers = writersOf(event) ?? progress.writers;
       return {
-        ...progress,
+        ...withoutOutline(progress),
         phase: 'planned',
         direction: event.direction,
         writers,

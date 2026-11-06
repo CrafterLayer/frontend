@@ -212,6 +212,98 @@ describe('ClarifyPanel: Other', () => {
   });
 });
 
+describe('ClarifyPanel: skipping, and Build now', () => {
+  const building = (locale: Locale, count: 1 | 2 | 3 = 3, answered = 0): ClarifyView => ({
+    ...clarifying(locale, count, answered),
+    builds: true,
+  });
+
+  it('a build offers «ابنِ مباشرة» in Arabic and “Build now” in English, described for readers', () => {
+    mount('ar', building('ar'));
+    const ar = screen.getByRole('button', { name: 'ابنِ مباشرة' });
+    expect(ar).toHaveAccessibleDescription('يتخطّى بقية الأسئلة ويبني بخيارات مناسبة');
+    expect(screen.queryByRole('button', { name: t('ar', 'clarify.sendAsWritten') })).toBeNull();
+    expect(screen.getByRole('button', { name: 'تخطَّ' })).toBeInTheDocument();
+  });
+
+  it('Build now with no answer yet runs the request as written, with no rewrite', async () => {
+    const { user, handlers } = mount('en', building('en'));
+    const build = screen.getByRole('button', { name: 'Build now' });
+    expect(build).toHaveAccessibleDescription(
+      'Skips the remaining questions and builds with sensible defaults',
+    );
+    await user.click(build);
+    expect(handlers.onSendAsWritten).toHaveBeenCalledTimes(1);
+    expect(handlers.onAnswer).not.toHaveBeenCalled();
+  });
+
+  it('Build now keeps the answers given and leaves the rest to the agent', async () => {
+    const { user, handlers } = mount('en', building('en', 3, 1));
+    await user.click(screen.getByRole('button', { name: 'Build now' }));
+    expect(handlers.onSendAsWritten).not.toHaveBeenCalled();
+    expect(handlers.onAnswer.mock.calls).toEqual([
+      ['q-place', 'Your call'],
+      ['q-look', 'Your call'],
+    ]);
+    // Every question answered: the panel rewrites, and Build now is gone with the chips.
+    expect(screen.getByText(t('en', 'clarify.rewriting'))).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Build now' })).toBeNull();
+  });
+
+  it('any other request keeps “Send as written”, and no Build now', () => {
+    mount('en', clarifying('en', 2));
+    expect(
+      screen.getByRole('button', { name: t('en', 'clarify.sendAsWritten') }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Build now' })).toBeNull();
+  });
+
+  it('Skip leaves the question to the agent and moves focus to the next question', async () => {
+    const { user, handlers } = mount('en', clarifying('en', 3));
+    const skip = screen.getByRole('button', { name: 'Skip' });
+    expect(skip).toHaveAccessibleDescription('Which page should the link open?');
+    await user.click(skip);
+    expect(handlers.onAnswer).toHaveBeenCalledWith('q-page', 'Your call');
+    expect(screen.getByText('Question 2 of 3')).toBeInTheDocument();
+    expect(radio('In the header')).toHaveFocus();
+  });
+
+  it('Skip is reached by Tab after the chips, and works from the keyboard', async () => {
+    const { user, handlers } = mount('en', building('en', 2));
+    expect(radio('Services')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Build now' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Skip' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(handlers.onAnswer).toHaveBeenCalledWith('q-page', 'Your call');
+  });
+
+  it('skipping the last question with no real answer runs the request as written', async () => {
+    const { user, handlers } = mount('en', clarifying('en', 2));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(handlers.onAnswer).toHaveBeenCalledTimes(1);
+    expect(handlers.onSendAsWritten).toHaveBeenCalledTimes(1);
+  });
+
+  it('skipping the last question after a real answer keeps that answer', async () => {
+    const { user, handlers } = mount('en', clarifying('en', 2, 1));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(handlers.onSendAsWritten).not.toHaveBeenCalled();
+    expect(handlers.onAnswer).toHaveBeenCalledWith('q-place', 'Your call');
+  });
+
+  it('a skipped question, revisited, checks no chip', async () => {
+    const { user } = mount('en', clarifying('en', 3));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    await user.click(screen.getByRole('button', { name: /Which page should the link open\?/u }));
+    for (const item of screen.getAllByRole('radio')) {
+      expect(item).toHaveAttribute('aria-checked', 'false');
+    }
+  });
+});
+
 describe('ClarifyPanel: answers, ways out, rewriting', () => {
   it('lists earlier answers as buttons back to their question', async () => {
     const { user } = mount('en', clarifying('en', 3, 2));

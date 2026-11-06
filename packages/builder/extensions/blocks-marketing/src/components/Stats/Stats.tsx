@@ -174,7 +174,7 @@ export function Stats({ node, props, isCanvas }: BlockRenderProps<StatsProps>) {
                 )}
                 {item.trend === undefined || item.trend.length < 2 ? null : (
                   <dd className="order-4 m-0 mt-3">
-                    <MetricTrend values={item.trend} label={committed(item.label)} />
+                    <MetricTrend values={item.trend} label={committed(item.label)} isCanvas={isCanvas} />
                   </dd>
                 )}
                 {item.progress === undefined ? null : (

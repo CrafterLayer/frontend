@@ -12,6 +12,7 @@ import { BuildRecord } from '../BuildRecord';
 import { EditRecord } from '../EditRecord';
 import { EndNote } from '../EndNote';
 import { ErrorRecord } from '../ErrorRecord';
+import { FollowUpChips } from '../FollowUpChips';
 import { PagePlanCard } from '../PagePlanCard';
 import { ProposalCard } from '../ProposalCard';
 import { RestoreDialog } from '../RestoreDialog';
@@ -44,6 +45,12 @@ export interface TurnViewProps {
   readonly acceptsPlanOp?: ((turnId: string, op: PlanOp) => boolean) | undefined;
   /** SPEC §7.6 E0c: an Ask plan whose empty layout was written before approval. */
   readonly layoutPrepared?: ((turnId: string) => boolean) | undefined;
+  /**
+   * Hide a first build's next-step chips (FollowUpChips) while a run is live or the composer
+   * holds words, as suggestions hide (SPEC §4.16): a chip sends through the composer's own
+   * path (`setDraft` then `send`), and must never send over a request being written.
+   */
+  readonly hideFollowUps?: boolean | undefined;
 }
 
 /**
@@ -51,6 +58,9 @@ export interface TurnViewProps {
  * component draws which of the nine v2 turn kinds, and the one place that runs a record's
  * `[⋯]` menu. AgentThread owns the `<li>` around it, keyed by the turn id, so a turn that
  * changes kind (a plan becoming its build, a proposal its edit) keeps its node.
+ *
+ * Under a first build that finished on an empty page (`BuildRecordView.nextSteps`) it draws
+ * FollowUpChips, whose chosen request is sent as the person's next turn.
  *
  * The menu runs here and never posts text as the person's turn: Reuse puts the request
  * back in the composer (and focus with it), Copy writes to the clipboard, Restore opens
@@ -63,6 +73,7 @@ export function TurnView({
   composer,
   acceptsPlanOp,
   layoutPrepared,
+  hideFollowUps = false,
 }: TurnViewProps) {
   const turnId = turn.view.turnId;
   const menuTrigger = useRef<HTMLButtonElement | null>(null);
@@ -101,6 +112,16 @@ export function TurnView({
             menuFocusAfter={menuFocusAfter}
             menuTriggerRef={menuTrigger}
           />
+          {turn.view.nextSteps === true && !hideFollowUps ? (
+            <FollowUpChips
+              locale={locale}
+              onSend={(request) => {
+                // The typed path: the request is routed and runs the ordinary edit flows.
+                actions.setDraft(request);
+                actions.send();
+              }}
+            />
+          ) : null}
           {restoreDialog}
         </>
       );

@@ -208,6 +208,39 @@ export const WaysOut: Story = {
   },
 };
 
+/**
+ * A first build the router was unsure of: «ابنِ مباشرة» / "Build now" is the Indigo way past
+ * the questions. With nothing answered it runs the request as written.
+ */
+export const BuildNow: Story = {
+  args: { clarify: { ...clarifying('en', 3), builds: true } },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole('button', { name: t('en', 'clarify.sendAsWritten') })).toBeNull();
+    await userEvent.click(canvas.getByRole('button', { name: t('en', 'clarify.buildNow') }));
+    await expect(args.onSendAsWritten).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Skip: the question is left to the agent ("Your call"), and the next one is asked. */
+export const SkipQuestion: Story = {
+  render: ({ locale }) => (
+    <Answering locale={locale} initial={{ ...clarifying(locale, 3), builds: true }} />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: t('en', 'clarify.skip') }));
+    await expect(canvas.getByText('Question 2 of 3')).toBeInTheDocument();
+    await expect(canvas.getByText(t('en', 'clarify.skipped'))).toBeInTheDocument();
+  },
+};
+
+export const BuildNowRightToLeft: Story = {
+  args: { locale: 'ar', clarify: { ...clarifying('ar', 3, 1), builds: true } },
+  globals: { direction: 'rtl' },
+  parameters: { panel: { locale: 'ar' } },
+};
+
 export const AskingDark: Story = {
   args: { clarify: clarifying('en', 3, 1) },
   parameters: { panel: { theme: 'dark' } },

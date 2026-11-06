@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 
 import type { BuilderKernel } from '@craftkit/builder';
 
+import type { DocumentRunJournal } from '../features/vault/run-journal';
 import type { SnapshotShelf } from '../features/vault/snapshots';
 import { createAgentCheckpoints } from './agent-checkpoints';
 import { AGENT_EDIT_EFFORT, AGENT_LOCALE, AGENT_PANEL } from './app-env';
@@ -21,6 +22,8 @@ export interface AssistantRailPanelProps {
   readonly kernel: BuilderKernel;
   /** The page's restore-point shelf: the agent keeps a checkpoint there before each request. */
   readonly shelf?: SnapshotShelf | undefined;
+  /** The document's run journal: page builds write what they did, a reload reads it back. */
+  readonly buildJournal?: DocumentRunJournal | undefined;
   readonly panes: Pick<
     EditorPanes,
     | 'railSection'
@@ -86,6 +89,7 @@ export function AssistantRailPanel({
   editorLocale,
   kernel,
   shelf,
+  buildJournal,
   panes,
   host,
   code,
@@ -213,6 +217,7 @@ export function AssistantRailPanel({
             }}
             onSiteSeam={setSiteSeam}
             checkpoints={checkpoints}
+            runJournal={buildJournal}
           />
         </div>
       ) : (

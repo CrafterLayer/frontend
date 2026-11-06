@@ -488,7 +488,7 @@ function baseOptions(live: BuilderKernel, provider: AiPlanProvider, events?: AiB
 vi.setConfig({ testTimeout: 20_000 });
 
 describe('the streamed build — the skeleton at the outline, writers at their briefs', () => {
-  it('lands the skeleton and starts the writers while the plan is still being written, and lands nothing a writer wrote before it is in', async () => {
+  it('lands the skeleton, starts the writers and lands each written section while the plan is still being written', async () => {
     const live = kernel();
     const events: AiBuildEvent[] = [];
     const script = streaming();
@@ -504,8 +504,23 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(script.planResolved).toBe(false);
-    // The canvas shows the page's shape: ONE skeleton transaction, every region laid.
-    expect(labels(live)).toEqual([PAGE_SKELETON_LABEL]);
+    /*
+      The canvas shows the page's shape — ONE skeleton transaction, every region laid — and,
+      before the final plan is even in, each section whose writer finished (EARLY LANDING):
+      one transaction each, through the same door.
+    */
+    expect(labels(live)[0]).toBe(PAGE_SKELETON_LABEL);
+    expect(labels(live)).toHaveLength(3);
+    expect([...sectionPositions(live)].sort()).toEqual([2, 3]);
+    expect(treeText(live, 'Roasted this morning')).toContain('write 1 of hero');
+    expect(treeText(live, 'Menu')).toContain('write 1 of menu');
+    // The checklist: the header (written whole by the skeleton) and both written sections are done.
+    expect(
+      own(events)
+        .filter(({ type }) => type === 'task.completed')
+        .map((event) => (event.type === 'task.completed' ? event.position : 0))
+        .sort(),
+    ).toEqual([1, 2, 3]);
     expect(childLabels(live)).toEqual([
       'Header',
       'Roasted this morning',
@@ -525,17 +540,18 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     expect(script.planCalls).toEqual([undefined]);
     const transactions = labels(live);
     expect(transactions[0]).toBe(PAGE_SKELETON_LABEL);
-    expect(transactions[1]).toBe(PAGE_SKELETON_FINISH_LABEL);
     expect(transactions.filter((label) => label === PAGE_SKELETON_LABEL)).toHaveLength(1);
+    // The finish came with the final plan, after the sections that landed early.
+    expect(transactions.filter((label) => label === PAGE_SKELETON_FINISH_LABEL)).toHaveLength(1);
+    expect(transactions.indexOf(PAGE_SKELETON_FINISH_LABEL)).toBe(3);
     // The finish wrote the footer from the final plan's facts.
     expect(treeText(live, 'Footer')).toContain('461 2750');
     const footer = result.tasks.find(({ sectionKey }) => sectionKey === 'footer');
     expect(footer?.status).toBe('applied');
     expect(footer?.landing?.label).toBe(PAGE_SKELETON_FINISH_LABEL);
-    // Every section landed after the finish, top to bottom.
+    // An early landing is not landed again: one transaction per section.
     const positions = sectionPositions(live);
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
-    expect(positions).toEqual(expect.arrayContaining([2, 3]));
+    expect([...positions].sort()).toEqual([2, 3]);
     // Each speculative writer ran once: their contracts did not change.
     expect(script.fills.filter(({ anchor }) => anchor === 'hero')).toHaveLength(1);
     expect(script.fills.filter(({ anchor }) => anchor === 'menu')).toHaveLength(1);
@@ -592,16 +608,23 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     expect(new Set(positions).size).toBe(positions.length);
   });
 
-  it('rewrites exactly the section whose brief changed in the final plan, once', async () => {
+  it('rewrites exactly the section whose brief changed in the final plan, once — and lands it again over its early landing', async () => {
     const live = kernel();
     const changed = 'Every coffee and bean we roast, with its price in dinars.';
     const script = streaming({ final: () => withMenuPurpose(example(), changed) });
+    // The menu's placeholder, as the skeleton laid it.
+    let placeholder: string | undefined;
 
-    const building = runAiBuild(baseOptions(live, script.provider));
-    await until(
-      () => script.fills.length >= 2 && script.fills.every(({ answered }) => answered),
-      'the speculative writers',
-    );
+    const building = runAiBuild({
+      ...baseOptions(live, script.provider),
+      onEvent: (event: AiBuildEvent) => {
+        if (event.type === 'build.planned') placeholder = treeText(live, 'Menu');
+      },
+    });
+    // The menu lands early from its provisional brief, before the plan (and its change) is in.
+    await until(() => sectionPositions(live).includes(3), 'the menu to land early');
+    expect(script.planResolved).toBe(false);
+    expect(treeText(live, 'Menu')).toContain('write 1 of menu');
     script.releasePlan();
     const result = await building;
 
@@ -610,11 +633,21 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     expect(menu).toHaveLength(2);
     expect(menu[1]?.request).toContain(changed);
     expect(script.fills.filter(({ anchor }) => anchor === 'hero')).toHaveLength(1);
-    // What landed is the rewrite, from the final contract.
+    // What landed last is the rewrite, from the final contract — in its own transaction.
     expect(treeText(live, 'Menu')).toContain('write 2 of menu');
     expect(treeText(live, 'Roasted this morning')).toContain('write 1 of hero');
+    expect(sectionPositions(live).filter((position) => position === 3)).toHaveLength(2);
     // A rerun is not a second attempt.
-    expect(result.tasks.find(({ sectionKey }) => sectionKey === 'menu')?.attempts).toBe(1);
+    const report = result.tasks.find(({ sectionKey }) => sectionKey === 'menu');
+    expect(report?.attempts).toBe(1);
+    // Its Undo puts the PLACEHOLDER back, never the provisional write that landed first.
+    expect(placeholder).toBeDefined();
+    expect(JSON.stringify(report?.landing?.before.tree)).toBe(placeholder);
+    expect(JSON.stringify(report?.landing?.after.tree)).toContain('write 2 of menu');
+    const menuLandings = live
+      .transactions()
+      .filter(({ command }) => command.startsWith('Assistant: 3/5 — '));
+    expect(report?.landing?.transactionId).toBe(menuLandings.at(-1)?.id ?? 'missing');
   });
 
   it('falls back to the plain path, with no duplicate region, when the final outline differs (replace)', async () => {
@@ -649,14 +682,26 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     const script = streaming({ streamed: appended, final: () => withFaq(appended()) });
 
     const building = runAiBuild({ ...baseOptions(live, script.provider), target: 'append' });
-    await until(() => script.fills.length >= 1, 'a speculative writer');
+    // A section landed early into its provisional region…
+    await until(() => sectionPositions(live).length >= 1, 'an early landing');
     expect(childLabels(live)).toEqual(['Old old-a', 'Old old-b', 'Menu', 'Order']);
     script.releasePlan();
     const result = await building;
 
+    // …and went with its region in the one transaction that takes the speculation back.
     expect(result.outcome).toBe('completed');
-    expect(labels(live)).toContain('Assistant: page skeleton (withdrawn)');
+    const transactions = labels(live);
+    const withdrawn = transactions.indexOf('Assistant: page skeleton (withdrawn)');
+    expect(withdrawn).toBeGreaterThan(
+      transactions.findIndex((label) => /^Assistant: \d/u.test(label)),
+    );
+    expect(
+      transactions.filter((label) => label === 'Assistant: page skeleton (withdrawn)'),
+    ).toHaveLength(1);
     expect(childLabels(live)).toEqual(['Old old-a', 'Old old-b', 'Menu', 'Order', 'FAQ']);
+    // The page holds the plain path's sections only: the reports are the final plan's.
+    expect(result.pagePlan?.sections.map(({ key }) => key)).toEqual(['menu', 'order', 'faq']);
+    expect(result.tasks.every(({ status }) => status === 'applied')).toBe(true);
   });
 
   it('builds the streamed draft when the plan is refused twice — no scaffold (fix pass 2026-10-05)', async () => {
@@ -812,6 +857,9 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     const building = runAiBuild(baseOptions(live, script.provider));
     await until(() => script.fills.length >= 1, 'the hero writer');
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    // Its brief closed in the answer that started over: written, but not landed before the plan.
+    expect(script.fills.every(({ answered }) => answered)).toBe(true);
+    expect(labels(live)).toEqual([PAGE_SKELETON_LABEL]);
     expect(script.fills.map(({ anchor }) => anchor)).toEqual(['hero']);
     script.releasePlan();
     const result = await building;
@@ -820,6 +868,141 @@ describe('the streamed build — the skeleton at the outline, writers at their b
     expect(script.fills.filter(({ anchor }) => anchor === 'hero')).toHaveLength(1);
     expect(script.fills.filter(({ anchor }) => anchor === 'menu')).toHaveLength(1);
     expect(labels(live).filter((label) => label === PAGE_SKELETON_LABEL)).toHaveLength(1);
+  });
+
+  it('keeps an early landing when its rerun from the final contract does not land', async () => {
+    const live = kernel();
+    const events: AiBuildEvent[] = [];
+    let menuWrites = 0;
+    const script = streaming({
+      final: () => withMenuPurpose(example(), 'Every coffee we roast, priced.'),
+      fill: (call) => {
+        if (call.anchor === 'menu') {
+          menuWrites += 1;
+          if (menuWrites > 1) throw new Error('The writer answered nothing usable.');
+        }
+        return {
+          rationale: 'filled',
+          commands: [
+            {
+              command: 'setProp',
+              args: { id: regionIdOf(call.request), key: 'tree', value: written(call.request, 1) },
+            },
+          ],
+        };
+      },
+    });
+
+    const building = runAiBuild(baseOptions(live, script.provider, events));
+    await until(() => sectionPositions(live).includes(3), 'the menu to land early');
+    script.releasePlan();
+    const result = await building;
+
+    expect(menuWrites).toBeGreaterThan(1);
+    // The rerun failed: the section stays as it landed, and its report says it is on the page.
+    expect(treeText(live, 'Menu')).toContain('write 1 of menu');
+    expect(sectionPositions(live).filter((position) => position === 3)).toHaveLength(1);
+    const report = result.tasks.find(({ sectionKey }) => sectionKey === 'menu');
+    expect(report?.status).toBe('applied');
+    expect(report?.landing?.transactionId).toBe(
+      live.transactions().find(({ command }) => command.startsWith('Assistant: 3/5 — '))?.id,
+    );
+    // The row the rerun reopened reads landed again.
+    const menuRow = own(events).filter(
+      (event) =>
+        (event.type === 'task.started' ||
+          event.type === 'task.completed' ||
+          event.type === 'task.skipped') &&
+        event.position === 3,
+    );
+    expect(menuRow.at(-1)?.type).toBe('task.completed');
+    expect(result.applied).toBe(result.tasks.length);
+  });
+
+  it('names each section as its outline entry closes, before the skeleton can land', async () => {
+    const live = kernel();
+    const events: AiBuildEvent[] = [];
+    const outlines = () =>
+      own(events).flatMap((event) =>
+        event.type === 'build.outline' ? [event.sections.map(({ key }) => key)] : [],
+      );
+    const text = answerText(example());
+    const cut = text.indexOf('{"key":"menu","role"');
+    let midOutline:
+      { readonly named: readonly (readonly string[])[]; readonly transactions: number } | undefined;
+    const script = streaming({
+      stream: (onDraft) => {
+        onDraft({ kind: 'start' });
+        for (const piece of chunks(text.slice(0, cut))) onDraft({ kind: 'text', text: piece });
+        // Half the outline is written: what the person sees at this moment.
+        midOutline = { named: outlines(), transactions: labels(live).length };
+        for (const piece of chunks(text.slice(cut))) onDraft({ kind: 'text', text: piece });
+      },
+    });
+
+    const building = runAiBuild(baseOptions(live, script.provider, events));
+    await until(() => midOutline !== undefined, 'the outline to be half written');
+    // No page shape can land yet — the outline is not closed — but the sections are named.
+    expect(midOutline?.transactions).toBe(0);
+    expect(midOutline?.named).toEqual([['header'], ['header', 'hero']]);
+    script.releasePlan();
+    await building;
+
+    const ownEvents = own(events);
+    const plannedAt = ownEvents.findIndex(({ type }) => type === 'build.planned');
+    const told = ownEvents.flatMap((event, index) =>
+      event.type === 'build.outline'
+        ? [
+            {
+              index,
+              keys: event.sections.map(({ key }) => key),
+              briefed: event.sections.filter(({ briefed }) => briefed).map(({ key }) => key),
+            },
+          ]
+        : [],
+    );
+    // The whole outline was named before `build.planned` brought the regions…
+    expect(told.filter(({ index }) => index < plannedAt).at(-1)?.keys).toEqual([
+      'header',
+      'hero',
+      'menu',
+      'order',
+      'footer',
+    ]);
+    // …and each brief was told as it closed.
+    expect(told.at(-1)?.briefed).toEqual(['hero', 'menu', 'order', 'footer']);
+  });
+
+  it('lands a written section before the final plan is in, let alone validated (timing)', async () => {
+    const live = kernel();
+    const script = streaming();
+
+    const building = runAiBuild({
+      ...baseOptions(live, script.provider),
+      onEvent: (event: AiBuildEvent) => {
+        if (event.type === 'build.planned') script.log.push('skeleton');
+        if (event.type === 'task.completed') script.log.push(`landed:${String(event.position)}`);
+      },
+    });
+    await until(
+      () => script.log.includes('landed:2') && script.log.includes('landed:3'),
+      'the early landings',
+    );
+    expect(script.planResolved).toBe(false);
+    script.releasePlan();
+    await building;
+
+    const at = (entry: string): number => script.log.indexOf(entry);
+    /*
+      Baseline 2026-09-30: skeleton at 37 s, first section at 44 s — after the whole plan.
+      Now: skeleton, then each written section as it is ready, then the plan; only what the
+      FINAL plan writes in code (the footer, from its facts) lands after it.
+    */
+    expect(at('skeleton')).toBeLessThan(at('landed:1'));
+    expect(at('landed:1')).toBeLessThan(at('landed:2'));
+    expect(at('landed:2')).toBeLessThan(at('plan:resolved'));
+    expect(at('landed:3')).toBeLessThan(at('plan:resolved'));
+    expect(at('landed:5')).toBeGreaterThan(at('plan:resolved'));
   });
 
   it('lays an Arabic plan right to left from the outline on', async () => {

@@ -39,6 +39,7 @@ import {
 } from '../../model/successor-fill';
 import type { BuildTurn, Turn } from '../../model/turns';
 
+import { resumeBuildJournal } from './build-journal';
 import type { Flow } from './controller-state';
 import { followKernel, successorKernelOf } from './kernel-follow';
 import { claim, holds, release, setRun } from './run-lease';
@@ -106,27 +107,30 @@ export async function runSuccessor(
     reopenForSuccessor(original.progress, new Set(tasks.map((task) => task.id)), startedAt),
     writers,
   );
+  // The journal's word at boot (and a Keep) are about the build as it stood: it goes on now.
   const {
     revived: _revived,
     undone: _undone,
     failure: _failure,
     stopping: _stopping,
+    journal: _journal,
+    kept: _kept,
     ...rest
   } = original;
-  void _revived;
-  void _undone;
-  void _failure;
-  void _stopping;
+  void [_revived, _undone, _failure, _stopping, _journal, _kept];
   patchTurn(flow, slot.sessionId, turnId, (): Turn => ({
     ...rest,
     progress: reopened,
     status: 'running',
   }));
+  // The build's own journal record, open again: what this run lands is written there too.
+  const journalEvent = resumeBuildJournal(flow, original.progress.runId);
   env.mood.beginRun(slot.runId, '');
   say(flow, 'build.started');
   let seq = 0;
   const feed = (event: AiBuildEvent, scope?: string): void => {
     if (!holds(flow, slot)) return;
+    journalEvent(event);
     patchKind(flow, slot.sessionId, turnId, 'build', (turn) => {
       // Row identity belongs to the original build; physical attempt identity belongs
       // to this fresh lease so retried receipts cannot collide with old measurements.
@@ -271,7 +275,11 @@ export async function runSuccessor(
           });
           landedIds.push(tx.id);
         }
-        feed(taskCompletedEvent(progressNow(), task, flow.clock.now(), (seq += 1)));
+        feed({
+          ...taskCompletedEvent(progressNow(), task, flow.clock.now(), (seq += 1)),
+          // The landing's transaction and label, for the journal (the rows ignore them).
+          ...(tx === undefined ? {} : { transactionId: tx.id, label }),
+        });
         const now = progressNow();
         env.live.landed(landedCount(now), now.tasks.length);
         setRun(flow, slot, { lastLanding: { title: task.title, at: flow.clock.now() } });
@@ -312,6 +320,7 @@ export async function runSuccessor(
       at: flow.clock.now(),
       seq: (seq += 1),
     });
+    journalEvent(completed);
     patchKind(flow, slot.sessionId, turnId, 'build', (turn) => ({
       ...turn,
       progress: reduceBuildProgress(rows, completed),

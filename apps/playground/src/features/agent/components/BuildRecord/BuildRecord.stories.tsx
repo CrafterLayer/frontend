@@ -80,6 +80,7 @@ const actions: BuildRecordActions = {
   redoBuild: fn(),
   retrySections: fn(),
   finishRest: fn(),
+  keepBuild: fn(),
   removeEmpty: fn(),
   tryAgain: fn(),
   reveal: fn(),
@@ -445,6 +446,24 @@ export const StoppedMaxTasksRightToLeft: Story = arabic(buildStopped('ar', 'maxT
 /** Reloaded mid-build, with the section list saved: it can finish. */
 export const InterruptedResumable: Story = { args: { view: buildInterrupted('en', true) } };
 export const InterruptedResumableRightToLeft: Story = arabic(buildInterrupted('ar', true));
+
+/** The page's newest build, read back interrupted: continue where it stopped, or keep it. */
+const recovered = (locale: Locale): BuildRecordView => {
+  const view = buildInterrupted(locale, true);
+  return { ...view, recovery: { landed: view.landed, total: view.total } };
+};
+export const InterruptedRecovery: Story = {
+  args: { view: recovered('en') },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole('group', { name: /The build stopped after 3 of/u }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'Continue where it stopped' }));
+    await expect(args.actions.finishRest).toHaveBeenCalledWith(args.view.turnId);
+  },
+};
+export const InterruptedRecoveryRightToLeft: Story = arabic(recovered('ar'));
 
 /** Reloaded mid-build, the list lost: the caption says it cannot continue. */
 export const InterruptedNotResumable: Story = { args: { view: buildInterrupted('en', false) } };

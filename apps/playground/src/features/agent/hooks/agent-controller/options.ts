@@ -16,6 +16,7 @@ import type {
 } from '@craftkit/builder';
 
 import type { ProviderKind } from '../../../preview/components/AssistantPanel/catalogPolicyFor';
+import type { DocumentRunJournal } from '../../../vault/run-journal';
 import type { AgentCheckpointPort } from '../../model/checkpoints';
 import type { LanguageVersionsPort } from '../../model/language-versions';
 import type { PromptEnhancer } from '../../model/enhance';
@@ -126,6 +127,13 @@ export interface UseAgentControllerOptions {
    * "Restore the page to before this request" takes it back. Absent: no Restore.
    */
   readonly checkpoints?: AgentCheckpointPort | undefined;
+  /**
+   * The vault's run journal for this document (2026-11-06): every page build writes what it
+   * did there as it happens, and a build read back after a reload offers to continue where
+   * it stopped from what the journal says (`model/build-recovery.ts`). Absent: no journal,
+   * and the record's own rows are all a reload has.
+   */
+  readonly runJournal?: DocumentRunJournal | undefined;
   readonly agentPolicy?: Partial<AiAgentPolicy> | undefined;
   /** Every ordinary run's events (telemetry; never run authority). */
   readonly onAgentEvent?: ((event: AiAgentEvent) => void) | undefined;

@@ -1350,7 +1350,13 @@ describe('skeletonFinish — what the final plan adds to a provisional skeleton'
     expect(same?.complete).toEqual(['footer']);
     // Default root props declare no seo/slug: nothing on the root at all.
     expect(setKeys(same!.plan, 'root')).toEqual([]);
-    expect(same!.plan.commands.map(({ args }) => (args as StepArgs)['id'])).toEqual(['r-footer']);
+    // The footer's tree, and its placeholder drawing cleared.
+    expect(same!.plan.commands.map(({ args }) => (args as StepArgs)['id'])).toEqual([
+      'r-footer',
+      'r-footer',
+    ]);
+    expect(setKeys(same!.plan, 'r-footer')).toEqual(['tree', 'css']);
+    expect(setValue(same!.plan, 'r-footer', 'css')).toBe('');
 
     const navChanged: PagePlan = { ...provisional, nav: [{ label: 'القائمة', anchorId: 'menu' }] };
     const redrawn = skeletonFinish({ provisional, final: navChanged, context, regions })!;

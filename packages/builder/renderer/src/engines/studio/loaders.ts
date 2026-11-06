@@ -40,6 +40,12 @@ export const STUDIO_ENGINE_LOADERS: Readonly<Record<StudioEngineKind, () => Prom
   'lib-color': async () => (await import('./color-source')).COLOR_SOURCE,
   'lib-lsys': async () => (await import('./lsys-source')).LSYS_SOURCE,
   'lib-mural': async () => (await import('./mural-source')).MURAL_SOURCE,
+  // children's stories and drawings (2026-11-05).
+  'lib-animals': async () => (await import('./animals-source')).ANIMALS_SOURCE,
+  'lib-stickers': async () => (await import('./stickers-source')).STICKERS_SOURCE,
+  'lib-paint': async () => (await import('./paint-source')).PAINT_SOURCE,
+  'lib-layout': async () => (await import('./layout-source')).LAYOUT_SOURCE,
+  'lib-creatures': async () => (await import('./creatures-source')).CREATURES_SOURCE,
   sound: async () => (await import('./sound-source')).SOUND_SOURCE,
 };
 

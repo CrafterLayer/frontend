@@ -1,3 +1,4 @@
+import { PEEK_CHARACTERS_ID } from './creative/peek-characters';
 import { pixiSkillIdsFor } from './creative/pixi-selection';
 import { CRAFTKIT_DEFAULT_SKILLS } from './defaults';
 import { compileKeyword, readRequestWords, requestHasKeyword } from './keyword-match';
@@ -69,8 +70,8 @@ const NATURAL_COPY = 'craftkit.natural-copy';
 const TRUST_PROOF = 'craftkit.trust-proof';
 const CV_PAGE = 'craftkit.cv-page';
 
-/** A report or dashboard asked for in the request. */
-const REPORT_WORDS = [
+/** Advanced chart forms by name (data-viz 1.3.0): a report in the request, a chart in a section. */
+const CHART_FORM_WORDS = [
   'waterfall',
   'heatmap',
   'treemap',
@@ -86,6 +87,11 @@ const REPORT_WORDS = [
   'مخطط شلال',
   'شموع',
   'صندوقي',
+];
+
+/** A report or dashboard asked for in the request. */
+const REPORT_WORDS = [
+  ...CHART_FORM_WORDS,
   'dashboard',
   'report',
   'reports',
@@ -110,7 +116,12 @@ const REPORT_WORDS = [
 
 /** A section whose contract shows numbers as a chart, stats or a report. */
 const CHART_WORDS = [
-  ...REPORT_WORDS,
+  /*
+    Only the chart forms, never all of REPORT_WORDS: a hero's contract carries the page request,
+    and 'analytics' there ("a SaaS analytics tool") handed the hero writer data-viz — the page's
+    matched set, which P1-12 (run-build.safety.test.ts) forbids. Regressed at 52ab7448.
+  */
+  ...CHART_FORM_WORDS,
   'chart',
   'charts',
   'graph',
@@ -222,6 +233,7 @@ const ADDED_IDS: ReadonlySet<string> = new Set([
   ARABIC_RTL,
   CONVERSION_RECIPES,
   STRUCTURE_RECIPES,
+  PEEK_CHARACTERS_ID,
 ]);
 
 type Words = ReturnType<typeof readRequestWords>;
@@ -256,6 +268,8 @@ function requestCandidates(
     ...(holdsAny(words, ownKeywords(registry, LOGO_DESIGN)) ? [LOGO_DESIGN] : []),
     ...(holdsAny(words, REPORT_WORDS) ? [DATA_VIZ] : []),
     ...(holdsAny(words, ownKeywords(registry, ART_NAMES)) ? [ART_NAMES] : []),
+    // peeking characters (2026-11-05): a mascot over a bar or card, outside any scene.
+    ...(holdsAny(words, ownKeywords(registry, PEEK_CHARACTERS_ID)) ? [PEEK_CHARACTERS_ID] : []),
     ...(holdsAny(words, BILINGUAL_WORDS) ? [ARABIC_RTL] : []),
   ];
 }
@@ -294,6 +308,7 @@ function sectionCandidates(
     ...(holdsAny(contract, CHART_WORDS) ? [DATA_VIZ] : []),
     ...(personal ? [CV_PAGE] : []),
     ...(holdsAny(contract, ownKeywords(registry, ART_NAMES)) ? [ART_NAMES] : []),
+    ...(holdsAny(contract, ownKeywords(registry, PEEK_CHARACTERS_ID)) ? [PEEK_CHARACTERS_ID] : []),
     ...(recipes && holdsAny(contract, CONVERSION_WORDS) ? [CONVERSION_RECIPES] : []),
     ...(recipes && holdsAny(contract, STRUCTURE_WORDS) ? [STRUCTURE_RECIPES] : []),
     ...(holdsAny(request, BILINGUAL_WORDS) ? [ARABIC_RTL] : []),

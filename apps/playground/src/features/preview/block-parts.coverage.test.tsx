@@ -95,6 +95,18 @@ const EXTRA_CASES: Readonly<Record<string, readonly GateCaseInput[]>> = {
         valueSuffix: 'k',
       },
     },
+    {
+      // 52ab7448 added the `dataNote` part; no default or example sets the note.
+      label: 'data note',
+      props: { dataNote: 'Figures are unaudited and rounded to the nearest thousand.' },
+    },
+  ],
+  logoCloud: [
+    {
+      // d0272afd added the `item.logo` part; no default or example sets a logo.
+      label: 'logo image',
+      props: { items: [{ name: 'Visa', logo: 'https://cdn.simpleicons.org/visa' }, { name: 'Acme' }] },
+    },
   ],
   menuSection: [
     {

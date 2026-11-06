@@ -1,6 +1,7 @@
 import type { BuilderDocument } from '@craftkit/builder';
 
 import type { BuildTask } from './build-progress';
+import { latestBuildPerPage, recoveryOffer } from './build-recovery';
 import { creativeBriefView } from './creative-brief';
 import { draftFromEnginePagePlan, planDraftOf, planFields } from './page-plan-draft';
 import { initialRunProgress } from './run-progress';
@@ -337,11 +338,67 @@ export function turnViewOf(turn: Turn, collapsed: boolean, context: TurnViewCont
   return turn.telemetry === undefined ? view : { ...view, telemetry: turn.telemetry };
 }
 
-/** A conversation's turns as the thread renders them, newest last. */
+/* ── Next steps after a first build ─────────────────────────────────────────── */
+
+/** Whether `id`, or a block anywhere inside it, is one of `ids`. */
+function holdsAny(document: BuilderDocument, id: string, ids: ReadonlySet<string>): boolean {
+  if (ids.has(id)) return true;
+  const slots = document.nodes[id]?.slots ?? {};
+  return Object.values(slots).some((children) =>
+    children.some((child) => holdsAny(document, child, ids)),
+  );
+}
+
+/**
+ * Whether a build's record offers the next-step chips (FollowUpChips: restyle colours,
+ * another style, reorder sections, add a section). The first-build research
+ * (docs/architecture/empty-canvas-first-build-research.md): builders offer style choices
+ * AFTER the first build, never before it. So only:
+ * - a build that finished (`done`), live this session (not revived, not undone);
+ * - one ordinary page, not a page of a site build nor a game or story scene;
+ * - on a page that was empty: every top-level section on the page now is one this build
+ *   wrote (or holds one), so nothing the person had before sits beside it.
+ * Which turn carries them (the newest only) is `turnViewsOf`'s call.
+ */
+function offersNextSteps(turn: BuildTurn, view: BuildRecordView, document: BuilderDocument) {
+  if (turn.status !== 'settled' || view.phase !== 'done') return false;
+  if (turn.revived === true || turn.undone === true) return false;
+  if (turn.page !== undefined || turn.creative === true) return false;
+  const written = new Set(
+    turn.progress.tasks.flatMap((task) => (task.landing === undefined ? [] : [task.id])),
+  );
+  if (written.size === 0) return false;
+  const top = Object.values(document.nodes[document.rootId]?.slots ?? {}).flat();
+  return top.length > 0 && top.every((id) => holdsAny(document, id, written));
+}
+
+/**
+ * A conversation's turns as the thread renders them, newest last. The newest turn, when it
+ * is a first build that finished on an empty page, offers the next-step chips
+ * (`BuildRecordView.nextSteps`): once, under that turn only. Any newer turn, a run among
+ * them, takes them away, so they never show while something runs.
+ */
 export function turnViewsOf(turns: readonly Turn[], context: TurnViewContext): readonly TurnView[] {
   // The person's newest request opens the newest exchange; everything before it folds.
   const newestRequest = turns.findLastIndex((turn) => turn.kind === 'user');
-  return turns.map((turn, index) => turnViewOf(turn, index < newestRequest, context));
+  // Each page's newest build, read back interrupted, offers to continue (build-recovery.ts).
+  const latest = latestBuildPerPage(turns);
+  const views = turns.map((turn, index) => {
+    const view = turnViewOf(turn, index < newestRequest, context);
+    if (turn.kind !== 'build' || view.kind !== 'build' || !latest.has(turn.id)) return view;
+    const recovery = recoveryOffer(turn, view.view, context.document);
+    return recovery === null ? view : { ...view, view: { ...view.view, recovery } };
+  });
+  const last = turns.at(-1);
+  const lastView = views.at(-1);
+  if (
+    last?.kind !== 'build' ||
+    lastView?.kind !== 'build' ||
+    !offersNextSteps(last, lastView.view, context.document)
+  ) {
+    return views;
+  }
+  return [...views.slice(0, -1), { ...lastView, view: { ...lastView.view, nextSteps: true } }];
 }
 
 /** The turn id of a request the clarify panel holds: stable while the panel asks. */
@@ -359,11 +416,17 @@ export function withPendingRequest(
   document: BuilderDocument,
 ): readonly TurnView[] {
   if (pending === null || pending.request.trim() === '') return views;
+  // A request on its way is the next step: the chips under the build before it go.
+  const settled = views.map((view) =>
+    view.kind === 'build' && view.view.nextSteps === true
+      ? { ...view, view: { ...view.view, nextSteps: false } }
+      : view,
+  );
   const turn: UserTurn = {
     id: PENDING_REQUEST_ID,
     kind: 'user',
     text: pending.request,
     context: pending.context,
   };
-  return [...views, { kind: 'user', view: userMessageView(turn, document) }];
+  return [...settled, { kind: 'user', view: userMessageView(turn, document) }];
 }

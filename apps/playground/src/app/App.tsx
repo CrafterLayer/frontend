@@ -377,6 +377,7 @@ export function App() {
                         editorLocale={editorLocale}
                         kernel={session.kernel}
                         shelf={session.shelf}
+                        buildJournal={session.vault.buildJournal}
                         panes={panes}
                         host={agentHost}
                         code={code}

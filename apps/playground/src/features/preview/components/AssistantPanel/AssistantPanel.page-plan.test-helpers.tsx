@@ -250,9 +250,15 @@ export function planningProvider(options: { readonly planFails?: boolean } = {})
       });
     },
     proposePagePlan() {
+      // An unusable plan, not a refusal: since 52ab7448 a terminal provider failure
+      // (refusal, http-status, endpoint-policy, cancelled) ends the build instead of
+      // falling back to a scaffold (run-build.terminal-errors.test.ts).
       return options.planFails === true
         ? Promise.reject(
-            new AiProviderError('No page plan today.', { code: 'refusal', retryable: false }),
+            new AiProviderError('No page plan today.', {
+              code: 'invalid-output',
+              retryable: false,
+            }),
           )
         : Promise.resolve({ pagePlan: COFFEE_PLAN, rationale: 'A warm roastery page.' });
     },

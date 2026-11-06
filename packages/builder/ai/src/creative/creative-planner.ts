@@ -56,7 +56,23 @@ const GAME_LIB_MECHANICS: Partial<Record<CreativeLib, readonly string[]>> = {
   ],
   physics: ['Matter bodies stepped in s.fixedTick with Engine.update(engine, dt * 1000)'],
   peeps: [
-    'people as s.lib.peeps characters: cast by name (the same name keeps its look), a mood per line or page; animals and creatures stay drawn',
+    'people as s.lib.peeps characters: cast by name (the same name keeps its look), a mood per line or page; animals come from s.lib.animals, other creatures stay drawn',
+  ],
+  // children's stories and drawings (2026-11-05).
+  stickers: [
+    "picture vocabulary from s.lib.stickers (Fluent Emoji, bundled): s.lib.stickers.find('دب'|'bear') then await texture(s,name,{size}) for props, food, weather and scenery; never fetch images",
+  ],
+  animals: [
+    "a cast of cute animals from s.lib.animals: await sprite(s,'panda',{size}) or texture(s,name) as an anim.rig head or an anim.peek face; find() reads Arabic and English names",
+  ],
+  paint: [
+    "a colouring page: const page=await s.lib.paint.page(s,{art:s.lib.stickers.lineArt(name),width,height,palette:'bright'}); s.world.addChild(page.view); DOM buttons with data-paint-color, data-paint-tool=fill|brush|eraser and data-paint-action=undo|redo|clear wired by s.lib.paint.swatches(ck.root,page)",
+  ],
+  creatures: [
+    "original characters from s.lib.creatures: {kind:'dragon'|'unicorn'|'monster'|'dino'|'robot'|'alien'|'ghost'|'slime'|'griffin'|'fox'|'bunny'|'bear'|'star'|'mushroom'|'sea', name, mood, palette} — the same name keeps its look on every page; c.rig(anim,{state}) to walk/jump/wave, c.face.set(mood) as feelings change",
+  ],
+  layout: [
+    "storybook spreads from s.lib.layout.page(w,h,{picture:'top'|'left',rtl}) rectangles and layout.flex(container,{direction,gap,justify,align,wrap}) rows; layout.fit(sprite,box,'contain'); RTL mirrors for Arabic",
   ],
   // procedural maps and animated GIFs (2026-10-13).
   procgen: [
@@ -203,6 +219,88 @@ function beatsFor(kind: CreativeKind, genre: CreativeGenre, arabic: boolean): Cr
   ];
 }
 
+/* children's stories and drawings (2026-11-05): animals, stickers, colouring and picture books. */
+const ANIMAL_WORDS = [
+  'animal',
+  'animals',
+  'zoo',
+  'farm animals',
+  'safari',
+  'حيوان',
+  'حيوانات',
+  'حديقة الحيوان',
+  'حديقة الحيوانات',
+  'مزرعة',
+];
+/* original characters (2026-11-05): an invented creature brings s.lib.creatures and its motion. */
+const CREATURE_WORDS = [
+  'dragon',
+  'unicorn',
+  'monster',
+  'creature',
+  'creatures',
+  'dinosaur',
+  'dino',
+  'robot',
+  'alien',
+  'ghost',
+  'griffin',
+  'imaginary character',
+  'fantasy character',
+  'mascot',
+  'تنين',
+  'يونيكورن',
+  'وحش',
+  'وحوش',
+  'مخلوق',
+  'مخلوقات',
+  'كائن خيالي',
+  'كائنات خيالية',
+  'شخصية خيالية',
+  'شخصيات خيالية',
+  'ديناصور',
+  'روبوت',
+  'فضائي',
+  'شبح',
+];
+const STICKER_WORDS = ['sticker', 'stickers', 'emoji', 'ملصق', 'ملصقات', 'ستيكر', 'ستيكرات', 'ايموجي'];
+const COLORING_WORDS = [
+  'coloring',
+  'colouring',
+  'coloring book',
+  'colouring book',
+  'coloring page',
+  'colouring page',
+  'paint by',
+  'تلوين',
+  'كتاب تلوين',
+  'صفحة تلوين',
+  'صفحات تلوين',
+  'يلون',
+  'تلون',
+];
+const KIDS_WORDS = [
+  'kids',
+  'kid',
+  'children',
+  'child',
+  'toddler',
+  'preschool',
+  'kindergarten',
+  'picture book',
+  'storybook',
+  'أطفال',
+  'اطفال',
+  'للأطفال',
+  'للاطفال',
+  'طفل',
+  'طفلة',
+  'صغار',
+  'روضة',
+  'حضانة',
+  'كتاب مصور',
+  'قصة مصورة',
+];
 const BRUSH_WORDS = ['brush', 'brushstroke', 'painted', 'watercolor', 'فرشاة', 'ألوان مائية'];
 /* character art (2026-10-13): human characters bring s.lib.peeps (Open Peeps); animals do not. */
 const PEOPLE_WORDS = [
@@ -420,6 +518,13 @@ function briefFrom(
     ...(asked(LSYS_CUE_WORDS) ? (['lsys', 'color'] as const) : []),
     ...(asked(COLOR_CUE_WORDS) ? (['color'] as const) : []),
     ...(asked(RING_CUE_WORDS) ? (['geom', 'color'] as const) : []),
+    // children's stories and drawings (2026-11-05): a kids' piece gets pictures and page layout;
+    // animals and colouring only when asked (a colouring page draws its art from the stickers).
+    ...(asked(KIDS_WORDS) ? (['stickers', 'layout'] as const) : []),
+    ...(asked(ANIMAL_WORDS) ? (['animals'] as const) : []),
+    ...(asked(CREATURE_WORDS) ? (['creatures', 'anim'] as const) : []),
+    ...(asked(STICKER_WORDS) ? (['stickers'] as const) : []),
+    ...(asked(COLORING_WORDS) ? (['paint', 'stickers'] as const) : []),
   ]);
   const weather = unique(settings.flatMap((setting) => setting.weather)).slice(0, 2);
   const effects = unique([

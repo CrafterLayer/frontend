@@ -142,7 +142,7 @@ describe('createRunJournal', () => {
     const { journal } = setup();
     const record = await journal.start(START);
     expect(record.limits).toEqual(LIMITS);
-    expect(Object.keys(record.limits)).not.toContain('fillConcurrency');
+    expect(Object.keys(record.limits ?? {})).not.toContain('fillConcurrency');
   });
 
   describe('the unit table', () => {
@@ -688,7 +688,7 @@ describe('createRunJournal', () => {
       await journal.record('run-1', events.completed(clock.now(), 1));
       const record = await readBack(journal);
       expect(record.spent.tasksStarted).toBe(2);
-      expect(record.limits.maxTasks).toBe(12);
+      expect(record.limits?.maxTasks).toBe(12);
     });
 
     it('counts a twice-attempted unit once — it is one unit', async () => {

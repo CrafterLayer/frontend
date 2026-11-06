@@ -85,6 +85,7 @@ export type {
   AiBuildEvent,
   AiBuildEventBase,
   AiBuildOutcome,
+  AiBuildOutlineSection,
   AiBuildOutOfScopeStep,
   AiBuildOwnEvent,
   AiBuildRunResult,

@@ -88,7 +88,7 @@ export function kpiCards(kpis: readonly KpiModel[], view: ReportView) {
                     )}
             </span>
             {props.showTrends === true ? (
-              <MetricTrend values={kpi.trend} label={committed(config.label)} />
+              <MetricTrend values={kpi.trend} label={committed(config.label)} isCanvas={values.isCanvas} />
             ) : null}
             {change === undefined && baseline === undefined ? null : (
               <span

@@ -74,6 +74,7 @@ phases in dark:
 | partial                | partial    | final time  | `Partial`, `PartialDark`                                                                     |
 | stopped                | absent     | final time  | `Stopped`, `StoppedBudget`, `StoppedMaxTasks`                                                |
 | interrupted            | absent     | none        | `InterruptedResumable`, `InterruptedNotResumable`                                            |
+| interrupted, offered   | absent     | none        | `InterruptedRecovery`: how far it got; Continue where it stopped, Keep what was built        |
 | failed                 | failed     | final time  | `Failed`: ErrorBody's two sentences, Try again, Remove the empty layout                      |
 | undone                 | absent     | final time  | `Undone`: the sections fold away; Redo build                                                 |
 | revived (done, reload) | landed     | final time  | `Revived`: Undo `aria-disabled`, described by the caption                                    |

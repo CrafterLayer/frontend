@@ -252,3 +252,38 @@ describe('createPlanStreamReader — acting on each closed unit of the plan', ()
     expect(elapsed).toBeLessThan(1_500);
   });
 });
+
+describe('createPlanStreamReader({ sections: true }) — each outline entry as it closes', () => {
+  const SECTIONS = PARSED.pagePlan['sections'] as Record<string, unknown>[];
+
+  it('gives every outline entry before the head, then the same head and briefs', () => {
+    for (const size of [1, 7, 4_096]) {
+      const reader = createPlanStreamReader({ sections: true });
+      const events: PlanStreamEvent[] = [];
+      for (let at = 0; at < EXAMPLE.length; at += size) {
+        events.push(...reader.push(EXAMPLE.slice(at, at + size)));
+      }
+      expect(events.map(({ kind }) => kind)).toEqual([
+        ...SECTIONS.map(() => 'section'),
+        'head',
+        'brief',
+        'brief',
+        'brief',
+        'brief',
+      ]);
+      expect(
+        events.flatMap((event) => (event.kind === 'section' ? [[event.index, event.section]] : [])),
+      ).toEqual(SECTIONS.map((section, index) => [index, section]));
+      expectExampleEvents(events.filter(({ kind }) => kind !== 'section'));
+    }
+  });
+
+  it('names the first sections while the rest of the outline is still being written', () => {
+    const reader = createPlanStreamReader({ sections: true });
+    const cut = EXAMPLE.indexOf('{ "key": "menu"');
+    const early = reader.push(EXAMPLE.slice(0, cut));
+    expect(
+      early.map((event) => (event.kind === 'section' ? event.section['key'] : event.kind)),
+    ).toEqual(['header', 'hero']);
+  });
+});

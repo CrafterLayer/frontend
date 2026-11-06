@@ -382,6 +382,39 @@ describe('BuildRecord: actions call the controller, never post a message', () =>
     expect(spy('retrySections')).toHaveBeenCalledExactlyOnceWith(view.turnId, [target.key]);
   });
 
+  it('offers an interrupted build read back to continue where it stopped, or keeps it', async () => {
+    const user = userEvent.setup();
+    const base = buildInterrupted('en', true);
+    const view: BuildRecordView = { ...base, recovery: { landed: 3, total: base.total } };
+    const { spy, called } = renderRecord(view);
+    const offer = screen.getByRole('group', {
+      name: `The build stopped after 3 of ${String(base.total)} sections`,
+    });
+    expect(within(offer).getByText(/Continuing writes only the rest/u)).toBeInTheDocument();
+    // The offer replaces the plain "Finish the rest": one primary, one secondary.
+    expect(screen.queryByRole('button', { name: /Finish the rest/u })).toBeNull();
+    const keep = screen.getByRole('button', { name: 'Keep what was built' });
+    expect(keep).toHaveAttribute('data-ck-tone', 'secondary');
+    await user.click(screen.getByRole('button', { name: 'Continue where it stopped' }));
+    expect(spy('finishRest')).toHaveBeenCalledExactlyOnceWith(view.turnId);
+    expect(heading('Interrupted by a reload')).toHaveFocus();
+    await user.click(keep);
+    expect(spy('keepBuild')).toHaveBeenCalledExactlyOnceWith(view.turnId);
+    expect(called().sort()).toEqual(['finishRest', 'keepBuild']);
+  });
+
+  it('says the offer in Arabic, and makes none without the view’s word', () => {
+    const base = buildInterrupted('ar', true);
+    const { unmount } = renderRecord({ ...base, recovery: { landed: 3, total: 8 } }, 'ar');
+    expect(screen.getByText('انقطع البناء بعد 3 من 8 أقسام')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'كمّل من وين وقفت' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'احتفظ بما بُني' })).toBeInTheDocument();
+    unmount();
+    renderRecord(buildInterrupted('en', true));
+    expect(screen.queryByRole('button', { name: 'Continue where it stopped' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Finish the rest (5)' })).toBeInTheDocument();
+  });
+
   it('lists sample details only for sections that landed on the page', async () => {
     const user = userEvent.setup();
     const base = buildStopped('en', 'signal');

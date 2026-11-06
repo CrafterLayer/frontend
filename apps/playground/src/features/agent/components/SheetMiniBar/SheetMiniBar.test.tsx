@@ -179,6 +179,28 @@ describe('miniBarView', () => {
     ]);
   });
 
+  it('says what an interrupted build read back offers, and continues it with Finish the rest', () => {
+    const rows = clinicRows('en', ['landed', 'landed', 'notWritten', 'notWritten'] as RowState[]);
+    const record = buildRecord('interrupted', rows);
+    const view = miniBarView({
+      turns: [
+        {
+          kind: 'build',
+          view: {
+            ...record,
+            actions: { ...record.actions, finishRest: 2 },
+            recovery: { landed: 2, total: 4 },
+          },
+        },
+      ],
+      run: null,
+    });
+    expect(t('en', view.status.key, view.status.params)).toBe(
+      'The build stopped after 2 of 4 sections',
+    );
+    expect(view.actions).toEqual([{ kind: 'finishRest', turnId: record.turnId, count: 2 }]);
+  });
+
   it('prefers the live run over the newest record', () => {
     const view = viewOf('stopping');
     expect(view.actions).toEqual([{ kind: 'stop', stopping: true }]);

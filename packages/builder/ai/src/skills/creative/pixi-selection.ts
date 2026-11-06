@@ -9,9 +9,13 @@ import type { AiSkillRegistry } from '../types';
 import { GAME_LIB_CUES } from './game-cues';
 import { PIXI_PAGE_SHAPES_ID } from './page-shapes';
 import { creativeCreationSkill } from './creation-skills';
+import { PEEK_CHARACTERS_ID, PEEK_WORDS } from './peek-characters';
+import { PIXI_KIDS_CUE_WORDS, PIXI_KIDS_ID } from './pixi-kids';
 
 /** Playbooks a request activates by its own words (most specific experience first). */
 const PIXI_PRIMARY_IDS = [
+  // children's stories and drawings (2026-11-05): a colouring book, by its own words.
+  PIXI_KIDS_ID,
   'craftkit.pixi-games',
   'craftkit.pixi-stories',
   'craftkit.pixi-murals',
@@ -83,6 +87,11 @@ const SCENE_CUES: readonly { readonly skill: string; readonly words: readonly st
     skill: 'craftkit.pixi-animation',
     words: ['character', 'characters', 'cartoon', 'شخصية', 'شخصيات', 'كرتون'],
   },
+  // peeking characters (2026-11-05): a story's, game's or scene's mascot over its bar or box,
+  // only when asked for; never a companion, so every story does not grow one.
+  { skill: PEEK_CHARACTERS_ID, words: PEEK_WORDS },
+  // children's stories and drawings (2026-11-05): a kids' story, an animal game, stickers.
+  { skill: PIXI_KIDS_ID, words: PIXI_KIDS_CUE_WORDS },
 ];
 
 type RequestWords = ReturnType<typeof readRequestWords>;

@@ -70,7 +70,13 @@ describe('PixiJS v8 skills — activation', () => {
     });
     expect(prepared.active.map(({ id }) => id)).toEqual(expect.arrayContaining(PIXI_IDS));
     expect(prepared.omitted).toEqual([]);
-    expect(prepared.totalTokens).toBeLessThan(7_000);
+    /*
+      2026-11-06: 7,000 → 7,100. At 12566eb9 this request cost 6,982; pixi-murals then gained the
+      scroll-pinned scrub (s.scroll.pin, no CSS runway; 52ab7448) and the stage shapes plus a
+      fresh seed per piece (b6df73c1), both pinned by pixi-creative.test.ts. Wording was trimmed
+      first (7,036 → 7,027); the rest is that guidance. Still under half the 16,000 budget.
+    */
+    expect(prepared.totalTokens).toBeLessThan(7_100);
   });
 
   // 2026-11-01: a design size in the stage's shape, not one 16:9 band for every scene.

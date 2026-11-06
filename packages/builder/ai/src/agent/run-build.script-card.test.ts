@@ -163,29 +163,38 @@ function markup(request: string): AiPlan {
   };
 }
 
+/** Every writer request of one build of the roaster page, asked in `request`'s words. */
+async function writerRequests(request: string): Promise<readonly string[]> {
+  const requests: string[] = [];
+  const provider: AiPlanProvider = {
+    propose(asked) {
+      requests.push(asked);
+      return Promise.resolve(markup(asked));
+    },
+    proposePagePlan() {
+      return Promise.resolve({ pagePlan: pagePlan(), rationale: 'A warm roaster page.' });
+    },
+  };
+  await runAiBuild({
+    runId: 'script-card',
+    clock: { now: () => 1 },
+    kernel: kernel(),
+    provider,
+    request,
+    validationPorts: { clock: { now: () => 1 }, ids: seededIds('script-card-door') },
+    skillRegistry: createCraftkitAiSkillRegistry(),
+    target: 'replace',
+    fillConcurrency: 1,
+  });
+  return requests;
+}
+
 describe('runAiBuild — the card in a kit writer’s brief', () => {
   it('reaches the bulk sections’ writers only', async () => {
-    const requests: string[] = [];
-    const provider: AiPlanProvider = {
-      propose(request) {
-        requests.push(request);
-        return Promise.resolve(markup(request));
-      },
-      proposePagePlan() {
-        return Promise.resolve({ pagePlan: pagePlan(), rationale: 'A warm roaster page.' });
-      },
-    };
-    await runAiBuild({
-      runId: 'script-card',
-      clock: { now: () => 1 },
-      kernel: kernel(),
-      provider,
-      request: 'Design a page for a coffee roaster in Amman',
-      validationPorts: { clock: { now: () => 1 }, ids: seededIds('script-card-door') },
-      skillRegistry: createCraftkitAiSkillRegistry(),
-      target: 'replace',
-      fillConcurrency: 1,
-    });
+    // 53617867: kit writers exist only on a templated (hybrid) page; a bespoke page has none.
+    const requests = await writerRequests(
+      'Design a page for a coffee roaster in Amman. Use the existing templates',
+    );
 
     const briefOf = (title: string): string | undefined =>
       requests.find(
@@ -206,6 +215,22 @@ describe('runAiBuild — the card in a kit writer’s brief', () => {
     const at = bulk?.indexOf(SCRIPT_CARD) ?? -1;
     expect(at).toBeGreaterThan(-1);
     expect(at).toBeLessThan(bulk?.indexOf('ANSWER with ONE tool step') ?? -1);
+  });
+
+  it('reaches a bespoke page’s bulk markup writer by its own words', async () => {
+    // 53617867: free design writes every section as markup; the card still follows the section's words.
+    const requests = await writerRequests('Design a page for a coffee roaster in Amman');
+    const briefOf = (title: string): string | undefined =>
+      requests.find((request) =>
+        new RegExp(`SECTION \\d+ OF \\d+: ${title}\\n`, 'u').test(request),
+      );
+    const quiet = briefOf(QUIET.title);
+    const bulk = briefOf(BULK.title);
+    expect(quiet).toBeDefined();
+    expect(bulk).toBeDefined();
+    expect(requests.some((request) => request.includes('ANSWER with ONE tool step'))).toBe(false);
+    expect(quiet).not.toContain(SCRIPT_CARD);
+    expect(bulk).toContain(SCRIPT_CARD);
   });
 });
 

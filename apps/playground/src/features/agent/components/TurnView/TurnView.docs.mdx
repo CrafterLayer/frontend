@@ -39,6 +39,15 @@ new record's head finds it.
 | `composer`       | `() => HTMLElement \| null`      | none    | where focus lands after Reuse request                  |
 | `acceptsPlanOp`  | `(turnId, op) => boolean`        | none    | PagePlanCard's `accepts`, once the controller has one  |
 | `layoutPrepared` | `(turnId) => boolean`            | none    | SPEC §7.6 E0c line on an Ask plan                      |
+| `hideFollowUps`  | `boolean`                        | `false` | hides a first build's next-step chips (run live, words in the box) |
+
+## Next steps after a first build
+
+A build whose view carries `nextSteps` (the newest turn, a first build that finished on an empty
+page; `turnViewsOf` decides) draws FollowUpChips under its record: «بدّل الألوان», «ستايل مختلف»,
+«رتّب الأقسام», «أضف قسمًا». A chip sends its request through the typed path, `setDraft(request)`
+then `send()`, so it is routed and runs the ordinary edit flows. AgentPanel passes `hideFollowUps`
+while a run is live or the composer holds words, so a chip never sends over a request being written.
 
 ## The record menu
 

@@ -247,7 +247,9 @@ describe('analyzeGrid', () => {
     );
   });
 
-  it('stays within its limits and refuses what it cannot read', () => {
+  // Analyses thousands of rows (about 1.7 s alone); the default 5 s is lost under a busy machine
+  // (2026-11-06: 6 s at load average 150). The time limit only bounds a hang.
+  it('stays within its limits and refuses what it cannot read', { timeout: 20_000 }, () => {
     const many = `Day,Visits\n${Array.from({ length: ANALYSIS_LIMITS.rows + 1 }, (_, day) => `d${String(day)},${String(day)}`).join('\n')}`;
     const big = analysis(many);
     expect([big.rows, big.totalRows]).toEqual([ANALYSIS_LIMITS.rows, ANALYSIS_LIMITS.rows + 1]);

@@ -1,0 +1,93 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+
+import * as FollowUpChipsStories from './FollowUpChips.stories';
+
+<Meta of={FollowUpChipsStories} />
+
+# FollowUpChips
+
+The next steps after a first build: a compact row of four chips under the build's record, each one a
+whole request that is sent at once.
+
+<Canvas of={FollowUpChipsStories.NextSteps} />
+
+## Purpose and ownership
+
+Owned by the agent feature (`apps/playground/src/features/agent`). The first-build research
+(`docs/architecture/empty-canvas-first-build-research.md`) found that builders offer STYLE choices
+after the first build, never before it: Wix's "Shuffle colors / Shuffle layout", Webflow's theme
+picker, Hostinger's palette. These chips are أبو غضب's version:
+
+| chip (ar)      | chip (en)        | request it sends                                  | routes to     |
+| -------------- | ---------------- | ------------------------------------------------- | ------------- |
+| «بدّل الألوان» | Restyle colours  | a new harmonious palette, content and layout kept | `edit`        |
+| «ستايل مختلف»  | Another style    | a different direction: fonts, colours, spacing    | `edit`        |
+| «رتّب الأقسام» | Reorder sections | a clearer section order, content unchanged        | `edit`        |
+| «أضف قسمًا»    | Add a section    | one new section that fits the page, at its end    | `add-section` |
+
+The requests live in the catalog (`copy/first-build-copy.ts`, `nextSteps.*.request`), worded for the
+router; `follow-up-routing.test.ts` proves each one routes as listed, in both languages, above the
+clarify line, so none ever docks the questions.
+
+## When to use
+
+- Under the newest turn when it is a first build that finished on an empty page
+  (`BuildRecordView.nextSteps`, decided by `turnViewsOf`). TurnView draws it.
+
+## When not to use
+
+- For suggestions that fill the composer without sending: that is SuggestionList.
+- Under a site build's page, a game or story scene, a stopped, failed, undone or revived build, or a
+  build on a page that already held content.
+- While a run is live or the composer holds words: TurnView's `hideFollowUps`.
+
+## Props
+
+| prop        | type                        | default | notes                                       |
+| ----------- | --------------------------- | ------- | ------------------------------------------- |
+| `locale`    | `Locale`                    | none    | the chips' words and the request they send  |
+| `onSend`    | `(request: string) => void` | none    | TurnView: `setDraft(request)` then `send()` |
+| `className` | `string`                    | none    | appended to `ck-agent-next-steps`           |
+
+## States
+
+| story                            | what it shows                                              |
+| -------------------------------- | ---------------------------------------------------------- |
+| `NextSteps`, `Dark`, `Wide`      | the four chips; they wrap at 320px                         |
+| `SendsOnce`                      | one pick sends; the row then waits, every chip unavailable |
+| `ByKeyboard`                     | Tab between chips, Enter or Space sends                    |
+| `RightToLeft`, `RightToLeftDark` | Arabic                                                     |
+
+After a pick the chosen chip keeps Mist and Indigo deep, the others step back (`aria-disabled`),
+until the request's own turn takes the row away. A double click sends once.
+
+## Accessibility
+
+- A list named «خطوات تالية» / "Next steps" of `type="button"` chips; each is its own tab stop.
+- Each chip is described by «يرسل هذا طلبًا تاليًا» / "Sends this as your next request": unlike a
+  suggestion, choosing it sends.
+- After a pick every chip is `aria-disabled`, still focusable, so focus is never lost.
+- 32px tall, 44 on a coarse pointer; a focus ring on `:focus-visible`; outlines in forced colours.
+
+## RTL, theme and content
+
+The row starts at the inline start, so at the right in Arabic. Chips wrap, never truncate. Colours
+are tokens only, and never Indigo at rest: a next step is an offer, not the panel's primary action.
+
+## Composition
+
+```tsx
+<FollowUpChips
+  locale={locale}
+  onSend={(request) => {
+    actions.setDraft(request);
+    actions.send();
+  }}
+/>
+```
+
+## Known limitations
+
+- A chip sends through the composer's draft (`setDraft` then `send`), the same path a typed request
+  takes. TurnView hides the row while the composer holds words, so a draft is never replaced.
+- A canvas selection still scopes the request, as it would a typed one.

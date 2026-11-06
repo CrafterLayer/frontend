@@ -710,6 +710,48 @@ runtime dependency beyond d3-path. Notes from reading the code:
 - d3-shape's line and arc draw into a path context of our own, so d3-path's `Path` (string
   output) is bundled but never called.
 
+## Studio children's libraries — Fluent Emoji Flat, Kenney Animal Pack Remastered, q-floodfill (2026-11-05)
+
+**Installed or downloaded, not vendored**, into `@craftkit/builder-media-engines` only, on the
+owner's request (in Arabic) for libraries that make children's stories and drawings much stronger;
+the primary vetted each one first. Bundled into the lazy assets `assets/ck-lib-stickers.js`
+(generated `packages/builder/renderer/src/engines/studio/stickers-source.ts`, 268.4 kB gzip,
+budget 280.5 kB), `assets/ck-lib-animals.js` (`animals-source.ts`, 166.7 kB, budget 171.2 kB) and
+`assets/ck-lib-paint.js` (`paint-source.ts`, 11.3 kB, budget 11.9 kB), shipped only on pages whose
+code names `stickers`, `animals` or `paint`. `assets/ck-lib-layout.js` (`layout-source.ts`, 3.4 kB)
+is first-party. No asset evaluates code, fetches or bundles Pixi; all art is a `data:` URL, so it
+works under the unreviewed preview's `img-src data: blob:` policy.
+
+| Source                          | Version | Licence                                             | Asset                |
+| ------------------------------- | ------- | --------------------------------------------------- | -------------------- |
+| @iconify-json/fluent-emoji-flat | 1.2.5   | MIT (c) Microsoft Corporation (496 icons)           | `ck-lib-stickers.js` |
+| Kenney Animal Pack Remastered   | zip     | **CC0 1.0** (art; Kenney's "Creative Commons Zero") | `ck-lib-animals.js`  |
+| q-floodfill                     | 1.3.1   | MIT (c) 2020 Pavel Kukov                            | `ck-lib-paint.js`    |
+| perfect-freehand                | 1.2.3   | MIT (already listed for `brush`)                    | `ck-lib-paint.js`    |
+
+Read on 2026-11-05:
+
+- **Fluent Emoji Flat** is a build-time input (devDependency): `scripts/build-stickers-data.mjs`
+  copies 496 curated icon bodies unmodified into
+  `src/studio/libs/stickers/stickers.generated.ts`; the package never ships. Its tarball has **no
+  LICENSE file** (package.json and info.json declare MIT), so Microsoft's text, fetched verbatim
+  from microsoft/fluentui-emoji `main/LICENSE`, is kept in
+  `packages/builder/extensions/media-engines/vendor/fluent-emoji-flat/LICENSE` with a
+  `PROVENANCE.json`, and the build carries it into the asset's banner. 1.2.5 was published
+  2025-08-11 (1.2.6 is weeks old).
+- **Animal Pack Remastered** (the old Animal Pack Redux) is not an npm package: the zip
+  (3,600,298 bytes, sha256 `25c51ae89d0af358d60b75cfcebb76a72e9cb20e38453d90f0dfddd29234069a`) was
+  downloaded through kenney.nl's signed link and unzipped as data outside the repo, never
+  committed. `scripts/build-animal-atlas.mjs` refuses to run unless its `License.txt` reads CC0,
+  redraws 29 round heads (the pig left out by the owner's decision) from the pack's `Vector/round.svg` at 2.25x (each checked against
+  Kenney's PNG) and packs them as one lossless WebP. LICENSE and PROVENANCE.json sit in
+  `vendor/kenney-animal-pack-remastered/`. Credit is not required; `s.lib.animals.credit` gives it.
+- **q-floodfill** ships `LICENSE.txt` (MIT) and a dependency-free `dist/index.bundle.esm.js`; 1.3.1
+  was published 2022-05-13. `s.lib.paint` patches its pixel reader so line-art pixels read as a
+  wall, which keeps fills inside the lines.
+- **@pixi/layout stays not admitted** (row above): `s.lib.layout` is a first-party flexbox with no
+  WebAssembly and no prototype patching that stands in for it.
+
 ## Media idea sources (logic only, no file copied)
 
 Read for technique only; the behaviours in `packages/builder/renderer/src/behaviors/packs/` are

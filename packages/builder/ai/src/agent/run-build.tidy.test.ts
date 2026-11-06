@@ -251,7 +251,8 @@ describe('runAiBuild — what code can fix never costs a repair round', () => {
       clock: { now: () => 1 },
       kernel: live,
       provider: script.provider,
-      request: 'Build a page for Hadid Build, a construction firm in Amman',
+      // 53617867 made fresh requests bespoke by default (free colours, no chrome); this tests the template lane's tidy, so it opts in.
+      request: 'Build a page for Hadid Build, a construction firm in Amman using existing templates',
       validationPorts: { clock: { now: () => 1 }, ids: seededIds('tidy-build-door') },
       skillRegistry: createCraftkitAiSkillRegistry(),
     });

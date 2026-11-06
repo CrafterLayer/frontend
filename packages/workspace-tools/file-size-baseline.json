@@ -48,7 +48,6 @@
     "apps/playground/src/features/preview/create-playground-kernel.ts": 776,
     "apps/playground/src/features/preview/landing-copy.ts": 599,
     "apps/playground/src/features/preview/source-agent-session.ts": 657,
-    "apps/playground/src/features/vault/run-journal.ts": 791,
     "packages/builder/ai/src/agent/page-plan/check-section.test.ts": 1629,
     "packages/builder/ai/src/agent/page-plan/check-section.ts": 1903,
     "packages/builder/ai/src/agent/page-plan/compact-plan.ts": 517,

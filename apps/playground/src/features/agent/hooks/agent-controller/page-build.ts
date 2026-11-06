@@ -26,6 +26,7 @@ import { reduceRunTelemetry } from '../../model/run-telemetry';
 import { sectionValues } from '../../model/successor-fill';
 import type { BuildTurn, PagePlanTurn, Turn } from '../../model/turns';
 
+import { openBuildJournal } from './build-journal';
 import { type BuildPlan, failBuild, settleBuild } from './build-settle';
 import type { Flow } from './controller-state';
 import { followKernel, pageIdOfKernel } from './kernel-follow';
@@ -145,6 +146,18 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
     if (pageId !== undefined) patchBuild((turn) => ({ ...turn, pageId }));
   };
   notePage();
+  /*
+    What this build DID, kept in the vault's run journal as it happens (2026-11-06): the
+    outline, each landing with its label, and why it ended. A tab that dies mid-build leaves
+    it with no end mark, which a reload reads as interrupted (`build-journal.ts`).
+  */
+  const journal = openBuildJournal(flow, {
+    runId,
+    turnId,
+    pageId,
+    request,
+    before: documentBefore,
+  });
 
   /*
     The ONE approval, on the list. Asked before anything is written: the build turn
@@ -166,6 +179,8 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
         if (flow.runtime.approvals.get(turnId) !== settle) return;
         flow.runtime.approvals.delete(turnId);
         hold(false);
+        // Discard at the card, not Stop in the composer: a plan refused, not work unfinished.
+        if (answer === 'stop' && !slot.controller.signal.aborted) journal.declined();
         // The card inked back into a build (plan-card-actions.ts): it names its page again.
         const title = page.site?.title;
         if (title !== undefined) patchBuild((turn) => ({ ...turn, page: title }));
@@ -188,6 +203,7 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
     });
 
   const onEvent = (event: AiBuildEvent): void => {
+    journal.event(event);
     env.mood.onEvent(event);
     if (event.type.startsWith('build.') || event.type.startsWith('task.')) {
       env.options.onBuildEvent?.(event as AiBuildOwnEvent);
@@ -204,6 +220,13 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
       setRun(flow, slot, { activity: 'build', awaiting: false });
       say(flow, 'build.planned', { n: event.tasks.length });
     }
+    /*
+      Every build event moves the record through ONE reducer. `build.outline` lists the
+      sections the streamed plan names while the canvas is still empty (planned rows, no
+      region yet); `build.planned` replaces them with the regions' rows; each
+      `task.completed` inks one — on a streamed build as soon as that section is safe to
+      land, before the whole plan is in (run-build.ts, the early lander).
+    */
     patchBuild((turn) => {
       const progress = reduceBuildProgress(turn.progress, event);
       const step = event.runId.slice(runId.length + 1);
@@ -260,11 +283,14 @@ export async function buildPage(flow: Flow, slot: Slot, page: PageBuild): Promis
       ...sceneProbeOptions(flow.env().options.freeCode),
     };
     const result = await runAiBuild(buildOptions);
+    journal.settled(result);
     settleBuild(flow, slot, turnId, page.anchor, kernel, result, plan, {
       logBefore,
       documentBefore,
     });
   } catch (cause: unknown) {
+    // Stop while the plan streams rethrows the abort: sections that landed early stay recorded.
+    journal.ended(cause, slot.controller.signal.aborted);
     failBuild(flow, slot, turnId, page.anchor, request, cause, landed);
   } finally {
     flow.runtime.approvals.delete(turnId);

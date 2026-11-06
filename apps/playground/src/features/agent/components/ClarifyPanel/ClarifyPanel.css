@@ -295,7 +295,11 @@
   }
 }
 
-/* ── Send as written (secondary), Cancel (ghost) ───────────────────────────── */
+/*
+  ── Build now (primary), Send as written (secondary), Skip and Cancel (ghost) ──
+  Build now is the one Indigo control in the panel: the questions are a courtesy, and the
+  way past them is the clearest thing on it (first-build research, 2026-11).
+*/
 
 .ck-agent-clarify__actions {
   display: flex;
@@ -305,6 +309,8 @@
 }
 
 .ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-clarify__build[data-bldr-chrome-button][data-variant][data-size],
+.ck-agent-clarify__skip[data-bldr-chrome-button][data-variant][data-size],
 .ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size] {
   block-size: var(--ck-agent-target, var(--bldr-control-md));
   padding-inline: var(--bldr-space-xl);
@@ -321,6 +327,24 @@
   color: var(--bldr-panel-text);
 }
 
+.ck-agent-clarify__build[data-bldr-chrome-button][data-variant][data-size] {
+  border-color: var(--bldr-accent);
+  background-color: var(--bldr-accent);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-clarify__build[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
+  border-color: var(--bldr-accent-strong);
+  background-color: var(--bldr-accent-strong);
+  color: var(--bldr-accent-text);
+}
+
+.ck-agent-clarify__build[data-bldr-chrome-button][data-variant][data-size]:focus-visible {
+  outline: var(--bldr-focus-ring-width) solid var(--bldr-focus-ring);
+  outline-offset: var(--bldr-focus-ring-offset);
+}
+
+.ck-agent-clarify__skip[data-bldr-chrome-button][data-variant][data-size],
 .ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size] {
   padding-inline: var(--bldr-space-md);
   border-color: transparent;
@@ -329,12 +353,14 @@
 }
 
 .ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
+.ck-agent-clarify__skip[data-bldr-chrome-button][data-variant][data-size]:enabled:hover,
 .ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size]:enabled:hover {
   background-color: var(--bldr-surface-hover);
   color: var(--bldr-panel-text);
 }
 
 .ck-agent-clarify__send[data-bldr-chrome-button][data-variant][data-size]:enabled:active,
+.ck-agent-clarify__skip[data-bldr-chrome-button][data-variant][data-size]:enabled:active,
 .ck-agent-clarify__cancel[data-bldr-chrome-button][data-variant][data-size]:enabled:active {
   background-color: var(--bldr-surface-active);
   transition-duration: var(--bldr-duration-press);
@@ -379,5 +405,9 @@
 
   .ck-agent-clarify__working {
     color: CanvasText;
+  }
+
+  .ck-agent-clarify__build[data-bldr-chrome-button][data-variant][data-size] {
+    border-color: ButtonText;
   }
 }

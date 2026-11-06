@@ -3,7 +3,12 @@
  * controller hook reads: the turns and their history, the RunBar, the composer's chips,
  * mention and suggestions, the face, the clarify panel and the menus.
  */
-import { summarizeDocumentForIntent, type BuilderDocument, type NodeId } from '@craftkit/builder';
+import {
+  isBuildIntent,
+  summarizeDocumentForIntent,
+  type BuilderDocument,
+  type NodeId,
+} from '@craftkit/builder';
 import { useEffect, useMemo } from 'react';
 
 import type { UseAgentMoodResult } from '../../../preview/components/AgentFace';
@@ -278,6 +283,7 @@ export function useAgentViewState(inputs: AgentViewInputs): AgentViewState {
             understood: uiState.clarify.understood,
             questions: uiState.clarify.questions,
             status: uiState.clarify.status,
+            builds: isBuildIntent(uiState.clarify.route),
           },
     [uiState.clarify],
   );

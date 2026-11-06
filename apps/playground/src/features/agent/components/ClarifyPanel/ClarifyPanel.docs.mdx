@@ -15,8 +15,21 @@ questions, docked on top of the composer, instead of running the request as it r
 
 The owner's own request («هل يمكنك تربط ال صفحه هاي داخل عليها») was taken literally. Now the agent
 says what it understood, asks what it must know (which page, where, how it looks), and offers the
-likely answers as chips. "Send as written" skips the questions; Cancel puts the request back in the
-box, unsent.
+likely answers as chips, at most three questions and each with chips (`clarifyQuestionsOf`). A
+confident, clear request is never asked (`needsClarifying`): the panel is for the unsure ones.
+
+Every question is skippable, and the questions never stand between the person and a build (the
+first-build research: Wix's Skip and "End chat & continue", dyad's few questions only when
+ambiguous):
+
+- **Skip** («تخطَّ») answers the question on screen with «اختر أنت الأنسب» / "Your call", so the
+  rewrite fills it with a sensible default. Skipping the last open question when nothing was
+  answered for real runs the request as written.
+- **Build now** («ابنِ مباشرة»), on a request routed to a build (`clarify.builds`), skips every
+  question left. With nothing answered for real it runs the request as written (no rewrite round
+  trip); with some answers, the rest become "Your call" and the answers are kept in the rewrite.
+- Any other request keeps **Send as written** («إرسال الطلب كما هو»).
+- **Cancel** puts the request back in the box, unsent.
 
 ## Props
 
@@ -25,7 +38,7 @@ box, unsent.
 | `locale`          | `Locale`                                      | none    |                                           |
 | `clarify`         | `ClarifyView`                                 | none    | `asking` or `rewriting`                   |
 | `onAnswer`        | `(questionId: string, answer: string) => void`| none    | a chip, or a typed answer                 |
-| `onSendAsWritten` | `() => void`                                  | none    |                                           |
+| `onSendAsWritten` | `() => void`                                  | none    | Send as written; Build now / Skip with no real answer |
 | `onDismiss`       | `() => void`                                  | none    |                                           |
 | `className`       | `string`                                      | none    | appended to `ck-agent-clarify`            |
 
@@ -40,6 +53,8 @@ box, unsent.
 | `OtherAnswer`                                          | the person's own answer                          |
 | `ByKeyboard`, `ByKeyboardRightToLeft`                  | arrows in the reading direction; Space picks     |
 | `WaysOut`                                              | Send as written, Cancel                          |
+| `BuildNow`, `BuildNowRightToLeft`                      | a build: «ابنِ مباشرة» / Build now, Skip         |
+| `SkipQuestion`                                         | Skip leaves a question to the agent              |
 | `AskingRightToLeft`, `OneQuestionRightToLeft`          | Arabic                                           |
 
 ## Anatomy
@@ -48,8 +63,9 @@ The composer's first section, over a Hairline. It reads like a decision card's h
 diamond (RunGlyph `decision`) on the glyph column, the title in Heading type, "1 of 3" in Figure
 Slate at the inline end, and every line under it on the record's text column, 24px in. One question
 at a time, so the panel stays short in a 320px column. Choices are chips: Tint and Graphite at rest,
-Mist and Indigo deep with a check once chosen, 32px tall (44 on a coarse pointer). Send as written is
-the secondary button (Rule border), Cancel a ghost.
+Mist and Indigo deep with a check once chosen, 32px tall (44 on a coarse pointer). Build now is the
+one Indigo (primary) button; Send as written is the secondary button (Rule border); Skip and Cancel
+are ghosts. While the answers rewrite the request, Build now and Skip are gone.
 
 ## Accessibility
 
@@ -60,6 +76,10 @@ the secondary button (Rule border), Cancel a ghost.
 - Focus moves to the first chip when it opens, to the next question after each answer, and to the
   working line while rewriting; the Composer returns it to the textarea when the panel goes.
 - Other opens a field described by its question; Enter sends the answer, Esc returns to the chips.
+- Build now is described by «يتخطّى بقية الأسئلة ويبني بخيارات مناسبة» / "Skips the remaining
+  questions and builds with sensible defaults"; Skip is described by the question it skips. Both
+  are ordinary tab stops after the radio group; a skip moves focus to the next question's chips.
+- A skipped question, revisited, checks no chip: "Your call" is not one of its answers.
 
 ## RTL
 

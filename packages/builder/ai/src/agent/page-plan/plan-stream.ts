@@ -22,7 +22,8 @@
 
   Single pass, O(total length): each character is looked at once, the scan
   position is kept between pushes, and earlier text is only re-read when a
-  unit closes (one slice for the head, one per brief).
+  unit closes (one slice for the head, one per brief, and one per outline
+  entry when a reader asks for them).
 */
 
 export type PlanStreamEvent =
@@ -39,7 +40,25 @@ export type PlanStreamEvent =
       readonly index: number;
       /** One closed element of `pagePlan.briefs`. */
       readonly brief: Readonly<Record<string, unknown>>;
+    }
+  | {
+      /** Only from a reader created with `{ sections: true }`. */
+      readonly kind: 'section';
+      /** The element's position in `pagePlan.sections`, counting every element. */
+      readonly index: number;
+      /** One closed element of `pagePlan.sections`: an outline entry, before the outline closes. */
+      readonly section: Readonly<Record<string, unknown>>;
     };
+
+export interface PlanStreamReaderOptions {
+  /**
+   * Also emit each entry of the outline as it closes (`section`), ahead of the `head`
+   * its array closes into — so a host can name the sections while the outline is still
+   * being written (2026-11-05). Off by default: the events of a reader without it are
+   * exactly what they always were.
+   */
+  readonly sections?: boolean;
+}
 
 export interface PlanStreamReader {
   /** Feed the next text; returns the events it completed, in order. */
@@ -103,11 +122,14 @@ const WRAPPER_KEYS: ReadonlySet<string> = new Set(['version', 'rationale']);
  * - `head` fires once, when the `sections` array of `pagePlan` closes — or
  *   of the top-level object, when the model forgot the wrapper.
  * - `brief` fires per closed element of `pagePlan.briefs`, with its index.
+ * - `section` (only with `{ sections: true }`) fires per closed element of
+ *   the outline, before its `head`.
  * - A slice that does not parse emits nothing: that unit waits for the final
  *   plan. Reading continues with the next one.
  * - After the top-level object closes, further text is ignored.
  */
-export function createPlanStreamReader(): PlanStreamReader {
+export function createPlanStreamReader(options: PlanStreamReaderOptions = {}): PlanStreamReader {
+  const withSections = options.sections === true;
   // The kept text, from the first `{`, as chunks joined only when a unit closes.
   let parts: string[] = [];
   let length = 0;
@@ -198,6 +220,19 @@ export function createPlanStreamReader(): PlanStreamReader {
     if (parent === undefined) {
       finished = true;
       return;
+    }
+    if (
+      withSections &&
+      !headDone &&
+      frame.type === 'object' &&
+      parent.type === 'array' &&
+      parent.key === 'sections' &&
+      isPlanFrame(parent.parent)
+    ) {
+      const section = parseSlice(text().slice(frame.start, offset + 1));
+      if (isPlainRecord(section)) {
+        events.push({ kind: 'section', index: parent.elementIndex, section });
+      }
     }
     if (
       !headDone &&

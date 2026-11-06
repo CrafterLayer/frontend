@@ -242,7 +242,13 @@ export function AgentPanel({
   };
 
   const renderTurn = (turn: TurnViewData) => (
-    <TurnView locale={locale} turn={turn} actions={controller} composer={() => inputRef.current} />
+    <TurnView
+      locale={locale}
+      turn={turn}
+      actions={controller}
+      composer={() => inputRef.current}
+      hideFollowUps={run !== null || draft.trim() !== ''}
+    />
   );
 
   const awaitingPlan = turns.some(

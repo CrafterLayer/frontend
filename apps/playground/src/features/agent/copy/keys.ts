@@ -33,13 +33,17 @@ import type {
 } from '../model/view-types';
 
 import type { PluralCategory } from './format';
+import { BUILD_RECOVERY_KEYS } from './build-recovery-copy';
 import { EDIT_RESULT_KEYS } from './edit-results';
+import { FIRST_BUILD_KEYS } from './first-build-copy';
 import { FOLLOWUP_KEYS } from './followup-copy';
 export { ERROR_CAUSE_KEY } from './followup-copy';
 
 /** Every catalog key, grouped by the SPEC section that owns it. */
 export const KEYS = [
   ...FOLLOWUP_KEYS,
+  ...FIRST_BUILD_KEYS,
+  ...BUILD_RECOVERY_KEYS,
   // §4.2 AgentHeader and the phone sheet's header
   'header.name',
   'header.conversations',

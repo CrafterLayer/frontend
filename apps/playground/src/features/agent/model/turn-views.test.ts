@@ -284,3 +284,82 @@ describe('withPendingRequest', () => {
     expect(withPendingRequest(turns, null, document)).toBe(turns);
   });
 });
+
+describe('next steps after a first build (BuildRecordView.nextSteps)', () => {
+  const request: Turn = { id: 'turn-1', kind: 'user', text: 'a page', context: [{ kind: 'page' }] };
+  const nextSteps = (views: ReturnType<typeof turnViewsOf>) =>
+    views.map((view) => (view.kind === 'build' ? view.view.nextSteps === true : false));
+
+  /** A page holding only what the build wrote, plus `extra` top-level blocks it did not. */
+  function pageWith(extra: readonly string[] = []) {
+    const document = createEditKernel().getDocument();
+    const root = document.nodes[document.rootId];
+    if (root === undefined) throw new Error('no root');
+    return {
+      ...document,
+      nodes: {
+        ...document.nodes,
+        [document.rootId]: { ...root, slots: { default: ['selected-hero', ...extra] } },
+        ...Object.fromEntries(
+          extra.map((id) => [id, { id, type: 'hero', props: { heading: 'Kept' } }]),
+        ),
+      },
+    };
+  }
+
+  it('offers them on the newest turn, a finished build that wrote the whole page', () => {
+    expect(nextSteps(turnViewsOf([request, builtWith({ tree: '' })], context()))).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('offers none once a newer turn follows: they show once, on the latest build only', () => {
+    const turns: Turn[] = [
+      request,
+      builtWith({ tree: '' }),
+      { id: 'turn-3', kind: 'user', text: 'Change the page colours', context: [] },
+    ];
+    expect(nextSteps(turnViewsOf(turns, context()))).toEqual([false, false, false]);
+  });
+
+  it('offers none while the build runs, nor after it stopped, failed or was undone', () => {
+    const built = builtWith({ tree: '' });
+    for (const turn of [
+      { ...built, status: 'running' as const },
+      { ...built, status: 'failed' as const },
+      { ...built, undone: true as const },
+      { ...built, revived: true as const },
+    ]) {
+      expect(nextSteps(turnViewsOf([request, turn], context()))).toEqual([false, false]);
+    }
+  });
+
+  it('offers none on a page that held something before the build', () => {
+    const views = turnViewsOf(
+      [request, builtWith({ tree: '' })],
+      context({ document: pageWith(['kept-by-hand']) }),
+    );
+    expect(nextSteps(views)).toEqual([false, false]);
+  });
+
+  it('offers none on a page of a site build, or on a game or story scene', () => {
+    const built = builtWith({ tree: '' });
+    for (const turn of [
+      { ...built, page: 'About' },
+      { ...built, creative: true as const },
+    ]) {
+      expect(nextSteps(turnViewsOf([request, turn], context()))).toEqual([false, false]);
+    }
+  });
+
+  it('takes them away while the clarify panel holds the next request', () => {
+    const views = turnViewsOf([request, builtWith({ tree: '' })], context());
+    const shown = withPendingRequest(
+      views,
+      { request: 'Add a pricing section', context: [{ kind: 'page' }] },
+      createEditKernel().getDocument(),
+    );
+    expect(nextSteps(shown)).toEqual([false, false, false]);
+  });
+});

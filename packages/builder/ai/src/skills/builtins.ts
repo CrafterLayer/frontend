@@ -11,6 +11,8 @@ import { MOTION_SKILL } from './motion';
 import { createAiSkillRegistry } from './registry';
 import { CREATIVE_ENGINE_SKILLS } from './creative/creative-engines';
 import { PIXI_CREATIVE_SKILLS } from './creative/pixi-creative';
+import { PEEK_CHARACTERS_SKILL } from './creative/peek-characters';
+import { PIXI_KIDS_SKILL } from './creative/pixi-kids';
 import { SECTION_VARIANTS_SKILL } from './section-variants';
 import type { AiSkillDefinitionV1, AiSkillRegistry } from './types';
 // design-code additions (2026-09-28)
@@ -1124,6 +1126,10 @@ export const CRAFTKIT_AI_SKILL_DEFINITIONS: readonly AiSkillDefinitionV1[] = Obj
   ...PIXI_CREATIVE_SKILLS.map(builtin),
   // creative agent (2026-10-12): director, animation, effects, dialogue/Ink and tile worlds; priority 44.
   ...CREATIVE_ENGINE_SKILLS.map(builtin),
+  // peeking characters (2026-11-05): Pixi anim.peek and the SVG + CSS head; priority 44.
+  builtin(PEEK_CHARACTERS_SKILL),
+  // children's stories and drawings (2026-11-05): stickers, animals, colouring, layout; 44.
+  builtin(PIXI_KIDS_SKILL),
   // pixi-skills additions (2026-10-10): priorities 43-41, between scroll-cinematic and accessibility.
   PIXI_V8_CORE,
   PIXI_V8_GRAPHICS,

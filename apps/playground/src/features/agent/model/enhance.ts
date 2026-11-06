@@ -6,6 +6,8 @@ import {
   type IntentRoute,
 } from '@craftkit/builder';
 
+import { t } from '../copy';
+
 import type { ClarifyQuestionView, ErrorClass, FailureClass, Locale } from './view-types';
 
 /**
@@ -200,13 +202,23 @@ export function isUnsureBuild(route: Pick<IntentRoute, 'kind' | 'confidence'>): 
   return builds && route.confidence <= CLARIFY_BELOW_CONFIDENCE;
 }
 
-/** The questions as the ClarifyView docks them, none answered yet. */
+/**
+ * The questions as the ClarifyView docks them, none answered yet: at most three, each with
+ * at least one chip and at most four (`readEnhanceResult` already reads a model's answer
+ * so; this holds for any port, a scripted one included). A question the person could only
+ * answer by typing is not asked: a few questions before a build stay quick to answer.
+ */
 export function clarifyQuestionsOf(result: EnhanceResult): readonly ClarifyQuestionView[] {
-  return result.questions.map((question) => ({
-    id: question.id,
-    text: question.text,
-    choices: question.choices,
-  }));
+  return result.questions
+    .flatMap((question) => {
+      const choices = [...new Set(question.choices.map((choice) => choice.trim()))]
+        .filter((choice) => choice !== '')
+        .slice(0, MAX_CLARIFY_CHOICES);
+      return question.text.trim() === '' || choices.length === 0
+        ? []
+        : [{ id: question.id, text: question.text, choices }];
+    })
+    .slice(0, MAX_CLARIFY_QUESTIONS);
 }
 
 /** The answers of every answered question, in the order they were asked. */
@@ -218,16 +230,25 @@ export function answersOf(questions: readonly ClarifyQuestionView[]): readonly E
   );
 }
 
+/** A skipped question's answer (ClarifyPanel's Skip and Build now), in either locale. */
+const SKIPPED_ANSWERS: ReadonlySet<string> = new Set([
+  t('ar', 'clarify.skipped'),
+  t('en', 'clarify.skipped'),
+]);
+
 /**
  * The request to run when the rewrite itself failed after every question was answered:
  * the person's own words, then their own answers, one per line. Their words and their
- * choices, never a sentence the panel wrote for them.
+ * choices, never a sentence the panel wrote for them; a skipped question («اختر أنت
+ * الأنسب» / "Your call") adds no line, it was left to a default.
  */
 export function requestWithAnswers(
   request: string,
   questions: readonly ClarifyQuestionView[],
 ): string {
-  const answers = answersOf(questions).map((entry) => entry.answer);
+  const answers = answersOf(questions)
+    .map((entry) => entry.answer)
+    .filter((answer) => !SKIPPED_ANSWERS.has(answer));
   return [request.trim(), ...answers].join('\n');
 }
 

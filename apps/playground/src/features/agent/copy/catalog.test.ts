@@ -516,6 +516,11 @@ describe('zero, in every sentence that counts a noun', () => {
     'impact.added': ['لم يُضف أي عنصر', 'No blocks added'],
     'impact.changed': ['لم يُعدَّل أي عنصر', 'No blocks changed'],
     'impact.removed': ['لم يُحذف أي عنصر', 'No blocks removed'],
+    // Unreachable: a build with no sections is an ending, never a recovery offer.
+    'recovery.title': [
+      'انقطع البناء قبل أن يُكتب أي قسم',
+      'The build stopped before any section was written',
+    ],
   };
 
   it('reads every noun key at zero', () => {

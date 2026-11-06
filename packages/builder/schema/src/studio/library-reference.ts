@@ -112,8 +112,8 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     key: 'anim',
     pixiBound: false,
     purpose: {
-      en: 'Tweens, timelines, springs, shake, sprite-sheet states and procedural character rigs (idle, walk, run, jump, wave, talk, celebrate, hurt, think).',
-      ar: 'تحريك وتسلسلات زمنية ونوابض واهتزاز وحالات صور متتابعة وهياكل شخصيات إجرائية (وقوف، مشي، ركض، قفز، تلويح، كلام، احتفال، ألم، تفكير).',
+      en: 'Tweens, timelines, springs, shake, sprite-sheet states, procedural character rigs (idle, walk, run, jump, wave, talk, celebrate, hurt, think) and characters that peek over an edge.',
+      ar: 'تحريك وتسلسلات زمنية ونوابض واهتزاز وحالات صور متتابعة وهياكل شخصيات إجرائية (وقوف، مشي، ركض، قفز، تلويح، كلام، احتفال، ألم، تفكير) وشخصيات تطلّ من فوق حافة.',
     },
     api: [
       'const anim = s.lib.anim.create({ reducedMotion: s.reducedMotion })',
@@ -127,6 +127,8 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
       'anim.sprite(sprite, { states: { idle: { frames, fps } } })',
       'anim.spring(target, "x").to(value)',
       'anim.shake(container, { intensity })',
+      // peeking characters (2026-11-05).
+      "anim.peek(s, { x, y, size: 120, side: 'top', mode: 'loop', character: { ears: 'cat', fur, face, eyes } }) → s.world.addChild(p.view)",
     ],
     source: 'first-party',
     since: CREATIVE,
@@ -405,6 +407,86 @@ export const CK_LIBRARY_REFERENCE: readonly CkLibraryEntry[] = [
     ],
     source: 'first-party',
     since: '2026-10-14',
+  },
+  // children's stories and drawings (2026-11-05): pictures, animals, colouring and page layout.
+  {
+    key: 'stickers',
+    pixiBound: false,
+    purpose: {
+      en: "A bundled picture vocabulary for children's stories and games: hundreds of Microsoft Fluent Emoji Flat illustrations (animals, nature, weather, food, vehicles, home, school, fantasy, everyday Arab life) found by English or Arabic name, as SVG, a crisp Pixi texture or an outlined colouring page; nothing is fetched.",
+      ar: 'مفردات صور مدمجة لقصص الأطفال وألعابهم: مئات رسومات Fluent Emoji Flat من مايكروسوفت (حيوانات وطبيعة وطقس وطعام ومركبات وبيت ومدرسة وخيال وحياة عربية يومية) يُعثر عليها بالاسم العربي أو الإنجليزي، كـ SVG أو خامة Pixi واضحة أو صفحة تلوين محددة الخطوط؛ دون أي تحميل من الشبكة.',
+    },
+    api: [
+      "const name = s.lib.stickers.find('دب' | 'bear'); const tex = await s.lib.stickers.texture(s, name, { size: 160 })",
+      "s.lib.stickers.search('fruit' | 'حيوانات', 12) / s.lib.stickers.names / s.lib.stickers.groups (animals nature sky food vehicles home clothes toys school music sports fantasy faces gestures people arab symbols) / s.lib.stickers.info(name)",
+      "s.lib.stickers.svg(name) / s.lib.stickers.dataUrl(name) / s.lib.stickers.lineArt(name) — an outlined colouring page for s.lib.paint",
+    ],
+    source: '@iconify-json/fluent-emoji-flat',
+    since: '2026-11-05',
+  },
+  {
+    key: 'animals',
+    pixiBound: false,
+    purpose: {
+      en: "A consistent cast of 29 cute round animal heads for children's stories and games (Kenney's Animal Pack Remastered, CC0) from one bundled atlas, found by English or Arabic name: bear, buffalo, chick, chicken, cow, crocodile, dog, duck, elephant, frog, giraffe, goat, gorilla, hippo, horse, monkey, moose, narwhal, owl, panda, parrot, penguin, rabbit, rhino, sloth, snake, walrus, whale, zebra (no camel, sheep or cat: draw those or use s.lib.stickers); a sprite, or a texture for an anim.rig head or an anim.peek face.",
+      ar: 'شخصيات حيوانات لطيفة متناسقة لقصص الأطفال وألعابهم (حزمة حيوانات Kenney، ملكية عامة CC0) من أطلس صور مدمج، يُعثر عليها بالاسم العربي أو الإنجليزي؛ كصورة جاهزة أو خامة لرأس شخصية في anim.rig أو وجه يطل في anim.peek.',
+    },
+    api: [
+      "const panda = await s.lib.animals.sprite(s, s.lib.animals.find('باندا'), { size: 180, x, y }); s.world.addChild(panda)",
+      "const tex = await s.lib.animals.texture(s, 'penguin') — anim.peek(s, { x, y, size: 120, texture: tex }) / anim.rig({ root, head: await s.lib.animals.sprite(s, 'bear', { size: 120 }) })",
+      's.lib.animals.names / s.lib.animals.find(word) / s.lib.animals.textures(s, names)',
+    ],
+    source: 'Kenney Animal Pack Remastered (art, CC0 1.0)',
+    since: '2026-11-05',
+  },
+  {
+    key: 'paint',
+    pixiBound: false,
+    purpose: {
+      en: "A children's colouring book: line art (often s.lib.stickers.lineArt) on a page a finger can fill by tapping, brush or erase, bounded by the lines, with kid palettes, undo/redo, clear, save as PNG and accessible DOM swatches.",
+      ar: 'كتاب تلوين للأطفال: رسم بالخطوط (غالبًا s.lib.stickers.lineArt) على صفحة يملؤها الإصبع بالنقر أو يرسم عليها بالفرشاة أو يمسح، ولا يتجاوز اللون الخطوط، مع ألوان للأطفال وتراجع وإعادة ومسح وحفظ صورة PNG وأزرار ألوان سهلة الوصول.',
+    },
+    api: [
+      "const page = await s.lib.paint.page(s, { art: s.lib.stickers.lineArt('cat'), width, height, palette: 'bright' }); s.world.addChild(page.view)",
+      "page.tool = 'fill' | 'brush' | 'eraser'; page.color = '#e53935'; page.size = 18",
+      "page.undo() / page.redo() / page.clear() / page.toDataURL() / page.on('change', fn) / page.dispose()",
+      's.lib.paint.swatches(ck.root, page) — [data-paint-color] [data-paint-tool] [data-paint-action=undo|redo|clear]',
+      "s.lib.paint.palette('bright' | 'pastel' | 'earth' | 'skin' | 'ocean' | 'garden' | 'night') / s.lib.paint.palettes",
+    ],
+    source: 'q-floodfill + perfect-freehand',
+    since: '2026-11-05',
+  },
+  {
+    key: 'layout',
+    pixiBound: false,
+    purpose: {
+      en: 'Flexbox for Pixi without WebAssembly: rows and columns with gap, padding, justify, align, wrap and grow, grids, contain/cover fitting and storybook spreads that adapt to portrait and landscape and mirror for RTL.',
+      ar: 'تخطيط مرن (flexbox) لـ Pixi دون WebAssembly: صفوف وأعمدة بفراغات وحشوة ومحاذاة والتفاف وتمدد، وشبكات، وملاءمة احتواء أو تغطية، وصفحات قصص مصورة تتكيف مع الوضع الطولي والعرضي وتنعكس للعربية.',
+    },
+    api: [
+      "s.lib.layout.flex(container, { direction: 'row', gap, padding, align, justify: 'between', wrap, width, height, rtl: s.rtl })",
+      "s.lib.layout.item(child, { grow: 1, alignSelf: 'center', margin })",
+      "const { picture, text } = s.lib.layout.page(width, height, { picture: 'auto' | 'top' | 'left' | 'right' | 'full', rtl: s.rtl })",
+      "s.lib.layout.fit(sprite, picture, 'contain' | 'cover') / s.lib.layout.grid(children, { columns: 3, gap })",
+    ],
+    source: 'first-party',
+    since: '2026-11-05',
+  },
+  {
+    key: 'creatures',
+    pixiBound: false,
+    purpose: {
+      en: "Original, professionally shaded cute fantasy characters invented from data: 15 kinds (dragon, unicorn, monster, dino, robot, alien, ghost, slime, griffin, fox, bunny, bear, star, mushroom, sea), 8 moods, parts and accessories; the same name always gives the same look and colours. Drawn as Pixi parts that anim.rig walks, jumps and waves, with blinking and secondary motion (wings, tails, floating), or as SVG for plain pages.",
+      ar: 'شخصيات خيالية لطيفة أصلية بتظليل احترافي تُخترع من وصف: 15 نوعًا (تنين، يونيكورن، وحش لطيف، ديناصور، روبوت، فضائي، شبح، كائن هلامي، غريفين، ثعلب، أرنب، دب، نجمة، فطر، كائن بحري) و8 مشاعر وأجزاء وإكسسوارات؛ والاسم نفسه يعطي الشكل والألوان نفسها دائمًا. تُرسم أجزاء Pixi يحركها anim.rig مشيًا وقفزًا وتلويحًا، مع رمش وحركة ثانوية (أجنحة وذيول وطفو)، أو SVG للصفحات العادية.',
+    },
+    api: [
+      "const a = s.lib.anim.create({ reducedMotion: s.reducedMotion }); const c = s.lib.creatures.create(s, { kind: 'dragon', name: 'Zahra', mood: 'shy', palette: { body: 'mint' } }, { size: 220, x, y, animator: a }) — feet at x, y; added to s.world",
+      "c.rig(a, { state: 'walk' | 'jump' | 'wave' | 'talk' | 'celebrate' | 'idle' }); c.face.set('happy' | 'calm' | 'surprised' | 'sad' | 'sleepy' | 'excited' | 'shy' | 'grumpy'); c.face.lookAt(x, y); c.dispose()",
+      "{ kind, name, mood, palette: { body, belly, accent, eyes, ink }, ears, horns, wings, tail, spikes, eyes, mouth, pattern, accessory, outline } — s.lib.creatures.parts lists every option",
+      "s.lib.creatures.svg(def, { size, mood }) / dataUrl(def, { size, mood }) / await texture(s, def, { size, mood }) / define(def) / random(seed) / kinds / moods",
+    ],
+    source: 'first-party',
+    since: '2026-11-05',
   },
 ];
 

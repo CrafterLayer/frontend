@@ -13,11 +13,15 @@
  * `(added)` marks a key a SPEC component needs whose copy no SPEC table prints.
  */
 import type { EnEntry, Key } from './keys';
+import { BUILD_RECOVERY_EN } from './build-recovery-copy';
 import { EDIT_RESULT_EN } from './edit-results';
+import { FIRST_BUILD_EN } from './first-build-copy';
 import { FOLLOWUP_EN } from './followup-copy';
 
 export const en = {
   ...FOLLOWUP_EN,
+  ...FIRST_BUILD_EN,
+  ...BUILD_RECOVERY_EN,
   /* §4.2 AgentHeader and the phone sheet */
   'header.name': 'Abu Ghadab',
   'header.conversations': 'Conversations',

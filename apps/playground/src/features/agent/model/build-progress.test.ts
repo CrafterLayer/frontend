@@ -145,6 +145,43 @@ describe('reduceBuildProgress: the skeleton and the list', () => {
     expect(withWriters(known, 5)).toBe(known);
   });
 
+  it('names the streamed outline before the skeleton, then gives way to the regions', () => {
+    const outline = (at: number, keys: readonly string[], briefed: readonly string[] = []) =>
+      event(at, {
+        type: 'build.outline',
+        sections: keys.map((key) => ({
+          key,
+          title: key.toUpperCase(),
+          briefed: briefed.includes(key),
+        })),
+      });
+    const first = feed(initialBuildProgress(BUILD, 500), [outline(600, ['header'])]);
+    expect(first.phase).toBe('scaffolding');
+    expect(first.tasks).toEqual([]);
+    expect(first.outline?.map(({ key, title }) => [key, title])).toEqual([['header', 'HEADER']]);
+    expect(first.lastEventAt).toBe(600);
+
+    const two = reduceBuildProgress(first, outline(650, ['header', 'hero']));
+    expect(two.outline?.map(({ key }) => key)).toEqual(['header', 'hero']);
+    // The same list again moves nothing: no render for a repeated event.
+    expect(reduceBuildProgress(two, outline(660, ['header', 'hero']))).toBe(two);
+
+    // The skeleton landed: the regions' rows replace the outline.
+    const listed = reduceBuildProgress(two, planned(700));
+    expect(listed.outline).toBeUndefined();
+    expect(listed.tasks).toHaveLength(TASKS.length);
+    // A brief closing after that is not read: the rows are the truth.
+    expect(reduceBuildProgress(listed, outline(710, ['header', 'hero'], ['hero']))).toBe(listed);
+
+    // A fallback to the scaffold build drops the streamed outline: it lays its own sections.
+    const fellBack = reduceBuildProgress(
+      two,
+      event(720, { type: 'build.scaffolding', fallback: { stage: 'plan', reasons: [] } }),
+    );
+    expect(fellBack.outline).toBeUndefined();
+    expect(reduceBuildProgress(two, event(730, { type: 'build.scaffolding' }))).toBe(two);
+  });
+
   it('records the fallback and shows nothing build-shaped after it', () => {
     const progress = feed(initialBuildProgress(BUILD, 500), [
       event(900, { type: 'build.skipped', reason: 'The page skeleton produced 1 section.' }),

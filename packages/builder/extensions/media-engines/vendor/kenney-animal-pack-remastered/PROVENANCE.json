@@ -1,0 +1,15 @@
+{
+  "name": "kenney-animal-pack-remastered",
+  "version": "1.0.0",
+  "license": "CC0-1.0",
+  "declaredInPackageJson": "none: not an npm package; License.txt in the zip reads \"License (Creative Commons Zero, CC0)\"",
+  "author": "Kenney Vleugels (www.kenney.nl)",
+  "upstream": "https://kenney.nl/assets/animal-pack-remastered (the old animal-pack-redux page redirects here)",
+  "installedFrom": "not installed: downloaded 2026-11-05 through the page's signed link https://kenney.nl/download-link/6173736574732f616e696d616c2d7061636b2d72656d61737465726564 and unzipped outside the repo; the zip is never committed",
+  "zipSha256": "25c51ae89d0af358d60b75cfcebb76a72e9cb20e38453d90f0dfddd29234069a",
+  "zipBytes": 3600298,
+  "verified": "2026-11-05: License.txt is Kenney's standard CC0 notice; scripts/build-animal-atlas.mjs refuses to run unless it says so. Version 1.0.0 is a CraftKit label: Kenney numbers no release.",
+  "files": ["Vector/round.svg", "PNG/Round/*.png (checked against, not shipped)", "License.txt"],
+  "adaptedInto": "packages/builder/extensions/media-engines/src/studio/libs/animals/atlas.generated.ts (scripts/build-animal-atlas.mjs)",
+  "note": "29 round heads (the pig is left out by the owner's decision) redrawn from the pack's own vector sheet at 2.25x, each matched against Kenney's PNG of the same animal, packed as one 256-colour lossless WebP (1860 x 1970). LICENSE here is Kenney's notice followed by the CC0 1.0 legal code it links to, so ck-lib-animals.js carries both in its banner."
+}

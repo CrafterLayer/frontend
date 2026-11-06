@@ -42,6 +42,7 @@ export type BuildRecordActions = Pick<
   | 'redoBuild'
   | 'retrySections'
   | 'finishRest'
+  | 'keepBuild'
   | 'removeEmpty'
   | 'tryAgain'
   | 'reveal'
@@ -105,6 +106,7 @@ export function BuildRecord({
   );
   const sectionsId = useId();
   const revivedId = useId();
+  const recoveryId = useId();
 
   // What this record witnessed, fixed when it mounted: a record read back from history, or
   // mounted already settled, never replays arrivals or landings.
@@ -151,12 +153,29 @@ export function BuildRecord({
       </p>,
     );
   }
-  const caption = captionOf(locale, view);
+  // Read back interrupted (2026-11-06): the offer to continue says the count in its own words.
+  const recovery = collapsedClosed ? undefined : view.recovery;
+  const caption = view.recovery === undefined ? captionOf(locale, view) : null;
   if (caption !== null) {
     lines.push(
       <p key="caption" className="ck-agent-build__caption">
         {caption}
       </p>,
+    );
+  }
+  if (recovery !== undefined) {
+    lines.push(
+      <div
+        key="recovery"
+        role="group"
+        aria-labelledby={recoveryId}
+        className="ck-agent-build__recovery"
+      >
+        <p id={recoveryId} className="ck-agent-build__recovery-title">
+          {t(locale, 'recovery.title', { done: recovery.landed, n: recovery.total })}
+        </p>
+        <p className="ck-agent-build__caption">{t(locale, 'recovery.body')}</p>
+      </div>,
     );
   }
   if (!collapsedClosed) {
@@ -268,7 +287,7 @@ export function BuildRecord({
         </RecordButton>,
       );
     }
-    if (a.retryFailed > 0) {
+    if (a.retryFailed > 0 && recovery === undefined) {
       buttons.push(
         <RecordButton
           key="retry-failed"
@@ -286,6 +305,7 @@ export function BuildRecord({
         </RecordButton>,
       );
     }
+    // Read back interrupted, Finish the rest is the offer's Continue; Keep dismisses the offer.
     if (a.finishRest > 0) {
       buttons.push(
         <RecordButton
@@ -296,7 +316,24 @@ export function BuildRecord({
             focusHead();
           }}
         >
-          {t(locale, 'footer.finishRest', { n: a.finishRest })}
+          {recovery === undefined
+            ? t(locale, 'footer.finishRest', { n: a.finishRest })
+            : t(locale, 'recovery.continue')}
+        </RecordButton>,
+      );
+    }
+    const keep = recovery === undefined ? undefined : actions.keepBuild;
+    if (keep !== undefined) {
+      buttons.push(
+        <RecordButton
+          key="keep"
+          tone="secondary"
+          onClick={() => {
+            keep(turnId);
+            focusHead();
+          }}
+        >
+          {t(locale, 'recovery.keep')}
         </RecordButton>,
       );
     }

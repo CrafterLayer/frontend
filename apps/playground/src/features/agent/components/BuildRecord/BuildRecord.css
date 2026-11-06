@@ -26,6 +26,20 @@
 }
 
 /*
+  A build read back interrupted: what stopped, in Read and the text colour, then the Meta line
+  that says what continuing does. Two lines, no box: Continue and Keep are the footer's.
+*/
+.ck-agent-build__recovery {
+  display: grid;
+  gap: var(--bldr-space-xs);
+}
+
+.ck-agent-build__recovery-title {
+  color: var(--bldr-panel-text);
+  text-wrap: pretty;
+}
+
+/*
   Page history, under the revived caption: a text button in the caption's own size, its words
   on the text edge. Its 32px target rises 4px into the gap above, so the words sit 4px under
   the caption's instead of 8px: one thought, not two.

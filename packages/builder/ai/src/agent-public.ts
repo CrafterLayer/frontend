@@ -19,6 +19,7 @@ export {
   type AiBuildEvent,
   type AiBuildEventBase,
   type AiBuildOutcome,
+  type AiBuildOutlineSection,
   type AiBuildOwnEvent,
   type AiBuildRunResult,
   type AiBuildStopReason,

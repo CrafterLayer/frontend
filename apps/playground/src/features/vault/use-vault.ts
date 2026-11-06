@@ -28,7 +28,7 @@ import {
 
 export { VAULT_DURABLE, type VaultSaveState };
 import { sessionKey } from './persistence';
-import { createRunJournal, type RunJournal } from './run-journal';
+import { createRunJournal, type DocumentRunJournal, type RunJournal } from './run-journal';
 import { createSourceRunJournal, type SourceRunJournal } from './source-run-journal';
 import { seedSiteFrom, siteFromFixture } from './site-boot';
 import { siteSafePorts } from './site-ids';
@@ -85,6 +85,8 @@ export interface VaultSession {
   readonly store: VaultStore;
   readonly sitePersistence: VaultSitePersistenceAdapter;
   readonly runJournal: RunJournal;
+  /** The run journal bound to this document: what the agent panel's page builds write. */
+  readonly buildJournal: DocumentRunJournal;
   readonly sourceRunJournal: SourceRunJournal;
   readonly downloadSource: () => SiteSourceDownload;
   readonly retryPersistence: () => Promise<VaultSaveState>;
@@ -255,6 +257,7 @@ export function useVaultKernel(
     [store, docId],
   );
   const runJournal = useMemo(() => createRunJournal({ store, now: Date.now }), [store]);
+  const buildJournal = useMemo(() => ({ docId, journal: runJournal }), [docId, runJournal]);
   const sourceRunJournal = useMemo(() => createSourceRunJournal({ store }), [store]);
 
   useEffect(() => {
@@ -371,6 +374,7 @@ export function useVaultKernel(
           store,
           sitePersistence: current.session.adapter,
           runJournal,
+          buildJournal,
           sourceRunJournal,
           downloadSource: () => createSiteSourceDownload(docId, siteKernel.getSite()),
           retryPersistence: async () => {

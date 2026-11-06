@@ -83,12 +83,14 @@ describe('the host’s step helpers', () => {
 
   it('stepSkills hands a step the effective exclusions only when there are any', () => {
     expect(stepSkills({ excludedSkillIds: [] })).toEqual({});
+    // 53617867 (2026-10-21): a step also carries the explicit pick as `selectedSkillIds`, so it
+    // is required there and never budget-shed (`explicitSkills`); the exclusions are unchanged.
     expect(
       stepSkills({
         excludedSkillIds: ['craftkit.build-fill', DATA_VIZ, 'x.b'],
         selectedSkillIds: ['x.b'],
       }),
-    ).toEqual({ excludedSkillIds: [DATA_VIZ] });
+    ).toEqual({ selectedSkillIds: ['x.b'], excludedSkillIds: [DATA_VIZ] });
   });
 });
 

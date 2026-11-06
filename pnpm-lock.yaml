@@ -262,6 +262,9 @@ catalogs:
     '@fontsource/ibm-plex-sans-arabic':
       specifier: 5.3.0
       version: 5.3.0
+    '@iconify-json/fluent-emoji-flat':
+      specifier: 1.2.5
+      version: 1.2.5
     '@jitl/quickjs-wasmfile-release-sync':
       specifier: 0.32.0
       version: 0.32.0
@@ -517,6 +520,9 @@ catalogs:
     promptfoo:
       specifier: 0.122.2
       version: 0.122.2
+    q-floodfill:
+      specifier: 1.3.1
+      version: 1.3.1
     quickjs-emscripten-core:
       specifier: 0.32.0
       version: 0.32.0
@@ -1777,6 +1783,9 @@ importers:
       polybooljs:
         specifier: 'catalog:'
         version: 1.2.2
+      q-floodfill:
+        specifier: 'catalog:'
+        version: 1.3.1
       rot-js:
         specifier: 'catalog:'
         version: 2.2.1
@@ -1805,6 +1814,9 @@ importers:
       '@craftkit/typescript-config':
         specifier: workspace:*
         version: link:../../../typescript-config
+      '@iconify-json/fluent-emoji-flat':
+        specifier: 'catalog:'
+        version: 1.2.5
       '@types/culori':
         specifier: 'catalog:'
         version: 4.0.1
@@ -3723,6 +3735,12 @@ packages:
   '@ibm-cloud/watsonx-ai@1.7.16':
     resolution: {integrity: sha512-ks7EI3TlrnZ6uKEIGemLHiBqOaqrA2dALNhC9Potl5CeajGNhF0n6eY30cNRvboDbuMRibw1iAtn7vnX4dzlwg==}
     engines: {node: '>=20.0.0'}
+
+  '@iconify-json/fluent-emoji-flat@1.2.5':
+    resolution: {integrity: sha512-5ShoOHJ0ezYEIMfp2zvbRiZpL1Af8Prg5v9pElaIQhfqwbyD57pzrp70g/rK2EjigajBq9/cPrJXh224HaP3TQ==}
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -10022,6 +10040,9 @@ packages:
     resolution: {integrity: sha512-RUOOOjHLhgR1MIQrCtnEqz/HJ1RMZBIN+REnpSUrfft2bXqXy69fwJASVziWExfFXsR1bCY0TznnHooNsCo0/w==}
     engines: {node: '>=0.10'}
 
+  q-floodfill@1.3.1:
+    resolution: {integrity: sha512-jYRhxQBHNsaj6d5nMQbHOeQ/8R0Wbw5QC2dKU2YDowsrAM4Bv28amoMLfqB6btV1eU3ngsWnRnLNc4a2QZIs2g==}
+
   qs@6.16.0:
     resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
     engines: {node: '>=0.6'}
@@ -12416,6 +12437,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
     optional: true
+
+  '@iconify-json/fluent-emoji-flat@1.2.5':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/types@2.0.0': {}
 
   '@img/colour@1.1.0': {}
 
@@ -18936,6 +18963,8 @@ snapshots:
   pure-rand@8.4.2: {}
 
   python-shell@5.0.0: {}
+
+  q-floodfill@1.3.1: {}
 
   qs@6.16.0:
     dependencies:

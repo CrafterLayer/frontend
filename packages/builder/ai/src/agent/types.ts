@@ -352,6 +352,22 @@ export interface AiBuildPlannedTask {
   readonly title: string;
 }
 
+/**
+ * One section of the page as the STREAMED plan has named it so far (`build.outline`).
+ *
+ * No id, for the reason `AiBuildPlannedTask` has none: the outline is read from the
+ * planner's answer while it is still being written, before any region exists. The
+ * section's node id arrives with `build.planned`, once the provisional skeleton lands.
+ */
+export interface AiBuildOutlineSection {
+  /** `SectionContract.key`, as the outline entry wrote it. */
+  readonly key: string;
+  /** The entry's `title`; its key when the entry had none. */
+  readonly title: string;
+  /** Its brief has closed in the stream: a writer may start on it once its region exists. */
+  readonly briefed: boolean;
+}
+
 export interface AiBuildEventBase {
   /**
    * The BUILD's run id. Each step's own events carry `<runId>/<step>`
@@ -387,6 +403,21 @@ export type AiBuildOwnEvent =
    * pretend to be a build either.
    */
   | (AiBuildEventBase & { type: 'build.skipped'; reason: string })
+  /**
+   * The outline SO FAR, from a streamed plan (2026-11-05): sent each time an entry of the
+   * planner's `sections` closes in its streamed answer, and again each time a section's
+   * brief closes. Cumulative and in page order, so an observer that missed one event
+   * loses nothing: the newest one is the whole list. Sent only by a build that acts on
+   * its plan while it streams (`streamPlan`), and only by the response that may still
+   * speculate; it precedes `build.planned`, which names the same sections with their
+   * regions' ids. A later response (the repair answer) starts the list over.
+   *
+   * Advisory: the final plan is the authority, and its sections may differ.
+   */
+  | (AiBuildEventBase & {
+      type: 'build.outline';
+      sections: readonly AiBuildOutlineSection[];
+    })
   | (AiBuildEventBase & {
       type: 'build.planned';
       /** Plain prose: the rationale, or the plan's description, or its signature. */

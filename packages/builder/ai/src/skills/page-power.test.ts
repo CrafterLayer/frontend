@@ -58,6 +58,8 @@ function classTokens(text: string): readonly string[] {
     .map((token) => token.replace(/[.:,;]+$/u, ''))
     .filter((token) => /^[a-z0-9:/.-]+$/u.test(token))
     .filter((token) => !token.endsWith('-') && !token.startsWith('ck-') && !token.includes('*'))
+    // Prose like "content-led" (photo-direction 1.3.0) is no utility; no Tailwind class ends -led.
+    .filter((token) => !token.endsWith('-led'))
     .filter((token) => !/^(?:https?|mailto|tel):/u.test(token))
     .filter(
       (token) =>
@@ -518,9 +520,20 @@ describe('craftkit.photo-direction — photos from the list, never from memory',
     expect(text).toMatch(/placeholder/iu);
   });
 
-  it('says where photos go and how many, and how text sits on one', () => {
-    for (const word of ['hero', 'gallery', 'about']) expect(text.toLowerCase()).toContain(word);
-    expect(text).toMatch(/darkening layer/iu);
+  /*
+    29c4e227 (2026-10-22, screen design freedom, photo-direction 1.3.0): the fixed placement
+    quota (one hero photo, an about photo, a gallery up to six) and the mandatory darkening
+    layer became content-led choices. The skill still says how count, placement and text on a
+    photo are decided — from the content and brief, with readable text against the image.
+  */
+  it('says how photo count, placement and text on one are decided, without a fixed quota', () => {
+    expect(text).toContain(
+      'COMPOSITION: choose image count, crop, aspect, reuse and placement from the supplied content and brief.',
+    );
+    expect(text).toContain('Do not impose one hero photo, a per-section quota');
+    expect(text).not.toMatch(/a gallery up to six|at most one photo per section/iu);
+    expect(text).toMatch(/TEXT ON IMAGERY: keep text readable against the actual image/u);
+    expect(text).toContain('a dark overlay and white text are options, not mandatory styling');
     expect(unknownClasses(text)).toEqual([]);
   });
 
